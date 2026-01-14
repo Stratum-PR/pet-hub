@@ -14,7 +14,271 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          created_at: string
+          employee_id: string | null
+          id: string
+          notes: string | null
+          pet_id: string
+          price: number
+          scheduled_date: string
+          service_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          pet_id: string
+          price?: number
+          scheduled_date: string
+          service_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string | null
+          id?: string
+          notes?: string | null
+          pet_id?: string
+          price?: number
+          scheduled_date?: string
+          service_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          created_at: string
+          email: string
+          hourly_rate: number
+          id: string
+          name: string
+          phone: string
+          pin: string
+          role: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          hourly_rate?: number
+          id?: string
+          name: string
+          phone: string
+          pin: string
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          hourly_rate?: number
+          id?: string
+          name?: string
+          phone?: string
+          pin?: string
+          role?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pets: {
+        Row: {
+          age: number
+          breed: string
+          client_id: string
+          created_at: string
+          id: string
+          last_grooming_date: string | null
+          name: string
+          notes: string | null
+          species: string
+          updated_at: string
+          vaccination_status: string | null
+          weight: number
+        }
+        Insert: {
+          age: number
+          breed: string
+          client_id: string
+          created_at?: string
+          id?: string
+          last_grooming_date?: string | null
+          name: string
+          notes?: string | null
+          species: string
+          updated_at?: string
+          vaccination_status?: string | null
+          weight: number
+        }
+        Update: {
+          age?: number
+          breed?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          last_grooming_date?: string | null
+          name?: string
+          notes?: string | null
+          species?: string
+          updated_at?: string
+          vaccination_status?: string | null
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number
+          id: string
+          name: string
+          price: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          name: string
+          price: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          id?: string
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      time_entries: {
+        Row: {
+          clock_in: string
+          clock_out: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          clock_in?: string
+          clock_out?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          clock_in?: string
+          clock_out?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

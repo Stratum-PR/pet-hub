@@ -3,44 +3,32 @@ import { Layout } from '@/components/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Clients } from '@/pages/Clients';
 import { Pets } from '@/pages/Pets';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Client, Pet } from '@/types';
+import { Employees } from '@/pages/Employees';
+import { Reports } from '@/pages/Reports';
+import { Admin } from '@/pages/Admin';
+import { useClients, usePets, useEmployees, useTimeEntries, useAppointments } from '@/hooks/useSupabaseData';
 
 const Index = () => {
-  const [clients, setClients] = useLocalStorage<Client[]>('pawcare-clients', []);
-  const [pets, setPets] = useLocalStorage<Pet[]>('pawcare-pets', []);
-
-  const addClient = (clientData: Omit<Client, 'id' | 'createdAt'>) => {
-    const newClient: Client = {
-      ...clientData,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-    };
-    setClients([...clients, newClient]);
-  };
-
-  const deleteClient = (id: string) => {
-    setClients(clients.filter((c) => c.id !== id));
-    setPets(pets.filter((p) => p.clientId !== id));
-  };
-
-  const addPet = (petData: Omit<Pet, 'id' | 'createdAt'>) => {
-    const newPet: Pet = {
-      ...petData,
-      id: crypto.randomUUID(),
-      createdAt: new Date(),
-    };
-    setPets([...pets, newPet]);
-  };
-
-  const deletePet = (id: string) => {
-    setPets(pets.filter((p) => p.id !== id));
-  };
+  const { clients, addClient, updateClient, deleteClient } = useClients();
+  const { pets, addPet, updatePet, deletePet } = usePets();
+  const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const { timeEntries, clockIn, clockOut, getActiveEntry } = useTimeEntries();
+  const { appointments } = useAppointments();
 
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Dashboard clients={clients} pets={pets} />} />
+        <Route 
+          path="/" 
+          element={
+            <Dashboard 
+              clients={clients} 
+              pets={pets} 
+              employees={employees}
+              appointments={appointments}
+            />
+          } 
+        />
         <Route
           path="/clients"
           element={
@@ -48,6 +36,7 @@ const Index = () => {
               clients={clients}
               pets={pets}
               onAddClient={addClient}
+              onUpdateClient={updateClient}
               onDeleteClient={deleteClient}
             />
           }
@@ -59,7 +48,44 @@ const Index = () => {
               clients={clients}
               pets={pets}
               onAddPet={addPet}
+              onUpdatePet={updatePet}
               onDeletePet={deletePet}
+            />
+          }
+        />
+        <Route
+          path="/employees"
+          element={
+            <Employees
+              employees={employees}
+              timeEntries={timeEntries}
+              onClockIn={clockIn}
+              onClockOut={clockOut}
+              getActiveEntry={getActiveEntry}
+            />
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <Reports
+              clients={clients}
+              pets={pets}
+              employees={employees}
+              timeEntries={timeEntries}
+              appointments={appointments}
+            />
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <Admin
+              employees={employees}
+              timeEntries={timeEntries}
+              onAddEmployee={addEmployee}
+              onUpdateEmployee={updateEmployee}
+              onDeleteEmployee={deleteEmployee}
             />
           }
         />

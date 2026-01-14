@@ -1,44 +1,44 @@
-import { Users, Dog, Calendar, TrendingUp } from 'lucide-react';
+import { Users, Dog, Calendar, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Client, Pet } from '@/types';
-import heroImage from '@/assets/hero-dog.jpg';
+import { Client, Pet, Employee, Appointment } from '@/types';
 
 interface DashboardProps {
   clients: Client[];
   pets: Pet[];
+  employees: Employee[];
+  appointments: Appointment[];
 }
 
-export function Dashboard({ clients, pets }: DashboardProps) {
-  const recentClients = clients.slice(-5).reverse();
-  const recentPets = pets.slice(-5).reverse();
+export function Dashboard({ clients, pets, employees, appointments }: DashboardProps) {
+  const recentClients = clients.slice(0, 5);
+  const recentPets = pets.slice(0, 5);
   
   const dogCount = pets.filter(p => p.species === 'dog').length;
   const catCount = pets.filter(p => p.species === 'cat').length;
 
+  const activeEmployees = employees.filter(e => e.status === 'active').length;
+  const todayAppointments = appointments.filter(a => {
+    const today = new Date().toDateString();
+    return new Date(a.scheduled_date).toDateString() === today;
+  }).length;
+
+  const completedAppointments = appointments.filter(a => a.status === 'completed');
+  const totalRevenue = completedAppointments.reduce((sum, a) => sum + (a.price || 0), 0);
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       {/* Hero Section */}
-      <div className="relative border-2 border-border overflow-hidden">
-        <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Pet grooming"
-            className="w-full h-full object-cover opacity-30"
-          />
-        </div>
-        <div className="relative p-8 md:p-12">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-3">
-            Welcome to PawCare
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-accent/20 to-background rounded-2xl">
+        <div className="p-8 md:p-12">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">
+            Welcome to your Hub
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl">
-            Your comprehensive pet grooming management system. Track clients, manage pets, and grow your business.
-          </p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           title="Total Clients"
           value={clients.length}
@@ -52,10 +52,22 @@ export function Dashboard({ clients, pets }: DashboardProps) {
           description={`${dogCount} dogs, ${catCount} cats`}
         />
         <StatCard
-          title="This Week"
-          value={Math.floor(pets.length * 0.3) || 0}
+          title="Active Staff"
+          value={activeEmployees}
+          icon={Clock}
+          description="Team members"
+        />
+        <StatCard
+          title="Today"
+          value={todayAppointments}
           icon={Calendar}
-          description="New registrations"
+          description="Appointments"
+        />
+        <StatCard
+          title="Revenue"
+          value={`$${totalRevenue.toLocaleString()}`}
+          icon={DollarSign}
+          description="Total earned"
         />
         <StatCard
           title="Growth"
@@ -67,10 +79,10 @@ export function Dashboard({ clients, pets }: DashboardProps) {
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-2 border-border">
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
+              <Users className="w-5 h-5 text-primary" />
               Recent Clients
             </CardTitle>
           </CardHeader>
@@ -82,14 +94,14 @@ export function Dashboard({ clients, pets }: DashboardProps) {
                 {recentClients.map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between p-3 bg-secondary border border-border"
+                    className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg"
                   >
                     <div>
                       <p className="font-medium">{client.name}</p>
                       <p className="text-sm text-muted-foreground">{client.email}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {pets.filter((p) => p.clientId === client.id).length} pets
+                    <span className="text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
+                      {pets.filter((p) => p.client_id === client.id).length} pets
                     </span>
                   </div>
                 ))}
@@ -98,10 +110,10 @@ export function Dashboard({ clients, pets }: DashboardProps) {
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-border">
+        <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Dog className="w-5 h-5" />
+              <Dog className="w-5 h-5 text-primary" />
               Recent Pets
             </CardTitle>
           </CardHeader>
@@ -111,11 +123,11 @@ export function Dashboard({ clients, pets }: DashboardProps) {
             ) : (
               <div className="space-y-3">
                 {recentPets.map((pet) => {
-                  const owner = clients.find((c) => c.id === pet.clientId);
+                  const owner = clients.find((c) => c.id === pet.client_id);
                   return (
                     <div
                       key={pet.id}
-                      className="flex items-center justify-between p-3 bg-secondary border border-border"
+                      className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg"
                     >
                       <div>
                         <p className="font-medium">{pet.name}</p>
@@ -123,7 +135,7 @@ export function Dashboard({ clients, pets }: DashboardProps) {
                           {pet.breed} • {owner?.name || 'Unknown owner'}
                         </p>
                       </div>
-                      <span className="px-2 py-1 text-xs bg-accent border border-border capitalize">
+                      <span className="px-2 py-1 text-xs bg-accent rounded capitalize">
                         {pet.species}
                       </span>
                     </div>
