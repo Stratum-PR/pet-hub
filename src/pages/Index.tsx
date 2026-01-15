@@ -6,7 +6,7 @@ import { Pets } from '@/pages/Pets';
 import { Employees } from '@/pages/Employees';
 import { Reports } from '@/pages/Reports';
 import { Admin } from '@/pages/Admin';
-import { useClients, usePets, useEmployees, useTimeEntries, useAppointments } from '@/hooks/useSupabaseData';
+import { useClients, usePets, useEmployees, useTimeEntries, useAppointments, useSettings } from '@/hooks/useSupabaseData';
 
 const Index = () => {
   const { clients, addClient, updateClient, deleteClient } = useClients();
@@ -14,6 +14,7 @@ const Index = () => {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const { timeEntries, clockIn, clockOut, getActiveEntry } = useTimeEntries();
   const { appointments } = useAppointments();
+  const { settings, saveAllSettings } = useSettings();
 
   return (
     <Layout>
@@ -83,9 +84,11 @@ const Index = () => {
             <Admin
               employees={employees}
               timeEntries={timeEntries}
+              settings={settings}
               onAddEmployee={addEmployee}
               onUpdateEmployee={updateEmployee}
               onDeleteEmployee={deleteEmployee}
+              onSaveSettings={saveAllSettings}
             />
           }
         />

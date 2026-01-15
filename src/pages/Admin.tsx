@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Users, DollarSign, Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Palette, Users, DollarSign, Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,17 +7,29 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Employee, TimeEntry } from '@/types';
+import { Settings } from '@/hooks/useSupabaseData';
 import { format, differenceInHours, startOfWeek } from 'date-fns';
+import { toast } from 'sonner';
 
 interface AdminProps {
   employees: Employee[];
   timeEntries: TimeEntry[];
+  settings: Settings;
   onAddEmployee: (employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => void;
   onUpdateEmployee: (id: string, employee: Partial<Employee>) => void;
   onDeleteEmployee: (id: string) => void;
+  onSaveSettings: (settings: Settings) => Promise<boolean>;
 }
 
-export function Admin({ employees, timeEntries, onAddEmployee, onUpdateEmployee, onDeleteEmployee }: AdminProps) {
+export function Admin({ 
+  employees, 
+  timeEntries, 
+  settings,
+  onAddEmployee, 
+  onUpdateEmployee, 
+  onDeleteEmployee,
+  onSaveSettings 
+}: AdminProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
@@ -30,6 +42,14 @@ export function Admin({ employees, timeEntries, onAddEmployee, onUpdateEmployee,
     role: 'groomer',
     status: 'active' as 'active' | 'inactive',
   });
+
+  const [settingsFormData, setSettingsFormData] = useState({
+    business_name: settings.business_name,
+    business_hours: settings.business_hours,
+    color_scheme: settings.color_scheme,
+  });
+
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const resetForm = () => {
     setFormData({
@@ -75,6 +95,19 @@ export function Admin({ employees, timeEntries, onAddEmployee, onUpdateEmployee,
     resetForm();
   };
 
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    const success = await onSaveSettings(settingsFormData);
+    setSavingSettings(false);
+    
+    if (success) {
+      toast.success('Settings saved successfully!');
+    } else {
+      toast.error('Failed to save settings. Please try again.');
+    }
+  };
+
   // Calculate payroll data
   const weekStart = startOfWeek(new Date());
   const payrollData = employees.map(emp => {
@@ -102,9 +135,9 @@ export function Admin({ employees, timeEntries, onAddEmployee, onUpdateEmployee,
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Admin</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Manage employees, payroll, and settings
+          Manage employees, payroll, and personalization
         </p>
       </div>
 
@@ -118,9 +151,9 @@ export function Admin({ employees, timeEntries, onAddEmployee, onUpdateEmployee,
             <DollarSign className="w-4 h-4" />
             Payroll
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            Settings
+          <TabsTrigger value="personalization" className="flex items-center gap-2">
+            <Palette className="w-4 h-4" />
+            Personalization
           </TabsTrigger>
         </TabsList>
 
@@ -359,37 +392,50 @@ export function Admin({ employees, timeEntries, onAddEmployee, onUpdateEmployee,
           </Card>
         </TabsContent>
 
-        {/* Settings Tab */}
-        <TabsContent value="settings" className="space-y-6">
+        {/* Personalization Tab */}
+        <TabsContent value="personalization" className="space-y-6">
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle>Business Settings</CardTitle>
+              <CardTitle>Business Personalization</CardTitle>
               <CardDescription>Configure your business preferences</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Business Name</Label>
-                <Input defaultValue="Stratum Hub" />
-              </div>
-              <div className="space-y-2">
-                <Label>Business Hours</Label>
-                <Input defaultValue="9:00 AM - 6:00 PM" />
-              </div>
-              <div className="space-y-2">
-                <Label>Color Scheme</Label>
-                <Select defaultValue="soft-green-blue">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="soft-green-blue">Soft Green & Blue</SelectItem>
-                    <SelectItem value="purple-turquoise">Purple to Turquoise</SelectItem>
-                    <SelectItem value="yellow-orange">Yellow & Orange</SelectItem>
-                    <SelectItem value="pink-orange">Pink & Orange</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="mt-4 shadow-sm">Save Settings</Button>
+            <CardContent>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Business Name</Label>
+                  <Input 
+                    value={settingsFormData.business_name}
+                    onChange={(e) => setSettingsFormData({ ...settingsFormData, business_name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Business Hours</Label>
+                  <Input 
+                    value={settingsFormData.business_hours}
+                    onChange={(e) => setSettingsFormData({ ...settingsFormData, business_hours: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Color Scheme</Label>
+                  <Select 
+                    value={settingsFormData.color_scheme}
+                    onValueChange={(value) => setSettingsFormData({ ...settingsFormData, color_scheme: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="soft-green-blue">Soft Green & Blue</SelectItem>
+                      <SelectItem value="purple-turquoise">Purple to Turquoise</SelectItem>
+                      <SelectItem value="yellow-orange">Yellow & Orange</SelectItem>
+                      <SelectItem value="pink-orange">Pink & Orange</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="mt-4 shadow-sm" disabled={savingSettings}>
+                  {savingSettings ? 'Saving...' : 'Save Settings'}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>

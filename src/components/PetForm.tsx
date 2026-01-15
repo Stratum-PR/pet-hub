@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pet, Client } from '@/types';
+import { DOG_BREEDS } from '@/lib/dogBreeds';
 
 interface PetFormProps {
   clients: Client[];
@@ -14,6 +15,30 @@ interface PetFormProps {
   initialData?: Pet | null;
   isEditing?: boolean;
 }
+
+const CAT_BREEDS = [
+  'Mixed Breed - Shorthair',
+  'Mixed Breed - Longhair',
+  'Abyssinian',
+  'American Shorthair',
+  'Bengal',
+  'Birman',
+  'British Shorthair',
+  'Burmese',
+  'Devon Rex',
+  'Exotic Shorthair',
+  'Himalayan',
+  'Maine Coon',
+  'Norwegian Forest Cat',
+  'Persian',
+  'Ragdoll',
+  'Russian Blue',
+  'Scottish Fold',
+  'Siamese',
+  'Siberian',
+  'Sphynx',
+  'Other',
+];
 
 export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
   const [formData, setFormData] = useState({
@@ -59,6 +84,15 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
     }
   };
 
+  const getBreedOptions = () => {
+    if (formData.species === 'dog') {
+      return DOG_BREEDS;
+    } else if (formData.species === 'cat') {
+      return CAT_BREEDS;
+    }
+    return ['Other'];
+  };
+
   return (
     <Card className="shadow-sm animate-fade-in">
       <CardHeader>
@@ -100,7 +134,9 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
               <Label htmlFor="species">Species</Label>
               <Select
                 value={formData.species}
-                onValueChange={(value: 'dog' | 'cat' | 'other') => setFormData({ ...formData, species: value })}
+                onValueChange={(value: 'dog' | 'cat' | 'other') => 
+                  setFormData({ ...formData, species: value, breed: '' })
+                }
                 required
               >
                 <SelectTrigger>
@@ -115,13 +151,23 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
             </div>
             <div className="space-y-2">
               <Label htmlFor="breed">Breed</Label>
-              <Input
-                id="breed"
+              <Select
                 value={formData.breed}
-                onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                onValueChange={(value) => setFormData({ ...formData, breed: value })}
                 required
-                placeholder="Golden Retriever"
-              />
+                disabled={!formData.species}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={formData.species ? "Select breed" : "Select species first"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {getBreedOptions().map((breed) => (
+                    <SelectItem key={breed} value={breed}>
+                      {breed}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="age">Age (years)</Label>

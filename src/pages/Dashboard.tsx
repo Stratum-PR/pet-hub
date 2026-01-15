@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Users, Dog, Calendar, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +9,11 @@ interface DashboardProps {
   pets: Pet[];
   employees: Employee[];
   appointments: Appointment[];
+  onSelectClient?: (clientId: string) => void;
 }
 
-export function Dashboard({ clients, pets, employees, appointments }: DashboardProps) {
+export function Dashboard({ clients, pets, employees, appointments, onSelectClient }: DashboardProps) {
+  const navigate = useNavigate();
   const recentClients = clients.slice(0, 5);
   const recentPets = pets.slice(0, 5);
   
@@ -26,6 +29,13 @@ export function Dashboard({ clients, pets, employees, appointments }: DashboardP
   const completedAppointments = appointments.filter(a => a.status === 'completed');
   const totalRevenue = completedAppointments.reduce((sum, a) => sum + (a.price || 0), 0);
 
+  const handleClientClick = (clientId: string) => {
+    if (onSelectClient) {
+      onSelectClient(clientId);
+    }
+    navigate('/clients', { state: { selectedClientId: clientId } });
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Hero Section */}
@@ -39,36 +49,44 @@ export function Dashboard({ clients, pets, employees, appointments }: DashboardP
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard
-          title="Total Clients"
-          value={clients.length}
-          icon={Users}
-          description="Registered clients"
-        />
-        <StatCard
-          title="Total Pets"
-          value={pets.length}
-          icon={Dog}
-          description={`${dogCount} dogs, ${catCount} cats`}
-        />
-        <StatCard
-          title="Active Staff"
-          value={activeEmployees}
-          icon={Clock}
-          description="Team members"
-        />
+        <div onClick={() => navigate('/clients')} className="cursor-pointer">
+          <StatCard
+            title="Total Clients"
+            value={clients.length}
+            icon={Users}
+            description="Registered clients"
+          />
+        </div>
+        <div onClick={() => navigate('/pets')} className="cursor-pointer">
+          <StatCard
+            title="Total Pets"
+            value={pets.length}
+            icon={Dog}
+            description={`${dogCount} dogs, ${catCount} cats`}
+          />
+        </div>
+        <div onClick={() => navigate('/employees')} className="cursor-pointer">
+          <StatCard
+            title="Active Staff"
+            value={activeEmployees}
+            icon={Clock}
+            description="Team members"
+          />
+        </div>
         <StatCard
           title="Today"
           value={todayAppointments}
           icon={Calendar}
           description="Appointments"
         />
-        <StatCard
-          title="Revenue"
-          value={`$${totalRevenue.toLocaleString()}`}
-          icon={DollarSign}
-          description="Total earned"
-        />
+        <div onClick={() => navigate('/reports')} className="cursor-pointer">
+          <StatCard
+            title="Revenue"
+            value={`$${totalRevenue.toLocaleString()}`}
+            icon={DollarSign}
+            description="Total earned"
+          />
+        </div>
         <StatCard
           title="Growth"
           value="+12%"
@@ -94,10 +112,11 @@ export function Dashboard({ clients, pets, employees, appointments }: DashboardP
                 {recentClients.map((client) => (
                   <div
                     key={client.id}
-                    className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg"
+                    onClick={() => handleClientClick(client.id)}
+                    className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors"
                   >
                     <div>
-                      <p className="font-medium">{client.name}</p>
+                      <p className="font-medium hover:text-primary transition-colors">{client.name}</p>
                       <p className="text-sm text-muted-foreground">{client.email}</p>
                     </div>
                     <span className="text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
@@ -127,7 +146,8 @@ export function Dashboard({ clients, pets, employees, appointments }: DashboardP
                   return (
                     <div
                       key={pet.id}
-                      className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg"
+                      onClick={() => navigate('/pets')}
+                      className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors"
                     >
                       <div>
                         <p className="font-medium">{pet.name}</p>
