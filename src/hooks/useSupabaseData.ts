@@ -356,3 +356,81 @@ export function useServices() {
 
   return { services, loading, refetch: fetchServices };
 }
+
+export interface Settings {
+  business_name: string;
+  business_hours: string;
+  color_scheme: string;
+}
+
+export function useSettings() {
+  const [settings, setSettings] = useState<Settings>({
+    business_name: 'Stratum Hub',
+    business_hours: '9:00 AM - 6:00 PM',
+    color_scheme: 'soft-green-blue',
+  });
+  const [loading, setLoading] = useState(true);
+
+  const fetchSettings = async () => {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*');
+    
+    if (!error && data) {
+      const settingsMap: Record<string, string> = {};
+      data.forEach((item: { key: string; value: string }) => {
+        settingsMap[item.key] = item.value;
+      });
+      setSettings({
+        business_name: settingsMap.business_name || 'Stratum Hub',
+        business_hours: settingsMap.business_hours || '9:00 AM - 6:00 PM',
+        color_scheme: settingsMap.color_scheme || 'soft-green-blue',
+      });
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const updateSetting = async (key: string, value: string) => {
+    // First try to update, if no rows affected, insert
+    const { data: existingData } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('key', key)
+      .maybeSingle();
+
+    if (existingData) {
+      const { error } = await supabase
+        .from('settings')
+        .update({ value })
+        .eq('key', key);
+      
+      if (error) return false;
+    } else {
+      const { error } = await supabase
+        .from('settings')
+        .insert({ key, value });
+      
+      if (error) return false;
+    }
+
+    setSettings(prev => ({ ...prev, [key]: value }));
+    return true;
+  };
+
+  const saveAllSettings = async (newSettings: Settings) => {
+    const updates = [
+      updateSetting('business_name', newSettings.business_name),
+      updateSetting('business_hours', newSettings.business_hours),
+      updateSetting('color_scheme', newSettings.color_scheme),
+    ];
+    
+    const results = await Promise.all(updates);
+    return results.every(r => r);
+  };
+
+  return { settings, loading, updateSetting, saveAllSettings, refetch: fetchSettings };
+}
