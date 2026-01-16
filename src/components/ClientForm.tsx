@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Client } from '@/types';
+import { formatPhoneNumber } from '@/lib/phoneFormat';
 
 interface ClientFormProps {
   onSubmit: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => void;
@@ -27,12 +28,17 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
       setFormData({
         name: initialData.name,
         email: initialData.email,
-        phone: initialData.phone,
-        address: initialData.address,
+        phone: formatPhoneNumber(initialData.phone),
+        address: initialData.address || '',
         notes: initialData.notes || '',
       });
     }
   }, [initialData]);
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setFormData({ ...formData, phone: formatted });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,18 +83,17 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
                 id="phone"
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={handlePhoneChange}
                 required
-                placeholder="(555) 123-4567"
+                placeholder="(787) 349-3444"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">Address (Optional)</Label>
               <Input
                 id="address"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                required
                 placeholder="123 Main St, City"
               />
             </div>
