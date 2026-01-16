@@ -146,11 +146,11 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                   return (
                     <div
                       key={pet.id}
-                      onClick={() => navigate('/pets')}
+                      onClick={() => navigate('/pets', { state: { selectedPetId: pet.id } })}
                       className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors"
                     >
                       <div>
-                        <p className="font-medium">{pet.name}</p>
+                        <p className="font-medium hover:text-primary transition-colors">{pet.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {pet.breed} • {owner?.name || 'Unknown owner'}
                         </p>
