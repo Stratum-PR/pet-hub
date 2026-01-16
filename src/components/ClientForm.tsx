@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Client } from '@/types';
 import { formatPhoneNumber } from '@/lib/phoneFormat';
 import { CreditCard } from 'lucide-react';
+import { t } from '@/lib/translations';
 
 interface ClientFormProps {
   onSubmit: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => void;
@@ -114,7 +115,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">{t('form.fullName')}</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -124,7 +125,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('form.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -135,7 +136,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{t('form.phone')}</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -146,7 +147,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address">Address (Optional)</Label>
+              <Label htmlFor="address">{t('form.addressOptional')}</Label>
               <Input
                 id="address"
                 value={formData.address}
@@ -156,7 +157,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t('form.notes')}</Label>
             <Textarea
               id="notes"
               value={formData.notes}
@@ -170,14 +171,14 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
           <div className="space-y-4 border-t pt-4">
             <div className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-muted-foreground" />
-              <Label className="text-base font-semibold">Payment Details (Optional)</Label>
+              <Label className="text-base font-semibold">{t('form.paymentDetails')}</Label>
             </div>
             <p className="text-sm text-muted-foreground">
-              These fields will be filled automatically if the client chooses to save their payment details during checkout.
+              {t('form.paymentDetailsDesc')}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="card_number">Card Number</Label>
+                <Label htmlFor="card_number">{t('form.cardNumber')}</Label>
                 <Input
                   id="card_number"
                   value={formData.card_number}
@@ -187,7 +188,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="card_name">Cardholder Name</Label>
+                <Label htmlFor="card_name">{t('form.cardName')}</Label>
                 <Input
                   id="card_name"
                   value={formData.card_name}
@@ -196,7 +197,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="card_expiry">Expiry Date</Label>
+                <Label htmlFor="card_expiry">{t('form.cardExpiry')}</Label>
                 <Input
                   id="card_expiry"
                   value={formData.card_expiry}
@@ -206,7 +207,7 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="card_cvv">CVV</Label>
+                <Label htmlFor="card_cvv">{t('form.cardCvv')}</Label>
                 <Input
                   id="card_cvv"
                   type="password"
@@ -221,11 +222,11 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
 
           <div className="flex gap-3 pt-4">
             <Button type="submit" className="shadow-sm">
-              {isEditing ? 'Update Client' : 'Add Client'}
+              {isEditing ? t('common.edit') + ' ' + t('clients.title') : t('clients.addClient')}
             </Button>
             {onCancel && (
               <Button type="button" variant="outline" onClick={onCancel}>
-                Cancel
+                {t('common.cancel')}
               </Button>
             )}
           </div>

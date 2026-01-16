@@ -6,6 +6,7 @@ import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
 import { SearchFilter } from '@/components/SearchFilter';
 import { Client, Pet } from '@/types';
+import { t } from '@/lib/translations';
 
 interface PetsProps {
   clients: Client[];
@@ -84,9 +85,9 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pets</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('pets.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage all the furry friends in your care
+            {t('pets.description')}
           </p>
         </div>
         <Button
@@ -98,13 +99,13 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
           disabled={clients.length === 0}
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Cancel' : 'Add Pet'}
+          {showForm ? t('common.cancel') : t('pets.addPet')}
         </Button>
       </div>
 
       {clients.length === 0 && (
         <div className="p-4 bg-accent rounded-lg">
-          <p className="text-sm text-accent-foreground">Add a client first before adding pets.</p>
+          <p className="text-sm text-accent-foreground">{t('pets.addClientFirst')}</p>
         </div>
       )}
 
@@ -121,15 +122,15 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
       <SearchFilter
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        placeholder="Search pets by name, breed, or owner..."
+        placeholder={t('pets.searchPlaceholder')}
         filterValue={speciesFilter}
         onFilterChange={setSpeciesFilter}
         filterOptions={[
-          { value: 'dog', label: 'Dogs' },
-          { value: 'cat', label: 'Cats' },
-          { value: 'other', label: 'Other' },
+          { value: 'dog', label: t('pets.dogs') },
+          { value: 'cat', label: t('pets.cats') },
+          { value: 'other', label: t('pets.other') },
         ]}
-        filterLabel="Species"
+        filterLabel={t('pets.species')}
       />
 
       <PetList 

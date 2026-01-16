@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DOG_BREEDS } from '@/lib/dogBreeds';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { Client, Pet, Service } from '@/types';
+import { t } from '@/lib/translations';
 
 const CAT_BREEDS = [
   'Mixed Breed - Shorthair',
@@ -41,12 +42,32 @@ const CAT_BREEDS = [
 
 const BREED_OPTIONS = [...DOG_BREEDS, ...CAT_BREEDS.filter(b => !DOG_BREEDS.includes(b as any))];
 
-const TIME_SLOTS = [
+// Time slots in 24-hour format for internal use
+const TIME_SLOTS_24H = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
   '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
   '17:00', '17:30'
 ];
+
+// Convert 24-hour time to 12-hour AM/PM format
+const formatTime12H = (time24: string): string => {
+  const [hours, minutes] = time24.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+// Convert 12-hour AM/PM format back to 24-hour
+const parseTime12H = (time12: string): string => {
+  const [time, ampm] = time12.split(' ');
+  const [hours, minutes] = time.split(':');
+  let hour = parseInt(hours);
+  if (ampm === 'PM' && hour !== 12) hour += 12;
+  if (ampm === 'AM' && hour === 12) hour = 0;
+  return `${hour.toString().padStart(2, '0')}:${minutes}`;
+};
 
 interface BookingFormDialogProps {
   open: boolean;
@@ -142,7 +163,7 @@ export function BookingFormDialog({
   }, [selectedDate, existingAppointments]);
 
   const availableTimeSlots = useMemo(() => {
-    return TIME_SLOTS.filter(time => !getBookedTimes.includes(time));
+    return TIME_SLOTS_24H.filter(time => !getBookedTimes.includes(time));
   }, [getBookedTimes]);
 
   const clientPets = useMemo(() => {
@@ -378,11 +399,11 @@ export function BookingFormDialog({
           <div className="space-y-4 border-t pt-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <User className="w-5 h-5" />
-              Client Information
+              {t('form.clientInformation')}
             </h3>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Select Client or Create New</Label>
+                <Label>{t('form.selectClientOrCreate')}</Label>
                 <div className="flex gap-2">
                   <Select
                     value={formData.createNewClient ? '__new__' : formData.clientId}
@@ -395,12 +416,12 @@ export function BookingFormDialog({
                     }}
                   >
                     <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select existing client" />
+                      <SelectValue placeholder={t('form.selectExistingClient')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__new__">
                         <Plus className="w-4 h-4 inline mr-2" />
-                        Create New Client
+                        {t('form.createNewClient')}
                       </SelectItem>
                       {clients.map(client => (
                         <SelectItem key={client.id} value={client.id}>
@@ -413,7 +434,7 @@ export function BookingFormDialog({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Client Name *</Label>
+                  <Label>{t('form.clientName')} *</Label>
                   <Input
                     value={formData.clientName}
                     onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
@@ -448,12 +469,12 @@ export function BookingFormDialog({
           <div className="space-y-4 border-t pt-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <Dog className="w-5 h-5" />
-              Pet Information
+              {t('form.petInformation')}
             </h3>
             {formData.clientId && clientPets.length > 0 && !formData.createNewPet ? (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Select Pet or Create New</Label>
+                  <Label>{t('form.selectPetOrCreate')}</Label>
                   <div className="flex gap-2">
                     <Select
                       value={formData.createNewPet ? '__new__' : formData.petId}
@@ -465,14 +486,14 @@ export function BookingFormDialog({
                         }
                       }}
                     >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select existing pet" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__new__">
-                          <Plus className="w-4 h-4 inline mr-2" />
-                          Add New Pet
-                        </SelectItem>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder={t('form.selectExistingPet')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__new__">
+                        <Plus className="w-4 h-4 inline mr-2" />
+                        {t('form.addNewPet')}
+                      </SelectItem>
                         {clientPets.map(pet => (
                           <SelectItem key={pet.id} value={pet.id}>
                             {pet.name} - {pet.breed}
@@ -486,7 +507,7 @@ export function BookingFormDialog({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Pet Name *</Label>
+                  <Label>{t('form.petName')} *</Label>
                   <Input
                     value={formData.petName}
                     onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
@@ -512,7 +533,7 @@ export function BookingFormDialog({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Pet Breed *</Label>
+                  <Label>{t('form.breed')} *</Label>
                   <Select
                     value={formData.petBreed}
                     onValueChange={(value) => setFormData({ ...formData, petBreed: value })}

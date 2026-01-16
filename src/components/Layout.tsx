@@ -9,6 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Settings as SettingsType } from '@/hooks/useSupabaseData';
+import { t, getLanguage } from '@/lib/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,29 +18,41 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/clients', label: 'Clients', icon: Users },
-  { path: '/pets', label: 'Pets', icon: Dog },
-  { path: '/appointments', label: 'Appointments', icon: Calendar },
-  { path: '/inventory', label: 'Inventory', icon: Package },
-  { path: '/time-tracking', label: 'Time Tracking', icon: Clock },
+  { path: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { path: '/clients', labelKey: 'nav.clients', icon: Users },
+  { path: '/pets', labelKey: 'nav.pets', icon: Dog },
+  { path: '/appointments', labelKey: 'nav.appointments', icon: Calendar },
+  { path: '/inventory', labelKey: 'nav.inventory', icon: Package },
 ];
 
 const employeeItems = [
-  { path: '/employee-management', label: 'Employee Info', icon: UserCog },
-  { path: '/employee-schedule', label: 'Schedule', icon: Calendar },
+  { path: '/employee-management', labelKey: 'nav.employeeInfo', icon: UserCog },
+  { path: '/employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
+  { path: '/time-tracking', labelKey: 'nav.timeTracking', icon: Clock },
 ];
 
-const settingsItem = { path: '/admin', label: 'More', icon: MoreHorizontal };
-
 const reportsItems = [
-  { path: '/reports/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/reports/payroll', label: 'Payroll', icon: DollarSign },
+  { path: '/reports/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
+  { path: '/reports/payroll', labelKey: 'nav.payroll', icon: DollarSign },
 ];
 
 export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { language } = useLanguage();
+  const [employeesMenuOpen, setEmployeesMenuOpen] = useState(false);
+  const [reportsMenuOpen, setReportsMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  
+  // Force re-render when language changes by using language in state
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    const handleLanguageChange = () => {
+      forceUpdate((prev) => prev + 1);
+    };
+    window.addEventListener('languagechange', handleLanguageChange);
+    return () => window.removeEventListener('languagechange', handleLanguageChange);
+  }, []);
 
   // Apply dynamic colors
   useEffect(() => {
@@ -80,24 +94,30 @@ export function Layout({ children, settings }: LayoutProps) {
                     className={`flex items-center gap-2 ${isActive ? 'shadow-sm' : ''}`}
                   >
                     <Icon className="w-4 h-4" />
-                    {item.label}
+                    {t(item.labelKey)}
                   </Button>
                 </Link>
               );
             })}
             {/* Employees Dropdown */}
-            <DropdownMenu>
+            <DropdownMenu open={employeesMenuOpen} onOpenChange={setEmployeesMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={location.pathname.startsWith('/employee') ? 'default' : 'ghost'}
+                  variant={location.pathname.startsWith('/employee') || location.pathname === '/time-tracking' ? 'default' : 'ghost'}
                   size="sm"
-                  className={`flex items-center gap-2 ${location.pathname.startsWith('/employee') ? 'shadow-sm' : ''}`}
+                  className={`flex items-center gap-2 ${location.pathname.startsWith('/employee') || location.pathname === '/time-tracking' ? 'shadow-sm' : ''}`}
+                  onMouseEnter={() => setEmployeesMenuOpen(true)}
+                  onMouseLeave={() => setEmployeesMenuOpen(false)}
                 >
                   <UserCog className="w-4 h-4" />
-                  Employees
+                  {t('nav.employees')}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent 
+                align="end"
+                onMouseEnter={() => setEmployeesMenuOpen(true)}
+                onMouseLeave={() => setEmployeesMenuOpen(false)}
+              >
                 {employeeItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
@@ -108,7 +128,7 @@ export function Layout({ children, settings }: LayoutProps) {
                         className={`flex items-center gap-2 ${isActive ? 'bg-accent' : ''}`}
                       >
                         <Icon className="w-4 h-4" />
-                        {item.label}
+                        {t(item.labelKey)}
                       </Link>
                     </DropdownMenuItem>
                   );
@@ -116,18 +136,24 @@ export function Layout({ children, settings }: LayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
             {/* Reports Dropdown */}
-            <DropdownMenu>
+            <DropdownMenu open={reportsMenuOpen} onOpenChange={setReportsMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant={location.pathname.startsWith('/reports') ? 'default' : 'ghost'}
                   size="sm"
                   className={`flex items-center gap-2 ${location.pathname.startsWith('/reports') ? 'shadow-sm' : ''}`}
+                  onMouseEnter={() => setReportsMenuOpen(true)}
+                  onMouseLeave={() => setReportsMenuOpen(false)}
                 >
                   <BarChart3 className="w-4 h-4" />
-                  Reports
+                  {t('nav.reports')}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent 
+                align="end"
+                onMouseEnter={() => setReportsMenuOpen(true)}
+                onMouseLeave={() => setReportsMenuOpen(false)}
+              >
                 {reportsItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
@@ -138,44 +164,48 @@ export function Layout({ children, settings }: LayoutProps) {
                         className={`flex items-center gap-2 ${isActive ? 'bg-accent' : ''}`}
                       >
                         <Icon className="w-4 h-4" />
-                        {item.label}
+                        {t(item.labelKey)}
                       </Link>
                     </DropdownMenuItem>
                   );
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
-            {/* More Dropdown - positioned at the end */}
-            <DropdownMenu>
+            {/* More Dropdown */}
+            <DropdownMenu open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={location.pathname === settingsItem.path ? 'default' : 'ghost'}
+                  variant={location.pathname.startsWith('/services') || location.pathname.startsWith('/personalization') ? 'default' : 'ghost'}
                   size="sm"
-                  className={`flex items-center gap-2 ${location.pathname === settingsItem.path ? 'shadow-sm' : ''}`}
+                  className={`flex items-center gap-2 ${location.pathname.startsWith('/services') || location.pathname.startsWith('/personalization') ? 'shadow-sm' : ''}`}
+                  onMouseEnter={() => setMoreMenuOpen(true)}
+                  onMouseLeave={() => setMoreMenuOpen(false)}
                 >
                   <MoreHorizontal className="w-4 h-4" />
-                  More
+                  {t('nav.more')}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent 
+                align="end"
+                onMouseEnter={() => setMoreMenuOpen(true)}
+                onMouseLeave={() => setMoreMenuOpen(false)}
+              >
                 <DropdownMenuItem asChild>
                   <Link
-                    to="/admin"
-                    state={{ tab: 'services' }}
-                    className={`flex items-center gap-2 ${location.pathname === '/admin' ? 'bg-accent' : ''}`}
+                    to="/services"
+                    className={`flex items-center gap-2 ${location.pathname === '/services' ? 'bg-accent' : ''}`}
                   >
                     <Scissors className="w-4 h-4" />
-                    Services
+                    {t('nav.services')}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link
-                    to="/admin"
-                    state={{ tab: 'personalization' }}
-                    className={`flex items-center gap-2 ${location.pathname === '/admin' ? 'bg-accent' : ''}`}
+                    to="/personalization"
+                    className={`flex items-center gap-2 ${location.pathname === '/personalization' ? 'bg-accent' : ''}`}
                   >
                     <Palette className="w-4 h-4" />
-                    Personalization
+                    {t('nav.personalization')}
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -209,13 +239,13 @@ export function Layout({ children, settings }: LayoutProps) {
                   }`}
                 >
                   <Icon className="w-5 h-5" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
             {/* Employees Submenu for Mobile */}
             <div className="border-b border-border">
-              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">Employees</div>
+              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.employees')}</div>
               {employeeItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -229,14 +259,14 @@ export function Layout({ children, settings }: LayoutProps) {
                     }`}
                   >
                     <Icon className="w-5 h-5" />
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 );
               })}
             </div>
             {/* Reports Submenu for Mobile */}
             <div className="border-b border-border">
-              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">Reports</div>
+              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.reports')}</div>
               {reportsItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -250,22 +280,35 @@ export function Layout({ children, settings }: LayoutProps) {
                     }`}
                   >
                     <Icon className="w-5 h-5" />
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 );
               })}
             </div>
-            {/* More - positioned at the end for mobile */}
-            <Link
-              to={settingsItem.path}
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 border-b border-border transition-colors ${
-                location.pathname === settingsItem.path ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-              }`}
-            >
-              <MoreHorizontal className="w-5 h-5" />
-              {settingsItem.label}
-            </Link>
+            {/* More Submenu for Mobile */}
+            <div className="border-b border-border">
+              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.more')}</div>
+              <Link
+                to="/services"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
+                  location.pathname === '/services' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                }`}
+              >
+                <Scissors className="w-5 h-5" />
+                {t('nav.services')}
+              </Link>
+              <Link
+                to="/personalization"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
+                  location.pathname === '/personalization' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                }`}
+              >
+                <Palette className="w-5 h-5" />
+                {t('nav.personalization')}
+              </Link>
+            </div>
           </nav>
         )}
       </header>

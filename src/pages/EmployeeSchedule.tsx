@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, startOfDay, differenceInHours, differenceInMinutes } from 'date-fns';
 import { Employee, TimeEntry } from '@/types';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/translations';
 
 interface EmployeeScheduleProps {
   employees: Employee[];
@@ -80,9 +81,9 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Employee Schedule</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('schedule.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            View all employees' schedules in one calendar
+            {t('schedule.description')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -91,8 +92,8 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="week">Week View</SelectItem>
-              <SelectItem value="month">Month View</SelectItem>
+              <SelectItem value="week">{t('appointments.weekView')}</SelectItem>
+              <SelectItem value="month">{t('schedule.monthView')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -105,7 +106,7 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-primary" />
-                Calendar
+                {t('appointments.calendar')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -125,7 +126,7 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-primary" />
-                Week of {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
+                {t('schedule.weekOf')} {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -134,7 +135,7 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-3 font-semibold sticky left-0 bg-background z-10 min-w-[150px]">
-                        Employee
+                        {t('schedule.employee')}
                       </th>
                       {weekDays.map(day => (
                         <th
@@ -155,7 +156,7 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
                         </th>
                       ))}
                       <th className="text-center p-3 font-semibold min-w-[80px]">
-                        Total
+                        {t('schedule.totalHours')}
                       </th>
                     </tr>
                   </thead>
@@ -202,7 +203,7 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
                                           </div>
                                         ) : (
                                           <Badge variant="outline" className="text-xs mt-1">
-                                            Active
+                                            {t('timeTracking.clockedIn')}
                                           </Badge>
                                         )}
                                       </div>
@@ -234,7 +235,7 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
               </div>
               {employees.filter(emp => emp.status === 'active').length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  No active employees found.
+                  {t('schedule.noActiveEmployees')}
                 </div>
               )}
             </CardContent>

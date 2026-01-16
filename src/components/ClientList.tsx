@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Mail, Phone, MapPin, Dog } from 'lucide-react';
 import { Client, Pet } from '@/types';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { t } from '@/lib/translations';
 
 interface ClientListProps {
   clients: Client[];
@@ -116,7 +117,7 @@ export function ClientList({ clients, pets, onDelete, onEdit, selectedClientId }
                   <div className="mt-4 pt-4 border-t border-border">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Dog className="w-4 h-4 text-primary" />
-                      <span>{clientPets.length} pet{clientPets.length > 1 ? 's' : ''}</span>
+                      <span>{clientPets.length} {clientPets.length === 1 ? t('pets.pet') : t('pets.pets')}</span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {clientPets.map((pet) => (

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Employee } from '@/types';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
+import { t } from '@/lib/translations';
 
 interface EmployeeManagementProps {
   employees: Employee[];
@@ -138,9 +139,9 @@ export function EmployeeManagement({
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Employee Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('employeeManagement.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Add, edit, and manage your team members
+            {t('employeeManagement.description')}
           </p>
         </div>
         <Button 
@@ -151,7 +152,7 @@ export function EmployeeManagement({
           }}
           className="shadow-sm"
         >
-          {showAddForm ? 'Cancel' : <><Plus className="w-4 h-4 mr-2" /> Add Employee</>}
+          {showAddForm ? t('common.cancel') : <><Plus className="w-4 h-4 mr-2" /> {t('employeeManagement.addEmployee')}</>}
         </Button>
       </div>
 
@@ -279,7 +280,7 @@ export function EmployeeManagement({
               </div>
               <div className="flex gap-3 pt-4">
                 <Button type="submit" className="shadow-sm">
-                  {editingEmployee ? 'Update Employee' : 'Add Employee'}
+                  {editingEmployee ? t('common.edit') + ' ' + t('nav.employees') : t('employeeManagement.addEmployee')}
                 </Button>
                 <Button type="button" variant="outline" onClick={handleCancel}>
                   Cancel
@@ -354,7 +355,7 @@ export function EmployeeManagement({
                     className="w-full flex items-center gap-2"
                   >
                     <Clock className="w-4 h-4" />
-                    Timesheet
+                    {t('timesheet.title')}
                   </Button>
                 </div>
               </div>
@@ -367,7 +368,7 @@ export function EmployeeManagement({
         <Card className="border-dashed">
           <CardContent className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No employees yet. Add your first employee above!</p>
+            <p className="text-muted-foreground">{t('employeeManagement.noEmployeesYet')}</p>
           </CardContent>
         </Card>
       )}
@@ -376,8 +377,8 @@ export function EmployeeManagement({
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Employee"
-        description="Are you sure you want to delete this employee? This action cannot be undone."
+        title={t('employeeManagement.deleteEmployee')}
+        description={t('employeeManagement.deleteConfirm')}
       />
     </div>
   );

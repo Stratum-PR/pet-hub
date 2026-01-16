@@ -13,7 +13,8 @@ import { Reports } from '@/pages/Reports';
 import { Payroll } from '@/pages/Payroll';
 import { EmployeePayroll } from '@/pages/EmployeePayroll';
 import { EmployeeTimesheet } from '@/pages/EmployeeTimesheet';
-import { Admin } from '@/pages/Admin';
+import { Services } from '@/pages/Services';
+import { Personalization } from '@/pages/Personalization';
 import { Checkout } from '@/pages/Checkout';
 import { Payment } from '@/pages/Payment';
 import { useClients, usePets, useEmployees, useTimeEntries, useAppointments, useSettings, useServices } from '@/hooks/useSupabaseData';
@@ -188,15 +189,22 @@ const Index = () => {
               }
             />
             <Route
-              path="/admin"
+              path="/services"
               element={
-                <Admin
-                  settings={settings}
-                  onSaveSettings={saveAllSettings}
+                <Services
                   services={services}
                   onAddService={addService}
                   onUpdateService={updateService}
                   onDeleteService={deleteService}
+                />
+              }
+            />
+            <Route
+              path="/personalization"
+              element={
+                <Personalization
+                  settings={settings}
+                  onSaveSettings={saveAllSettings}
                 />
               }
             />

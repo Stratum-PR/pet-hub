@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DollarSign, ChevronLeft, ChevronRight, Clock, Edit } from 'lucide-react';
 import { Employee, TimeEntry } from '@/types';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, differenceInHours, addWeeks, subWeeks, startOfDay } from 'date-fns';
+import { t } from '@/lib/translations';
 
 interface PayrollProps {
   employees: Employee[];
@@ -174,9 +175,9 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payroll</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('payroll.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Pay period summary and employee earnings
+            {t('payroll.description')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -187,7 +188,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             className="flex items-center gap-2"
           >
             <ChevronLeft className="w-4 h-4" />
-            Previous Pay Period
+            {t('payroll.previousPayPeriod')}
           </Button>
           <Button
             variant="outline"
@@ -195,7 +196,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             onClick={handleNextPayPeriod}
             className="flex items-center gap-2"
           >
-            Next Pay Period
+            {t('payroll.nextPayPeriod')}
             <ChevronRight className="w-4 h-4" />
           </Button>
           <Button
@@ -203,7 +204,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             size="sm"
             onClick={handleCurrentPayPeriod}
           >
-            Current Pay Period
+            {t('payroll.currentPayPeriod')}
           </Button>
         </div>
       </div>
@@ -212,7 +213,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-primary" />
-            Pay Period Summary
+            {t('payroll.payPeriodSummary')}
           </CardTitle>
           <CardDescription>
             {format(payPeriodStart, 'MMMM d')} - {format(payPeriodEnd, 'd, yyyy')}
@@ -223,11 +224,11 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-medium">Employee</th>
-                  <th className="text-left py-3 px-4 font-medium">Role</th>
-                  <th className="text-right py-3 px-4 font-medium">Total Hours</th>
-                  <th className="text-right py-3 px-4 font-medium">Rate</th>
-                  <th className="text-right py-3 px-4 font-medium">Gross Pay</th>
+                  <th className="text-left py-3 px-4 font-medium">{t('payroll.employee')}</th>
+                  <th className="text-left py-3 px-4 font-medium">{t('payroll.role')}</th>
+                  <th className="text-right py-3 px-4 font-medium">{t('payroll.hoursWorked')}</th>
+                  <th className="text-right py-3 px-4 font-medium">{t('payroll.hourlyRate')}</th>
+                  <th className="text-right py-3 px-4 font-medium">{t('payroll.totalPay')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -243,7 +244,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
               </tbody>
               <tfoot>
                 <tr className="bg-secondary/50">
-                  <td colSpan={2} className="py-3 px-4 font-semibold">Total</td>
+                  <td colSpan={2} className="py-3 px-4 font-semibold">{t('dashboard.totalEarned')}</td>
                   <td className="py-3 px-4 text-right font-semibold">
                     {payrollData.reduce((sum, e) => sum + e.hoursWorked, 0).toFixed(1)}h
                   </td>
@@ -263,19 +264,19 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
-            Employee Timesheet
+            {t('payroll.employeeTimesheet')}
           </CardTitle>
           <CardDescription>
-            View and amend employee timesheet entries for the selected week
+            {t('payroll.viewAndAmendDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Select Employee</Label>
+              <Label>{t('payroll.selectEmployee')}</Label>
               <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose an employee..." />
+                  <SelectValue placeholder={t('payroll.chooseEmployee')} />
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map(emp => (
@@ -290,15 +291,15 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             {selectedEmployee && (
               <div className="space-y-2">
                 <div className="text-sm text-muted-foreground mb-4">
-                  Timesheet for <span className="font-semibold text-foreground">{selectedEmployee.name}</span> - Pay Period: {format(payPeriodStart, 'MMMM d')} - {format(payPeriodEnd, 'd, yyyy')}
+                  {t('payroll.timesheetFor')} <span className="font-semibold text-foreground">{selectedEmployee.name}</span> - {t('payroll.payPeriod')}: {format(payPeriodStart, 'MMMM d')} - {format(payPeriodEnd, 'd, yyyy')}
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-3 px-4 font-medium">Date/Day</th>
-                        <th className="text-right py-3 px-4 font-medium">Hours</th>
-                        <th className="text-center py-3 px-4 font-medium">Action</th>
+                        <th className="text-left py-3 px-4 font-medium">{t('timesheet.dateDay')}</th>
+                        <th className="text-right py-3 px-4 font-medium">{t('reports.hours')}</th>
+                        <th className="text-center py-3 px-4 font-medium">{t('payroll.action')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -310,13 +311,13 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                               <div className="text-xs text-muted-foreground mt-1">
                                 {entries.map((entry) => (
                                   <div key={entry.id}>
-                                    {format(new Date(entry.clock_in), 'h:mm a')} - {entry.clock_out ? format(new Date(entry.clock_out), 'h:mm a') : 'Active'}
+                                    {format(new Date(entry.clock_in), 'h:mm a')} - {entry.clock_out ? format(new Date(entry.clock_out), 'h:mm a') : t('timeClock.clockedIn')}
                                   </div>
                                 ))}
                               </div>
                             )}
                             {entries.length === 0 && (
-                              <div className="text-xs text-muted-foreground mt-1">No entries</div>
+                              <div className="text-xs text-muted-foreground mt-1">{t('schedule.noEntries')}</div>
                             )}
                           </td>
                           <td className="py-3 px-4 text-right font-semibold">
@@ -330,7 +331,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                               className="flex items-center gap-1"
                             >
                               <Edit className="w-3 h-3" />
-                              Amend
+                              {t('payroll.amend')}
                             </Button>
                           </td>
                         </tr>
@@ -338,7 +339,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                     </tbody>
                     <tfoot>
                       <tr className="bg-secondary/50">
-                        <td className="py-3 px-4 font-semibold">Total</td>
+                        <td className="py-3 px-4 font-semibold">{t('dashboard.totalEarned')}</td>
                         <td className="py-3 px-4 text-right font-semibold">
                           {employeeTimesheetEntries.reduce((sum, day) => sum + day.totalHours, 0).toFixed(1)}h
                         </td>
@@ -352,7 +353,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
             {!selectedEmployee && (
               <div className="text-center py-8 text-muted-foreground">
-                Select an employee to view their timesheet
+                {t('payroll.selectEmployeeToView')}
               </div>
             )}
           </div>
@@ -363,11 +364,11 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       <Dialog open={!!editingDay} onOpenChange={(open) => !open && handleCancelAmend}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingEntry ? 'Amend Timesheet Entry' : 'Add Timesheet Entry'}</DialogTitle>
+            <DialogTitle>{editingEntry ? t('payroll.amendTimesheetEntry') : t('payroll.addTimesheetEntry')}</DialogTitle>
             <DialogDescription>
               {editingEntry 
-                ? `Correct the clock-in and clock-out times for ${editingDay ? format(editingDay.date, 'EEEE, MMMM d') : ''}`
-                : `Add a new clock-in/clock-out entry for ${editingDay ? format(editingDay.date, 'EEEE, MMMM d') : ''}`
+                ? t('payroll.correctTimesDescription', { date: editingDay ? format(editingDay.date, 'EEEE, MMMM d') : '' })
+                : t('payroll.addNewEntryDescription', { date: editingDay ? format(editingDay.date, 'EEEE, MMMM d') : '' })
               }
             </DialogDescription>
           </DialogHeader>
@@ -375,12 +376,12 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             {editingDay && employeeTimesheetEntries.find(e => e.dateStr === format(editingDay.date, 'yyyy-MM-dd'))?.entries.length > 1 && (
               <div className="p-3 bg-muted rounded-md">
                 <p className="text-sm text-muted-foreground">
-                  Note: This day has multiple entries. You are editing the first entry. To edit other entries, close this dialog and click "Amend" again after saving.
+                  {t('payroll.multipleEntriesNote')}
                 </p>
               </div>
             )}
             <div className="space-y-2">
-              <Label>Clock In *</Label>
+              <Label>{t('payroll.clockIn')} *</Label>
               <Input
                 type="datetime-local"
                 value={editFormData.clock_in}
@@ -389,21 +390,21 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
               />
             </div>
             <div className="space-y-2">
-              <Label>Clock Out</Label>
+              <Label>{t('payroll.clockOut')}</Label>
               <Input
                 type="datetime-local"
                 value={editFormData.clock_out}
                 onChange={(e) => setEditFormData({ ...editFormData, clock_out: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">Leave empty if employee is still clocked in</p>
+              <p className="text-xs text-muted-foreground">{t('payroll.leaveEmptyIfClockedIn')}</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelAmend}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveAmend}>
-              {editingEntry ? 'Save Changes' : 'Add Entry'}
+              {editingEntry ? t('payroll.saveChanges') : t('payroll.addEntry')}
             </Button>
           </DialogFooter>
         </DialogContent>

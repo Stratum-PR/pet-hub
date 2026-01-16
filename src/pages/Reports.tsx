@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { TrendingUp, DollarSign, Clock, Users, Dog, Calendar } from 'lucide-react';
 import { Client, Pet, Employee, TimeEntry, Appointment } from '@/types';
 import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInHours, parseISO } from 'date-fns';
+import { t } from '@/lib/translations';
 
 interface ReportsProps {
   clients: Client[];
@@ -21,9 +22,9 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
     const counts = { dog: 0, cat: 0, other: 0 };
     pets.forEach(pet => counts[pet.species]++);
     return [
-      { name: 'Dogs', value: counts.dog },
-      { name: 'Cats', value: counts.cat },
-      { name: 'Other', value: counts.other },
+      { name: t('pets.dogs'), value: counts.dog },
+      { name: t('pets.cats'), value: counts.cat },
+      { name: t('pets.other'), value: counts.other },
     ].filter(d => d.value > 0);
   }, [pets]);
 
@@ -78,10 +79,10 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
     const stats = { scheduled: 0, completed: 0, cancelled: 0, 'in-progress': 0 };
     appointments.forEach(apt => stats[apt.status]++);
     return [
-      { name: 'Scheduled', value: stats.scheduled },
-      { name: 'Completed', value: stats.completed },
-      { name: 'In Progress', value: stats['in-progress'] },
-      { name: 'Cancelled', value: stats.cancelled },
+      { name: t('reports.scheduled'), value: stats.scheduled },
+      { name: t('reports.completed'), value: stats.completed },
+      { name: t('reports.inProgress'), value: stats['in-progress'] },
+      { name: t('reports.cancelled'), value: stats.cancelled },
     ].filter(d => d.value > 0);
   }, [appointments]);
 
@@ -112,9 +113,9 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('reports.title')}</h1>
         <p className="text-muted-foreground mt-1">
-          Business insights and performance metrics
+          {t('reports.description')}
         </p>
       </div>
 
@@ -127,7 +128,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                 <DollarSign className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
+                <p className="text-sm text-muted-foreground">{t('reports.totalRevenue')}</p>
                 <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
               </div>
             </div>
@@ -140,7 +141,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                 <Clock className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Hours Worked</p>
+                <p className="text-sm text-muted-foreground">{t('reports.hoursWorked')}</p>
                 <p className="text-2xl font-bold">{totalHoursWorked}h</p>
               </div>
             </div>
@@ -153,7 +154,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                 <Users className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Payroll (Week)</p>
+                <p className="text-sm text-muted-foreground">{t('reports.payrollWeek')}</p>
                 <p className="text-2xl font-bold">${totalPayroll.toLocaleString()}</p>
               </div>
             </div>
@@ -166,7 +167,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                 <Calendar className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Appointments</p>
+                <p className="text-sm text-muted-foreground">{t('dashboard.appointments')}</p>
                 <p className="text-2xl font-bold">{appointments.length}</p>
               </div>
             </div>
@@ -181,7 +182,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              Revenue (Last 7 Days)
+              {t('reports.revenueLast7Days')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -215,7 +216,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Dog className="w-5 h-5 text-primary" />
-              Pet Distribution
+              {t('reports.speciesDistribution')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -240,7 +241,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-center text-muted-foreground py-16">No pet data yet</p>
+              <p className="text-center text-muted-foreground py-16">{t('reports.noPetData')}</p>
             )}
           </CardContent>
         </Card>
@@ -248,8 +249,8 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
         {/* Weekly Registrations */}
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Weekly Registrations</CardTitle>
-            <CardDescription>New clients and pets this week</CardDescription>
+            <CardTitle>{t('reports.weeklyRegistrations')}</CardTitle>
+            <CardDescription>{t('reports.newClientsPetsThisWeek')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -265,8 +266,8 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                   }}
                 />
                 <Legend />
-                <Bar dataKey="clients" fill="hsl(168, 60%, 45%)" name="Clients" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="pets" fill="hsl(200, 55%, 55%)" name="Pets" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="clients" fill="hsl(168, 60%, 45%)" name={t('reports.clients')} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pets" fill="hsl(200, 55%, 55%)" name={t('reports.pets')} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -275,8 +276,8 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
         {/* Employee Hours */}
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Employee Hours This Week</CardTitle>
-            <CardDescription>Hours worked by active staff</CardDescription>
+            <CardTitle>{t('reports.employeeHours')}</CardTitle>
+            <CardDescription>{t('reports.hoursWorkedByStaff')}</CardDescription>
           </CardHeader>
           <CardContent>
             {employeeHours.length > 0 ? (
@@ -287,7 +288,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                   <YAxis dataKey="name" type="category" className="text-xs" width={80} />
                   <Tooltip 
                     formatter={(value, name) => {
-                      if (name === 'hours') return [`${value}h`, 'Hours'];
+                      if (name === 'hours') return [`${value}h`, t('reports.hours')];
                       return [value, name];
                     }}
                     contentStyle={{ 
@@ -300,7 +301,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-center text-muted-foreground py-16">No employee data yet</p>
+              <p className="text-center text-muted-foreground py-16">{t('reports.noEmployeeData')}</p>
             )}
           </CardContent>
         </Card>

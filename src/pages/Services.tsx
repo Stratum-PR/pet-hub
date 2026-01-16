@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Service } from '@/types';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { toast } from 'sonner';
+import { t } from '@/lib/translations';
 
 interface ServicesProps {
   services: Service[];
@@ -135,9 +136,9 @@ export function Services({ services, onAddService, onUpdateService, onDeleteServ
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Services</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('services.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your service offerings and pricing
+            {t('services.description')}
           </p>
         </div>
         <Button
@@ -149,14 +150,14 @@ export function Services({ services, onAddService, onUpdateService, onDeleteServ
           className="shadow-sm flex items-center gap-2"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Cancel' : 'Add Service'}
+          {showForm ? t('common.cancel') : t('services.addService')}
         </Button>
       </div>
 
       {showForm && (
         <Card className="shadow-sm animate-fade-in">
           <CardHeader>
-            <CardTitle>{editingService ? 'Edit Service' : 'Add New Service'}</CardTitle>
+            <CardTitle>{editingService ? t('common.edit') + ' ' + t('services.title') : t('services.addService')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -358,10 +359,10 @@ export function Services({ services, onAddService, onUpdateService, onDeleteServ
               </div>
               <div className="flex gap-3 pt-4">
                 <Button type="submit" className="shadow-sm">
-                  {editingService ? 'Update Service' : 'Add Service'}
+                  {editingService ? t('common.edit') + ' ' + t('services.title') : t('services.addService')}
                 </Button>
                 <Button type="button" variant="outline" onClick={handleCancel}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </form>

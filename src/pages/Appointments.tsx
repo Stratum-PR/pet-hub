@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneNumber } from '@/lib/phoneFormat';
+import { t } from '@/lib/translations';
 
 interface AppointmentsProps {
   appointments: Appointment[];
@@ -224,29 +225,29 @@ export function Appointments({
 
   const getPetName = (petId: string) => {
     const pet = pets.find(p => p.id === petId);
-    return pet ? pet.name : 'Unknown Pet';
+    return pet ? pet.name : t('appointments.unknownPet');
   };
 
   const getClientName = (petId: string) => {
     const pet = pets.find(p => p.id === petId);
-    if (!pet) return 'Unknown Client';
+    if (!pet) return t('appointments.unknownClient');
     const client = clients.find(c => c.id === pet.client_id);
-    return client ? client.name : 'Unknown Client';
+    return client ? client.name : t('appointments.unknownClient');
   };
 
   const getEmployeeName = (employeeId?: string) => {
-    if (!employeeId) return 'Unassigned';
+    if (!employeeId) return t('appointments.unassigned');
     const employee = employees.find(e => e.id === employeeId);
-    return employee ? employee.name : 'Unknown';
+    return employee ? employee.name : t('appointments.unknownClient');
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Appointments</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('appointments.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Schedule and manage client appointments
+            {t('appointments.description')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -273,10 +274,10 @@ export function Appointments({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <LinkIcon className="w-5 h-5 text-primary" />
-              Shareable Booking Link
+              {t('appointments.shareableBookingLink')}
             </CardTitle>
             <CardDescription>
-              Share this link with clients so they can book appointments directly
+              {t('appointments.shareLinkDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -284,7 +285,7 @@ export function Appointments({
               <Input value={bookingLink} readOnly className="font-mono text-sm" />
               <Button onClick={handleCopyLink} className="flex items-center gap-2">
                 <Copy className="w-4 h-4" />
-                {bookingLinkCopied ? 'Copied!' : 'Copy'}
+                {bookingLinkCopied ? t('common.copied') : t('common.copy')}
               </Button>
             </div>
           </CardContent>
@@ -299,7 +300,7 @@ export function Appointments({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5 text-primary" />
-                Calendar
+                {t('appointments.calendar')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -319,7 +320,7 @@ export function Appointments({
                 }}
               />
               <div className="mt-4 pt-4 border-t">
-                <h3 className="font-semibold mb-2">Week View</h3>
+                <h3 className="font-semibold mb-2">{t('appointments.weekView')}</h3>
                 <div className="space-y-2">
                   {weekAppointments.map(({ date, appointments: dayAppointments }) => (
                     <div
@@ -341,12 +342,12 @@ export function Appointments({
                           ))}
                           {dayAppointments.length > 2 && (
                             <div className="text-xs text-muted-foreground">
-                              +{dayAppointments.length - 2} more
+                              +{dayAppointments.length - 2} {t('appointments.more')}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <div className="text-xs text-muted-foreground">No appointments</div>
+                        <div className="text-xs text-muted-foreground">{t('appointments.noAppointments')}</div>
                       )}
                     </div>
                   ))}
@@ -362,12 +363,12 @@ export function Appointments({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-primary" />
-                {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : 'Select a date'}
+                {selectedDate ? format(selectedDate, 'MMMM d, yyyy') : t('appointments.selectDate')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {selectedDateAppointments.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No appointments scheduled</p>
+                <p className="text-center text-muted-foreground py-8">{t('appointments.noAppointmentsScheduled')}</p>
               ) : (
                 <div className="space-y-3">
                   {selectedDateAppointments
@@ -392,14 +393,14 @@ export function Appointments({
                                 <span className="text-sm text-muted-foreground">{getClientName(appointment.pet_id)}</span>
                               </div>
                               <div className="text-sm mb-2">
-                                <span className="font-medium">Service:</span> {appointment.service_type}
+                                <span className="font-medium">{t('appointments.serviceType')}:</span> {appointment.service_type}
                               </div>
                               <div className="text-sm mb-2">
-                                <span className="font-medium">Price:</span> ${appointment.price.toFixed(2)}
+                                <span className="font-medium">{t('appointments.estimatedPrice')}:</span> ${appointment.price.toFixed(2)}
                               </div>
                               {appointment.employee_id && (
                                 <div className="text-sm mb-2">
-                                  <span className="font-medium">Employee:</span> {getEmployeeName(appointment.employee_id)}
+                                  <span className="font-medium">{t('nav.employees')}:</span> {getEmployeeName(appointment.employee_id)}
                                 </div>
                               )}
                               {appointment.notes && (
@@ -420,7 +421,7 @@ export function Appointments({
                                   className="flex items-center gap-2"
                                 >
                                   <ShoppingCart className="w-4 h-4" />
-                                  Checkout
+                                  {t('appointments.checkout')}
                                 </Button>
                                 <div className="flex gap-1">
                                   <Button
@@ -457,8 +458,8 @@ export function Appointments({
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Appointment?"
-        description="This will permanently delete this appointment. This action cannot be undone."
+        title={t('common.delete') + ' ' + t('appointments.title') + '?'}
+        description={t('appointments.deleteConfirm')}
       />
 
       <BookingFormDialog

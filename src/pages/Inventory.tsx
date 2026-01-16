@@ -10,6 +10,7 @@ import { Product } from '@/types/inventory';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { SearchFilter } from '@/components/SearchFilter';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/translations';
 
 interface InventoryProps {
   products: Product[];
@@ -180,9 +181,9 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('inventory.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage product inventory and track stock levels
+            {t('inventory.description')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -192,7 +193,7 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
             className="flex items-center gap-2"
           >
             <Scan className="w-4 h-4" />
-            Scan Barcode
+            {t('inventory.scanBarcode')}
           </Button>
           <Button
             onClick={() => {
@@ -203,7 +204,7 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
             className="shadow-sm flex items-center gap-2"
           >
             {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showForm ? 'Cancel' : 'Add Product'}
+            {showForm ? t('common.cancel') : t('inventory.addProduct')}
           </Button>
         </div>
       </div>
@@ -211,7 +212,7 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
       {showForm && (
         <Card className="shadow-sm animate-fade-in">
           <CardHeader>
-            <CardTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</CardTitle>
+            <CardTitle>{editingProduct ? t('inventory.editProduct') : t('inventory.addProduct')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -403,10 +404,10 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
               </div>
               <div className="flex gap-3 pt-4">
                 <Button type="submit" className="shadow-sm">
-                  {editingProduct ? 'Update Product' : 'Add Product'}
+                  {editingProduct ? t('common.edit') + ' ' + t('inventory.title') : t('inventory.addProduct')}
                 </Button>
                 <Button type="button" variant="outline" onClick={handleCancel}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </form>

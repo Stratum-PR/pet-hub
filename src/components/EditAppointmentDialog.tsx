@@ -13,13 +13,24 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { Client, Pet, Service, Appointment, Employee } from '@/types';
+import { t } from '@/lib/translations';
 
-const TIME_SLOTS = [
+// Time slots in 24-hour format for internal use
+const TIME_SLOTS_24H = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
   '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
   '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
   '17:00', '17:30'
 ];
+
+// Convert 24-hour time to 12-hour AM/PM format
+const formatTime12H = (time24: string): string => {
+  const [hours, minutes] = time24.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
 
 interface EditAppointmentDialogProps {
   open: boolean;
@@ -172,7 +183,7 @@ export function EditAppointmentDialog({
   const availableTimeSlots = useMemo(() => {
     // If editing and time hasn't changed, include current time slot
     const currentTime = appointment ? format(new Date(appointment.scheduled_date), 'HH:mm') : '';
-    const slots = TIME_SLOTS.filter(time => !getBookedTimes.includes(time));
+    const slots = TIME_SLOTS_24H.filter(time => !getBookedTimes.includes(time));
     if (currentTime && !slots.includes(currentTime)) {
       return [currentTime, ...slots].sort();
     }
@@ -360,27 +371,34 @@ export function EditAppointmentDialog({
             <div className="space-y-2">
               <Label className="text-base font-semibold">Select Time *</Label>
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                {availableTimeSlots.length > 0 ? (
-                  availableTimeSlots.map((time) => (
+                {TIME_SLOTS_24H.map((time24) => {
+                  const isBooked = getBookedTimes.includes(time24);
+                  const isSelected = selectedTime === time24;
+                  const time12H = formatTime12H(time24);
+                  // Allow selecting current appointment's time even if it appears booked
+                  const isCurrentAppointmentTime = appointment && format(new Date(appointment.scheduled_date), 'HH:mm') === time24;
+                  const canSelect = !isBooked || isCurrentAppointmentTime;
+                  
+                  return (
                     <Button
-                      key={time}
+                      key={time24}
                       type="button"
-                      variant={selectedTime === time ? "default" : "outline"}
-                      onClick={() => setSelectedTime(time)}
-                      className="h-10"
+                      variant={isSelected ? "default" : "outline"}
+                      onClick={() => canSelect && setSelectedTime(time24)}
+                      disabled={!canSelect && !isSelected}
+                      className={cn(
+                        "h-10",
+                        !canSelect && !isSelected && "opacity-50 cursor-not-allowed bg-muted text-muted-foreground"
+                      )}
                     >
-                      {time}
+                      {time12H}
                     </Button>
-                  ))
-                ) : (
-                  <p className="col-span-full text-center text-muted-foreground py-4">
-                    No available time slots for this date. Please select another date.
-                  </p>
-                )}
+                  );
+                })}
               </div>
               {getBookedTimes.length > 0 && (
                 <p className="text-sm text-muted-foreground">
-                  {getBookedTimes.length} time slot(s) already booked
+                  {getBookedTimes.length} time slot(s) already booked (greyed out)
                 </p>
               )}
             </div>
@@ -390,17 +408,17 @@ export function EditAppointmentDialog({
           <div className="space-y-4 border-t pt-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <User className="w-5 h-5" />
-              Client Information
+              {t('form.clientInformation')}
             </h3>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Select Client</Label>
+                <Label>{t('form.selectClient')}</Label>
                 <Select
                   value={formData.clientId}
                   onValueChange={handleClientChange}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select client" />
+                    <SelectValue placeholder={t('form.selectClient')} />
                   </SelectTrigger>
                   <SelectContent>
                     {clients.map(client => (
@@ -413,7 +431,7 @@ export function EditAppointmentDialog({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Client Name *</Label>
+                  <Label>{t('form.clientName')} *</Label>
                   <Input
                     value={formData.clientName}
                     onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
@@ -452,14 +470,14 @@ export function EditAppointmentDialog({
             </h3>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Select Pet *</Label>
+                <Label>{t('form.selectPet')} *</Label>
                 <Select
                   value={formData.petId}
                   onValueChange={handlePetChange}
                   required
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select pet" />
+                    <SelectValue placeholder={t('form.selectPet')} />
                   </SelectTrigger>
                   <SelectContent>
                     {(clientPets.length > 0 ? clientPets : pets.filter(p => p.id === formData.petId)).map(pet => (
@@ -472,7 +490,7 @@ export function EditAppointmentDialog({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Pet Name *</Label>
+                  <Label>{t('form.petName')} *</Label>
                   <Input
                     value={formData.petName}
                     onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
@@ -481,7 +499,7 @@ export function EditAppointmentDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Pet Breed</Label>
+                  <Label>{t('form.breed')}</Label>
                   <Input
                     value={formData.petBreed}
                     onChange={(e) => setFormData({ ...formData, petBreed: e.target.value })}

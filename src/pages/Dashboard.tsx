@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Client, Pet, Employee, Appointment } from '@/types';
 import { format } from 'date-fns';
+import { t } from '@/lib/translations';
 
 interface DashboardProps {
   clients: Client[];
@@ -53,7 +54,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
       <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-accent/20 to-background rounded-2xl">
         <div className="p-8 md:p-12">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">
-            Welcome to your Hub
+            {t('common.welcome')}
           </h1>
         </div>
       </div>
@@ -62,47 +63,47 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <div onClick={() => navigate('/clients')} className="cursor-pointer">
           <StatCard
-            title="Total Clients"
+            title={t('dashboard.totalClients')}
             value={clients.length}
             icon={Users}
-            description="Registered clients"
+            description={t('dashboard.registeredClients')}
           />
         </div>
         <div onClick={() => navigate('/pets')} className="cursor-pointer">
           <StatCard
-            title="Total Pets"
+            title={t('dashboard.totalPets')}
             value={pets.length}
             icon={Dog}
-            description={`${dogCount} dogs, ${catCount} cats`}
+            description={`${dogCount} ${t('dashboard.dogs')}, ${catCount} ${t('dashboard.cats')}`}
           />
         </div>
         <div onClick={() => navigate('/employee-management')} className="cursor-pointer">
           <StatCard
-            title="Active Staff"
+            title={t('dashboard.activeStaff')}
             value={activeEmployees}
             icon={Clock}
-            description="Team members"
+            description={t('dashboard.teamMembers')}
           />
         </div>
         <StatCard
-          title="Today"
+          title={t('dashboard.today')}
           value={todayAppointments}
           icon={Calendar}
-          description="Appointments"
+          description={t('dashboard.appointments')}
         />
         <div onClick={() => navigate('/reports')} className="cursor-pointer">
           <StatCard
-            title="Revenue"
+            title={t('dashboard.revenue')}
             value={`$${totalRevenue.toLocaleString()}`}
             icon={DollarSign}
-            description="Total earned"
+            description={t('dashboard.totalEarned')}
           />
         </div>
         <StatCard
-          title="Growth"
+          title={t('dashboard.growth')}
           value="+12%"
           icon={TrendingUp}
-          description="vs last month"
+          description={t('dashboard.vsLastMonth')}
         />
       </div>
 
@@ -131,13 +132,13 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium">{pet?.name || 'Unknown Pet'}</p>
+                        <p className="font-medium">{pet?.name || t('appointments.unknownPet')}</p>
                         <Badge variant={appointment.status === 'completed' ? 'default' : appointment.status === 'cancelled' ? 'destructive' : 'secondary'}>
                           {appointment.status}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(appointment.scheduled_date), 'h:mm a')} • {client?.name || 'Unknown Client'}
+                        {format(new Date(appointment.scheduled_date), 'h:mm a')} • {client?.name || t('appointments.unknownClient')}
                         {employee && ` • ${employee.name}`}
                       </p>
                       {appointment.service_type && (
@@ -161,12 +162,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              Recent Clients
+              {t('dashboard.recentClients')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {recentClients.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No clients yet</p>
+              <p className="text-muted-foreground text-center py-8">{t('dashboard.noClientsYet')}</p>
             ) : (
               <div className="space-y-3">
                 {recentClients.map((client) => (
@@ -180,7 +181,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                       <p className="text-sm text-muted-foreground">{client.email}</p>
                     </div>
                     <span className="text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
-                      {pets.filter((p) => p.client_id === client.id).length} pets
+                      {pets.filter((p) => p.client_id === client.id).length} {t('dashboard.pets')}
                     </span>
                   </div>
                 ))}
@@ -193,12 +194,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Dog className="w-5 h-5 text-primary" />
-              Recent Pets
+              {t('dashboard.recentPets')}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {recentPets.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No pets yet</p>
+              <p className="text-muted-foreground text-center py-8">{t('dashboard.noPetsYet')}</p>
             ) : (
               <div className="space-y-3">
                 {recentPets.map((pet) => {
@@ -212,7 +213,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                       <div>
                         <p className="font-medium hover:text-primary transition-colors cursor-pointer">{pet.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {pet.breed} • {owner?.name || 'Unknown owner'}
+                          {pet.breed} • {owner?.name || t('dashboard.unknownOwner')}
                         </p>
                       </div>
                       <span className="px-2 py-1 text-xs bg-accent rounded capitalize">

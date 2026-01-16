@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Employee, TimeEntry } from '@/types';
 import { format } from 'date-fns';
+import { t } from '@/lib/translations';
 
 interface EmployeesProps {
   employees: Employee[];
@@ -40,10 +41,10 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
     const activeEntry = getActiveEntry(verifiedEmployee.id);
     if (activeEntry) {
       onClockOut(activeEntry.id);
-      setSuccess(`${verifiedEmployee.name} clocked out successfully!`);
+      setSuccess(t('timeTracking.clockedOut', { name: verifiedEmployee.name }));
     } else {
       onClockIn(verifiedEmployee.id);
-      setSuccess(`${verifiedEmployee.name} clocked in successfully!`);
+      setSuccess(t('timeTracking.clockedIn', { name: verifiedEmployee.name }));
     }
     
     setTimeout(() => {
@@ -68,9 +69,9 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Time Clock</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('timeTracking.title')}</h1>
         <p className="text-muted-foreground mt-1">
-          Enter your PIN to clock in or out
+          {t('timeTracking.description')}
         </p>
       </div>
 
@@ -80,10 +81,10 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-primary" />
-              {verifiedEmployee ? `Welcome, ${verifiedEmployee.name}` : 'Employee Verification'}
+              {verifiedEmployee ? t('timeTracking.welcome', { name: verifiedEmployee.name }) : t('timeTracking.employeeVerification')}
             </CardTitle>
             <CardDescription>
-              {verifiedEmployee ? 'Ready to clock in/out' : 'Enter your 4-digit PIN'}
+              {verifiedEmployee ? t('timeTracking.readyToClock') : t('timeTracking.enterPin')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -92,7 +93,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
                 <Input
                   type="password"
                   maxLength={4}
-                  placeholder="Enter PIN"
+                  placeholder={t('timeTracking.enterPinPlaceholder')}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
                   className="text-center text-2xl tracking-widest"
@@ -102,7 +103,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
                   <p className="text-destructive text-sm text-center">{error}</p>
                 )}
                 <Button onClick={handleVerifyPin} className="w-full" disabled={pin.length < 4}>
-                  Verify PIN
+                  {t('timeTracking.verify')}
                 </Button>
               </div>
             ) : (
@@ -130,7 +131,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
                           size="lg"
                         >
                           <LogOut className="w-5 h-5 mr-2" />
-                          Clock Out
+                          {t('timeTracking.clockOut')}
                         </Button>
                       </div>
                     ) : (
@@ -140,14 +141,14 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
                         size="lg"
                       >
                         <LogIn className="w-5 h-5 mr-2" />
-                        Clock In
+                        {t('timeTracking.clockIn')}
                       </Button>
                     )}
                   </>
                 )}
                 
                 <Button variant="outline" onClick={handleLogout} className="w-full">
-                  Switch User
+                  {t('timeTracking.switchUser')}
                 </Button>
               </div>
             )}
@@ -159,7 +160,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="w-5 h-5 text-primary" />
-              Today's Activity
+              {t('timeTracking.todaysActivity')}
             </CardTitle>
             <CardDescription>
               {format(new Date(), 'EEEE, MMMM d, yyyy')}

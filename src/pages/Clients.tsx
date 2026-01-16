@@ -6,6 +6,7 @@ import { ClientForm } from '@/components/ClientForm';
 import { ClientList } from '@/components/ClientList';
 import { SearchFilter } from '@/components/SearchFilter';
 import { Client, Pet } from '@/types';
+import { t } from '@/lib/translations';
 
 interface ClientsProps {
   clients: Client[];
@@ -70,9 +71,9 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('clients.title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Manage your grooming clients and their information
+            {t('clients.description')}
           </p>
         </div>
         <Button
@@ -83,7 +84,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
           className="shadow-sm flex items-center gap-2"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Cancel' : 'Add Client'}
+          {showForm ? t('common.cancel') : t('clients.addClient')}
         </Button>
       </div>
 
@@ -99,7 +100,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
       <SearchFilter
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        placeholder="Search clients by name, email, or phone..."
+        placeholder={t('clients.searchPlaceholder')}
       />
 
       <ClientList 

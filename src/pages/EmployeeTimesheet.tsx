@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { Employee, TimeEntry } from '@/types';
 import { format, startOfWeek, endOfWeek, differenceInHours, parseISO, addWeeks, subWeeks, eachDayOfInterval, isSameWeek, startOfDay } from 'date-fns';
+import { t } from '@/lib/translations';
 
 interface EmployeeTimesheetProps {
   employees: Employee[];
@@ -99,9 +100,9 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
             className="mb-4"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
-            Back to Payroll
+            {t('timesheet.backToPayroll')}
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Employee Not Found</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('timesheet.employeeNotFound')}</h1>
         </div>
       </div>
     );
@@ -116,16 +117,16 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
           className="mb-4"
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Payroll
+          {t('timesheet.backToPayroll')}
         </Button>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
               <Clock className="w-8 h-8 text-primary" />
-              {employee.name} - Timesheet
+              {employee.name} - {t('timesheet.title')}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Detailed timekeeping records and hours worked
+              {t('timesheet.detailedRecords')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -136,7 +137,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
               className="flex items-center gap-2"
             >
               <ChevronLeft className="w-4 h-4" />
-              Previous Pay Period
+              {t('payroll.previousPayPeriod')}
             </Button>
             <Button
               variant="outline"
@@ -144,7 +145,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
               onClick={handleNextPayPeriod}
               className="flex items-center gap-2"
             >
-              Next Pay Period
+              {t('payroll.nextPayPeriod')}
               <ChevronRight className="w-4 h-4" />
             </Button>
             <Button
@@ -152,7 +153,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
               size="sm"
               onClick={handleCurrentPayPeriod}
             >
-              Current Pay Period
+              {t('payroll.currentPayPeriod')}
             </Button>
           </div>
         </div>
@@ -163,7 +164,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
-            Pay Period Summary
+            {t('payroll.payPeriodSummary')}
           </CardTitle>
           <CardDescription>
             {format(payPeriodStart, 'MMMM d')} - {format(payPeriodEnd, 'd, yyyy')}
@@ -178,7 +179,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
               className="flex items-center gap-2"
             >
               <ChevronLeft className="w-4 h-4" />
-              Previous Pay Period
+              {t('payroll.previousPayPeriod')}
             </Button>
             <Button
               variant="outline"
@@ -186,7 +187,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
               onClick={handleNextPayPeriod}
               className="flex items-center gap-2"
             >
-              Next Pay Period
+              {t('payroll.nextPayPeriod')}
               <ChevronRight className="w-4 h-4" />
             </Button>
             <Button
@@ -194,20 +195,20 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
               size="sm"
               onClick={handleCurrentPayPeriod}
             >
-              Current Pay Period
+              {t('payroll.currentPayPeriod')}
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Hours</p>
+              <p className="text-sm text-muted-foreground">{t('timesheet.totalHours')}</p>
               <p className="text-2xl font-bold">{timesheetData.totalHours.toFixed(1)}h</p>
             </div>
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Hourly Rate</p>
+              <p className="text-sm text-muted-foreground">{t('timesheet.hourlyRate')}</p>
               <p className="text-2xl font-bold">${employee.hourly_rate}/hr</p>
             </div>
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Gross Pay</p>
+              <p className="text-sm text-muted-foreground">{t('timesheet.grossPay')}</p>
               <p className="text-2xl font-bold">${timesheetData.grossPay.toFixed(2)}</p>
             </div>
           </div>
@@ -219,10 +220,10 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
-            Timesheet Details
+            {t('timesheet.timesheetDetails')}
           </CardTitle>
           <CardDescription>
-            Two-week pay period breakdown by day
+            {t('timesheet.twoWeekBreakdown')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -230,9 +231,9 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-medium">Date/Day</th>
-                  <th className="text-right py-3 px-4 font-medium">Hours Worked</th>
-                  <th className="text-right py-3 px-4 font-medium">Pay</th>
+                  <th className="text-left py-3 px-4 font-medium">{t('timesheet.dateDay')}</th>
+                  <th className="text-right py-3 px-4 font-medium">{t('timesheet.hoursWorked')}</th>
+                  <th className="text-right py-3 px-4 font-medium">{t('timesheet.pay')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -252,7 +253,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
               </tbody>
               <tfoot>
                 <tr className="bg-secondary/50">
-                  <td className="py-3 px-4 font-semibold">Total</td>
+                  <td className="py-3 px-4 font-semibold">{t('dashboard.totalEarned')}</td>
                   <td className="py-3 px-4 text-right font-semibold">
                     {timesheetData.totalHours.toFixed(1)}h
                   </td>
