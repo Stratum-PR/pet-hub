@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield } from 'lucide-react';
@@ -28,9 +28,14 @@ const vaccinationColors: Record<string, string> = {
 
 export function PetList({ pets, clients, onDelete, onEdit }: PetListProps) {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const highlightId = searchParams.get('highlight');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [petToDelete, setPetToDelete] = useState<string | null>(null);
+
+  const handleOwnerClick = (clientId: string) => {
+    navigate('/clients', { state: { selectedClientId: clientId } });
+  };
 
   useEffect(() => {
     if (highlightId) {
@@ -115,7 +120,12 @@ export function PetList({ pets, clients, onDelete, onEdit }: PetListProps) {
                   {owner && (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <User className="w-4 h-4" />
-                      <span>{owner.name}</span>
+                      <span 
+                        onClick={() => handleOwnerClick(owner.id)}
+                        className="hover:text-primary transition-colors cursor-pointer"
+                      >
+                        {owner.name}
+                      </span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-muted-foreground">

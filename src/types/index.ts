@@ -5,6 +5,11 @@ export interface Client {
   phone: string;
   address: string;
   notes?: string;
+  // Payment details (saved if user chooses to save payment in checkout)
+  card_number?: string;
+  card_name?: string;
+  card_expiry?: string;
+  card_cvv?: string;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +38,8 @@ export interface Employee {
   hourly_rate: number;
   role: string;
   status: 'active' | 'inactive';
+  hire_date?: string;
+  last_date?: string;
   created_at: string;
   updated_at: string;
 }
@@ -64,7 +71,9 @@ export interface Service {
   name: string;
   description?: string;
   price: number;
+  cost?: number;
   duration_minutes: number;
+  category?: string;
   created_at: string;
 }
 

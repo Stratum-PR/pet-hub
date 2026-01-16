@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
@@ -15,10 +16,27 @@ interface PetsProps {
 }
 
 export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: PetsProps) {
+  const location = useLocation();
   const [showForm, setShowForm] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [speciesFilter, setSpeciesFilter] = useState('all');
+
+  // Handle location state for selected pet
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const highlightId = params.get('highlight');
+    if (highlightId) {
+      // The PetList component will handle the highlighting via the highlight prop
+      // This effect ensures the page scrolls to the pet when navigated to
+      setTimeout(() => {
+        const element = document.getElementById(`pet-${highlightId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [location]);
 
   const filteredPets = useMemo(() => {
     let filtered = pets;

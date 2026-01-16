@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientForm } from '@/components/ClientForm';
@@ -15,9 +16,18 @@ interface ClientsProps {
 }
 
 export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient }: ClientsProps) {
+  const location = useLocation();
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const state = location.state as { selectedClientId?: string } | null;
+    if (state?.selectedClientId) {
+      setSelectedClientId(state.selectedClientId);
+    }
+  }, [location]);
 
   const filteredClients = useMemo(() => {
     if (!searchTerm) return clients;
@@ -42,6 +52,13 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
   const handleEdit = (client: Client) => {
     setEditingClient(client);
     setShowForm(true);
+    // Scroll to form after a brief delay to ensure it's rendered
+    setTimeout(() => {
+      const formElement = document.getElementById('client-form');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   const handleCancel = () => {
@@ -90,6 +107,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
         pets={pets} 
         onDelete={onDeleteClient}
         onEdit={handleEdit}
+        selectedClientId={selectedClientId}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Edit, Trash2, Eye, EyeOff, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Employee } from '@/types';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 
 interface EmployeeManagementProps {
   employees: Employee[];
@@ -21,6 +23,7 @@ export function EmployeeManagement({
   onUpdateEmployee, 
   onDeleteEmployee 
 }: EmployeeManagementProps) {
+  const navigate = useNavigate();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
@@ -34,7 +37,10 @@ export function EmployeeManagement({
     hourly_rate: 15,
     role: 'groomer',
     status: 'active' as 'active' | 'inactive',
+    hire_date: '',
+    last_date: '',
   });
+  const [showPinInForm, setShowPinInForm] = useState(false);
 
   const resetForm = () => {
     setFormData({
@@ -45,16 +51,35 @@ export function EmployeeManagement({
       hourly_rate: 15,
       role: 'groomer',
       status: 'active',
+      hire_date: '',
+      last_date: '',
     });
+    setShowPinInForm(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Unformat phone number before saving
+    const submitData: any = {
+      ...formData,
+      phone: unformatPhoneNumber(formData.phone),
+    };
+    // Convert date strings to ISO format or null
+    if (submitData.hire_date) {
+      submitData.hire_date = new Date(submitData.hire_date).toISOString();
+    } else {
+      submitData.hire_date = null;
+    }
+    if (submitData.last_date) {
+      submitData.last_date = new Date(submitData.last_date).toISOString();
+    } else {
+      submitData.last_date = null;
+    }
     if (editingEmployee) {
-      onUpdateEmployee(editingEmployee.id, formData);
+      onUpdateEmployee(editingEmployee.id, submitData);
       setEditingEmployee(null);
     } else {
-      onAddEmployee(formData);
+      onAddEmployee(submitData);
     }
     resetForm();
     setShowAddForm(false);
@@ -65,13 +90,25 @@ export function EmployeeManagement({
     setFormData({
       name: employee.name,
       email: employee.email,
-      phone: employee.phone,
+      phone: formatPhoneNumber(employee.phone),
       pin: employee.pin,
       hourly_rate: employee.hourly_rate,
       role: employee.role,
       status: employee.status,
+      hire_date: employee.hire_date ? new Date(employee.hire_date).toISOString().split('T')[0] : '',
+      last_date: employee.last_date ? new Date(employee.last_date).toISOString().split('T')[0] : '',
     });
+    setShowPinInForm(false);
     setShowAddForm(true);
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setFormData({ ...formData, phone: formatted });
+  };
+
+  const handleViewTimesheet = (employeeId: string) => {
+    navigate(`/reports/payroll/employee/${employeeId}/timesheet`);
   };
 
   const handleCancel = () => {
@@ -149,15 +186,28 @@ export function EmployeeManagement({
                   <Label>Phone</Label>
                   <Input
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={handlePhoneChange}
                     required
                     placeholder="(555) 123-4567"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>4-Digit PIN</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>4-Digit PIN</Label>
+                    {editingEmployee && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowPinInForm(!showPinInForm)}
+                        className="h-6 text-xs"
+                      >
+                        {showPinInForm ? <><EyeOff className="w-3 h-3 mr-1" /> Hide</> : <><Eye className="w-3 h-3 mr-1" /> Show</>}
+                      </Button>
+                    )}
+                  </div>
                   <Input
-                    type="password"
+                    type={showPinInForm || !editingEmployee ? "text" : "password"}
                     maxLength={4}
                     value={formData.pin}
                     onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '') })}
@@ -208,6 +258,24 @@ export function EmployeeManagement({
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Hire Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.hire_date}
+                    onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
+                  />
+                </div>
+                {formData.status === 'inactive' && (
+                  <div className="space-y-2">
+                    <Label>Last Date (Termination/End Date)</Label>
+                    <Input
+                      type="date"
+                      value={formData.last_date}
+                      onChange={(e) => setFormData({ ...formData, last_date: e.target.value })}
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 pt-4">
                 <Button type="submit" className="shadow-sm">
@@ -258,9 +326,15 @@ export function EmployeeManagement({
               </div>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>{employee.email}</p>
-                <p>{employee.phone}</p>
+                <p>{formatPhoneNumber(employee.phone)}</p>
                 <p className="capitalize">Role: {employee.role}</p>
                 <p>Rate: ${employee.hourly_rate}/hr</p>
+                {employee.hire_date && (
+                  <p>Hired: {new Date(employee.hire_date).toLocaleDateString()}</p>
+                )}
+                {employee.last_date && (
+                  <p>Last Date: {new Date(employee.last_date).toLocaleDateString()}</p>
+                )}
                 <div className="flex items-center gap-2">
                   <span>PIN: {showPin[employee.id] ? employee.pin : '••••'}</span>
                   <Button
@@ -270,6 +344,17 @@ export function EmployeeManagement({
                     onClick={() => togglePinVisibility(employee.id)}
                   >
                     {showPin[employee.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </Button>
+                </div>
+                <div className="pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewTimesheet(employee.id)}
+                    className="w-full flex items-center gap-2"
+                  >
+                    <Clock className="w-4 h-4" />
+                    Timesheet
                   </Button>
                 </div>
               </div>

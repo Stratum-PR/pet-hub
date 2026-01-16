@@ -264,7 +264,44 @@ export function useTimeEntries() {
     return timeEntries.find(t => t.employee_id === employeeId && !t.clock_out);
   };
 
-  return { timeEntries, loading, clockIn, clockOut, getActiveEntry, refetch: fetchTimeEntries };
+  const updateTimeEntry = async (id: string, entryData: Partial<TimeEntry>) => {
+    const { data, error } = await supabase
+      .from('time_entries')
+      .update(entryData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (!error && data) {
+      setTimeEntries(timeEntries.map(t => t.id === id ? data as TimeEntry : t));
+      return data;
+    }
+    return null;
+  };
+
+  const addTimeEntry = async (employeeId: string, clockIn: string, clockOut?: string) => {
+    const entryData: any = {
+      employee_id: employeeId,
+      clock_in: clockIn,
+    };
+    if (clockOut) {
+      entryData.clock_out = clockOut;
+    }
+    
+    const { data, error } = await supabase
+      .from('time_entries')
+      .insert(entryData)
+      .select()
+      .single();
+    
+    if (!error && data) {
+      setTimeEntries([data as TimeEntry, ...timeEntries]);
+      return data;
+    }
+    return null;
+  };
+
+  return { timeEntries, loading, clockIn, clockOut, getActiveEntry, updateTimeEntry, addTimeEntry, refetch: fetchTimeEntries };
 }
 
 export function useAppointments() {
@@ -342,6 +379,7 @@ export function useServices() {
     const { data, error } = await supabase
       .from('services')
       .select('*')
+      .order('category', { ascending: true, nullsFirst: true })
       .order('name', { ascending: true });
     
     if (!error && data) {
@@ -354,20 +392,80 @@ export function useServices() {
     fetchServices();
   }, []);
 
-  return { services, loading, refetch: fetchServices };
+  const addService = async (serviceData: Omit<Service, 'id' | 'created_at'>) => {
+    // Convert undefined to null for optional fields
+    const cleanData = {
+      ...serviceData,
+      description: serviceData.description || null,
+      category: serviceData.category || null,
+      cost: serviceData.cost ?? null,
+    };
+    
+    const { data, error } = await supabase
+      .from('services')
+      .insert(cleanData)
+      .select()
+      .single();
+    
+    if (!error && data) {
+      setServices([...services, data as Service].sort((a, b) => {
+        if (a.category !== b.category) {
+          return (a.category || '').localeCompare(b.category || '');
+        }
+        return a.name.localeCompare(b.name);
+      }));
+      return data;
+    }
+    if (error) {
+      console.error('Error adding service:', error);
+    }
+    return null;
+  };
+
+  const updateService = async (id: string, serviceData: Partial<Service>) => {
+    const { data, error } = await supabase
+      .from('services')
+      .update(serviceData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (!error && data) {
+      setServices(services.map(s => s.id === id ? data as Service : s));
+      return data;
+    }
+    return null;
+  };
+
+  const deleteService = async (id: string) => {
+    const { error } = await supabase
+      .from('services')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) {
+      setServices(services.filter(s => s.id !== id));
+      return true;
+    }
+    return false;
+  };
+
+  return { services, loading, addService, updateService, deleteService, refetch: fetchServices };
 }
 
 export interface Settings {
   business_name: string;
   business_hours: string;
-  color_scheme: string;
+  primary_color: string;
+  secondary_color: string;
 }
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>({
     business_name: 'Stratum Hub',
     business_hours: '9:00 AM - 6:00 PM',
-    color_scheme: 'soft-green-blue',
+    primary_color: '168 60% 45%',
+    secondary_color: '200 55% 55%',
   });
   const [loading, setLoading] = useState(true);
 
@@ -384,7 +482,8 @@ export function useSettings() {
       setSettings({
         business_name: settingsMap.business_name || 'Stratum Hub',
         business_hours: settingsMap.business_hours || '9:00 AM - 6:00 PM',
-        color_scheme: settingsMap.color_scheme || 'soft-green-blue',
+        primary_color: settingsMap.primary_color || '168 60% 45%',
+        secondary_color: settingsMap.secondary_color || '200 55% 55%',
       });
     }
     setLoading(false);
@@ -425,7 +524,8 @@ export function useSettings() {
     const updates = [
       updateSetting('business_name', newSettings.business_name),
       updateSetting('business_hours', newSettings.business_hours),
-      updateSetting('color_scheme', newSettings.color_scheme),
+      updateSetting('primary_color', newSettings.primary_color),
+      updateSetting('secondary_color', newSettings.secondary_color),
     ];
     
     const results = await Promise.all(updates);

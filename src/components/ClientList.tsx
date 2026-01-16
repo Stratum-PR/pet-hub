@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,12 +11,29 @@ interface ClientListProps {
   pets: Pet[];
   onDelete: (id: string) => void;
   onEdit: (client: Client) => void;
+  selectedClientId?: string | null;
 }
 
-export function ClientList({ clients, pets, onDelete, onEdit }: ClientListProps) {
+export function ClientList({ clients, pets, onDelete, onEdit, selectedClientId }: ClientListProps) {
   const navigate = useNavigate();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedClientId) {
+      const element = document.getElementById(`client-${selectedClientId}`);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+          }, 3000);
+        }, 100);
+      }
+    }
+  }, [selectedClientId]);
+
 
   const handleDeleteClick = (id: string) => {
     setClientToDelete(id);
@@ -50,8 +67,13 @@ export function ClientList({ clients, pets, onDelete, onEdit }: ClientListProps)
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {clients.map((client) => {
           const clientPets = pets.filter((pet) => pet.client_id === client.id);
+          const isSelected = selectedClientId === client.id;
           return (
-            <Card key={client.id} className="shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in">
+            <Card 
+              key={client.id} 
+              id={`client-${client.id}`}
+              className={`shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <h3 className="font-semibold text-lg">{client.name}</h3>
@@ -100,6 +122,7 @@ export function ClientList({ clients, pets, onDelete, onEdit }: ClientListProps)
                       {clientPets.map((pet) => (
                         <button
                           key={pet.id}
+                          id={`pet-${pet.id}`}
                           onClick={() => handlePetClick(pet.id)}
                           className="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-md hover:bg-accent/80 transition-colors cursor-pointer"
                         >
