@@ -10,6 +10,7 @@ import { Employee, TimeEntry } from '@/types';
 import { Settings } from '@/hooks/useSupabaseData';
 import { format, differenceInHours, startOfWeek } from 'date-fns';
 import { toast } from 'sonner';
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 
 interface AdminProps {
   employees: Employee[];
@@ -33,6 +34,8 @@ export function Admin({
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -130,6 +133,19 @@ export function Admin({
 
   const togglePinVisibility = (id: string) => {
     setShowPin(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setEmployeeToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (employeeToDelete) {
+      onDeleteEmployee(employeeToDelete);
+      setEmployeeToDelete(null);
+    }
+    setDeleteDialogOpen(false);
   };
 
   return (
@@ -304,7 +320,7 @@ export function Admin({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onDeleteEmployee(employee.id)}
+                        onClick={() => handleDeleteClick(employee.id)}
                         className="h-8 w-8 text-destructive"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -440,6 +456,14 @@ export function Admin({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Delete Employee?"
+        description="This will permanently delete this employee. This action cannot be undone."
+      />
     </div>
   );
 }
