@@ -11,8 +11,8 @@ const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/clients', label: 'Clients', icon: Users },
   { path: '/pets', label: 'Pets', icon: Dog },
+  { path: '/employees', label: 'Employees', icon: Clock },
   { path: '/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/employees', label: 'Time Clock', icon: Clock },
   { path: '/admin', label: 'Settings', icon: Settings },
 ];
 
