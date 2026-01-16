@@ -4,6 +4,7 @@ import { Dashboard } from '@/pages/Dashboard';
 import { Clients } from '@/pages/Clients';
 import { Pets } from '@/pages/Pets';
 import { Employees } from '@/pages/Employees';
+import { EmployeeManagement } from '@/pages/EmployeeManagement';
 import { Reports } from '@/pages/Reports';
 import { Admin } from '@/pages/Admin';
 import { useClients, usePets, useEmployees, useTimeEntries, useAppointments, useSettings } from '@/hooks/useSupabaseData';
@@ -55,7 +56,7 @@ const Index = () => {
           }
         />
         <Route
-          path="/employees"
+          path="/time-tracking"
           element={
             <Employees
               employees={employees}
@@ -63,6 +64,17 @@ const Index = () => {
               onClockIn={clockIn}
               onClockOut={clockOut}
               getActiveEntry={getActiveEntry}
+            />
+          }
+        />
+        <Route
+          path="/employee-management"
+          element={
+            <EmployeeManagement
+              employees={employees}
+              onAddEmployee={addEmployee}
+              onUpdateEmployee={updateEmployee}
+              onDeleteEmployee={deleteEmployee}
             />
           }
         />
@@ -85,9 +97,6 @@ const Index = () => {
               employees={employees}
               timeEntries={timeEntries}
               settings={settings}
-              onAddEmployee={addEmployee}
-              onUpdateEmployee={updateEmployee}
-              onDeleteEmployee={deleteEmployee}
               onSaveSettings={saveAllSettings}
             />
           }
