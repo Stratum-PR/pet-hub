@@ -65,7 +65,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={`${dogCount} dogs, ${catCount} cats`}
           />
         </div>
-        <div onClick={() => navigate('/employees')} className="cursor-pointer">
+        <div onClick={() => navigate('/employee-management')} className="cursor-pointer">
           <StatCard
             title="Active Staff"
             value={activeEmployees}
