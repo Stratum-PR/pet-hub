@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Dog, Users, LayoutDashboard, Menu, X, Clock, Settings, BarChart3 } from 'lucide-react';
+import { Dog, Users, LayoutDashboard, Menu, X, Clock, Settings, BarChart3, UserCog } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -11,7 +11,8 @@ const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/clients', label: 'Clients', icon: Users },
   { path: '/pets', label: 'Pets', icon: Dog },
-  { path: '/employees', label: 'Employees', icon: Clock },
+  { path: '/time-tracking', label: 'Time Tracking', icon: Clock },
+  { path: '/employee-management', label: 'Employees', icon: UserCog },
   { path: '/reports', label: 'Reports', icon: BarChart3 },
   { path: '/admin', label: 'Settings', icon: Settings },
 ];
