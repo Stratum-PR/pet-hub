@@ -75,20 +75,12 @@ export function Services({ services, onAddService, onUpdateService, onDeleteServ
       };
       
       if (editingService) {
-        const result = await onUpdateService(editingService.id, submitData);
-        if (result) {
-          toast.success('Service updated successfully!');
-          setEditingService(null);
-        } else {
-          toast.error('Failed to update service');
-        }
+        onUpdateService(editingService.id, submitData);
+        toast.success('Service updated successfully!');
+        setEditingService(null);
       } else {
-        const result = await onAddService(submitData);
-        if (result) {
-          toast.success('Service added successfully!');
-        } else {
-          toast.error('Failed to add service');
-        }
+        onAddService(submitData);
+        toast.success('Service added successfully!');
       }
       resetForm();
       setShowForm(false);

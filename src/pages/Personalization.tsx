@@ -71,11 +71,14 @@ export function Personalization({
     try {
       // Remove 'hsl(' and ')' if present
       const hslValue = hsl.replace(/hsl\(|\)/g, '').trim();
-      const [h, s, l] = hslValue.split(' ').map(v => parseFloat(v));
+      const parts = hslValue.split(' ').map(v => parseFloat(v));
+      const h = parts[0] || 0;
+      const s = parts[1] || 0;
+      const l = parts[2] || 0;
       
       const hNorm = h / 360;
-      const sNorm = parseFloat(s) / 100;
-      const lNorm = parseFloat(l) / 100;
+      const sNorm = s / 100;
+      const lNorm = l / 100;
 
       let r, g, b;
       if (sNorm === 0) {
