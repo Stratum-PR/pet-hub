@@ -379,7 +379,6 @@ export function useServices() {
     const { data, error } = await supabase
       .from('services')
       .select('*')
-      .order('category', { ascending: true, nullsFirst: true })
       .order('name', { ascending: true });
     
     if (!error && data) {
