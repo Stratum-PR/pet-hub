@@ -392,12 +392,11 @@ export function useServices() {
   }, []);
 
   const addService = async (serviceData: Omit<Service, 'id' | 'created_at'>) => {
-    // Convert undefined to null for optional fields
     const cleanData = {
-      ...serviceData,
+      name: serviceData.name,
       description: serviceData.description || null,
-      category: serviceData.category || null,
-      cost: serviceData.cost ?? null,
+      price: serviceData.price,
+      duration_minutes: serviceData.duration_minutes,
     };
     
     const { data, error } = await supabase
@@ -407,12 +406,7 @@ export function useServices() {
       .single();
     
     if (!error && data) {
-      setServices([...services, data as Service].sort((a, b) => {
-        if (a.category !== b.category) {
-          return (a.category || '').localeCompare(b.category || '');
-        }
-        return a.name.localeCompare(b.name);
-      }));
+      setServices([...services, data as Service].sort((a, b) => a.name.localeCompare(b.name)));
       return data;
     }
     if (error) {
