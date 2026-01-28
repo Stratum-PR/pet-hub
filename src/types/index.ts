@@ -71,9 +71,7 @@ export interface Service {
   name: string;
   description?: string;
   price: number;
-  cost?: number;
   duration_minutes: number;
-  category?: string;
   created_at: string;
 }
 

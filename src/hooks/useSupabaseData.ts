@@ -544,8 +544,11 @@ export function useServices() {
     // NOTE: `public.services` (in this project) does NOT have `category` or `cost` columns.
     // Sending unknown columns causes PostgREST 400 and makes the UI look empty.
     const cleanData: any = {
-      ...serviceData,
+      business_id: businessId,
+      name: serviceData.name,
       description: (serviceData as any).description || null,
+      price: serviceData.price,
+      duration_minutes: serviceData.duration_minutes,
     };
     delete cleanData.category;
     delete cleanData.cost;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Product } from '@/types/inventory';
 import { useBusinessId } from './useBusinessId';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useInventory() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -176,5 +176,9 @@ export function useInventory() {
     return false;
   };
 
-  return { products, loading, addProduct, updateProduct, deleteProduct, refetch: fetchProducts };
+  const refetch = async () => {
+    await fetchProducts();
+  };
+
+  return { products, loading, addProduct, updateProduct, deleteProduct, refetch };
 }
