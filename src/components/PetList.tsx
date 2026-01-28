@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield } from 'lucide-react';
-import { Pet, Client } from '@/types';
+import { Pet, Customer } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 
 interface PetListProps {
   pets: Pet[];
-  clients: Client[];
+  customers: Customer[];
   onDelete: (id: string) => void;
   onEdit: (pet: Pet) => void;
 }
@@ -26,15 +26,21 @@ const vaccinationColors: Record<string, string> = {
   'unknown': 'bg-muted text-muted-foreground',
 };
 
-export function PetList({ pets, clients, onDelete, onEdit }: PetListProps) {
+export function PetList({ pets, customers, onDelete, onEdit }: PetListProps) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const highlightId = searchParams.get('highlight');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [petToDelete, setPetToDelete] = useState<string | null>(null);
 
-  const handleOwnerClick = (clientId: string) => {
-    navigate('/clients', { state: { selectedClientId: clientId } });
+  // Defensive: avoid runtime crashes if props are temporarily undefined during load/migration.
+  const safePets = Array.isArray(pets) ? pets : [];
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+
+  const handleOwnerClick = (customerId: string) => {
+    const target = businessSlug ? `/${businessSlug}/clients` : '/clients';
+    navigate(target, { state: { selectedCustomerId: customerId } });
   };
 
   useEffect(() => {
@@ -63,7 +69,7 @@ export function PetList({ pets, clients, onDelete, onEdit }: PetListProps) {
     setDeleteDialogOpen(false);
   };
 
-  if (pets.length === 0) {
+  if (safePets.length === 0) {
     return (
       <Card className="border-dashed">
         <CardContent className="p-12 text-center">
@@ -76,10 +82,10 @@ export function PetList({ pets, clients, onDelete, onEdit }: PetListProps) {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {pets.map((pet) => {
-          const owner = clients.find((c) => c.id === pet.client_id);
+        {safePets.map((pet) => {
+          const owner = safeCustomers.find((c) => c.id === pet.customer_id);
           const SpeciesIcon = speciesIcons[pet.species] || Rabbit;
-          const vaccinationStatus = pet.vaccination_status || 'unknown';
+          const vaccinationStatus = (pet as any).vaccination_status || 'unknown';
           return (
             <Card 
               key={pet.id} 
@@ -124,17 +130,17 @@ export function PetList({ pets, clients, onDelete, onEdit }: PetListProps) {
                         onClick={() => handleOwnerClick(owner.id)}
                         className="hover:text-primary transition-colors cursor-pointer"
                       >
-                        {owner.name}
+                        {owner.first_name} {owner.last_name}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="w-4 h-4" />
-                    <span>{pet.age} year{pet.age !== 1 ? 's' : ''} old</span>
+                    <span>{pet.age || 0} year{(pet.age || 0) !== 1 ? 's' : ''} old</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Scale className="w-4 h-4" />
-                    <span>{pet.weight} lbs</span>
+                    <span>{pet.weight || 0} lbs</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-muted-foreground" />

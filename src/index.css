@@ -155,6 +155,11 @@
   }
 }
 
+/* Prevent background scroll when mobile menu is open */
+body.menu-open {
+  overflow: hidden;
+}
+
 /* Custom scrollbar for pet-friendly look */
 ::-webkit-scrollbar {
   width: 8px;

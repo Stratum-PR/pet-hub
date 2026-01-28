@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { DOG_BREEDS } from '@/lib/dogBreeds';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
-import { Client, Pet, Service } from '@/types';
+import { Customer, Pet, Service } from '@/hooks/useBusinessData';
 import { t } from '@/lib/translations';
 
 const CAT_BREEDS = [
@@ -72,7 +72,7 @@ const parseTime12H = (time12: string): string => {
 interface BookingFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  clients: Client[];
+  customers: Customer[];
   pets: Pet[];
   services: Service[];
   appointments: any[];
@@ -83,13 +83,20 @@ interface BookingFormDialogProps {
 export function BookingFormDialog({
   open,
   onOpenChange,
-  clients,
+  customers,
   pets,
   services,
   appointments,
   onSuccess,
   onAddAppointment,
 }: BookingFormDialogProps) {
+  // Defensive defaults: during demo/public mode or while data hooks are loading,
+  // these can be temporarily undefined. Avoid runtime crashes.
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safePets = Array.isArray(pets) ? pets : [];
+  const safeServices = Array.isArray(services) ? services : [];
+  const safeAppointments = Array.isArray(appointments) ? appointments : [];
+
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -168,8 +175,9 @@ export function BookingFormDialog({
 
   const clientPets = useMemo(() => {
     if (!formData.clientId) return [];
-    return pets.filter(p => p.client_id === formData.clientId);
-  }, [formData.clientId, pets]);
+    // Support both legacy `client_id` and new `customer_id` shapes.
+    return safePets.filter((p: any) => p.client_id === formData.clientId || p.customer_id === formData.clientId);
+  }, [formData.clientId, safePets]);
 
   const handleServiceToggle = (service: string) => {
     setFormData(prev => ({
@@ -181,14 +189,14 @@ export function BookingFormDialog({
   };
 
   const handleClientChange = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    if (client) {
+    const customer = safeCustomers.find(c => c.id === clientId);
+    if (customer) {
       setFormData(prev => ({
         ...prev,
         clientId,
-        clientName: client.name,
-        clientEmail: client.email || '',
-        clientPhone: formatPhoneNumber(client.phone),
+        clientName: `${customer.first_name} ${customer.last_name}`,
+        clientEmail: customer.email || '',
+        clientPhone: formatPhoneNumber(customer.phone),
         createNewClient: false,
         petId: '',
         petName: '',
@@ -197,7 +205,7 @@ export function BookingFormDialog({
   };
 
   const handlePetChange = (petId: string) => {
-    const pet = pets.find(p => p.id === petId);
+    const pet = safePets.find(p => p.id === petId);
     if (pet) {
       setFormData(prev => ({
         ...prev,
@@ -225,19 +233,25 @@ export function BookingFormDialog({
       // Create client if new
       if (!clientId || formData.createNewClient) {
         const phoneDigits = unformatPhoneNumber(formData.clientPhone);
-        const { data: newClient } = await supabase
-          .from('clients')
+        // Split name into first and last
+        const nameParts = formData.clientName.trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        const { data: newCustomer } = await supabase
+          .from('customers')
           .insert({
-            name: formData.clientName,
-            email: formData.clientEmail || '',
+            first_name: firstName,
+            last_name: lastName,
+            email: formData.clientEmail || null,
             phone: phoneDigits,
-            address: '',
+            address: null,
           })
           .select()
           .single();
         
-        if (newClient) {
-          clientId = newClient.id;
+        if (newCustomer) {
+          clientId = newCustomer.id;
         }
       }
 
@@ -247,7 +261,7 @@ export function BookingFormDialog({
         const { data: newPet } = await supabase
           .from('pets')
           .insert({
-            client_id: clientId,
+            customer_id: clientId,
             name: formData.petName,
             species: formData.petSpecies || 'other',
             breed: formData.petBreed || 'Unknown',
@@ -423,9 +437,9 @@ export function BookingFormDialog({
                         <Plus className="w-4 h-4 inline mr-2" />
                         {t('form.createNewClient')}
                       </SelectItem>
-                      {clients.map(client => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name} - {formatPhoneNumber(client.phone)}
+                      {safeCustomers.map(customer => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.first_name} {customer.last_name} - {formatPhoneNumber(customer.phone)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -581,9 +595,9 @@ export function BookingFormDialog({
               <Clock className="w-5 h-5" />
               Services Needed *
             </h3>
-            {services.length > 0 ? (
+            {safeServices.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {services.map(service => (
+                {safeServices.map(service => (
                   <Button
                     key={service.id}
                     type="button"
@@ -601,8 +615,8 @@ export function BookingFormDialog({
                     </div>
                     <div className="flex-1 text-left">
                       <div className="font-medium">{service.name}</div>
-                      {service.price > 0 && (
-                        <div className="text-xs text-muted-foreground">${service.price.toFixed(2)}</div>
+                      {typeof (service as any).price === 'number' && (service as any).price > 0 && (
+                        <div className="text-xs text-muted-foreground">${(service as any).price.toFixed(2)}</div>
                       )}
                     </div>
                   </Button>

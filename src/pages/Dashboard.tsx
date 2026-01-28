@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Users, Dog, Calendar, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Client, Pet, Employee, Appointment } from '@/types';
 import { format } from 'date-fns';
 import { t } from '@/lib/translations';
+import { DataDiagnostics } from '@/components/DataDiagnostics';
 
 interface DashboardProps {
   clients: Client[];
@@ -17,6 +18,7 @@ interface DashboardProps {
 
 export function Dashboard({ clients, pets, employees, appointments, onSelectClient }: DashboardProps) {
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const recentClients = clients.slice(0, 5);
   const recentPets = pets.slice(0, 5);
   
@@ -41,11 +43,13 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
     if (onSelectClient) {
       onSelectClient(clientId);
     }
-    navigate('/clients', { state: { selectedClientId: clientId } });
+    const target = businessSlug ? `/${businessSlug}/clients` : '/clients';
+    navigate(target, { state: { selectedClientId: clientId } });
   };
 
   const handlePetClick = (petId: string) => {
-    navigate(`/pets?highlight=${petId}`);
+    const target = businessSlug ? `/${businessSlug}/pets?highlight=${petId}` : `/pets?highlight=${petId}`;
+    navigate(target);
   };
 
   return (
@@ -146,7 +150,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                       )}
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">${appointment.price.toFixed(2)}</p>
+                      <p className="font-semibold">
+                        $
+                        {typeof appointment.price === 'number'
+                          ? appointment.price.toFixed(2)
+                          : '0.00'}
+                      </p>
                     </div>
                   </div>
                 );
@@ -227,6 +236,17 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
           </CardContent>
         </Card>
       </div>
+
+      {/* Collapsible Data Diagnostics at bottom */}
+      <details className="mt-8 border border-border rounded-lg bg-card/50">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center justify-between">
+          <span>Show Diagnostics</span>
+          <span className="text-xs text-muted-foreground">(for troubleshooting only)</span>
+        </summary>
+        <div className="pt-2">
+          <DataDiagnostics />
+        </div>
+      </details>
     </div>
   );
 }

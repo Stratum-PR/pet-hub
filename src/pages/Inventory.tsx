@@ -42,6 +42,7 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
     description: '',
     cost: 0,
     reorder_level: 0,
+    notes: '',
   });
 
   const filteredProducts = useMemo(() => {
@@ -78,6 +79,7 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
       description: '',
       cost: 0,
       reorder_level: 0,
+      notes: '',
     });
     setSelectedProductId(null);
     setProductSearchQuery('');
@@ -98,6 +100,7 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
         description: product.description || '',
         cost: product.cost || 0,
         reorder_level: product.reorder_level || 0,
+        notes: product.notes || '',
       });
       setProductRegistryOpen(false);
     }
@@ -133,7 +136,8 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
       category: product.category || '',
       description: product.description || '',
       cost: product.cost || 0,
-      reorder_level: product.reorder_level || 0,
+        reorder_level: product.reorder_level || 0,
+        notes: product.notes || '',
     });
     setShowForm(true);
   };
@@ -402,6 +406,15 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
                   placeholder="Product description..."
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Internal Notes</Label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full min-h-[80px] px-3 py-2 text-sm border border-input rounded-md bg-background"
+                  placeholder="Internal notes (not visible to customers)..."
+                />
+              </div>
               <div className="flex gap-3 pt-4">
                 <Button type="submit" className="shadow-sm">
                   {editingProduct ? t('common.edit') + ' ' + t('inventory.title') : t('inventory.addProduct')}
@@ -489,6 +502,13 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
                   {product.description && (
                     <div className="pt-2 border-t border-border">
                       <p className="text-sm text-muted-foreground line-clamp-2">{product.description}</p>
+                  </div>
+                  )}
+                  {product.notes && (
+                    <div className="pt-2 border-t border-dashed border-border mt-2">
+                      <p className="text-xs text-muted-foreground italic line-clamp-2">
+                        Notes: {product.notes}
+                      </p>
                     </div>
                   )}
                 </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ export function EmployeeManagement({
   onDeleteEmployee 
 }: EmployeeManagementProps) {
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
@@ -109,7 +110,11 @@ export function EmployeeManagement({
   };
 
   const handleViewTimesheet = (employeeId: string) => {
-    navigate(`/reports/payroll/employee/${employeeId}/timesheet`);
+    if (businessSlug) {
+      navigate(`/${businessSlug}/reports/payroll/employee/${employeeId}/timesheet`);
+    } else {
+      navigate(`/reports/payroll/employee/${employeeId}/timesheet`);
+    }
   };
 
   const handleCancel = () => {

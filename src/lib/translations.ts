@@ -145,6 +145,10 @@ export const translations: Translations = {
     en: 'Save',
     es: 'Guardar'
   },
+  'common.saving': {
+    en: 'Saving...',
+    es: 'Guardando...'
+  },
   'common.edit': {
     en: 'Edit',
     es: 'Editar'
@@ -382,6 +386,14 @@ export const translations: Translations = {
   'dashboard.totalEarned': {
     en: 'Total earned',
     es: 'Total ganado'
+  },
+  'dashboard.welcome': {
+    en: 'Welcome to your Hub',
+    es: 'Bienvenido a tu Centro'
+  },
+  'dashboard.overview': {
+    en: 'Here is an overview of your business',
+    es: 'Aquí está un resumen de tu negocio'
   },
   'dashboard.growth': {
     en: 'Growth',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Mail, Phone, MapPin, Dog } from 'lucide-react';
@@ -17,6 +17,7 @@ interface ClientListProps {
 
 export function ClientList({ clients, pets, onDelete, onEdit, selectedClientId }: ClientListProps) {
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
 
@@ -50,7 +51,12 @@ export function ClientList({ clients, pets, onDelete, onEdit, selectedClientId }
   };
 
   const handlePetClick = (petId: string) => {
-    navigate(`/pets?highlight=${petId}`);
+    // Preserve the business slug (e.g. /demo/pets?highlight=...)
+    if (businessSlug) {
+      navigate(`/${businessSlug}/pets?highlight=${petId}`);
+    } else {
+      navigate(`/pets?highlight=${petId}`);
+    }
   };
 
   if (clients.length === 0) {
@@ -67,7 +73,9 @@ export function ClientList({ clients, pets, onDelete, onEdit, selectedClientId }
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {clients.map((client) => {
-          const clientPets = pets.filter((pet) => pet.client_id === client.id);
+          // Support both legacy client_id and new customer_id on pets so
+          // customers are correctly connected to their pets.
+          const clientPets = pets.filter((pet: any) => pet.client_id === client.id || pet.customer_id === client.id);
           const isSelected = selectedClientId === client.id;
           return (
             <Card 

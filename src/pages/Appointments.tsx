@@ -396,7 +396,11 @@ export function Appointments({
                                 <span className="font-medium">{t('appointments.serviceType')}:</span> {appointment.service_type}
                               </div>
                               <div className="text-sm mb-2">
-                                <span className="font-medium">{t('appointments.estimatedPrice')}:</span> ${appointment.price.toFixed(2)}
+                                <span className="font-medium">{t('appointments.estimatedPrice')}:</span>{' '}
+                                $
+                                {typeof appointment.price === 'number'
+                                  ? appointment.price.toFixed(2)
+                                  : '0.00'}
                               </div>
                               {appointment.employee_id && (
                                 <div className="text-sm mb-2">

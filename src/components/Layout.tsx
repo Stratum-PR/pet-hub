@@ -1,5 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Dog, Users, LayoutDashboard, Menu, X, Clock, MoreHorizontal, BarChart3, UserCog, DollarSign, Package, Calendar, Scissors, Palette } from 'lucide-react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Dog, Users, LayoutDashboard, Menu, X, Clock, MoreHorizontal, BarChart3, UserCog, DollarSign, Package, Calendar, Scissors, Palette, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +11,10 @@ import {
 import { Settings as SettingsType } from '@/hooks/useSupabaseData';
 import { t, getLanguage } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { signOut } from '@/lib/auth';
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,31 +22,35 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { path: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard },
-  { path: '/clients', labelKey: 'nav.clients', icon: Users },
-  { path: '/pets', labelKey: 'nav.pets', icon: Dog },
-  { path: '/appointments', labelKey: 'nav.appointments', icon: Calendar },
-  { path: '/inventory', labelKey: 'nav.inventory', icon: Package },
+  // Paths are relative to /:businessSlug/
+  { path: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { path: 'clients', labelKey: 'nav.clients', icon: Users },
+  { path: 'pets', labelKey: 'nav.pets', icon: Dog },
+  { path: 'appointments', labelKey: 'nav.appointments', icon: Calendar },
+  { path: 'inventory', labelKey: 'nav.inventory', icon: Package },
 ];
 
 const employeeItems = [
-  { path: '/employee-management', labelKey: 'nav.employeeInfo', icon: UserCog },
-  { path: '/employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
-  { path: '/time-tracking', labelKey: 'nav.timeTracking', icon: Clock },
+  { path: 'employee-management', labelKey: 'nav.employeeInfo', icon: UserCog },
+  { path: 'employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
+  { path: 'time-tracking', labelKey: 'nav.timeTracking', icon: Clock },
 ];
 
 const reportsItems = [
-  { path: '/reports/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
-  { path: '/reports/payroll', labelKey: 'nav.payroll', icon: DollarSign },
+  { path: 'reports/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
+  { path: 'reports/payroll', labelKey: 'nav.payroll', icon: DollarSign },
 ];
 
 export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { businessSlug } = useParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { language } = useLanguage();
   const [employeesMenuOpen, setEmployeesMenuOpen] = useState(false);
   const [reportsMenuOpen, setReportsMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   
   // Force re-render when language changes by using language in state
   const [, forceUpdate] = useState(0);
@@ -69,25 +77,59 @@ export function Layout({ children, settings }: LayoutProps) {
     }
   }, [settings.primary_color, settings.secondary_color]);
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success('Logged out successfully');
+      // Use window.location for a hard redirect to ensure auth state is cleared
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('Logout error:', err);
+      toast.error('Error logging out');
+      // Still redirect even if there's an error
+      window.location.href = '/login';
+    }
+  };
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.classList.add('menu-open');
+    } else {
+      document.body.classList.remove('menu-open');
+    }
+    return () => {
+      document.body.classList.remove('menu-open');
+    };
+  }, [mobileMenuOpen]);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border bg-card shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
+          <Link
+            to={businessSlug ? `/${businessSlug}/dashboard` : '/'}
+            className="flex items-center gap-2"
+          >
             <div className="w-[140px] h-[50px] flex items-center justify-center overflow-hidden bg-transparent -my-2">
               <img src="/stratum hub logo.svg" alt="Stratum Hub" className="w-full h-full object-contain" />
             </div>
-            <span className="text-xl font-semibold tracking-tight">{settings.business_name || 'Stratum Hub'}</span>
+            <span className="text-xl font-semibold tracking-tight">
+              {settings.business_name &&
+              settings.business_name.toLowerCase().includes('demo')
+                ? 'Demo'
+                : settings.business_name || 'Stratum Hub'}
+            </span>
           </Link>
 
           {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+              const isActive = location.pathname === targetPath;
               return (
-                <Link key={item.path} to={item.path}>
+                <Link key={item.path} to={targetPath}>
                   <Button
                     variant={isActive ? 'default' : 'ghost'}
                     size="sm"
@@ -103,9 +145,27 @@ export function Layout({ children, settings }: LayoutProps) {
             <DropdownMenu open={employeesMenuOpen} onOpenChange={setEmployeesMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={location.pathname.startsWith('/employee') || location.pathname === '/time-tracking' ? 'default' : 'ghost'}
+                  variant={
+                    (businessSlug &&
+                      (location.pathname.startsWith(`/${businessSlug}/employee`) ||
+                        location.pathname === `/${businessSlug}/time-tracking`)) ||
+                    (!businessSlug &&
+                      (location.pathname.startsWith('/employee') ||
+                        location.pathname === '/time-tracking'))
+                      ? 'default'
+                      : 'ghost'
+                  }
                   size="sm"
-                  className={`flex items-center gap-2 ${location.pathname.startsWith('/employee') || location.pathname === '/time-tracking' ? 'shadow-sm' : ''}`}
+                  className={`flex items-center gap-2 ${
+                    (businessSlug &&
+                      (location.pathname.startsWith(`/${businessSlug}/employee`) ||
+                        location.pathname === `/${businessSlug}/time-tracking`)) ||
+                    (!businessSlug &&
+                      (location.pathname.startsWith('/employee') ||
+                        location.pathname === '/time-tracking'))
+                      ? 'shadow-sm'
+                      : ''
+                  }`}
                   onMouseEnter={() => setEmployeesMenuOpen(true)}
                   onMouseLeave={() => setEmployeesMenuOpen(false)}
                 >
@@ -120,11 +180,12 @@ export function Layout({ children, settings }: LayoutProps) {
               >
                 {employeeItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
+                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+                  const isActive = location.pathname === targetPath;
                   return (
                     <DropdownMenuItem key={item.path} asChild>
                       <Link
-                        to={item.path}
+                        to={targetPath}
                         className={`flex items-center gap-2 ${isActive ? 'bg-accent' : ''}`}
                       >
                         <Icon className="w-4 h-4" />
@@ -139,9 +200,21 @@ export function Layout({ children, settings }: LayoutProps) {
             <DropdownMenu open={reportsMenuOpen} onOpenChange={setReportsMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={location.pathname.startsWith('/reports') ? 'default' : 'ghost'}
+                  variant={
+                    (businessSlug &&
+                      location.pathname.startsWith(`/${businessSlug}/reports`)) ||
+                    (!businessSlug && location.pathname.startsWith('/reports'))
+                      ? 'default'
+                      : 'ghost'
+                  }
                   size="sm"
-                  className={`flex items-center gap-2 ${location.pathname.startsWith('/reports') ? 'shadow-sm' : ''}`}
+                  className={`flex items-center gap-2 ${
+                    (businessSlug &&
+                      location.pathname.startsWith(`/${businessSlug}/reports`)) ||
+                    (!businessSlug && location.pathname.startsWith('/reports'))
+                      ? 'shadow-sm'
+                      : ''
+                  }`}
                   onMouseEnter={() => setReportsMenuOpen(true)}
                   onMouseLeave={() => setReportsMenuOpen(false)}
                 >
@@ -156,11 +229,12 @@ export function Layout({ children, settings }: LayoutProps) {
               >
                 {reportsItems.map((item) => {
                   const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
+                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+                  const isActive = location.pathname === targetPath;
                   return (
                     <DropdownMenuItem key={item.path} asChild>
                       <Link
-                        to={item.path}
+                        to={targetPath}
                         className={`flex items-center gap-2 ${isActive ? 'bg-accent' : ''}`}
                       >
                         <Icon className="w-4 h-4" />
@@ -175,9 +249,27 @@ export function Layout({ children, settings }: LayoutProps) {
             <DropdownMenu open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={location.pathname.startsWith('/services') || location.pathname.startsWith('/personalization') ? 'default' : 'ghost'}
+                  variant={
+                    (businessSlug &&
+                      (location.pathname.startsWith(`/${businessSlug}/services`) ||
+                        location.pathname.startsWith(`/${businessSlug}/personalization`))) ||
+                    (!businessSlug &&
+                      (location.pathname.startsWith('/services') ||
+                        location.pathname.startsWith('/personalization')))
+                      ? 'default'
+                      : 'ghost'
+                  }
                   size="sm"
-                  className={`flex items-center gap-2 ${location.pathname.startsWith('/services') || location.pathname.startsWith('/personalization') ? 'shadow-sm' : ''}`}
+                  className={`flex items-center gap-2 ${
+                    (businessSlug &&
+                      (location.pathname.startsWith(`/${businessSlug}/services`) ||
+                        location.pathname.startsWith(`/${businessSlug}/personalization`))) ||
+                    (!businessSlug &&
+                      (location.pathname.startsWith('/services') ||
+                        location.pathname.startsWith('/personalization')))
+                      ? 'shadow-sm'
+                      : ''
+                  }`}
                   onMouseEnter={() => setMoreMenuOpen(true)}
                   onMouseLeave={() => setMoreMenuOpen(false)}
                 >
@@ -192,8 +284,14 @@ export function Layout({ children, settings }: LayoutProps) {
               >
                 <DropdownMenuItem asChild>
                   <Link
-                    to="/services"
-                    className={`flex items-center gap-2 ${location.pathname === '/services' ? 'bg-accent' : ''}`}
+                    to={businessSlug ? `/${businessSlug}/services` : '/services'}
+                    className={`flex items-center gap-2 ${
+                      (businessSlug &&
+                        location.pathname === `/${businessSlug}/services`) ||
+                      (!businessSlug && location.pathname === '/services')
+                        ? 'bg-accent'
+                        : ''
+                    }`}
                   >
                     <Scissors className="w-4 h-4" />
                     {t('nav.services')}
@@ -201,12 +299,25 @@ export function Layout({ children, settings }: LayoutProps) {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link
-                    to="/personalization"
-                    className={`flex items-center gap-2 ${location.pathname === '/personalization' ? 'bg-accent' : ''}`}
+                    to={businessSlug ? `/${businessSlug}/personalization` : '/personalization'}
+                    className={`flex items-center gap-2 ${
+                      (businessSlug &&
+                        location.pathname === `/${businessSlug}/personalization`) ||
+                      (!businessSlug && location.pathname === '/personalization')
+                        ? 'bg-accent'
+                        : ''
+                    }`}
                   >
                     <Palette className="w-4 h-4" />
                     {t('nav.personalization')}
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setLogoutDialogOpen(true)}
+                  className="flex items-center gap-2 text-destructive cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -228,11 +339,12 @@ export function Layout({ children, settings }: LayoutProps) {
           <nav className="lg:hidden border-t border-border bg-card animate-fade-in">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+              const isActive = location.pathname === targetPath;
               return (
                 <Link
                   key={item.path}
-                  to={item.path}
+                  to={targetPath}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 border-b border-border transition-colors ${
                     isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
@@ -248,11 +360,12 @@ export function Layout({ children, settings }: LayoutProps) {
               <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.employees')}</div>
               {employeeItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.pathname === item.path;
+                const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+                const isActive = location.pathname === targetPath;
                 return (
                   <Link
                     key={item.path}
-                    to={item.path}
+                    to={targetPath}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
                       isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
@@ -269,11 +382,12 @@ export function Layout({ children, settings }: LayoutProps) {
               <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.reports')}</div>
               {reportsItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.pathname === item.path;
+                const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+                const isActive = location.pathname === targetPath;
                 return (
                   <Link
                     key={item.path}
-                    to={item.path}
+                    to={targetPath}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
                       isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
@@ -289,7 +403,7 @@ export function Layout({ children, settings }: LayoutProps) {
             <div className="border-b border-border">
               <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.more')}</div>
               <Link
-                to="/services"
+                to={businessSlug ? `/${businessSlug}/services` : '/services'}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
                   location.pathname === '/services' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
@@ -299,7 +413,7 @@ export function Layout({ children, settings }: LayoutProps) {
                 {t('nav.services')}
               </Link>
               <Link
-                to="/personalization"
+                to={businessSlug ? `/${businessSlug}/personalization` : '/personalization'}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
                   location.pathname === '/personalization' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
@@ -308,15 +422,92 @@ export function Layout({ children, settings }: LayoutProps) {
                 <Palette className="w-5 h-5" />
                 {t('nav.personalization')}
               </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setLogoutDialogOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-8 py-3 border-b border-border text-destructive text-left hover:bg-muted transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Logout</span>
+              </button>
             </div>
           </nav>
         )}
       </header>
 
+      {/* Impersonation / client view banner (admin mode) */}
+      <ImpersonationBanner />
+
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex-1">
         {children}
       </main>
+
+      {/* Global footer */}
+      <footer className="border-t mt-8" style={{ backgroundColor: '#f9fafb' }}>
+        <div className="container mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-28 h-8 flex items-center justify-center overflow-hidden">
+              <img
+                src="/Logo 4.svg"
+                alt="STRATUM PR LLC"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="text-xs sm:text-sm leading-tight">
+              <div className="font-semibold" style={{ color: '#1E2B7E' }}>
+                STRATUM PR LLC
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Powered by Stratum
+              </div>
+            </div>
+          </div>
+          <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
+            <a
+              href="https://stratumpr.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline-offset-2 hover:underline"
+              style={{ color: '#266AB2' }}
+            >
+              stratumpr.com
+            </a>
+            <div className="mt-1">
+              © 2025 STRATUM PR LLC. All rights reserved.
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* Logout confirmation dialog */}
+      <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log out</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to log out of Stratum Hub?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setLogoutDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setLogoutDialogOpen(false);
+                handleLogout();
+              }}
+            >
+              Log out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

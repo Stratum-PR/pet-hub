@@ -12,7 +12,8 @@ import { format, startOfDay, setHours, setMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
-import { Client, Pet, Service, Appointment, Employee } from '@/types';
+import { Customer, Pet, Service, Appointment } from '@/hooks/useBusinessData';
+import { Employee } from '@/types';
 import { t } from '@/lib/translations';
 
 // Time slots in 24-hour format for internal use
@@ -36,7 +37,7 @@ interface EditAppointmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appointment: Appointment | null;
-  clients: Client[];
+  customers: Customer[];
   pets: Pet[];
   services: Service[];
   employees: Employee[];
@@ -49,7 +50,7 @@ export function EditAppointmentDialog({
   open,
   onOpenChange,
   appointment,
-  clients,
+  customers,
   pets,
   services,
   employees,
@@ -81,7 +82,7 @@ export function EditAppointmentDialog({
     if (appointment && open && appointment.pet_id) {
       try {
         const pet = pets.find(p => p.id === appointment.pet_id);
-        const client = pet ? clients.find(c => c.id === pet.client_id) : null;
+        const customer = pet ? customers.find(c => c.id === pet.customer_id) : null;
         
         // Safely parse date
         let appointmentDate: Date;
@@ -108,10 +109,10 @@ export function EditAppointmentDialog({
         }
         
         setFormData({
-          clientId: client?.id || '',
-          clientName: client?.name || '',
-          clientEmail: client?.email || '',
-          clientPhone: client && client.phone ? formatPhoneNumber(client.phone) : '',
+          clientId: customer?.id || '',
+          clientName: customer ? `${customer.first_name} ${customer.last_name}` : '',
+          clientEmail: customer?.email || '',
+          clientPhone: customer && customer.phone ? formatPhoneNumber(customer.phone) : '',
           petId: appointment.pet_id || '',
           petName: pet?.name || '',
           petBreed: pet?.breed || '',
@@ -144,7 +145,7 @@ export function EditAppointmentDialog({
         setSelectedTime('09:00');
       }
     }
-  }, [appointment, open, pets, clients]);
+  }, [appointment, open, pets, customers]);
 
   // Fetch existing appointments for the selected date (excluding current appointment)
   useEffect(() => {
@@ -205,14 +206,14 @@ export function EditAppointmentDialog({
   };
 
   const handleClientChange = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    if (client) {
+    const customer = customers.find(c => c.id === clientId);
+    if (customer) {
       setFormData(prev => ({
         ...prev,
         clientId,
-        clientName: client.name,
-        clientEmail: client.email || '',
-        clientPhone: formatPhoneNumber(client.phone),
+        clientName: `${customer.first_name} ${customer.last_name}`,
+        clientEmail: customer.email || '',
+        clientPhone: formatPhoneNumber(customer.phone),
         petId: '',
         petName: '',
       }));
@@ -241,18 +242,26 @@ export function EditAppointmentDialog({
     setLoading(true);
 
     try {
-      // Update client if info changed
+      // Update customer if info changed
       if (formData.clientId) {
-        const client = clients.find(c => c.id === formData.clientId);
-        if (client && (client.name !== formData.clientName || client.email !== formData.clientEmail || client.phone !== unformatPhoneNumber(formData.clientPhone))) {
-          await supabase
-            .from('clients')
-            .update({
-              name: formData.clientName,
-              email: formData.clientEmail || client.email,
-              phone: unformatPhoneNumber(formData.clientPhone),
-            })
-            .eq('id', client.id);
+        const customer = customers.find(c => c.id === formData.clientId);
+        if (customer) {
+          const nameParts = formData.clientName.trim().split(' ');
+          const firstName = nameParts[0] || customer.first_name;
+          const lastName = nameParts.slice(1).join(' ') || customer.last_name;
+          
+          if (customer.first_name !== firstName || customer.last_name !== lastName || 
+              customer.email !== formData.clientEmail || customer.phone !== unformatPhoneNumber(formData.clientPhone)) {
+            await supabase
+              .from('customers')
+              .update({
+                first_name: firstName,
+                last_name: lastName,
+                email: formData.clientEmail || customer.email || null,
+                phone: unformatPhoneNumber(formData.clientPhone) || customer.phone,
+              })
+              .eq('id', customer.id);
+          }
         }
       }
 
@@ -421,9 +430,9 @@ export function EditAppointmentDialog({
                     <SelectValue placeholder={t('form.selectClient')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map(client => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name} - {formatPhoneNumber(client.phone)}
+                    {customers.map(customer => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.first_name} {customer.last_name} - {formatPhoneNumber(customer.phone)}
                       </SelectItem>
                     ))}
                   </SelectContent>

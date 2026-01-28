@@ -1,37 +1,101 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Client, Pet, Employee, TimeEntry, Appointment, Service } from '@/types';
+import { useBusinessId } from './useBusinessId';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
+  const { profile } = useAuth();
 
   const fetchClients = async () => {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false });
+    if (!businessId) {
+      console.warn('[useClients] No businessId, skipping fetch. Profile:', profile);
+      setLoading(false);
+      setClients([]);
+      return;
+    }
+
+    console.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId);
     
-    if (!error && data) {
-      setClients(data);
+    try {
+      // Use customers table with business_id filter
+      const { data, error, count } = await supabase
+        .from('customers' as any)
+        .select('*', { count: 'exact' })
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('[useClients] Error fetching clients:', error);
+        console.error('[useClients] Error details:', JSON.stringify(error, null, 2));
+        setClients([]);
+      } else {
+        console.log('[useClients] Query successful. Count:', count, 'Data length:', data?.length || 0);
+        if (data && data.length > 0) {
+          console.log('[useClients] Sample customer:', data[0]);
+        }
+        // Convert customers to clients format for compatibility
+        const convertedClients = (data || []).map((c: any) => ({
+          id: c.id,
+          name: `${c.first_name} ${c.last_name}`,
+          email: c.email || '',
+          phone: c.phone || '',
+          address: c.address || '',
+          notes: c.notes || null,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        }));
+        setClients(convertedClients);
+      }
+    } catch (err: any) {
+      console.error('[useClients] Exception:', err);
+      setClients([]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, [businessId]);
 
   const addClient = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!businessId) return null;
+
+    // Split name into first_name and last_name
+    const nameParts = clientData.name.split(' ');
+    const first_name = nameParts[0] || '';
+    const last_name = nameParts.slice(1).join(' ') || '';
+
     const { data, error } = await supabase
-      .from('clients')
-      .insert(clientData)
+      .from('customers' as any)
+      .insert({
+        business_id: businessId,
+        first_name,
+        last_name,
+        email: clientData.email,
+        phone: clientData.phone,
+        address: clientData.address,
+        notes: clientData.notes,
+      })
       .select()
       .single();
     
     if (!error && data) {
-      setClients([data, ...clients]);
-      return data;
+      const converted = {
+        id: data.id,
+        name: `${data.first_name} ${data.last_name}`,
+        email: data.email || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        notes: data.notes || null,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      setClients([converted, ...clients]);
+      return converted;
     }
     return null;
   };
@@ -70,22 +134,39 @@ export function useClients() {
 export function usePets() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
 
   const fetchPets = async () => {
+    if (!businessId) {
+      console.warn('[usePets] No businessId, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
+    console.log('[usePets] Fetching pets for businessId:', businessId);
+
     const { data, error } = await supabase
       .from('pets')
       .select('*')
+      .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     
-    if (!error && data) {
+    if (error) {
+      console.error('[usePets] Error fetching pets:', error);
+      setPets([]);
+    } else if (data) {
+      console.log('[usePets] Fetched', data.length, 'pets');
       setPets(data as Pet[]);
+    } else {
+      console.warn('[usePets] No data returned');
+      setPets([]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchPets();
-  }, []);
+  }, [businessId]);
 
   const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
@@ -135,11 +216,18 @@ export function usePets() {
 export function useEmployees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
 
   const fetchEmployees = async () => {
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('employees')
       .select('*')
+      .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     
     if (!error && data) {
@@ -150,7 +238,7 @@ export function useEmployees() {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [businessId]);
 
   const addEmployee = async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
@@ -214,11 +302,30 @@ export function useEmployees() {
 export function useTimeEntries() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
 
   const fetchTimeEntries = async () => {
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
+
+    // Get time entries for employees in this business
+    const { data: employees } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('business_id', businessId);
+
+    if (!employees || employees.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    const employeeIds = employees.map(e => e.id);
     const { data, error } = await supabase
       .from('time_entries')
       .select('*')
+      .in('employee_id', employeeIds)
       .order('clock_in', { ascending: false });
     
     if (!error && data) {
@@ -229,7 +336,7 @@ export function useTimeEntries() {
 
   useEffect(() => {
     fetchTimeEntries();
-  }, []);
+  }, [businessId]);
 
   const clockIn = async (employeeId: string) => {
     const { data, error } = await supabase
@@ -307,22 +414,47 @@ export function useTimeEntries() {
 export function useAppointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
 
   const fetchAppointments = async () => {
+    if (!businessId) {
+      console.warn('[useAppointments] No businessId, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
+    console.log('[useAppointments] Fetching appointments for businessId:', businessId);
+
     const { data, error } = await supabase
       .from('appointments')
       .select('*')
-      .order('scheduled_date', { ascending: true });
+      .eq('business_id', businessId)
+      .order('appointment_date', { ascending: true, nullsFirst: false })
+      .order('start_time', { ascending: true, nullsFirst: false });
     
-    if (!error && data) {
-      setAppointments(data as Appointment[]);
+    if (error) {
+      console.error('[useAppointments] Error fetching appointments:', error);
+      setAppointments([]);
+    } else if (data) {
+      console.log('[useAppointments] Fetched', data.length, 'appointments');
+      // Convert new schema to old schema format for compatibility
+      const convertedAppointments = data.map((apt: any) => ({
+        ...apt,
+        scheduled_date: apt.appointment_date 
+          ? `${apt.appointment_date}T${apt.start_time || '00:00:00'}` 
+          : apt.scheduled_date || new Date().toISOString(),
+      }));
+      setAppointments(convertedAppointments as Appointment[]);
+    } else {
+      console.warn('[useAppointments] No data returned');
+      setAppointments([]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchAppointments();
-  }, []);
+  }, [businessId]);
 
   const addAppointment = async (appointmentData: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
@@ -374,32 +506,49 @@ export function useAppointments() {
 export function useServices() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
 
   const fetchServices = async () => {
+    if (!businessId) {
+      console.warn('[useServices] No businessId, skipping fetch');
+      setLoading(false);
+      return;
+    }
+
+    console.log('[useServices] Fetching services for businessId:', businessId);
+
     const { data, error } = await supabase
       .from('services')
       .select('*')
-      .order('category', { ascending: true, nullsFirst: true })
+      .eq('business_id', businessId)
       .order('name', { ascending: true });
     
-    if (!error && data) {
+    if (error) {
+      console.error('[useServices] Error fetching services:', error);
+      setServices([]);
+    } else if (data) {
+      console.log('[useServices] Fetched', data.length, 'services');
       setServices(data as Service[]);
+    } else {
+      console.warn('[useServices] No data returned');
+      setServices([]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchServices();
-  }, []);
+  }, [businessId]);
 
   const addService = async (serviceData: Omit<Service, 'id' | 'created_at'>) => {
-    // Convert undefined to null for optional fields
-    const cleanData = {
+    // NOTE: `public.services` (in this project) does NOT have `category` or `cost` columns.
+    // Sending unknown columns causes PostgREST 400 and makes the UI look empty.
+    const cleanData: any = {
       ...serviceData,
-      description: serviceData.description || null,
-      category: serviceData.category || null,
-      cost: serviceData.cost ?? null,
+      description: (serviceData as any).description || null,
     };
+    delete cleanData.category;
+    delete cleanData.cost;
     
     const { data, error } = await supabase
       .from('services')
@@ -408,12 +557,7 @@ export function useServices() {
       .single();
     
     if (!error && data) {
-      setServices([...services, data as Service].sort((a, b) => {
-        if (a.category !== b.category) {
-          return (a.category || '').localeCompare(b.category || '');
-        }
-        return a.name.localeCompare(b.name);
-      }));
+      setServices([...services, data as Service].sort((a, b) => a.name.localeCompare(b.name)));
       return data;
     }
     if (error) {
@@ -468,22 +612,60 @@ export function useSettings() {
     secondary_color: '200 55% 55%',
   });
   const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
 
   const fetchSettings = async () => {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*');
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
+
+    // Get business info for business_name
+    const { data: business, error: businessError } = await (supabase
+      .from('businesses' as any)
+      .select('name')
+      .eq('id', businessId)
+      .maybeSingle() as any);
+
+    // Try to get settings filtered by business_id (if column exists)
+    // If that fails, get all settings (for backward compatibility)
+    let settingsData: any[] = [];
+    let settingsError: any = null;
     
-    if (!error && data) {
+    try {
+      const result = await supabase
+        .from('settings')
+        .select('*')
+        .eq('business_id', businessId);
+      settingsData = result.data || [];
+      settingsError = result.error;
+    } catch (err) {
+      // business_id column might not exist, try without filter
+      const result = await supabase
+        .from('settings')
+        .select('*');
+      settingsData = result.data || [];
+      settingsError = result.error;
+    }
+    
+    if (!settingsError && settingsData) {
       const settingsMap: Record<string, string> = {};
-      data.forEach((item: { key: string; value: string }) => {
+      settingsData.forEach((item: { key: string; value: string }) => {
         settingsMap[item.key] = item.value;
       });
       setSettings({
-        business_name: settingsMap.business_name || 'Stratum Hub',
+        business_name: business?.name || settingsMap.business_name || 'Stratum Hub',
         business_hours: settingsMap.business_hours || '9:00 AM - 6:00 PM',
         primary_color: settingsMap.primary_color || '168 60% 45%',
         secondary_color: settingsMap.secondary_color || '200 55% 55%',
+      });
+    } else if (!businessError && business) {
+      // If no settings but business exists, use business name
+      setSettings({
+        business_name: business.name || 'Stratum Hub',
+        business_hours: '9:00 AM - 6:00 PM',
+        primary_color: '168 60% 45%',
+        secondary_color: '200 55% 55%',
       });
     }
     setLoading(false);
@@ -491,27 +673,64 @@ export function useSettings() {
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [businessId]);
 
   const updateSetting = async (key: string, value: string) => {
-    // First try to update, if no rows affected, insert
-    const { data: existingData } = await supabase
-      .from('settings')
-      .select('*')
-      .eq('key', key)
-      .maybeSingle();
+    if (!businessId) return false;
+
+    // Try with business_id first, fallback to without if column doesn't exist
+    let existingData: any = null;
+    try {
+      const result = await supabase
+        .from('settings')
+        .select('*')
+        .eq('key', key)
+        .eq('business_id', businessId)
+        .maybeSingle();
+      existingData = result.data;
+    } catch (err) {
+      // business_id column might not exist, try without
+      const result = await supabase
+        .from('settings')
+        .select('*')
+        .eq('key', key)
+        .maybeSingle();
+      existingData = result.data;
+    }
 
     if (existingData) {
-      const { error } = await supabase
-        .from('settings')
-        .update({ value })
-        .eq('key', key);
+      // Try update with business_id, fallback to without
+      let error: any = null;
+      try {
+        const result = await supabase
+          .from('settings')
+          .update({ value })
+          .eq('key', key)
+          .eq('business_id', businessId);
+        error = result.error;
+      } catch (err) {
+        const result = await supabase
+          .from('settings')
+          .update({ value })
+          .eq('key', key);
+        error = result.error;
+      }
       
       if (error) return false;
     } else {
-      const { error } = await supabase
-        .from('settings')
-        .insert({ key, value });
+      // Try insert with business_id, fallback to without
+      let error: any = null;
+      try {
+        const result = await supabase
+          .from('settings')
+          .insert({ key, value, business_id: businessId });
+        error = result.error;
+      } catch (err) {
+        const result = await supabase
+          .from('settings')
+          .insert({ key, value });
+        error = result.error;
+      }
       
       if (error) return false;
     }
@@ -521,6 +740,8 @@ export function useSettings() {
   };
 
   const saveAllSettings = async (newSettings: Settings) => {
+    if (!businessId) return false;
+
     const updates = [
       updateSetting('business_name', newSettings.business_name),
       updateSetting('business_hours', newSettings.business_hours),

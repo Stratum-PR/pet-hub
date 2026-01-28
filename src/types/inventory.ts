@@ -10,6 +10,7 @@ export interface Product {
   description?: string;
   cost?: number;
   reorder_level?: number;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }

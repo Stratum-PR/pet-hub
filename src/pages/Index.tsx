@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Clients } from '@/pages/Clients';
@@ -19,6 +19,7 @@ import { Checkout } from '@/pages/Checkout';
 import { Payment } from '@/pages/Payment';
 import { useClients, usePets, useEmployees, useTimeEntries, useAppointments, useSettings, useServices } from '@/hooks/useSupabaseData';
 import { useInventory } from '@/hooks/useInventory';
+import { DataDiagnostics } from '@/components/DataDiagnostics';
 
 const Index = () => {
   const { clients, addClient, updateClient, deleteClient } = useClients();
@@ -32,29 +33,30 @@ const Index = () => {
 
   return (
     <Routes>
-      {/* Public booking page - no layout */}
+      {/* All routes for a business with layout; parent route provides :businessSlug */}
       <Route
-        path="/book-appointment"
-        element={<BookAppointment />}
-      />
-      
-      {/* All other routes with layout */}
-      <Route path="/*" element={
+        path="*"
+        element={
         <Layout settings={settings}>
           <Routes>
-            <Route 
-              path="/" 
+            {/* Default dashboard */}
+            <Route
+              path=""
+              element={<Navigate to="dashboard" replace />}
+            />
+            <Route
+              path="dashboard"
               element={
-                <Dashboard 
-                  clients={clients} 
-                  pets={pets} 
+                <Dashboard
+                  clients={clients}
+                  pets={pets}
                   employees={employees}
                   appointments={appointments}
                 />
-              } 
+              }
             />
             <Route
-              path="/clients"
+              path="clients"
               element={
                 <Clients
                   clients={clients}
@@ -66,7 +68,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/pets"
+              path="pets"
               element={
                 <Pets
                   clients={clients}
@@ -78,7 +80,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/appointments"
+              path="appointments"
               element={
                 <Appointments
                   appointments={appointments}
@@ -93,7 +95,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/inventory"
+              path="inventory"
               element={
                 <Inventory
                   products={products}
@@ -104,7 +106,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/time-tracking"
+              path="time-tracking"
               element={
                 <Employees
                   employees={employees}
@@ -116,7 +118,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/employee-management"
+              path="employee-management"
               element={
                 <EmployeeManagement
                   employees={employees}
@@ -127,7 +129,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/employee-schedule"
+              path="employee-schedule"
               element={
                 <EmployeeSchedule
                   employees={employees}
@@ -136,7 +138,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/reports/analytics"
+              path="reports/analytics"
               element={
                 <Reports
                   clients={clients}
@@ -147,19 +149,19 @@ const Index = () => {
                 />
               }
             />
-        <Route
-          path="/reports/payroll"
-          element={
-            <Payroll
-              employees={employees}
-              timeEntries={timeEntries}
-              onUpdateTimeEntry={updateTimeEntry}
-              onAddTimeEntry={addTimeEntry}
-            />
-          }
-        />
             <Route
-              path="/reports/payroll/employee/:employeeId"
+              path="reports/payroll"
+              element={
+                <Payroll
+                  employees={employees}
+                  timeEntries={timeEntries}
+                  onUpdateTimeEntry={updateTimeEntry}
+                  onAddTimeEntry={addTimeEntry}
+                />
+              }
+            />
+            <Route
+              path="reports/payroll/employee/:employeeId"
               element={
                 <EmployeePayroll
                   employees={employees}
@@ -168,7 +170,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/reports/payroll/employee/:employeeId/timesheet"
+              path="reports/payroll/employee/:employeeId/timesheet"
               element={
                 <EmployeeTimesheet
                   employees={employees}
@@ -177,7 +179,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/reports"
+              path="reports"
               element={
                 <Reports
                   clients={clients}
@@ -189,7 +191,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/services"
+              path="services"
               element={
                 <Services
                   services={services}
@@ -200,7 +202,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/personalization"
+              path="personalization"
               element={
                 <Personalization
                   settings={settings}
@@ -209,7 +211,7 @@ const Index = () => {
               }
             />
             <Route
-              path="/checkout"
+              path="checkout"
               element={
                 <Checkout
                   appointments={appointments}
@@ -221,12 +223,14 @@ const Index = () => {
               }
             />
             <Route
-              path="/payment"
+              path="payment"
               element={<Payment />}
             />
           </Routes>
         </Layout>
       } />
+      {/* Public booking page - no layout, kept global (not tied to a business slug) */}
+      <Route path="/book-appointment" element={<BookAppointment />} />
     </Routes>
   );
 };

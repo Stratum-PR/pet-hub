@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ export function Personalization({
   onSaveSettings,
 }: PersonalizationProps) {
   const { language, setLanguage } = useLanguage();
+  const { businessSlug } = useParams<{ businessSlug: string }>();
   
   const [settingsFormData, setSettingsFormData] = useState({
     business_name: settings.business_name,
@@ -49,13 +51,25 @@ export function Personalization({
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    // In public demo mode, avoid saving to Supabase (RLS will block writes).
+    // Just update UI locally so users can preview customization without errors.
+    if (businessSlug === 'demo') {
+      // Apply colors immediately
+      const root = document.documentElement;
+      const primaryValue = settingsFormData.primary_color.replace(/hsl\(|\)/g, '').trim();
+      const secondaryValue = settingsFormData.secondary_color.replace(/hsl\(|\)/g, '').trim();
+      root.style.setProperty('--primary', primaryValue);
+      root.style.setProperty('--secondary', secondaryValue);
+      toast.success(t('personalization.settingsSaved'));
+      return;
+    }
+
     setSavingSettings(true);
     const success = await onSaveSettings(settingsFormData);
     setSavingSettings(false);
     
     if (success) {
       toast.success(t('personalization.settingsSaved'));
-      // Apply colors immediately
       const root = document.documentElement;
       const primaryValue = settingsFormData.primary_color.replace(/hsl\(|\)/g, '').trim();
       const secondaryValue = settingsFormData.secondary_color.replace(/hsl\(|\)/g, '').trim();

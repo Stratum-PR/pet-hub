@@ -5,12 +5,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pet, Client } from '@/types';
+import { Pet, Customer } from '@/hooks/useBusinessData';
 import { DOG_BREEDS } from '@/lib/dogBreeds';
 
 interface PetFormProps {
-  clients: Client[];
-  onSubmit: (pet: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => void;
+  customers: Customer[];
+  onSubmit: (pet: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => void;
   onCancel?: () => void;
   initialData?: Pet | null;
   isEditing?: boolean;
@@ -40,9 +40,9 @@ const CAT_BREEDS = [
   'Other',
 ];
 
-export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
+export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
   const [formData, setFormData] = useState({
-    client_id: '',
+    customer_id: '',
     name: '',
     species: '' as 'dog' | 'cat' | 'other',
     breed: '',
@@ -55,14 +55,14 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
   useEffect(() => {
     if (initialData) {
       setFormData({
-        client_id: initialData.client_id,
+        customer_id: initialData.customer_id,
         name: initialData.name,
         species: initialData.species,
-        breed: initialData.breed,
-        age: initialData.age,
-        weight: initialData.weight,
+        breed: initialData.breed || '',
+        age: initialData.age || 0,
+        weight: initialData.weight || 0,
         notes: initialData.notes || '',
-        vaccination_status: initialData.vaccination_status || 'unknown',
+        vaccination_status: (initialData as any).vaccination_status || 'unknown',
       });
     }
   }, [initialData]);
@@ -72,7 +72,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
     onSubmit(formData);
     if (!isEditing) {
       setFormData({
-        client_id: '',
+        customer_id: '',
         name: '',
         species: '' as 'dog' | 'cat' | 'other',
         breed: '',
@@ -102,19 +102,19 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="clientId">Owner</Label>
+              <Label htmlFor="customerId">Owner</Label>
               <Select
-                value={formData.client_id}
-                onValueChange={(value) => setFormData({ ...formData, client_id: value })}
+                value={formData.customer_id}
+                onValueChange={(value) => setFormData({ ...formData, customer_id: value })}
                 required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select owner" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.first_name} {customer.last_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -13,5 +13,19 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: false,
   }
 });
+
+// Suppress AbortError warnings - these are harmless and occur during navigation
+if (typeof window !== 'undefined') {
+  const originalConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    const message = args[0]?.toString() || '';
+    if (message.includes('AbortError') && message.includes('signal is aborted')) {
+      // Silently ignore AbortErrors from Supabase
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
+}
