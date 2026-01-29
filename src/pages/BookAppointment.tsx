@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { DOG_BREEDS } from '@/lib/dogBreeds';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
+import { useBusinessId } from '@/hooks/useBusinessId';
 
 const CAT_BREEDS = [
   'Mixed Breed - Shorthair',
@@ -72,6 +73,7 @@ const formatTime12H = (time24: string): string => {
 };
 
 export function BookAppointment() {
+  const businessId = useBusinessId();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -101,9 +103,12 @@ export function BookAppointment() {
   // Fetch services from database
   useEffect(() => {
     const fetchServices = async () => {
+      if (!businessId) return;
+      
       const { data } = await supabase
         .from('services')
         .select('*')
+        .eq('business_id', businessId)
         .order('name', { ascending: true });
       
       if (data) {
@@ -111,26 +116,38 @@ export function BookAppointment() {
       }
     };
     fetchServices();
-  }, []);
+  }, [businessId]);
 
   // Fetch existing appointments for the selected date
   useEffect(() => {
-    if (selectedDate) {
+    if (selectedDate && businessId) {
       const fetchAppointments = async () => {
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        // Try both appointment_date and scheduled_date for compatibility
         const { data } = await supabase
           .from('appointments')
-          .select('scheduled_date')
-          .gte('scheduled_date', `${dateStr}T00:00:00`)
-          .lt('scheduled_date', `${dateStr}T23:59:59`);
+          .select('appointment_date, start_time, scheduled_date')
+          .eq('business_id', businessId)
+          .or(`appointment_date.eq.${dateStr},scheduled_date.gte.${dateStr}T00:00:00`);
         
         if (data) {
-          setExistingAppointments(data);
+          // Filter to only the selected date
+          const filtered = data.filter(apt => {
+            if (apt.appointment_date) {
+              return apt.appointment_date === dateStr;
+            }
+            if (apt.scheduled_date) {
+              const aptDate = new Date(apt.scheduled_date);
+              return format(aptDate, 'yyyy-MM-dd') === dateStr;
+            }
+            return false;
+          });
+          setExistingAppointments(filtered);
         }
       };
       fetchAppointments();
     }
-  }, [selectedDate]);
+  }, [selectedDate, businessId]);
 
   const getBookedTimes = useMemo(() => {
     if (!selectedDate || existingAppointments.length === 0) return [];
@@ -164,31 +181,45 @@ export function BookAppointment() {
       const phoneDigits = unformatPhoneNumber(phoneInput);
       
       // Search for existing client by phone - fetch all and filter to handle different formats
-      const { data: allClients } = await supabase
-        .from('clients')
-        .select('*');
+      if (!businessId) {
+        alert('Business ID not available. Please refresh the page.');
+        return;
+      }
+      
+      const { data: allCustomers } = await supabase
+        .from('customers' as any)
+        .select('*')
+        .eq('business_id', businessId);
       
       // Find client with matching phone (normalize both for comparison)
-      const matchingClientData = allClients?.find(client => {
-        const clientPhoneDigits = unformatPhoneNumber(client.phone);
-        return clientPhoneDigits === phoneDigits;
+      const matchingClientData = allCustomers?.find(customer => {
+        const customerPhoneDigits = unformatPhoneNumber(customer.phone);
+        return customerPhoneDigits === phoneDigits;
       });
       
       if (matchingClientData) {
-        setMatchingClient(matchingClientData);
+        // Convert customer to client format for compatibility
+        const clientData = {
+          id: matchingClientData.id,
+          name: `${matchingClientData.first_name} ${matchingClientData.last_name}`,
+          email: matchingClientData.email || '',
+          phone: matchingClientData.phone,
+        };
+        setMatchingClient(clientData);
         
-        // Get pets for this client
+        // Get pets for this customer (using customer_id, not client_id)
         const { data: pets } = await supabase
           .from('pets')
           .select('*')
-          .eq('client_id', matchingClientData.id);
+          .eq('customer_id', matchingClientData.id)
+          .eq('business_id', businessId);
         
         setMatchingPets(pets || []);
         setFormData(prev => ({
           ...prev,
           phone: formatPhoneNumber(matchingClientData.phone),
           email: matchingClientData.email || '',
-          clientName: matchingClientData.name,
+          clientName: `${matchingClientData.first_name} ${matchingClientData.last_name}`,
         }));
       } else {
         setMatchingClient(null);
@@ -254,10 +285,22 @@ export function BookAppointment() {
           clientId = matchingClient.id;
         } else {
           // Name/pet doesn't match, create new client
-          const { data: newClient } = await supabase
-            .from('clients')
+          if (!businessId) {
+            alert('Business ID not available. Please refresh the page.');
+            setLoading(false);
+            return;
+          }
+          
+          const nameParts = formData.clientName.split(' ');
+          const first_name = nameParts[0] || '';
+          const last_name = nameParts.slice(1).join(' ') || '';
+          
+          const { data: newCustomer } = await supabase
+            .from('customers' as any)
             .insert({
-              name: formData.clientName,
+              business_id: businessId,
+              first_name,
+              last_name,
               email: formData.email || '',
               phone: phoneDigits,
               address: '',
@@ -265,16 +308,28 @@ export function BookAppointment() {
             .select()
             .single();
           
-          if (newClient) {
-            clientId = newClient.id;
+          if (newCustomer) {
+            clientId = newCustomer.id;
           }
         }
       } else {
         // No matching client found, create new one
-        const { data: newClient } = await supabase
-          .from('clients')
+        if (!businessId) {
+          alert('Business ID not available. Please refresh the page.');
+          setLoading(false);
+          return;
+        }
+        
+        const nameParts = formData.clientName.split(' ');
+        const first_name = nameParts[0] || '';
+        const last_name = nameParts.slice(1).join(' ') || '';
+        
+        const { data: newCustomer } = await supabase
+          .from('customers' as any)
           .insert({
-            name: formData.clientName,
+            business_id: businessId,
+            first_name,
+            last_name,
             email: formData.email || '',
             phone: phoneDigits,
             address: '',
@@ -282,8 +337,8 @@ export function BookAppointment() {
           .select()
           .single();
         
-        if (newClient) {
-          clientId = newClient.id;
+        if (newCustomer) {
+          clientId = newCustomer.id;
         }
       }
 
@@ -295,10 +350,17 @@ export function BookAppointment() {
           petId = formData.petId;
         } else {
           // Create new pet
+          if (!businessId) {
+            alert('Business ID not available. Please refresh the page.');
+            setLoading(false);
+            return;
+          }
+          
           const { data: newPet } = await supabase
             .from('pets')
             .insert({
-              client_id: clientId,
+              business_id: businessId,
+              customer_id: clientId,
               name: formData.petName,
               species: formData.petSpecies || 'other',
               breed: formData.petBreed || 'Unknown',
@@ -315,9 +377,18 @@ export function BookAppointment() {
       }
 
       // Create appointment
-      if (petId && selectedDate) {
+      if (petId && selectedDate && businessId) {
         const [hours, minutes] = selectedTime.split(':');
         const appointmentDate = setMinutes(setHours(selectedDate, parseInt(hours)), parseInt(minutes));
+        
+        // Get service IDs from service names
+        const serviceIds: string[] = [];
+        for (const serviceName of formData.services) {
+          const service = services.find(s => s.name === serviceName);
+          if (service?.id) {
+            serviceIds.push(service.id);
+          }
+        }
         
         const serviceType = formData.services.join(', ');
         // Calculate price from selected services
@@ -326,14 +397,23 @@ export function BookAppointment() {
           return total + (service?.price || 0);
         }, 0);
 
+        // Use the first service ID if available, otherwise use service_type as fallback
+        const primaryServiceId = serviceIds[0] || null;
+
         const { error } = await supabase
           .from('appointments')
           .insert({
+            business_id: businessId,
+            customer_id: clientId,
             pet_id: petId,
-            scheduled_date: appointmentDate.toISOString(),
-            service_type: serviceType,
+            service_id: primaryServiceId,
+            appointment_date: format(selectedDate, 'yyyy-MM-dd'),
+            start_time: selectedTime,
+            scheduled_date: appointmentDate.toISOString(), // Keep for backward compatibility
+            service_type: serviceType, // Keep for backward compatibility
             status: 'scheduled',
-            price: estimatedPrice,
+            total_price: estimatedPrice,
+            price: estimatedPrice, // Keep for backward compatibility
             notes: formData.notes || `Client: ${formData.clientName}\nPet: ${formData.petName || matchingPets.find(p => p.id === formData.petId)?.name}\nBreed: ${formData.petBreed}\nServices: ${serviceType}`,
           });
 

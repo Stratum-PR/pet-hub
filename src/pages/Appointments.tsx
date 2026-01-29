@@ -127,12 +127,18 @@ export function Appointments({
     if (editingAppointment && formData.client_name) {
       const pet = pets.find(p => p.id === editingAppointment.pet_id);
       if (pet) {
-        const client = clients.find(c => c.id === pet.client_id);
+        const client = clients.find(c => c.id === (pet.customer_id || pet.client_id));
         if (client && (client.name !== formData.client_name || client.email !== formData.client_email || client.phone !== formData.client_phone)) {
+          // Convert name to first_name/last_name for customers table
+          const nameParts = formData.client_name.split(' ');
+          const first_name = nameParts[0] || '';
+          const last_name = nameParts.slice(1).join(' ') || '';
+          
           await supabase
-            .from('clients')
+            .from('customers' as any)
             .update({
-              name: formData.client_name,
+              first_name,
+              last_name,
               email: formData.client_email || client.email,
               phone: formData.client_phone || client.phone,
             })

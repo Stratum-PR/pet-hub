@@ -16,7 +16,9 @@ export interface Client {
 
 export interface Pet {
   id: string;
-  client_id: string;
+  client_id?: string; // Legacy field, deprecated - use customer_id
+  customer_id?: string; // New field - preferred
+  business_id?: string; // Multi-tenant field
   name: string;
   species: 'dog' | 'cat' | 'other';
   breed: string;
@@ -25,6 +27,7 @@ export interface Pet {
   notes?: string;
   vaccination_status?: string;
   last_grooming_date?: string;
+  special_instructions?: string;
   created_at: string;
   updated_at: string;
 }

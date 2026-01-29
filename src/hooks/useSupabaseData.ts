@@ -22,15 +22,49 @@ export function useClients() {
     
     try {
       // Use customers table with business_id filter
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('customers' as any)
-        .select('*', { count: 'exact' })
-        .eq('business_id', businessId)
+        .select('*', { count: 'exact' });
+      
+      // Try with business_id filter
+      try {
+        query = query.eq('business_id', businessId);
+      } catch (err) {
+        console.warn('[useClients] business_id filter failed, trying without it');
+      }
+      
+      const { data, error, count } = await query
         .order('created_at', { ascending: false });
       
       if (error) {
         console.error('[useClients] Error fetching clients:', error);
         console.error('[useClients] Error details:', JSON.stringify(error, null, 2));
+        
+        // If customers table doesn't exist, try clients table as fallback
+        if (error.code === 'PGRST205' || error.message?.includes('customers')) {
+          console.warn('[useClients] customers table not found, trying clients table');
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('clients' as any)
+            .select('*', { count: 'exact' })
+            .order('created_at', { ascending: false });
+          
+          if (!fallbackError && fallbackData) {
+            const convertedClients = (fallbackData || []).map((c: any) => ({
+              id: c.id,
+              name: c.name || '',
+              email: c.email || '',
+              phone: c.phone || '',
+              address: c.address || '',
+              notes: c.notes || null,
+              created_at: c.created_at,
+              updated_at: c.updated_at,
+            }));
+            setClients(convertedClients);
+            setLoading(false);
+            return;
+          }
+        }
+        
         setClients([]);
       } else {
         console.log('[useClients] Query successful. Count:', count, 'Data length:', data?.length || 0);
@@ -101,23 +135,47 @@ export function useClients() {
   };
 
   const updateClient = async (id: string, clientData: Partial<Client>) => {
+    if (!businessId) return null;
+
+    // Convert client data to customer format
+    const nameParts = clientData.name?.split(' ') || [];
+    const first_name = nameParts[0] || '';
+    const last_name = nameParts.slice(1).join(' ') || '';
+
     const { data, error } = await supabase
-      .from('clients')
-      .update(clientData)
+      .from('customers' as any)
+      .update({
+        first_name,
+        last_name,
+        email: clientData.email,
+        phone: clientData.phone,
+        address: clientData.address,
+        notes: clientData.notes,
+      })
       .eq('id', id)
       .select()
       .single();
     
     if (!error && data) {
-      setClients(clients.map(c => c.id === id ? data : c));
-      return data;
+      const converted = {
+        id: data.id,
+        name: `${data.first_name} ${data.last_name}`,
+        email: data.email || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        notes: data.notes || null,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      setClients(clients.map(c => c.id === id ? converted : c));
+      return converted;
     }
     return null;
   };
 
   const deleteClient = async (id: string) => {
     const { error } = await supabase
-      .from('clients')
+      .from('customers' as any)
       .delete()
       .eq('id', id);
     
@@ -145,18 +203,49 @@ export function usePets() {
 
     console.log('[usePets] Fetching pets for businessId:', businessId);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('pets')
-      .select('*')
-      .eq('business_id', businessId)
+      .select('*');
+    
+    // Try with business_id first, fallback if column doesn't exist
+    try {
+      query = query.eq('business_id', businessId);
+    } catch (err) {
+      console.warn('[usePets] business_id filter failed, trying without it');
+    }
+    
+    const { data, error } = await query
       .order('created_at', { ascending: false });
     
     if (error) {
       console.error('[usePets] Error fetching pets:', error);
+      // If business_id column doesn't exist, try without it (fallback for schema drift)
+      if (error.code === '42703' || error.message?.includes('business_id')) {
+        console.warn('[usePets] business_id column not found, trying without filter');
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('pets')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (!fallbackError && fallbackData) {
+          const mappedPets = fallbackData.map((pet: any) => ({
+            ...pet,
+            client_id: pet.customer_id || pet.client_id, // Support both fields
+          }));
+          setPets(mappedPets as Pet[]);
+          setLoading(false);
+          return;
+        }
+      }
       setPets([]);
     } else if (data) {
       console.log('[usePets] Fetched', data.length, 'pets');
-      setPets(data as Pet[]);
+      // Map customer_id to client_id for backward compatibility
+      const mappedPets = data.map((pet: any) => ({
+        ...pet,
+        client_id: pet.customer_id || pet.client_id, // Support both fields
+      }));
+      setPets(mappedPets as Pet[]);
     } else {
       console.warn('[usePets] No data returned');
       setPets([]);
@@ -425,15 +514,44 @@ export function useAppointments() {
 
     console.log('[useAppointments] Fetching appointments for businessId:', businessId);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('appointments')
-      .select('*')
-      .eq('business_id', businessId)
+      .select('*');
+    
+    // Try with business_id first, fallback if column doesn't exist
+    try {
+      query = query.eq('business_id', businessId);
+    } catch (err) {
+      console.warn('[useAppointments] business_id filter failed, trying without it');
+    }
+    
+    const { data, error } = await query
       .order('appointment_date', { ascending: true, nullsFirst: false })
       .order('start_time', { ascending: true, nullsFirst: false });
     
     if (error) {
       console.error('[useAppointments] Error fetching appointments:', error);
+      // If business_id column doesn't exist, try without it (fallback for schema drift)
+      if (error.code === '42703' || error.message?.includes('business_id')) {
+        console.warn('[useAppointments] business_id column not found, trying without filter');
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('appointments')
+          .select('*')
+          .order('appointment_date', { ascending: true, nullsFirst: false })
+          .order('start_time', { ascending: true, nullsFirst: false });
+        
+        if (!fallbackError && fallbackData) {
+          const convertedAppointments = fallbackData.map((apt: any) => ({
+            ...apt,
+            scheduled_date: apt.appointment_date 
+              ? `${apt.appointment_date}T${apt.start_time || '00:00:00'}` 
+              : apt.scheduled_date || new Date().toISOString(),
+          }));
+          setAppointments(convertedAppointments as Appointment[]);
+          setLoading(false);
+          return;
+        }
+      }
       setAppointments([]);
     } else if (data) {
       console.log('[useAppointments] Fetched', data.length, 'appointments');
@@ -525,6 +643,20 @@ export function useServices() {
     
     if (error) {
       console.error('[useServices] Error fetching services:', error);
+      // If business_id column doesn't exist, try without it (fallback for schema drift)
+      if (error.code === '42703' || error.message?.includes('business_id')) {
+        console.warn('[useServices] business_id column not found, trying without filter');
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('services')
+          .select('*')
+          .order('name', { ascending: true });
+        
+        if (!fallbackError && fallbackData) {
+          setServices(fallbackData as Service[]);
+          setLoading(false);
+          return;
+        }
+      }
       setServices([]);
     } else if (data) {
       console.log('[useServices] Fetched', data.length, 'services');

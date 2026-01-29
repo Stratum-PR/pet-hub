@@ -45,7 +45,7 @@ export function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10">
       {/* Navigation */}
-      <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
+      <nav className="container mx-auto px-4 py-4 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <button
           type="button"
           onClick={handleLogoClick}
@@ -54,40 +54,40 @@ export function Landing() {
           <img
             src="/stratum hub logo.svg"
             alt="Stratum Hub - Ir al inicio"
-            className="h-10 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
+            className="h-8 sm:h-10 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
           />
-          <span className="text-xl font-semibold">Stratum Hub</span>
+          <span className="text-lg sm:text-xl font-semibold">Stratum Hub</span>
         </button>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
           <LanguageSwitcher />
-          <Link to="/login">
-            <Button variant="ghost">{t('landing.login')}</Button>
+          <Link to="/login" className="w-full sm:w-auto">
+            <Button variant="ghost" className="w-full sm:w-auto text-sm sm:text-base">{t('landing.login')}</Button>
           </Link>
-          <Link to="/pricing">
-            <Button>{t('landing.getStarted')}</Button>
+          <Link to="/pricing" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto text-sm sm:text-base">{t('landing.getStarted')}</Button>
           </Link>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
+      <section className="container mx-auto px-4 py-12 sm:py-20 text-center">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4 sm:mb-6">
           {t('landing.title')}
           <br />
           <span className="text-primary">{t('landing.subtitle')}</span>
         </h1>
-        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+        <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto px-2">
           {t('landing.heroText')}
         </p>
-        <div className="flex gap-4 justify-center">
-          <Link to="/pricing">
-            <Button size="lg" className="text-lg px-8">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto px-4 sm:px-0">
+          <Link to="/pricing" className="w-full sm:w-auto">
+            <Button size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
               {t('landing.startFreeTrial')}
-              <ArrowRight className="ml-2 w-5 h-5" />
+              <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </Link>
-          <Link to="/demo/dashboard">
-            <Button size="lg" variant="outline" className="text-lg px-8">
+          <Link to="/demo/dashboard" className="w-full sm:w-auto">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
               {t('landing.viewDemo')}
             </Button>
           </Link>
@@ -95,8 +95,8 @@ export function Landing() {
       </section>
 
       {/* Features Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+      <section className="container mx-auto px-4 py-12 sm:py-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
           <div className="bg-card p-8 rounded-lg shadow-sm border">
             <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
               <Calendar className="w-6 h-6 text-primary" />
@@ -130,16 +130,16 @@ export function Landing() {
       </section>
 
       {/* Pricing CTA */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <div className="bg-card p-12 rounded-lg shadow-sm border max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold mb-4">{t('landing.readyTitle')}</h2>
-          <p className="text-muted-foreground mb-8 text-lg">
+      <section className="container mx-auto px-4 py-12 sm:py-20 text-center">
+        <div className="bg-card p-6 sm:p-12 rounded-lg shadow-sm border max-w-3xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">{t('landing.readyTitle')}</h2>
+          <p className="text-muted-foreground mb-6 sm:mb-8 text-base sm:text-lg px-2">
             {t('landing.readyText')}
           </p>
-          <Link to="/pricing">
-            <Button size="lg" className="text-lg px-8">
+          <Link to="/pricing" className="inline-block w-full sm:w-auto">
+            <Button size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
               {t('landing.viewPricingPlans')}
-              <ArrowRight className="ml-2 w-5 h-5" />
+              <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </Link>
         </div>

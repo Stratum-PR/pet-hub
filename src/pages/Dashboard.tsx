@@ -126,7 +126,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             <div className="space-y-3">
               {todaysAppointmentsList.map((appointment) => {
                 const pet = pets.find(p => p.id === appointment.pet_id);
-                const client = pet ? clients.find(c => c.id === pet.client_id) : null;
+                const client = pet ? clients.find(c => c.id === (pet.customer_id || pet.client_id)) : null;
                 const employee = appointment.employee_id ? employees.find(e => e.id === appointment.employee_id) : null;
                 return (
                   <div
@@ -190,7 +190,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                       <p className="text-sm text-muted-foreground">{client.email}</p>
                     </div>
                     <span className="text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
-                      {pets.filter((p) => p.client_id === client.id).length} {t('dashboard.pets')}
+                      {pets.filter((p) => (p.customer_id || p.client_id) === client.id).length} {t('dashboard.pets')}
                     </span>
                   </div>
                 ))}
@@ -212,7 +212,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             ) : (
               <div className="space-y-3">
                 {recentPets.map((pet) => {
-                  const owner = clients.find((c) => c.id === pet.client_id);
+                  const owner = clients.find((c) => c.id === (pet.customer_id || pet.client_id));
                   return (
                     <div
                       key={pet.id}

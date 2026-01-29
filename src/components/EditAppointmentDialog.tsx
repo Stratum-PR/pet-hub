@@ -193,7 +193,7 @@ export function EditAppointmentDialog({
 
   const clientPets = useMemo(() => {
     if (!formData.clientId) return [];
-    return pets.filter(p => p.client_id === formData.clientId);
+    return pets.filter(p => (p.customer_id || p.client_id) === formData.clientId);
   }, [formData.clientId, pets]);
 
   const handleServiceToggle = (service: string) => {

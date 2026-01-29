@@ -45,7 +45,7 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(pet => {
-        const owner = clients.find(c => c.id === pet.client_id);
+        const owner = clients.find(c => c.id === (pet.customer_id || pet.client_id));
         return (
           pet.name.toLowerCase().includes(term) ||
           pet.breed.toLowerCase().includes(term) ||
