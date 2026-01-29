@@ -1,37 +1,21 @@
-import { Link } from 'react-router-dom';
-
 export function Footer() {
   return (
-    <footer className="border-t mt-12">
-      <div className="container mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-32 h-10 flex items-center justify-center overflow-hidden">
+    <footer className="border-t mt-12 bg-[#f9fafb]">
+      <div className="container mx-auto px-4 py-8 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <a
+            href="https://stratumpr.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block hover:opacity-90 transition-opacity"
+          >
             <img
               src="/Logo 4.svg"
               alt="STRATUM PR LLC"
-              className="w-full h-full object-contain"
+              className="object-contain w-[180px] max-w-[220px] h-auto sm:w-[160px] md:w-[190px] cursor-pointer"
             />
-          </div>
-          <div className="text-sm leading-tight">
-            <div className="font-semibold" style={{ color: '#1E2B7E' }}>
-              STRATUM PR LLC
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Powered by Stratum
-            </div>
-          </div>
-        </div>
-        <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
-          <Link
-            to="https://stratumpr.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline-offset-2 hover:underline"
-            style={{ color: '#266AB2' }}
-          >
-            stratumpr.com
-          </Link>
-          <div className="mt-1">
+          </a>
+          <div className="text-xs sm:text-sm text-muted-foreground">
             © 2025 STRATUM PR LLC. All rights reserved.
           </div>
         </div>

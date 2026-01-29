@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { setLastRoute } from '@/lib/authRouting';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -29,7 +30,11 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       requireAdmin,
     });
 
-    if (loading) return;
+    // CRITICAL: Wait for loading to complete before making any redirect decisions
+    if (loading) {
+      console.log('[ProtectedRoute] Still loading auth, waiting...');
+      return;
+    }
 
     // Not logged in → force to login
     // IMPORTANT: Do NOT auto-redirect; just let the UI render a message.
@@ -37,9 +42,18 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
 
     // Logged in but needs admin → block
     if (requireAdmin && !isAdmin) {
+      console.log('[ProtectedRoute] Admin required but user is not admin, redirecting...');
       navigate('/', { replace: true });
     }
   }, [loading, user, isAdmin, requireAdmin, location.pathname, location.search, navigate, isPublicBusinessRoute]);
+
+  // Persist last route for refresh/new tab restores (never store landing/login)
+  useEffect(() => {
+    if (loading) return;
+    if (!user) return;
+    if (location.pathname === '/' || location.pathname.startsWith('/login')) return;
+    setLastRoute(`${location.pathname}${location.search}`);
+  }, [loading, user, location.pathname, location.search]);
 
   // For public business routes (demo, Pet Esthetic), always render children without auth UI states
   if (isPublicBusinessRoute) {

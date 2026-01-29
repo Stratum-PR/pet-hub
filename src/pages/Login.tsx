@@ -7,6 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { getDefaultRoute, setAuthContext, AUTH_CONTEXTS, setDemoMode, clearAuthContext } from '@/lib/authRouting';
+import { t } from '@/lib/translations';
+import { Footer } from '@/components/Footer';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -18,6 +23,35 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAdmin, loading: authLoading } = useAuth();
+  const { language } = useLanguage(); // Force re-render on language change
+
+  const getRedirectForAuthenticatedUser = async (): Promise<string> => {
+    // Always determine role from the database profile, never from client-side guesses.
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userRes.user) return '/login';
+
+    const authUser = userRes.user;
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles' as any)
+      .select('is_super_admin,business_id')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    if (profileErr) {
+      console.error('[Login] profile lookup error:', profileErr);
+      return '/login';
+    }
+
+    const isSuperAdmin = !!profile?.is_super_admin;
+    if (isSuperAdmin) {
+      setAuthContext(AUTH_CONTEXTS.ADMIN);
+      return '/admin';
+    }
+
+    // Business user: rely on persisted business slug if present
+    setAuthContext(AUTH_CONTEXTS.BUSINESS);
+    return getDefaultRoute({ isAdmin: false, business: null });
+  };
 
   /**
    * Low-level password login that talks directly to the Supabase REST auth endpoint.
@@ -112,78 +146,23 @@ export function Login() {
     }
   };
 
-  // If already authenticated, don't show login screen; send to correct portal.
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) return;
-
-    const params = new URLSearchParams(location.search);
-    const next = params.get('next');
-    if (next) {
-      navigate(next, { replace: true });
-      return;
-    }
-
-    if (isAdmin) {
-      navigate('/admin', { replace: true });
-      return;
-    }
-
-    // If a business slug is already in the URL, keep them inside it; otherwise default to demo/dashboard
-    navigate('/demo/dashboard', { replace: true });
-  }, [authLoading, user, isAdmin, location.search, navigate]);
-
-  const getRedirectPath = async (userEmail: string): Promise<string> => {
-    // Hard-coded redirects for now so demo & admin always work
-    if (userEmail === 'demo@pawsomegrooming.com') {
-      return '/demo/dashboard';
-    }
-
-    if (userEmail === 'tech@stratumpr.com') {
-      // Super admin portal
-      return '/admin';
-    }
-
-    if (userEmail === 'g.rodriguez@stratumpr.com') {
-      // Pet Esthetic business user
-      return '/pet-esthetic/dashboard';
-    }
-
-    // Default fallback
-    return '/';
-  };
+  // IMPORTANT: Do NOT auto-redirect from /login based on existing session.
+  // This page should ONLY navigate after an explicit login or demo action,
+  // so clicking "Login" on the landing page never "auto-logs" anyone in.
 
   const handleDemoLogin = async () => {
     setLoading(true);
-    
     try {
-      console.log('[Login] demo start');
-
-      const demoEmail = 'demo@pawsomegrooming.com';
-      const ok = await passwordLogin(demoEmail, 'DemoPassword123!');
-      if (ok) {
-        toast.success('Welcome to the demo!');
-        const redirect = await getRedirectPath(demoEmail);
-        console.log('[Login] Demo redirecting to:', redirect);
-        window.location.href = redirect;
-      } else {
-        setLoading(false);
-      }
-    } catch (error: any) {
-      console.error('Demo login error:', error);
-      toast.error(error.message || 'Failed to sign in to demo');
+      console.log('[Login] demo start (no-auth mode)');
+      // Limpia cualquier contexto previo y activa modo demo
+      clearAuthContext();
+      setDemoMode(true);
+      toast.success('Bienvenido al demo de Stratum Hub');
+      navigate('/demo/dashboard', { replace: true });
+    } finally {
       setLoading(false);
     }
   };
-
-  // Auto-trigger demo login when coming from landing page with ?demo=1
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('demo') === '1' && !loading) {
-      handleDemoLogin();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,12 +171,15 @@ export function Login() {
     try {
       console.log('[Login] handleLogin start', { email });
 
+      // Normal login should NEVER inherit demo flags
+      setDemoMode(false);
+
       const ok = await passwordLogin(email, password);
       if (ok) {
         toast.success('Signed in successfully');
-        const redirect = await getRedirectPath(email);
-        console.log('[Login] Redirecting to:', redirect);
-        window.location.href = redirect;
+        const destination = await getRedirectForAuthenticatedUser();
+        console.log('[Login] Redirecting to:', destination);
+        navigate(destination, { replace: true });
       }
     } catch (error: any) {
       console.error('[Login] Unexpected error:', error);
@@ -208,69 +190,81 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <img src="/stratum hub logo.svg" alt="Stratum Hub" className="h-12" />
-          </div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
-          <CardDescription>Sign in to your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
-
-          {/* Demo Button */}
-          <div className="mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleDemoLogin}
-              disabled={loading}
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div
+              className="flex justify-center mb-4 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
+              onClick={() => navigate('/')}
             >
-              View Demo
-            </Button>
-          </div>
+              <img src="/stratum hub logo.svg" alt="Stratum Hub" className="h-12" />
+            </div>
+          <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
+          <CardDescription>{t('login.subtitle')}</CardDescription>
+        </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">{t('login.email')}</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">{t('login.password')}</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? t('login.signingIn') : t('login.signIn')}
+              </Button>
+            </form>
 
-          <div className="mt-6 text-center text-sm">
-            <p className="text-muted-foreground">
-              Don't have an account?{' '}
-              <Link to="/pricing" className="text-primary hover:underline">
-                Start your free trial
-              </Link>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+            {/* Demo Button */}
+            <div className="mt-6">
+              <div className="text-center text-sm text-muted-foreground mb-3">
+                {t('login.demoPrompt')}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleDemoLogin}
+                disabled={loading}
+              >
+                {t('login.viewDemo')}
+              </Button>
+            </div>
+
+            <div className="mt-6 text-center text-sm">
+              <p className="text-muted-foreground">
+                {t('login.noAccount')}{' '}
+                <Link to="/pricing" className="text-primary hover:underline">
+                  {t('login.startTrial')}
+                </Link>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <Footer />
     </div>
   );
 }

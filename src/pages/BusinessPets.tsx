@@ -67,6 +67,13 @@ export function BusinessPets() {
   const handleEdit = (pet: Pet) => {
     setEditingPet(pet);
     setShowForm(true);
+    // Scroll to the pet form when editing, after it renders
+    setTimeout(() => {
+      const el = document.getElementById('pet-form');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   const handleCancel = () => {
@@ -103,13 +110,15 @@ export function BusinessPets() {
       )}
 
       {showForm && customers.length > 0 && (
-        <PetForm 
-          customers={customers}
-          onSubmit={handleSubmit} 
-          onCancel={handleCancel}
-          initialData={editingPet}
-          isEditing={!!editingPet}
-        />
+        <div id="pet-form">
+          <PetForm 
+            customers={customers}
+            onSubmit={handleSubmit} 
+            onCancel={handleCancel}
+            initialData={editingPet}
+            isEditing={!!editingPet}
+          />
+        </div>
       )}
 
       <SearchFilter

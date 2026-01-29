@@ -111,7 +111,7 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
 
       {showForm && clients.length > 0 && (
         <PetForm 
-          clients={clients} 
+          customers={clients as any} 
           onSubmit={handleSubmit} 
           onCancel={handleCancel}
           initialData={editingPet}
@@ -134,8 +134,8 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
       />
 
       <PetList 
-        pets={filteredPets} 
-        clients={clients} 
+        pets={filteredPets as any} 
+        customers={clients as any} 
         onDelete={onDeletePet}
         onEdit={handleEdit}
       />

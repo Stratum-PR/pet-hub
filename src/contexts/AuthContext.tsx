@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentProfile, getCurrentBusiness, isSuperAdmin, Profile, Business } from '@/lib/auth';
+import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
 
 interface AuthContextType {
   user: User | null;
@@ -103,6 +104,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 id: userBusiness?.id,
               });
               setBusiness(userBusiness);
+              // Persist business slug for routing consistency across refresh/new tabs
+              setBusinessSlugForSession(userBusiness);
+              // Mark context as business unless impersonating or demo mode overrides it
+              if (typeof window !== 'undefined') {
+                const demoMode = sessionStorage.getItem('demoMode') === 'true';
+                const impersonating = sessionStorage.getItem('is_impersonating') === 'true';
+                if (!demoMode && !impersonating) {
+                  setAuthContext(AUTH_CONTEXTS.BUSINESS);
+                }
+              }
             } catch (businessError) {
               console.error('[AuthContext] Error fetching business:', businessError);
               setBusiness(null);

@@ -8,10 +8,117 @@ export interface Translations {
 }
 
 export const translations: Translations = {
+  // Landing / Home
+  'landing.title': {
+    en: 'Professional Pet Grooming',
+    es: 'Grooming Profesional para Mascotas'
+  },
+  'landing.subtitle': {
+    en: 'Management Made Simple',
+    es: 'Administración Hecha Simple'
+  },
+  'landing.heroText': {
+    en: 'Streamline your grooming business with powerful scheduling, customer management, and revenue tracking tools. Start your free trial today.',
+    es: 'Optimiza tu negocio de grooming con herramientas poderosas de citas, manejo de clientes y seguimiento de ingresos. Comienza tu prueba gratis hoy.'
+  },
+  'landing.login': {
+    en: 'Login',
+    es: 'Iniciar Sesión'
+  },
+  'landing.getStarted': {
+    en: 'Get Started',
+    es: 'Comenzar'
+  },
+  'landing.startFreeTrial': {
+    en: 'Start Free Trial',
+    es: 'Comenzar Prueba Gratis'
+  },
+  'landing.viewDemo': {
+    en: 'View Demo',
+    es: 'Ver Demo'
+  },
+  'landing.featureSchedulingTitle': {
+    en: 'Easy Scheduling',
+    es: 'Agenda Sencilla'
+  },
+  'landing.featureSchedulingText': {
+    en: 'Manage appointments effortlessly with our intuitive calendar system. Never double-book again with real-time availability.',
+    es: 'Maneja tus citas sin complicaciones con nuestro calendario intuitivo. Nunca vuelves a duplicar citas gracias a la disponibilidad en tiempo real.'
+  },
+  'landing.featureCustomersTitle': {
+    en: 'Customer Management',
+    es: 'Manejo de Clientes'
+  },
+  'landing.featureCustomersText': {
+    en: 'Keep detailed records of your clients and their pets. Track preferences, history, and special instructions all in one place.',
+    es: 'Mantén registros detallados de tus clientes y tus mascotas. Lleva control de preferencias, historial e instrucciones especiales en un solo lugar.'
+  },
+  'landing.featureRevenueTitle': {
+    en: 'Revenue Tracking',
+    es: 'Seguimiento de Ingresos'
+  },
+  'landing.featureRevenueText': {
+    en: 'Monitor your business performance with comprehensive analytics. Track revenue, appointments, and growth metrics.',
+    es: 'Monitorea el rendimiento de tu negocio con análisis completos. Lleva control de ingresos, citas y métricas de crecimiento.'
+  },
+  'landing.readyTitle': {
+    en: 'Ready to Get Started?',
+    es: '¿Listo para Comenzar?'
+  },
+  'landing.readyText': {
+    en: 'Choose the plan that fits your business. All plans include a 14-day free trial.',
+    es: 'Elige el plan que mejor se ajuste a tu negocio. Todos los planes incluyen una prueba gratis de 14 días.'
+  },
+  'landing.viewPricingPlans': {
+    en: 'View Pricing Plans',
+    es: 'Ver Planes de Precios'
+  },
+
+  // Login page
+  'login.title': {
+    en: 'Welcome Back',
+    es: 'Bienvenido de Nuevo'
+  },
+  'login.subtitle': {
+    en: 'Sign in to your account',
+    es: 'Inicia sesión en tu cuenta'
+  },
+  'login.email': {
+    en: 'Email',
+    es: 'Correo Electrónico'
+  },
+  'login.password': {
+    en: 'Password',
+    es: 'Contraseña'
+  },
+  'login.signIn': {
+    en: 'Sign In',
+    es: 'Entrar'
+  },
+  'login.signingIn': {
+    en: 'Signing in...',
+    es: 'Entrando...'
+  },
+  'login.demoPrompt': {
+    en: 'Want to try it first?',
+    es: '¿Quieres probarlo primero?'
+  },
+  'login.viewDemo': {
+    en: 'View Demo',
+    es: 'Ver Demo'
+  },
+  'login.noAccount': {
+    en: "Don't have an account?",
+    es: '¿No tienes cuenta?'
+  },
+  'login.startTrial': {
+    en: 'Start your free trial',
+    es: 'Comienza tu prueba gratis'
+  },
   // Navigation
   'nav.dashboard': {
     en: 'Dashboard',
-    es: 'Panel'
+    es: 'Dashboard'
   },
   'nav.clients': {
     en: 'Clients',
@@ -77,7 +184,7 @@ export const translations: Translations = {
   },
   'personalization.description': {
     en: 'Configure your business preferences and branding',
-    es: 'Configure las preferencias y marca de su negocio'
+    es: 'Configura las preferencias y marca de tu negocio'
   },
   'personalization.businessName': {
     en: 'Business Name',
@@ -177,7 +284,7 @@ export const translations: Translations = {
   },
   'clients.description': {
     en: 'Manage your grooming clients and their information',
-    es: 'Administre sus clientes de aseo y su información'
+    es: 'Administra tus clientes de aseo y su información'
   },
   'clients.addClient': {
     en: 'Add Client',
@@ -194,8 +301,8 @@ export const translations: Translations = {
     es: 'Mascotas'
   },
   'pets.description': {
-    en: 'Manage all the furry friends in your care',
-    es: 'Administre todos los amigos peludos bajo su cuidado'
+    en: 'Keep track of all the furry friends in your care',
+    es: 'Lleva al día todas las mascotitas que pasan por tu grooming'
   },
   'pets.addPet': {
     en: 'Add Pet',
@@ -203,7 +310,7 @@ export const translations: Translations = {
   },
   'pets.addClientFirst': {
     en: 'Add a client first before adding pets.',
-    es: 'Agregue un cliente primero antes de agregar mascotas.'
+    es: 'Agrega un cliente primero antes de agregar mascotas.'
   },
   'pets.searchPlaceholder': {
     en: 'Search pets by name, breed, or owner...',
@@ -225,6 +332,26 @@ export const translations: Translations = {
     en: 'Other',
     es: 'Otro'
   },
+  'pets.unknownOwner': {
+    en: 'Unknown owner',
+    es: 'Dueño desconocido'
+  },
+  'pets.notAssigned': {
+    en: 'No owner assigned',
+    es: 'Sin dueño asignado'
+  },
+  'pets.clickToViewOwner': {
+    en: 'Click to open client',
+    es: 'Toca para abrir el cliente'
+  },
+  'pets.yearsOld': {
+    en: '{count} yrs',
+    es: '{count} años'
+  },
+  'pets.lbs': {
+    en: 'lbs',
+    es: 'lbs'
+  },
   
   // Appointments page
   'appointments.title': {
@@ -233,7 +360,7 @@ export const translations: Translations = {
   },
   'appointments.description': {
     en: 'Schedule and manage client appointments',
-    es: 'Programe y administre citas de clientes'
+    es: 'Programa y administra citas de clientes'
   },
   'appointments.newAppointment': {
     en: 'New Appointment',
@@ -263,7 +390,7 @@ export const translations: Translations = {
   },
   'services.description': {
     en: 'Manage your service offerings and pricing',
-    es: 'Administre sus ofertas de servicios y precios'
+    es: 'Administra tus ofertas de servicios y precios'
   },
   'services.addService': {
     en: 'Add Service',
@@ -277,7 +404,7 @@ export const translations: Translations = {
   },
   'inventory.description': {
     en: 'Manage your product inventory and stock levels',
-    es: 'Administre su inventario de productos y niveles de stock'
+    es: 'Administra tu inventario de productos y niveles de stock'
   },
   
   // Employees/Time Tracking page
@@ -287,7 +414,7 @@ export const translations: Translations = {
   },
   'timeTracking.description': {
     en: 'Enter your PIN to clock in or out',
-    es: 'Ingrese su PIN para entrar o salir'
+    es: 'Ingresa tu PIN para entrar o salir'
   },
   'timeTracking.employeeVerification': {
     en: 'Employee Verification',
@@ -303,7 +430,7 @@ export const translations: Translations = {
   },
   'timeTracking.enterPin': {
     en: 'Enter your 4-digit PIN',
-    es: 'Ingrese su PIN de 4 dígitos'
+    es: 'Ingresa tu PIN de 4 dígitos'
   },
   'timeTracking.enterPinPlaceholder': {
     en: 'Enter PIN',
@@ -449,7 +576,7 @@ export const translations: Translations = {
   },
   'appointments.shareLinkDescription': {
     en: 'Share this link with clients so they can book appointments directly',
-    es: 'Comparta este enlace con los clientes para que puedan reservar citas directamente'
+    es: 'Comparte este enlace con los clientes para que puedan reservar citas directamente'
   },
   'dashboard.noClientsYet': {
     en: 'No clients yet',
@@ -489,7 +616,7 @@ export const translations: Translations = {
   },
   'employeeManagement.description': {
     en: 'Add, edit, and manage your team members',
-    es: 'Agregue, edite y administre los miembros de su equipo'
+    es: 'Agrega, edita y administra los miembros de tu equipo'
   },
   'employeeManagement.addEmployee': {
     en: 'Add Employee',
@@ -505,7 +632,7 @@ export const translations: Translations = {
   },
   'employeeManagement.noEmployeesYet': {
     en: 'No employees yet. Add your first employee above!',
-    es: 'Aún no hay empleados. ¡Agregue su primer empleado arriba!'
+    es: 'Aún no hay empleados. ¡Agrega tu primer empleado arriba!'
   },
   'employeeManagement.deleteEmployee': {
     en: 'Delete Employee',
@@ -513,7 +640,7 @@ export const translations: Translations = {
   },
   'employeeManagement.deleteConfirm': {
     en: 'Are you sure you want to delete this employee? This action cannot be undone.',
-    es: '¿Está seguro de que desea eliminar este empleado? Esta acción no se puede deshacer.'
+    es: '¿Estás seguro de que quieres eliminar este empleado? Esta acción no se puede deshacer.'
   },
   'inventory.addNewProduct': {
     en: 'Add New Product',
@@ -547,7 +674,7 @@ export const translations: Translations = {
   },
   'form.notes': {
     en: 'Notes',
-    es: 'Notas'
+    es: 'Notas (lo que te quieras acordar)'
   },
   'form.owner': {
     en: 'Owner',
@@ -555,7 +682,11 @@ export const translations: Translations = {
   },
   'form.selectOwner': {
     en: 'Select owner',
-    es: 'Seleccionar dueño'
+    es: 'Escoge el dueño'
+  },
+  'form.noCustomersAvailable': {
+    en: 'No clients available yet',
+    es: 'Todavía no tienes clientes creados'
   },
   'form.petName': {
     en: 'Pet Name',
@@ -713,6 +844,26 @@ export const translations: Translations = {
     en: 'Update Service',
     es: 'Actualizar Servicio'
   },
+  'form.vaccinationStatus': {
+    en: 'Vaccination Status',
+    es: 'Estado de Vacunación'
+  },
+  'form.vaccinationStatus.unknown': {
+    en: 'Unknown',
+    es: 'Desconocido'
+  },
+  'form.vaccinationStatus.uptodate': {
+    en: 'Up to Date',
+    es: 'Al Día'
+  },
+  'form.vaccinationStatus.overdue': {
+    en: 'Overdue',
+    es: 'Vencido'
+  },
+  'form.vaccinationStatus.pending': {
+    en: 'Pending',
+    es: 'Pendiente'
+  },
   
   // Appointments page additional
   'appointments.calendar': {
@@ -733,7 +884,7 @@ export const translations: Translations = {
   },
   'appointments.selectDate': {
     en: 'Select a date',
-    es: 'Seleccione una fecha'
+    es: 'Selecciona una fecha'
   },
   'appointments.noAppointmentsScheduled': {
     en: 'No appointments scheduled',
@@ -1065,7 +1216,7 @@ export const translations: Translations = {
   },
   'payroll.chooseEmployee': {
     en: 'Choose an employee...',
-    es: 'Elija un empleado...'
+    es: 'Elige un empleado...'
   },
   'payroll.timesheetFor': {
     en: 'Timesheet for',
@@ -1081,7 +1232,7 @@ export const translations: Translations = {
   },
   'payroll.selectEmployeeToView': {
     en: 'Select an employee to view their timesheet',
-    es: 'Seleccione un empleado para ver su hoja de tiempo'
+    es: 'Selecciona un empleado para ver su hoja de tiempo'
   },
   'payroll.amendTimesheetEntry': {
     en: 'Amend Timesheet Entry',
@@ -1093,7 +1244,7 @@ export const translations: Translations = {
   },
   'payroll.correctTimesDescription': {
     en: 'Correct the clock-in and clock-out times for {date}',
-    es: 'Corrija las horas de entrada y salida para {date}'
+    es: 'Corrige las horas de entrada y salida para {date}'
   },
   'payroll.addNewEntryDescription': {
     en: 'Add a new clock-in/clock-out entry for {date}',
@@ -1109,7 +1260,7 @@ export const translations: Translations = {
   },
 };
 
-let currentLanguage: Language = 'en';
+let currentLanguage: Language = 'es';
 
 export const setLanguage = (lang: Language) => {
   currentLanguage = lang;
@@ -1122,7 +1273,8 @@ export const setLanguage = (lang: Language) => {
 
 export const getLanguage = (): Language => {
   const stored = localStorage.getItem('language') as Language;
-  return stored || 'en';
+  // Default to Spanish (es) for Puerto Rico audience when nothing is stored
+  return stored || 'es';
 };
 
 export const t = (key: string, params?: Record<string, string | number>): string => {

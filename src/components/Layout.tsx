@@ -14,7 +14,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { signOut } from '@/lib/auth';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
+import { AdminImpersonationHeader } from '@/components/AdminImpersonationHeader';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -45,6 +48,7 @@ export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { businessSlug } = useParams();
+  const { isAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { language } = useLanguage();
   const [employeesMenuOpen, setEmployeesMenuOpen] = useState(false);
@@ -102,10 +106,20 @@ export function Layout({ children, settings }: LayoutProps) {
     };
   }, [mobileMenuOpen]);
 
+  // Check if admin impersonation header is showing
+  const isImpersonating = typeof window !== 'undefined' && sessionStorage.getItem('is_impersonating') === 'true';
+  const showAdminHeader = isAdmin && isImpersonating;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Admin Impersonation Header - Fixed at top */}
+      <AdminImpersonationHeader />
+      
       {/* Header */}
-      <header className="border-b border-border bg-card shadow-sm sticky top-0 z-50">
+      <header 
+        className="border-b border-border bg-card shadow-sm sticky z-50"
+        style={{ top: showAdminHeader ? '48px' : '0' }}
+      >
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link
             to={businessSlug ? `/${businessSlug}/dashboard` : '/'}
@@ -334,149 +348,143 @@ export function Layout({ children, settings }: LayoutProps) {
           </Button>
         </div>
 
-        {/* Mobile Nav */}
-        {mobileMenuOpen && (
-          <nav className="lg:hidden border-t border-border bg-card animate-fade-in">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-              const isActive = location.pathname === targetPath;
-              return (
+        {/* Mobile Nav - Compact Sheet Sidebar (opens from the right) */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="right" className="w-[280px] sm:w-[320px] p-0">
+            <SheetHeader className="px-6 py-4 border-b">
+              <SheetTitle>Menú</SheetTitle>
+            </SheetHeader>
+            <nav className="flex flex-col h-[calc(100vh-80px)] overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+                const isActive = location.pathname === targetPath;
+                return (
+                  <Link
+                    key={item.path}
+                    to={targetPath}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-6 py-3 border-b border-border transition-colors ${
+                      isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {t(item.labelKey)}
+                  </Link>
+                );
+              })}
+              {/* Employees Submenu for Mobile */}
+              <div className="border-b border-border">
+                <div className="px-6 py-3 text-sm font-medium text-muted-foreground">{t('nav.employees')}</div>
+                {employeeItems.map((item) => {
+                  const Icon = item.icon;
+                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+                  const isActive = location.pathname === targetPath;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={targetPath}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
+                        isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      {t(item.labelKey)}
+                    </Link>
+                  );
+                })}
+              </div>
+              {/* Reports Submenu for Mobile */}
+              <div className="border-b border-border">
+                <div className="px-6 py-3 text-sm font-medium text-muted-foreground">{t('nav.reports')}</div>
+                {reportsItems.map((item) => {
+                  const Icon = item.icon;
+                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
+                  const isActive = location.pathname === targetPath;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={targetPath}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
+                        isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      {t(item.labelKey)}
+                    </Link>
+                  );
+                })}
+              </div>
+              {/* More Submenu for Mobile */}
+              <div className="border-b border-border">
+                <div className="px-6 py-3 text-sm font-medium text-muted-foreground">{t('nav.more')}</div>
                 <Link
-                  key={item.path}
-                  to={targetPath}
+                  to={businessSlug ? `/${businessSlug}/services` : '/services'}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 border-b border-border transition-colors ${
-                    isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                  className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
+                    location.pathname.includes('/services') ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
-                  {t(item.labelKey)}
+                  <Scissors className="w-5 h-5" />
+                  {t('nav.services')}
                 </Link>
-              );
-            })}
-            {/* Employees Submenu for Mobile */}
-            <div className="border-b border-border">
-              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.employees')}</div>
-              {employeeItems.map((item) => {
-                const Icon = item.icon;
-                const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-                const isActive = location.pathname === targetPath;
-                return (
-                  <Link
-                    key={item.path}
-                    to={targetPath}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
-                      isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {t(item.labelKey)}
-                  </Link>
-                );
-              })}
-            </div>
-            {/* Reports Submenu for Mobile */}
-            <div className="border-b border-border">
-              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.reports')}</div>
-              {reportsItems.map((item) => {
-                const Icon = item.icon;
-                const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-                const isActive = location.pathname === targetPath;
-                return (
-                  <Link
-                    key={item.path}
-                    to={targetPath}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
-                      isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {t(item.labelKey)}
-                  </Link>
-                );
-              })}
-            </div>
-            {/* More Submenu for Mobile */}
-            <div className="border-b border-border">
-              <div className="px-4 py-3 text-sm font-medium text-muted-foreground">{t('nav.more')}</div>
-              <Link
-                to={businessSlug ? `/${businessSlug}/services` : '/services'}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
-                  location.pathname === '/services' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                }`}
-              >
-                <Scissors className="w-5 h-5" />
-                {t('nav.services')}
-              </Link>
-              <Link
-                to={businessSlug ? `/${businessSlug}/personalization` : '/personalization'}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-8 py-3 border-b border-border transition-colors ${
-                  location.pathname === '/personalization' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                }`}
-              >
-                <Palette className="w-5 h-5" />
-                {t('nav.personalization')}
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setLogoutDialogOpen(true);
-                }}
-                className="w-full flex items-center gap-3 px-8 py-3 border-b border-border text-destructive text-left hover:bg-muted transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
-            </div>
-          </nav>
-        )}
+                <Link
+                  to={businessSlug ? `/${businessSlug}/personalization` : '/personalization'}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
+                    location.pathname.includes('/personalization') ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                  }`}
+                >
+                  <Palette className="w-5 h-5" />
+                  {t('nav.personalization')}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setLogoutDialogOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-10 py-3 border-b border-border text-destructive text-left hover:bg-muted transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </nav>
+          </SheetContent>
+        </Sheet>
       </header>
 
-      {/* Impersonation / client view banner (admin mode) */}
-      <ImpersonationBanner />
+      {/* Impersonation / client view banner (admin mode) - Only show for non-impersonating admin views */}
+      {!showAdminHeader && <ImpersonationBanner />}
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 flex-1">
+      <main 
+        className="container mx-auto px-4 py-8 flex-1"
+        style={{ paddingTop: showAdminHeader ? 'calc(2rem + 48px)' : '2rem' }}
+      >
         {children}
       </main>
 
       {/* Global footer */}
-      <footer className="border-t mt-8" style={{ backgroundColor: '#f9fafb' }}>
-        <div className="container mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-28 h-8 flex items-center justify-center overflow-hidden">
-              <img
-                src="/Logo 4.svg"
-                alt="STRATUM PR LLC"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="text-xs sm:text-sm leading-tight">
-              <div className="font-semibold" style={{ color: '#1E2B7E' }}>
-                STRATUM PR LLC
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Powered by Stratum
-              </div>
-            </div>
-          </div>
-          <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
+      <footer className="border-t mt-8 bg-[#f9fafb]">
+        <div className="container mx-auto px-4 py-8 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-center">
             <a
               href="https://stratumpr.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline-offset-2 hover:underline"
-              style={{ color: '#266AB2' }}
+              className="inline-block hover:opacity-90 transition-opacity"
             >
-              stratumpr.com
+              <img
+                src="/Logo 4.svg"
+                alt="STRATUM PR LLC"
+                className="object-contain w-[180px] max-w-[220px] h-auto sm:w-[160px] md:w-[190px] cursor-pointer"
+              />
             </a>
-            <div className="mt-1">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               © 2025 STRATUM PR LLC. All rights reserved.
             </div>
           </div>

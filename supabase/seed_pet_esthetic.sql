@@ -492,6 +492,123 @@ BEGIN
 END $$;
 
 -- ============================================
+-- 8. CREATE INVENTORY FOR PET ESTHETIC (same as Demo)
+-- ============================================
+DO $$
+DECLARE
+  business_uuid UUID := '00000000-0000-0000-0000-000000000002';
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'inventory'
+  ) THEN
+    -- Delete existing inventory for this business first to avoid conflicts
+    DELETE FROM public.inventory WHERE business_id = business_uuid;
+    
+    INSERT INTO public.inventory (
+      business_id,
+      sku,
+      product_name,
+      description,
+      category,
+      brand,
+      cost_price,
+      retail_price,
+      quantity_on_hand,
+      reorder_level,
+      reorder_quantity,
+      unit_of_measure,
+      is_active
+    ) VALUES
+      (business_uuid, 'SHMP-001', 'Champú Premium para Mascotas - Lavanda', 'Champú suave e hipoalergénico para todo tipo de pelaje', 'Suplementos de Aseo', 'PetCare Pro', 8.50, 15.99, 24, 10, 20, 'botella', true),
+      (business_uuid, 'SHMP-002', 'Champú de Avena Calmante', 'Alivia la picazón y piel seca con avena natural', 'Suplementos de Aseo', 'PetCare Pro', 9.00, 16.99, 18, 10, 20, 'botella', true),
+      (business_uuid, 'COND-001', 'Acondicionador Desenredante', 'Facilita el cepillado y reduce los nudos', 'Suplementos de Aseo', 'PetCare Pro', 10.00, 18.99, 15, 8, 15, 'botella', true),
+      (business_uuid, 'TOOL-001', 'Cortaúñas Profesional', 'Acero inoxidable con protector de seguridad', 'Herramientas de Aseo', 'GroomMaster', 6.75, 14.99, 12, 5, 10, 'unidad', true),
+      (business_uuid, 'TOOL-002', 'Cepillo Slicker', 'Remueve pelo suelto y previene enredos', 'Herramientas de Aseo', 'GroomMaster', 7.50, 16.99, 20, 8, 15, 'unidad', true),
+      (business_uuid, 'TOOL-003', 'Tijeras de Grooming Curvas', 'Tijeras profesionales curvas para acabado', 'Herramientas de Aseo', 'GroomMaster', 15.00, 32.99, 8, 3, 5, 'unidad', true),
+      (business_uuid, 'TRTS-001', 'Galletas de Entrenamiento de Pollo Orgánico', 'Bocaditos pequeños ideales para recompensa', 'Golosinas', 'Healthy Paws', 5.00, 12.99, 48, 15, 30, 'bolsa', true),
+      (business_uuid, 'TRTS-002', 'Snacks Dentales', 'Ayuda a mantener los dientes limpios y aliento fresco', 'Golosinas', 'Healthy Paws', 6.50, 14.99, 36, 12, 25, 'bolsa', true),
+      (business_uuid, 'ACC-001', 'Toalla de Microfibra para Secado', 'Toalla súper absorbente de secado rápido', 'Accesorios', 'PetCare Pro', 4.00, 9.99, 30, 10, 20, 'unidad', true),
+      (business_uuid, 'ACC-002', 'Delantal de Grooming Impermeable', 'Delantal resistente al agua con bolsillos', 'Accesorios', 'GroomMaster', 12.00, 24.99, 10, 3, 5, 'unidad', true),
+      (business_uuid, 'CARE-001', 'Solución para Limpieza de Oídos', 'Fórmula suave para limpieza rutinaria de oídos', 'Cuidado de Salud', 'VetCare', 8.00, 15.99, 20, 8, 15, 'botella', true),
+      (business_uuid, 'CARE-002', 'Toallitas para Ojos', 'Toallitas pre-humedecidas para manchas de lágrimas', 'Cuidado de Salud', 'VetCare', 5.50, 11.99, 25, 10, 20, 'paquete', true)
+    ON CONFLICT (business_id, sku) DO NOTHING;
+  END IF;
+END $$;
+
+-- ============================================
+-- 9. CREATE TIME ENTRIES FOR PET ESTHETIC (recent weeks)
+-- ============================================
+DO $$
+DECLARE
+  business_uuid UUID := '00000000-0000-0000-0000-000000000002';
+  emp1 UUID;
+  emp2 UUID;
+  d DATE;
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'time_entries') THEN
+    SELECT id INTO emp1 FROM public.employees WHERE business_id = business_uuid AND name = 'Maria Rodriguez' LIMIT 1;
+    SELECT id INTO emp2 FROM public.employees WHERE business_id = business_uuid AND name = 'Juan Perez' LIMIT 1;
+
+    -- Últimos 5 días laborales para cada empleado
+    FOR d IN (SELECT (current_date - 4) + generate_series(0,4)) LOOP
+      IF emp1 IS NOT NULL THEN
+        -- Check if business_id column exists, otherwise insert without it
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+          INSERT INTO public.time_entries (id, employee_id, business_id, clock_in, clock_out, notes)
+          VALUES (
+            gen_random_uuid(),
+            emp1,
+            business_uuid,
+            (d::date + time '09:00'),
+            (d::date + time '17:00'),
+            'Turno regular'
+          )
+          ON CONFLICT DO NOTHING;
+        ELSE
+          INSERT INTO public.time_entries (id, employee_id, clock_in, clock_out, notes)
+          VALUES (
+            gen_random_uuid(),
+            emp1,
+            (d::date + time '09:00'),
+            (d::date + time '17:00'),
+            'Turno regular'
+          )
+          ON CONFLICT DO NOTHING;
+        END IF;
+      END IF;
+
+      IF emp2 IS NOT NULL THEN
+        -- Check if business_id column exists, otherwise insert without it
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+          INSERT INTO public.time_entries (id, employee_id, business_id, clock_in, clock_out, notes)
+          VALUES (
+            gen_random_uuid(),
+            emp2,
+            business_uuid,
+            (d::date + time '11:00'),
+            (d::date + time '17:30'),
+            'Turno flexible'
+          )
+          ON CONFLICT DO NOTHING;
+        ELSE
+          INSERT INTO public.time_entries (id, employee_id, clock_in, clock_out, notes)
+          VALUES (
+            gen_random_uuid(),
+            emp2,
+            (d::date + time '11:00'),
+            (d::date + time '17:30'),
+            'Turno flexible'
+          )
+          ON CONFLICT DO NOTHING;
+        END IF;
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+
+-- ============================================
 -- VERIFICATION QUERIES
 -- ============================================
 -- Run these to verify the data was created:

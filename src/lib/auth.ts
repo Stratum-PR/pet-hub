@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { clearAuthContext } from '@/lib/authRouting';
 
 export interface Profile {
   id: string;
@@ -182,5 +183,15 @@ export async function signOut() {
     }
   } catch (err) {
     console.error('[Auth] signOut unexpected error:', err);
+  }
+
+  // Clear all session-scoped routing/context flags
+  clearAuthContext();
+  try {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('lastRoute');
+    }
+  } catch {
+    // ignore
   }
 }

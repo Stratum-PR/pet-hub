@@ -41,6 +41,8 @@ const CAT_BREEDS = [
 ];
 
 export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
+  // Defensive: ensure we always work with an array to avoid runtime map() crashes
+  const safeCustomers = Array.isArray(customers) ? customers : [];
   const [formData, setFormData] = useState({
     customer_id: '',
     name: '',
@@ -55,7 +57,8 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
   useEffect(() => {
     if (initialData) {
       setFormData({
-        customer_id: initialData.customer_id,
+        // Support both new (customer_id) and legacy (client_id) shapes
+        customer_id: (initialData as any).customer_id || (initialData as any).client_id || '',
         name: initialData.name,
         species: initialData.species,
         breed: initialData.breed || '',
@@ -112,11 +115,17 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
                   <SelectValue placeholder="Select owner" />
                 </SelectTrigger>
                 <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.first_name} {customer.last_name}
+                  {safeCustomers.length > 0 ? (
+                    safeCustomers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.first_name} {customer.last_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="__no_customers" disabled>
+                      No customers available
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>

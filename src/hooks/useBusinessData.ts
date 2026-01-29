@@ -33,6 +33,13 @@ export interface Pet {
   special_instructions: string | null;
   created_at: string;
   updated_at: string;
+  // Customer data from JOIN (optional, populated when fetched with JOIN)
+  customer?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+  } | null;
 }
 
 export interface Service {
@@ -155,14 +162,27 @@ export function usePets() {
       return;
     }
 
+    // JOIN with customers table to get owner information
+    // Supabase automatically resolves foreign key relationships
     const { data, error } = await supabase
       .from('pets')
-      .select('*')
+      .select(`
+        *,
+        customers(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     
     if (!error && data) {
-      setPets(data);
+      console.log('[usePets] Fetched pets with customer data:', data.length);
+      setPets(data as any);
+    } else if (error) {
+      console.error('[usePets] Error fetching pets:', error);
     }
     setLoading(false);
   };
@@ -177,11 +197,20 @@ export function usePets() {
     const { data, error } = await supabase
       .from('pets')
       .insert({ ...petData, business_id: businessId })
-      .select()
+      .select(`
+        *,
+        customers(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
       .single();
     
     if (!error && data) {
-      setPets([data, ...pets]);
+      // Refetch all pets with JOIN to ensure consistency
+      await fetchPets();
       return data;
     }
     return null;
@@ -195,11 +224,20 @@ export function usePets() {
       .update(petData)
       .eq('id', id)
       .eq('business_id', businessId)
-      .select()
+      .select(`
+        *,
+        customers(
+          id,
+          first_name,
+          last_name,
+          email
+        )
+      `)
       .single();
     
     if (!error && data) {
-      setPets(pets.map(p => p.id === id ? data : p));
+      // Refetch all pets with JOIN to ensure consistency
+      await fetchPets();
       return data;
     }
     return null;
@@ -215,7 +253,8 @@ export function usePets() {
       .eq('business_id', businessId);
     
     if (!error) {
-      setPets(pets.filter(p => p.id !== id));
+      // Refetch all pets with JOIN to ensure consistency
+      await fetchPets();
       return true;
     }
     return false;

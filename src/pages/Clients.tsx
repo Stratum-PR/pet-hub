@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientForm } from '@/components/ClientForm';
@@ -18,17 +18,22 @@ interface ClientsProps {
 
 export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient }: ClientsProps) {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight');
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
+  // Handle both state and URL parameter for backward compatibility
   useEffect(() => {
     const state = location.state as { selectedClientId?: string } | null;
     if (state?.selectedClientId) {
       setSelectedClientId(state.selectedClientId);
+    } else if (highlightId) {
+      setSelectedClientId(highlightId);
     }
-  }, [location]);
+  }, [location, highlightId]);
 
   const filteredClients = useMemo(() => {
     if (!searchTerm) return clients;

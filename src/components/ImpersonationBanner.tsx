@@ -1,11 +1,17 @@
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { exitImpersonation, getImpersonatingBusinessName } from '@/lib/auth';
+import { exitImpersonation, getImpersonatingBusinessName, isImpersonating } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function ImpersonationBanner() {
+  const { isAdmin } = useAuth();
   const businessName = getImpersonatingBusinessName();
+  const impersonating = isImpersonating();
 
-  if (!businessName) return null;
+  // Only show if:
+  // 1. User is a super-admin
+  // 2. Currently impersonating a business
+  if (!isAdmin || !impersonating || !businessName) return null;
 
   return (
     <div

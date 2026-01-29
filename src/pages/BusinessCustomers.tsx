@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, X, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,11 +13,29 @@ import { t } from '@/lib/translations';
 
 export function BusinessCustomers() {
   const { customers, loading, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight');
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
+
+  // Handle highlight from URL parameter
+  useEffect(() => {
+    if (highlightId) {
+      const element = document.getElementById(`customer-${highlightId}`);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+          }, 3000);
+        }, 100);
+      }
+    }
+  }, [highlightId]);
 
   const filteredCustomers = useMemo(() => {
     if (!searchTerm) return customers;
@@ -125,8 +144,14 @@ export function BusinessCustomers() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCustomers.map((customer) => (
-            <Card key={customer.id} className="shadow-sm hover:shadow-md transition-shadow">
+          {filteredCustomers.map((customer) => {
+            const isHighlighted = highlightId === customer.id;
+            return (
+            <Card 
+              key={customer.id} 
+              id={`customer-${customer.id}`}
+              className={`shadow-sm hover:shadow-md transition-shadow ${isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -171,7 +196,8 @@ export function BusinessCustomers() {
                 )}
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -23,7 +23,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // Also listen for storage events (for cross-tab changes)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'language') {
-        setLanguageState((e.newValue as Language) || 'en');
+        setLanguageState((e.newValue as Language) || 'es');
       }
     };
     window.addEventListener('storage', handleStorageChange);
