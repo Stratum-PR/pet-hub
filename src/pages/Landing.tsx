@@ -44,6 +44,11 @@ export function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10">
+      {/* Floating Language Switcher */}
+      <div className="fixed top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       {/* Navigation */}
       <nav className="container mx-auto px-4 py-4 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <button
@@ -56,10 +61,9 @@ export function Landing() {
             alt="Stratum Hub - Ir al inicio"
             className="h-8 sm:h-10 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
           />
-          <span className="text-lg sm:text-xl font-semibold">Stratum Hub</span>
+          <span className="hidden sm:inline text-lg sm:text-xl font-semibold">Stratum Hub</span>
         </button>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
-          <LanguageSwitcher />
           <Link to="/login" className="w-full sm:w-auto">
             <Button variant="ghost" className="w-full sm:w-auto text-sm sm:text-base">{t('landing.login')}</Button>
           </Link>

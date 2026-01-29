@@ -23,15 +23,15 @@ export const translations: Translations = {
   },
   'landing.login': {
     en: 'Login',
-    es: 'Iniciar Sesión'
+    es: 'Login'
   },
   'landing.getStarted': {
     en: 'Get Started',
-    es: 'Comenzar'
+    es: 'Registrarse'
   },
   'landing.startFreeTrial': {
     en: 'Start Free Trial',
-    es: 'Comenzar Prueba Gratis'
+    es: 'Registrarse Trial Gratis'
   },
   'landing.viewDemo': {
     en: 'View Demo',
