@@ -22,49 +22,90 @@ export function BusinessDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If we don't yet have a businessId (e.g. profile not linked), stop loading
-    // so the UI can render instead of showing a spinner forever.
-    if (!businessId) {
-      console.warn('[BusinessDashboard] No businessId available – skipping dashboard queries');
-      setLoading(false);
-      return;
-    }
-
     const fetchDashboardData = async () => {
       try {
         const today = startOfDay(new Date());
+        
+        // Check if business_id column exists in clients table
+        let useBusinessId = false;
+        if (businessId) {
+          try {
+            const testQuery = await supabase
+              .from('clients')
+              .select('business_id')
+              .limit(1);
+            useBusinessId = !testQuery.error;
+          } catch (e) {
+            useBusinessId = false;
+          }
+        }
 
         // CRITICAL: Fetch clients count (customers table was merged into clients)
-        const { count: customersCount } = await supabase
+        let clientsQuery = supabase
           .from('clients')
-          .select('*', { count: 'exact', head: true })
-          .eq('business_id', businessId);
+          .select('*', { count: 'exact', head: true });
+        if (useBusinessId && businessId) {
+          clientsQuery = clientsQuery.eq('business_id', businessId);
+        }
+        const { count: customersCount } = await clientsQuery;
 
         // Fetch pets count
-        const { count: petsCount } = await supabase
+        let petsQuery = supabase
           .from('pets')
-          .select('*', { count: 'exact', head: true })
-          .eq('business_id', businessId);
+          .select('*', { count: 'exact', head: true });
+        if (useBusinessId && businessId) {
+          petsQuery = petsQuery.eq('business_id', businessId);
+        }
+        const { count: petsCount } = await petsQuery;
 
         // CRITICAL: Fetch today's appointments with clients (not customers)
-        const { data: appointments } = await supabase
+        // Try with joins first, fallback to simple query if joins fail
+        let appointmentsQuery = supabase
           .from('appointments')
-          .select(`
-            *,
-            clients:client_id (first_name, last_name),
-            pets:pet_id (name),
-            services:service_id (name)
-          `)
-          .eq('business_id', businessId)
+          .select('*')
           .eq('appointment_date', format(today, 'yyyy-MM-dd'))
           .order('start_time', { ascending: true });
+        
+        if (useBusinessId && businessId) {
+          appointmentsQuery = appointmentsQuery.eq('business_id', businessId);
+        }
+        
+        // Try to add joins, but fallback if they fail
+        let appointments;
+        try {
+          const { data, error } = await supabase
+            .from('appointments')
+            .select(`
+              *,
+              clients:client_id (first_name, last_name, name),
+              pets:pet_id (name),
+              services:service_id (name)
+            `)
+            .eq('appointment_date', format(today, 'yyyy-MM-dd'))
+            .order('start_time', { ascending: true });
+          
+          if (error && (error.message?.includes('relationship') || error.message?.includes('client_id'))) {
+            // Joins failed, use simple query
+            appointments = await appointmentsQuery;
+          } else {
+            appointments = { data, error };
+          }
+        } catch (e) {
+          // Joins failed, use simple query
+          appointments = await appointmentsQuery;
+        }
+        
+        const appointmentsData = appointments?.data || [];
 
         // Calculate revenue (from completed appointments)
-        const { data: completedAppointments } = await supabase
+        let revenueQuery = supabase
           .from('appointments')
           .select('total_price')
-          .eq('business_id', businessId)
           .eq('status', 'completed');
+        if (useBusinessId && businessId) {
+          revenueQuery = revenueQuery.eq('business_id', businessId);
+        }
+        const { data: completedAppointments } = await revenueQuery;
 
         const revenue = completedAppointments?.reduce(
           (sum, apt) => sum + (apt.total_price || 0),
@@ -74,11 +115,11 @@ export function BusinessDashboard() {
         setStats({
           totalCustomers: customersCount || 0,
           totalPets: petsCount || 0,
-          todayAppointments: appointments?.length || 0,
+          todayAppointments: appointmentsData?.length || 0,
           totalRevenue: revenue,
         });
 
-        setTodayAppointments(appointments || []);
+        setTodayAppointments(appointmentsData || []);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -186,9 +227,11 @@ export function BusinessDashboard() {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {appointment.start_time} •{' '}
+                        {appointment.start_time || 'N/A'} •{' '}
                         {customer
-                          ? `${customer.first_name} ${customer.last_name}`
+                          ? (customer.first_name && customer.last_name
+                              ? `${customer.first_name} ${customer.last_name}`
+                              : customer.name || t('common.unknownClient'))
                           : t('common.unknownClient')}
                       </p>
                       {service && (
