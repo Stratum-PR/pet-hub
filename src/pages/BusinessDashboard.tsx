@@ -22,90 +22,48 @@ export function BusinessDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If we don't yet have a businessId, stop loading
+    if (!businessId) {
+      console.warn('[BusinessDashboard] No businessId available – skipping dashboard queries');
+      setLoading(false);
+      return;
+    }
+
     const fetchDashboardData = async () => {
       try {
         const today = startOfDay(new Date());
-        
-        // Check if business_id column exists in clients table
-        let useBusinessId = false;
-        if (businessId) {
-          try {
-            const testQuery = await supabase
-              .from('clients')
-              .select('business_id')
-              .limit(1);
-            useBusinessId = !testQuery.error;
-          } catch (e) {
-            useBusinessId = false;
-          }
-        }
 
-        // CRITICAL: Fetch clients count (customers table was merged into clients)
-        let clientsQuery = supabase
+        // CRITICAL: Fetch clients count - ALWAYS filter by business_id for multi-tenancy
+        const { count: customersCount } = await supabase
           .from('clients')
-          .select('*', { count: 'exact', head: true });
-        if (useBusinessId && businessId) {
-          clientsQuery = clientsQuery.eq('business_id', businessId);
-        }
-        const { count: customersCount } = await clientsQuery;
+          .select('*', { count: 'exact', head: true })
+          .eq('business_id', businessId);
 
-        // Fetch pets count
-        let petsQuery = supabase
+        // Fetch pets count - ALWAYS filter by business_id
+        const { count: petsCount } = await supabase
           .from('pets')
-          .select('*', { count: 'exact', head: true });
-        if (useBusinessId && businessId) {
-          petsQuery = petsQuery.eq('business_id', businessId);
-        }
-        const { count: petsCount } = await petsQuery;
+          .select('*', { count: 'exact', head: true })
+          .eq('business_id', businessId);
 
-        // CRITICAL: Fetch today's appointments with clients (not customers)
-        // Try with joins first, fallback to simple query if joins fail
-        let appointmentsQuery = supabase
+        // CRITICAL: Fetch today's appointments with clients - ALWAYS filter by business_id
+        const { data: appointments } = await supabase
           .from('appointments')
-          .select('*')
+          .select(`
+            *,
+            clients:client_id (first_name, last_name),
+            pets:pet_id (name),
+            services:service_id (name)
+          `)
+          .eq('business_id', businessId)
           .eq('appointment_date', format(today, 'yyyy-MM-dd'))
           .order('start_time', { ascending: true });
-        
-        if (useBusinessId && businessId) {
-          appointmentsQuery = appointmentsQuery.eq('business_id', businessId);
-        }
-        
-        // Try to add joins, but fallback if they fail
-        let appointments;
-        try {
-          const { data, error } = await supabase
-            .from('appointments')
-            .select(`
-              *,
-              clients:client_id (first_name, last_name, name),
-              pets:pet_id (name),
-              services:service_id (name)
-            `)
-            .eq('appointment_date', format(today, 'yyyy-MM-dd'))
-            .order('start_time', { ascending: true });
-          
-          if (error && (error.message?.includes('relationship') || error.message?.includes('client_id'))) {
-            // Joins failed, use simple query
-            appointments = await appointmentsQuery;
-          } else {
-            appointments = { data, error };
-          }
-        } catch (e) {
-          // Joins failed, use simple query
-          appointments = await appointmentsQuery;
-        }
-        
-        const appointmentsData = appointments?.data || [];
 
-        // Calculate revenue (from completed appointments)
-        let revenueQuery = supabase
+        // Calculate revenue (from completed appointments) - ALWAYS filter by business_id
+        const { data: completedAppointments } = await supabase
           .from('appointments')
           .select('total_price')
+          .eq('business_id', businessId)
           .eq('status', 'completed');
-        if (useBusinessId && businessId) {
-          revenueQuery = revenueQuery.eq('business_id', businessId);
-        }
-        const { data: completedAppointments } = await revenueQuery;
 
         const revenue = completedAppointments?.reduce(
           (sum, apt) => sum + (apt.total_price || 0),
@@ -115,11 +73,11 @@ export function BusinessDashboard() {
         setStats({
           totalCustomers: customersCount || 0,
           totalPets: petsCount || 0,
-          todayAppointments: appointmentsData?.length || 0,
+          todayAppointments: appointments?.length || 0,
           totalRevenue: revenue,
         });
 
-        setTodayAppointments(appointmentsData || []);
+        setTodayAppointments(appointments || []);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
