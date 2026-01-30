@@ -132,11 +132,12 @@ BEGIN
     WHERE a.business_id IS NULL AND a.client_id IS NOT NULL;
     
     -- Backfill from pet if still NULL
+    -- Both pet_id and pets.id are TEXT, so direct comparison works
     UPDATE public.appointments a
     SET business_id = (
       SELECT p.business_id 
       FROM public.pets p 
-      WHERE p.id = a.pet_id::uuid
+      WHERE p.id = a.pet_id
       LIMIT 1
     )
     WHERE a.business_id IS NULL AND a.pet_id IS NOT NULL;

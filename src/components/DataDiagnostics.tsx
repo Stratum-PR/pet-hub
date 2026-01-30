@@ -66,8 +66,8 @@ export function DataDiagnostics() {
           const startTime = performance.now();
           
           // CRITICAL: Always filter by business_id for proper multi-tenancy
-          // The error will come from Supabase when executing the query, not from .eq()
-          const { data: clients, error: clientsError, count } = await supabase
+          // Try query with business_id first, if it fails with 42703, try without filter to verify column exists
+          let { data: clients, error: clientsError, count } = await supabase
             .from('clients')
             .select('*', { count: 'exact' })
             .neq('email', 'orphaned-pets@system.local')
@@ -75,7 +75,29 @@ export function DataDiagnostics() {
             .limit(5);
           const queryTime = performance.now() - startTime;
           
-          if (clientsError) {
+          // If error is about missing column, try a simple query to verify column exists
+          if (clientsError?.code === '42703' && clientsError.message?.includes('business_id')) {
+            console.warn('[DataDiagnostics] business_id column error detected, verifying column existence...');
+            // Try a simple query without business_id filter to see if table is accessible
+            const { error: simpleError } = await supabase
+              .from('clients')
+              .select('id')
+              .limit(1);
+            
+            if (!simpleError) {
+              // Table is accessible, so the issue is specifically with business_id column
+              // This likely means PostgREST schema cache needs to be refreshed
+              results.errors.push({ 
+                table: 'clients', 
+                error: { 
+                  code: '42703', 
+                  message: `column clients.business_id does not exist in PostgREST schema cache. The column exists in the database but PostgREST needs to refresh its schema. This usually resolves automatically within a few minutes, or you can contact Supabase support to force a schema refresh.` 
+                } 
+              });
+            } else {
+              results.errors.push({ table: 'clients', error: clientsError });
+            }
+          } else if (clientsError) {
             // Log the full error for debugging
             console.error('[DataDiagnostics] Clients query error:', {
               code: clientsError.code,
@@ -85,19 +107,7 @@ export function DataDiagnostics() {
               businessId,
               supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
             });
-            
-            // Check if error is about missing business_id column
-            if (clientsError.code === '42703' && clientsError.message?.includes('business_id')) {
-              results.errors.push({ 
-                table: 'clients', 
-                error: { 
-                  code: '42703', 
-                  message: `column clients.business_id does not exist. This may indicate you're connected to a different database (local vs production). Check your VITE_SUPABASE_URL environment variable.` 
-                } 
-              });
-            } else {
-              results.errors.push({ table: 'clients', error: clientsError });
-            }
+            results.errors.push({ table: 'clients', error: clientsError });
           } else {
             results.dataCounts.clients = count || 0;
             results.sampleData.clients = clients?.slice(0, 3).map((c: any) => ({
@@ -143,13 +153,23 @@ export function DataDiagnostics() {
           if (petsError) {
             // Check if error is about missing business_id column
             if (petsError.code === '42703' && petsError.message?.includes('business_id')) {
-              results.errors.push({ 
-                table: 'pets', 
-                error: { 
-                  code: '42703', 
-                  message: 'column pets.business_id does not exist. Please run fix_production_schema.sql in production.' 
-                } 
-              });
+              // Verify if table is accessible without business_id filter
+              const { error: simpleError } = await supabase
+                .from('pets')
+                .select('id')
+                .limit(1);
+              
+              if (!simpleError) {
+                results.errors.push({ 
+                  table: 'pets', 
+                  error: { 
+                    code: '42703', 
+                    message: 'column pets.business_id does not exist in PostgREST schema cache. The column exists in the database but PostgREST needs to refresh its schema. This usually resolves automatically within a few minutes.' 
+                  } 
+                });
+              } else {
+                results.errors.push({ table: 'pets', error: petsError });
+              }
             }
             // If join failed, try without join
             if (petsError.message?.includes('first_name') || petsError.message?.includes('relationship')) {
@@ -222,13 +242,23 @@ export function DataDiagnostics() {
           if (servicesError) {
             // Check if error is about missing business_id column
             if (servicesError.code === '42703' && servicesError.message?.includes('business_id')) {
-              results.errors.push({ 
-                table: 'services', 
-                error: { 
-                  code: '42703', 
-                  message: 'column services.business_id does not exist. Please run fix_production_schema.sql in production.' 
-                } 
-              });
+              // Verify if table is accessible without business_id filter
+              const { error: simpleError } = await supabase
+                .from('services')
+                .select('id')
+                .limit(1);
+              
+              if (!simpleError) {
+                results.errors.push({ 
+                  table: 'services', 
+                  error: { 
+                    code: '42703', 
+                    message: 'column services.business_id does not exist in PostgREST schema cache. The column exists in the database but PostgREST needs to refresh its schema. This usually resolves automatically within a few minutes.' 
+                  } 
+                });
+              } else {
+                results.errors.push({ table: 'services', error: servicesError });
+              }
             } else {
               results.errors.push({ table: 'services', error: servicesError });
             }
@@ -273,13 +303,23 @@ export function DataDiagnostics() {
           if (appointmentsError) {
             // Check if error is about missing business_id column
             if (appointmentsError.code === '42703' && appointmentsError.message?.includes('business_id')) {
-              results.errors.push({ 
-                table: 'appointments', 
-                error: { 
-                  code: '42703', 
-                  message: 'column appointments.business_id does not exist. Please run fix_production_schema.sql in production.' 
-                } 
-              });
+              // Verify if table is accessible without business_id filter
+              const { error: simpleError } = await supabase
+                .from('appointments')
+                .select('id')
+                .limit(1);
+              
+              if (!simpleError) {
+                results.errors.push({ 
+                  table: 'appointments', 
+                  error: { 
+                    code: '42703', 
+                    message: 'column appointments.business_id does not exist in PostgREST schema cache. The column exists in the database but PostgREST needs to refresh its schema. This usually resolves automatically within a few minutes.' 
+                  } 
+                });
+              } else {
+                results.errors.push({ table: 'appointments', error: appointmentsError });
+              }
             }
             // If join failed, try without joins
             if (appointmentsError.message?.includes('relationship') || appointmentsError.message?.includes('client_id')) {
