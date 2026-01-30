@@ -64,12 +64,22 @@ export function DataDiagnostics() {
         // Test clients query
         try {
           const startTime = performance.now();
-          const { data: clients, error: clientsError, count } = await supabase
+          // Try with business_id first, fallback to no filter if column doesn't exist
+          let query = supabase
             .from('clients')
             .select('*', { count: 'exact' })
-            .eq('business_id', businessId)
             .neq('email', 'orphaned-pets@system.local')
             .limit(5);
+          
+          // Only filter by business_id if the column exists (will fail gracefully if it doesn't)
+          try {
+            query = query.eq('business_id', businessId);
+          } catch (e) {
+            // business_id column doesn't exist, query without it
+            console.warn('[DataDiagnostics] business_id column not found in clients table');
+          }
+          
+          const { data: clients, error: clientsError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (clientsError) {
@@ -78,7 +88,9 @@ export function DataDiagnostics() {
             results.dataCounts.clients = count || 0;
             results.sampleData.clients = clients?.slice(0, 3).map((c: any) => ({
               id: c.id,
-              name: `${c.first_name} ${c.last_name}`,
+              name: c.first_name && c.last_name 
+                ? `${c.first_name} ${c.last_name}` 
+                : c.name || 'Sin nombre',
               email: c.email,
               phone: c.phone,
             })) || [];
@@ -95,24 +107,73 @@ export function DataDiagnostics() {
         // Test pets query
         try {
           const startTime = performance.now();
-          const { data: pets, error: petsError, count } = await supabase
+          // Try to join with clients, but handle if columns don't exist
+          let selectQuery = '*';
+          try {
+            // Try the full join first
+            selectQuery = '*, clients:client_id(id, first_name, last_name, name)';
+          } catch (e) {
+            // Fallback to basic query
+            selectQuery = '*';
+          }
+          
+          let query = supabase
             .from('pets')
-            .select('*, clients:client_id(id, first_name, last_name)', { count: 'exact' })
-            .eq('business_id', businessId)
+            .select(selectQuery, { count: 'exact' })
             .limit(5);
+          
+          // Only filter by business_id if the column exists
+          try {
+            query = query.eq('business_id', businessId);
+          } catch (e) {
+            console.warn('[DataDiagnostics] business_id column not found in pets table');
+          }
+          
+          const { data: pets, error: petsError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (petsError) {
-            results.errors.push({ table: 'pets', error: petsError });
+            // If join failed, try without join
+            if (petsError.message?.includes('first_name') || petsError.message?.includes('relationship')) {
+              const { data: petsSimple, error: petsSimpleError, count: petsCount } = await supabase
+                .from('pets')
+                .select('*', { count: 'exact' })
+                .limit(5);
+              
+              if (!petsSimpleError) {
+                results.dataCounts.pets = petsCount || 0;
+                results.sampleData.pets = petsSimple?.slice(0, 3).map((p: any) => ({
+                  id: p.id,
+                  name: p.name,
+                  breed: p.breed || 'N/A',
+                  species: p.species,
+                  client_id: p.client_id,
+                  client_name: 'N/A (schema mismatch)',
+                })) || [];
+                results.queryDetails.pets = {
+                  queryTime: `${queryTime.toFixed(2)}ms`,
+                  count: petsCount || 0,
+                  returned: petsSimple?.length || 0,
+                };
+              } else {
+                results.errors.push({ table: 'pets', error: petsSimpleError });
+              }
+            } else {
+              results.errors.push({ table: 'pets', error: petsError });
+            }
           } else {
             results.dataCounts.pets = count || 0;
             results.sampleData.pets = pets?.slice(0, 3).map((p: any) => ({
               id: p.id,
               name: p.name,
-              breed: p.breed,
+              breed: p.breed || 'N/A',
               species: p.species,
               client_id: p.client_id,
-              client_name: p.clients ? `${p.clients.first_name} ${p.clients.last_name}` : 'No client',
+              client_name: p.clients 
+                ? (p.clients.first_name && p.clients.last_name 
+                    ? `${p.clients.first_name} ${p.clients.last_name}` 
+                    : p.clients.name || 'Sin nombre')
+                : 'No client',
             })) || [];
             results.queryDetails.pets = {
               queryTime: `${queryTime.toFixed(2)}ms`,
@@ -130,11 +191,19 @@ export function DataDiagnostics() {
         // Test services query
         try {
           const startTime = performance.now();
-          const { data: services, error: servicesError, count } = await supabase
+          let query = supabase
             .from('services')
             .select('*', { count: 'exact' })
-            .eq('business_id', businessId)
             .limit(5);
+          
+          // Only filter by business_id if the column exists
+          try {
+            query = query.eq('business_id', businessId);
+          } catch (e) {
+            console.warn('[DataDiagnostics] business_id column not found in services table');
+          }
+          
+          const { data: services, error: servicesError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (servicesError) {
@@ -160,23 +229,70 @@ export function DataDiagnostics() {
         // Test appointments query
         try {
           const startTime = performance.now();
-          const { data: appointments, error: appointmentsError, count } = await supabase
+          // Try with joins first, fallback to simple query if relationships don't exist
+          let selectQuery = '*';
+          try {
+            selectQuery = '*, pets:pet_id(id, name), clients:client_id(id, first_name, last_name, name)';
+          } catch (e) {
+            selectQuery = '*';
+          }
+          
+          let query = supabase
             .from('appointments')
-            .select('*, pets:pet_id(id, name), clients:client_id(id, first_name, last_name)', { count: 'exact' })
-            .eq('business_id', businessId)
+            .select(selectQuery, { count: 'exact' })
             .limit(5);
+          
+          // Only filter by business_id if the column exists
+          try {
+            query = query.eq('business_id', businessId);
+          } catch (e) {
+            console.warn('[DataDiagnostics] business_id column not found in appointments table');
+          }
+          
+          const { data: appointments, error: appointmentsError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (appointmentsError) {
-            results.errors.push({ table: 'appointments', error: appointmentsError });
+            // If join failed, try without joins
+            if (appointmentsError.message?.includes('relationship') || appointmentsError.message?.includes('client_id')) {
+              const { data: appointmentsSimple, error: appointmentsSimpleError, count: appointmentsCount } = await supabase
+                .from('appointments')
+                .select('*', { count: 'exact' })
+                .limit(5);
+              
+              if (!appointmentsSimpleError) {
+                results.dataCounts.appointments = appointmentsCount || 0;
+                results.sampleData.appointments = appointmentsSimple?.slice(0, 3).map((a: any) => ({
+                  id: a.id,
+                  date: a.appointment_date || a.scheduled_date,
+                  time: a.start_time || 'N/A',
+                  pet_name: a.pet_id ? 'Linked (schema mismatch)' : 'No pet',
+                  client_name: a.client_id || a.customer_id ? 'Linked (schema mismatch)' : 'No client',
+                  status: a.status,
+                })) || [];
+                results.queryDetails.appointments = {
+                  queryTime: `${queryTime.toFixed(2)}ms`,
+                  count: appointmentsCount || 0,
+                  returned: appointmentsSimple?.length || 0,
+                };
+              } else {
+                results.errors.push({ table: 'appointments', error: appointmentsSimpleError });
+              }
+            } else {
+              results.errors.push({ table: 'appointments', error: appointmentsError });
+            }
           } else {
             results.dataCounts.appointments = count || 0;
             results.sampleData.appointments = appointments?.slice(0, 3).map((a: any) => ({
               id: a.id,
-              date: a.appointment_date,
-              time: a.start_time,
+              date: a.appointment_date || a.scheduled_date,
+              time: a.start_time || 'N/A',
               pet_name: a.pets?.name || 'No pet',
-              client_name: a.clients ? `${a.clients.first_name} ${a.clients.last_name}` : 'No client',
+              client_name: a.clients 
+                ? (a.clients.first_name && a.clients.last_name 
+                    ? `${a.clients.first_name} ${a.clients.last_name}` 
+                    : a.clients.name || 'Sin nombre')
+                : 'No client',
               status: a.status,
             })) || [];
             results.queryDetails.appointments = {
