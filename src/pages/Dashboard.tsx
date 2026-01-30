@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Users, Dog, Calendar, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,12 +44,17 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
       onSelectClient(clientId);
     }
     const target = businessSlug ? `/${businessSlug}/clients` : '/clients';
-    navigate(target, { state: { selectedClientId: clientId } });
+    // Use replace: false to preserve navigation history and auth state
+    navigate(target, { 
+      state: { selectedClientId: clientId },
+      replace: false
+    });
   };
 
   const handlePetClick = (petId: string) => {
     const target = businessSlug ? `/${businessSlug}/pets?highlight=${petId}` : `/pets?highlight=${petId}`;
-    navigate(target);
+    // Use replace: false to preserve navigation history and auth state
+    navigate(target, { replace: false });
   };
 
   return (
@@ -65,7 +70,13 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div onClick={() => navigate('/clients')} className="cursor-pointer">
+        <div 
+          onClick={() => {
+            const target = businessSlug ? `/${businessSlug}/clients` : '/clients';
+            navigate(target);
+          }} 
+          className="cursor-pointer h-full"
+        >
           <StatCard
             title={t('dashboard.totalClients')}
             value={clients.length}
@@ -73,7 +84,13 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={t('dashboard.registeredClients')}
           />
         </div>
-        <div onClick={() => navigate('/pets')} className="cursor-pointer">
+        <div 
+          onClick={() => {
+            const target = businessSlug ? `/${businessSlug}/pets` : '/pets';
+            navigate(target);
+          }} 
+          className="cursor-pointer h-full"
+        >
           <StatCard
             title={t('dashboard.totalPets')}
             value={pets.length}
@@ -81,7 +98,13 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={`${dogCount} ${t('dashboard.dogs')}, ${catCount} ${t('dashboard.cats')}`}
           />
         </div>
-        <div onClick={() => navigate('/employee-management')} className="cursor-pointer">
+        <div 
+          onClick={() => {
+            const target = businessSlug ? `/${businessSlug}/employee-management` : '/employee-management';
+            navigate(target);
+          }} 
+          className="cursor-pointer h-full"
+        >
           <StatCard
             title={t('dashboard.activeStaff')}
             value={activeEmployees}
@@ -89,13 +112,21 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={t('dashboard.teamMembers')}
           />
         </div>
-        <StatCard
-          title={t('dashboard.today')}
-          value={todayAppointments}
-          icon={Calendar}
-          description={t('dashboard.appointments')}
-        />
-        <div onClick={() => navigate('/reports')} className="cursor-pointer">
+        <div className="h-full">
+          <StatCard
+            title={t('dashboard.today')}
+            value={todayAppointments}
+            icon={Calendar}
+            description={t('dashboard.appointments')}
+          />
+        </div>
+        <div 
+          onClick={() => {
+            const target = businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics';
+            navigate(target);
+          }} 
+          className="cursor-pointer h-full"
+        >
           <StatCard
             title={t('dashboard.revenue')}
             value={`$${totalRevenue.toLocaleString()}`}
@@ -103,12 +134,14 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={t('dashboard.totalEarned')}
           />
         </div>
-        <StatCard
-          title={t('dashboard.growth')}
-          value="+12%"
-          icon={TrendingUp}
-          description={t('dashboard.vsLastMonth')}
-        />
+        <div className="h-full">
+          <StatCard
+            title={t('dashboard.growth')}
+            value="+12%"
+            icon={TrendingUp}
+            description={t('dashboard.vsLastMonth')}
+          />
+        </div>
       </div>
 
       {/* Today's Appointments */}
@@ -126,12 +159,15 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             <div className="space-y-3">
               {todaysAppointmentsList.map((appointment) => {
                 const pet = pets.find(p => p.id === appointment.pet_id);
-                const client = pet ? clients.find(c => c.id === (pet.customer_id || pet.client_id)) : null;
+                const client = pet ? clients.find(c => c.id === pet.client_id) : null; // CRITICAL: Use client_id only
                 const employee = appointment.employee_id ? employees.find(e => e.id === appointment.employee_id) : null;
                 return (
                   <div
                     key={appointment.id}
-                    onClick={() => navigate('/appointments')}
+                    onClick={() => {
+                      const target = businessSlug ? `/${businessSlug}/appointments` : '/appointments';
+                      navigate(target);
+                    }}
                     className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors"
                   >
                     <div className="flex-1">
@@ -179,21 +215,28 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               <p className="text-muted-foreground text-center py-8">{t('dashboard.noClientsYet')}</p>
             ) : (
               <div className="space-y-3">
-                {recentClients.map((client) => (
-                  <div
-                    key={client.id}
-                    onClick={() => handleClientClick(client.id)}
-                    className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors"
-                  >
-                    <div>
-                      <p className="font-medium hover:text-primary transition-colors cursor-pointer">{client.name}</p>
-                      <p className="text-sm text-muted-foreground">{client.email}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
-                      {pets.filter((p) => (p.customer_id || p.client_id) === client.id).length} {t('dashboard.pets')}
-                    </span>
-                  </div>
-                ))}
+                {recentClients.map((client) => {
+                  const target = businessSlug ? `/${businessSlug}/clients` : '/clients';
+                  return (
+                    <Link
+                      key={client.id}
+                      to={target}
+                      state={{ selectedClientId: client.id }}
+                      className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors block"
+                    >
+                      <div>
+                        <p className="font-medium hover:text-primary transition-colors cursor-pointer">{client.name || 'Sin nombre'}</p>
+                        <p className="text-sm text-muted-foreground">{client.email || 'Sin email'}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
+                        {(() => {
+                          const petCount = pets.filter((p) => p.client_id === client.id).length;
+                          return petCount === 1 ? `${petCount} ${t('pets.pet')}` : `${petCount} ${t('pets.pets')}`;
+                        })()}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -212,12 +255,13 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             ) : (
               <div className="space-y-3">
                 {recentPets.map((pet) => {
-                  const owner = clients.find((c) => c.id === (pet.customer_id || pet.client_id));
+                  const owner = clients.find((c) => c.id === pet.client_id); // CRITICAL: Use client_id only
+                  const target = businessSlug ? `/${businessSlug}/pets?highlight=${pet.id}` : `/pets?highlight=${pet.id}`;
                   return (
-                    <div
+                    <Link
                       key={pet.id}
-                      onClick={() => handlePetClick(pet.id)}
-                      className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors"
+                      to={target}
+                      className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors block"
                     >
                       <div>
                         <p className="font-medium hover:text-primary transition-colors cursor-pointer">{pet.name}</p>
@@ -228,7 +272,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                       <span className="px-2 py-1 text-xs bg-accent rounded capitalize">
                         {pet.species}
                       </span>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

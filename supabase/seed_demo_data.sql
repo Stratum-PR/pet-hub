@@ -100,7 +100,7 @@ BEGIN
     (gen_random_uuid(), business_uuid, carlos_id, 'Max', 'dog', 'German Shepherd', 5, 85.0, 'Perro grande, necesita tiempo extra', 'Requiere peluquero experimentado'),
     (gen_random_uuid(), business_uuid, ana_id, 'Bella', 'dog', 'Shih Tzu', 3, 12.0, 'Le encanta la atención', NULL),
     (gen_random_uuid(), business_uuid, ana_id, 'Rocky', 'dog', 'French Bulldog', 2, 25.0, 'Cachorro juguetón', 'Manejar con cuidado, problemas respiratorios'),
-    (gen_random_uuid(), business_uuid, jose_id, 'Coco', 'dog', 'Poodle', 6, 18.0, 'Perro senior, necesita manejo suave', 'Usar productos para perros senior')
+    (gen_random_uuid(), business_uuid, jose_id, 'Coco', 'dog', 'Poodle (Standard)', 6, 18.0, 'Perro senior, necesita manejo suave', 'Usar productos para perros senior')
   ON CONFLICT DO NOTHING;
 END $$;
 

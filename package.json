@@ -4,11 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run kill-vite && vite",
+    "kill-vite": "powershell -ExecutionPolicy Bypass -File ./scripts/kill-port-8080.ps1",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-supabase.ps1",
+    "supabase:stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-supabase.ps1",
+    "supabase:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-supabase.ps1",
+    "supabase:status": "supabase status",
+    "setup-env": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-env.ps1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

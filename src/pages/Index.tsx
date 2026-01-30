@@ -64,6 +64,7 @@ const Index = () => {
                   onAddClient={addClient}
                   onUpdateClient={updateClient}
                   onDeleteClient={deleteClient}
+                  onUpdatePet={updatePet}
                 />
               }
             />
@@ -73,6 +74,7 @@ const Index = () => {
                 <Pets
                   clients={clients}
                   pets={pets}
+                  appointments={appointments}
                   onAddPet={addPet}
                   onUpdatePet={updatePet}
                   onDeletePet={deletePet}

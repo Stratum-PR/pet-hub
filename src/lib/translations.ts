@@ -874,6 +874,14 @@ export const translations: Translations = {
     en: 'Week View',
     es: 'Vista Semanal'
   },
+  'appointments.monthView': {
+    en: 'Month View',
+    es: 'Vista Mensual'
+  },
+  'appointments.today': {
+    en: 'Today',
+    es: 'Hoy'
+  },
   'appointments.noAppointments': {
     en: 'No appointments',
     es: 'Sin citas'

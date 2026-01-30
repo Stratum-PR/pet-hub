@@ -179,3 +179,26 @@ body.menu-open {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary) / 0.6);
 }
+
+/* Edit form highlight animation */
+.edit-highlight {
+  animation: editHighlight 2s ease-out;
+}
+
+@keyframes editHighlight {
+  0% {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4), 0 0 0 0 hsl(var(--primary) / 0.4);
+    background-color: hsl(var(--primary) / 0.05);
+  }
+  50% {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.2), 0 0 0 8px hsl(var(--primary) / 0.1);
+    background-color: hsl(var(--primary) / 0.08);
+  }
+  100% {
+    border-color: hsl(var(--border));
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0), 0 0 0 0 hsl(var(--primary) / 0);
+    background-color: transparent;
+  }
+}
