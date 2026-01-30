@@ -66,18 +66,28 @@ export function DataDiagnostics() {
           const startTime = performance.now();
           
           // CRITICAL: Always filter by business_id for proper multi-tenancy
-          let query = supabase
+          // The error will come from Supabase when executing the query, not from .eq()
+          const { data: clients, error: clientsError, count } = await supabase
             .from('clients')
             .select('*', { count: 'exact' })
             .neq('email', 'orphaned-pets@system.local')
             .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          const { data: clients, error: clientsError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (clientsError) {
-            results.errors.push({ table: 'clients', error: clientsError });
+            // Check if error is about missing business_id column
+            if (clientsError.code === '42703' && clientsError.message?.includes('business_id')) {
+              results.errors.push({ 
+                table: 'clients', 
+                error: { 
+                  code: '42703', 
+                  message: 'column clients.business_id does not exist. Please run fix_production_schema.sql in production.' 
+                } 
+              });
+            } else {
+              results.errors.push({ table: 'clients', error: clientsError });
+            }
           } else {
             results.dataCounts.clients = count || 0;
             results.sampleData.clients = clients?.slice(0, 3).map((c: any) => ({
@@ -113,16 +123,24 @@ export function DataDiagnostics() {
           }
           
           // CRITICAL: Always filter by business_id for proper multi-tenancy
-          let query = supabase
+          const { data: pets, error: petsError, count } = await supabase
             .from('pets')
             .select(selectQuery, { count: 'exact' })
             .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          const { data: pets, error: petsError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (petsError) {
+            // Check if error is about missing business_id column
+            if (petsError.code === '42703' && petsError.message?.includes('business_id')) {
+              results.errors.push({ 
+                table: 'pets', 
+                error: { 
+                  code: '42703', 
+                  message: 'column pets.business_id does not exist. Please run fix_production_schema.sql in production.' 
+                } 
+              });
+            }
             // If join failed, try without join
             if (petsError.message?.includes('first_name') || petsError.message?.includes('relationship')) {
               const { data: petsSimple, error: petsSimpleError, count: petsCount } = await supabase
@@ -184,17 +202,26 @@ export function DataDiagnostics() {
           const startTime = performance.now();
           
           // CRITICAL: Always filter by business_id for proper multi-tenancy
-          let query = supabase
+          const { data: services, error: servicesError, count } = await supabase
             .from('services')
             .select('*', { count: 'exact' })
             .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          const { data: services, error: servicesError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (servicesError) {
-            results.errors.push({ table: 'services', error: servicesError });
+            // Check if error is about missing business_id column
+            if (servicesError.code === '42703' && servicesError.message?.includes('business_id')) {
+              results.errors.push({ 
+                table: 'services', 
+                error: { 
+                  code: '42703', 
+                  message: 'column services.business_id does not exist. Please run fix_production_schema.sql in production.' 
+                } 
+              });
+            } else {
+              results.errors.push({ table: 'services', error: servicesError });
+            }
           } else {
             results.dataCounts.services = count || 0;
             results.sampleData.services = services?.slice(0, 3).map((s: any) => ({
@@ -226,16 +253,24 @@ export function DataDiagnostics() {
           }
           
           // CRITICAL: Always filter by business_id for proper multi-tenancy
-          let query = supabase
+          const { data: appointments, error: appointmentsError, count } = await supabase
             .from('appointments')
             .select(selectQuery, { count: 'exact' })
             .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          const { data: appointments, error: appointmentsError, count } = await query;
           const queryTime = performance.now() - startTime;
           
           if (appointmentsError) {
+            // Check if error is about missing business_id column
+            if (appointmentsError.code === '42703' && appointmentsError.message?.includes('business_id')) {
+              results.errors.push({ 
+                table: 'appointments', 
+                error: { 
+                  code: '42703', 
+                  message: 'column appointments.business_id does not exist. Please run fix_production_schema.sql in production.' 
+                } 
+              });
+            }
             // If join failed, try without joins
             if (appointmentsError.message?.includes('relationship') || appointmentsError.message?.includes('client_id')) {
               const { data: appointmentsSimple, error: appointmentsSimpleError, count: appointmentsCount } = await supabase
