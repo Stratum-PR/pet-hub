@@ -64,28 +64,14 @@ export function DataDiagnostics() {
         // Test clients query
         try {
           const startTime = performance.now();
-          // First, check if business_id column exists by trying a simple query
-          let useBusinessId = false;
-          try {
-            const testQuery = await supabase
-              .from('clients')
-              .select('business_id')
-              .limit(1);
-            useBusinessId = !testQuery.error;
-          } catch (e) {
-            useBusinessId = false;
-          }
           
+          // CRITICAL: Always filter by business_id for proper multi-tenancy
           let query = supabase
             .from('clients')
             .select('*', { count: 'exact' })
             .neq('email', 'orphaned-pets@system.local')
+            .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          // Only filter by business_id if the column exists
-          if (useBusinessId && businessId) {
-            query = query.eq('business_id', businessId);
-          }
           
           const { data: clients, error: clientsError, count } = await query;
           const queryTime = performance.now() - startTime;
@@ -126,17 +112,12 @@ export function DataDiagnostics() {
             selectQuery = '*';
           }
           
+          // CRITICAL: Always filter by business_id for proper multi-tenancy
           let query = supabase
             .from('pets')
             .select(selectQuery, { count: 'exact' })
+            .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          // Only filter by business_id if the column exists
-          try {
-            query = query.eq('business_id', businessId);
-          } catch (e) {
-            console.warn('[DataDiagnostics] business_id column not found in pets table');
-          }
           
           const { data: pets, error: petsError, count } = await query;
           const queryTime = performance.now() - startTime;
@@ -147,6 +128,7 @@ export function DataDiagnostics() {
               const { data: petsSimple, error: petsSimpleError, count: petsCount } = await supabase
                 .from('pets')
                 .select('*', { count: 'exact' })
+                .eq('business_id', businessId)  // ALWAYS filter by business_id even in fallback
                 .limit(5);
               
               if (!petsSimpleError) {
@@ -200,27 +182,13 @@ export function DataDiagnostics() {
         // Test services query
         try {
           const startTime = performance.now();
-          // First, check if business_id column exists
-          let useBusinessId = false;
-          try {
-            const testQuery = await supabase
-              .from('services')
-              .select('business_id')
-              .limit(1);
-            useBusinessId = !testQuery.error;
-          } catch (e) {
-            useBusinessId = false;
-          }
           
+          // CRITICAL: Always filter by business_id for proper multi-tenancy
           let query = supabase
             .from('services')
             .select('*', { count: 'exact' })
+            .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          // Only filter by business_id if the column exists
-          if (useBusinessId && businessId) {
-            query = query.eq('business_id', businessId);
-          }
           
           const { data: services, error: servicesError, count } = await query;
           const queryTime = performance.now() - startTime;
@@ -257,17 +225,12 @@ export function DataDiagnostics() {
             selectQuery = '*';
           }
           
+          // CRITICAL: Always filter by business_id for proper multi-tenancy
           let query = supabase
             .from('appointments')
             .select(selectQuery, { count: 'exact' })
+            .eq('business_id', businessId)  // ALWAYS filter by business_id
             .limit(5);
-          
-          // Only filter by business_id if the column exists
-          try {
-            query = query.eq('business_id', businessId);
-          } catch (e) {
-            console.warn('[DataDiagnostics] business_id column not found in appointments table');
-          }
           
           const { data: appointments, error: appointmentsError, count } = await query;
           const queryTime = performance.now() - startTime;
@@ -278,6 +241,7 @@ export function DataDiagnostics() {
               const { data: appointmentsSimple, error: appointmentsSimpleError, count: appointmentsCount } = await supabase
                 .from('appointments')
                 .select('*', { count: 'exact' })
+                .eq('business_id', businessId)  // ALWAYS filter by business_id even in fallback
                 .limit(5);
               
               if (!appointmentsSimpleError) {
