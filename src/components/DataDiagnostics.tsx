@@ -116,10 +116,11 @@ export function DataDiagnostics() {
         try {
           const startTime = performance.now();
           // Try to join with clients, but handle if columns don't exist
+          // NOTE: clients table has first_name and last_name, NOT name
           let selectQuery = '*';
           try {
-            // Try the full join first
-            selectQuery = '*, clients:client_id(id, first_name, last_name, name)';
+            // Try the full join first - only use first_name and last_name
+            selectQuery = '*, clients:client_id(id, first_name, last_name)';
           } catch (e) {
             // Fallback to basic query
             selectQuery = '*';
@@ -180,7 +181,7 @@ export function DataDiagnostics() {
               client_name: p.clients 
                 ? (p.clients.first_name && p.clients.last_name 
                     ? `${p.clients.first_name} ${p.clients.last_name}` 
-                    : p.clients.name || 'Sin nombre')
+                    : 'Sin nombre')
                 : 'No client',
             })) || [];
             results.queryDetails.pets = {
@@ -248,9 +249,10 @@ export function DataDiagnostics() {
         try {
           const startTime = performance.now();
           // Try with joins first, fallback to simple query if relationships don't exist
+          // NOTE: clients table has first_name and last_name, NOT name
           let selectQuery = '*';
           try {
-            selectQuery = '*, pets:pet_id(id, name), clients:client_id(id, first_name, last_name, name)';
+            selectQuery = '*, pets:pet_id(id, name), clients:client_id(id, first_name, last_name)';
           } catch (e) {
             selectQuery = '*';
           }
@@ -309,7 +311,7 @@ export function DataDiagnostics() {
               client_name: a.clients 
                 ? (a.clients.first_name && a.clients.last_name 
                     ? `${a.clients.first_name} ${a.clients.last_name}` 
-                    : a.clients.name || 'Sin nombre')
+                    : 'Sin nombre')
                 : 'No client',
               status: a.status,
             })) || [];
