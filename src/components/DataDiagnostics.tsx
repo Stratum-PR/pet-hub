@@ -76,13 +76,23 @@ export function DataDiagnostics() {
           const queryTime = performance.now() - startTime;
           
           if (clientsError) {
+            // Log the full error for debugging
+            console.error('[DataDiagnostics] Clients query error:', {
+              code: clientsError.code,
+              message: clientsError.message,
+              details: clientsError.details,
+              hint: clientsError.hint,
+              businessId,
+              supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+            });
+            
             // Check if error is about missing business_id column
             if (clientsError.code === '42703' && clientsError.message?.includes('business_id')) {
               results.errors.push({ 
                 table: 'clients', 
                 error: { 
                   code: '42703', 
-                  message: 'column clients.business_id does not exist. Please run fix_production_schema.sql in production.' 
+                  message: `column clients.business_id does not exist. This may indicate you're connected to a different database (local vs production). Check your VITE_SUPABASE_URL environment variable.` 
                 } 
               });
             } else {
