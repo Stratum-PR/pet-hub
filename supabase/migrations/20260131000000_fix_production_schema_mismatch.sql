@@ -11,13 +11,23 @@ BEGIN
     AND table_name = 'clients' 
     AND column_name = 'business_id'
   ) THEN
+    -- Add column first without FK constraint
     ALTER TABLE public.clients 
-    ADD COLUMN business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE;
+    ADD COLUMN business_id UUID;
     
     -- Set default business_id for existing records (use demo business)
     UPDATE public.clients 
     SET business_id = '00000000-0000-0000-0000-000000000001'::uuid
     WHERE business_id IS NULL;
+    
+    -- Add foreign key constraint if businesses table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'businesses') THEN
+      ALTER TABLE public.clients 
+      ADD CONSTRAINT clients_business_id_fkey 
+      FOREIGN KEY (business_id) 
+      REFERENCES public.businesses(id) 
+      ON DELETE CASCADE;
+    END IF;
   END IF;
 END $$;
 
@@ -86,13 +96,23 @@ BEGIN
     AND table_name = 'services' 
     AND column_name = 'business_id'
   ) THEN
+    -- Add column first without FK constraint
     ALTER TABLE public.services 
-    ADD COLUMN business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE;
+    ADD COLUMN business_id UUID;
     
     -- Set default business_id for existing records
     UPDATE public.services 
     SET business_id = '00000000-0000-0000-0000-000000000001'::uuid
     WHERE business_id IS NULL;
+    
+    -- Add foreign key constraint if businesses table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'businesses') THEN
+      ALTER TABLE public.services 
+      ADD CONSTRAINT services_business_id_fkey 
+      FOREIGN KEY (business_id) 
+      REFERENCES public.businesses(id) 
+      ON DELETE CASCADE;
+    END IF;
   END IF;
 END $$;
 
