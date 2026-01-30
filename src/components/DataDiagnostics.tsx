@@ -381,6 +381,9 @@ export function DataDiagnostics() {
           <CollapsibleContent>
             <div className="space-y-2">
               <div>
+                <strong>Supabase URL:</strong> <code className="text-xs bg-muted px-1 py-0.5 rounded">{import.meta.env.VITE_SUPABASE_URL || 'Not set'}</code>
+              </div>
+              <div>
                 <strong>User:</strong> {diagnostics.user ? `${diagnostics.user.email} (${diagnostics.user.id.substring(0, 8)}...)` : 'Not logged in'}
               </div>
               <div>
