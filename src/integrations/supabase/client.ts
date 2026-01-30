@@ -5,6 +5,65 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Check for missing environment variables
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  const errorMsg = `
+    ⚠️ Missing Supabase Environment Variables ⚠️
+    
+    Please create a .env.local file in the project root with:
+    
+    VITE_SUPABASE_URL=your_supabase_url
+    VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
+    
+    For local Supabase:
+    1. Run: npx supabase status
+    2. Copy the API URL and anon key
+    3. Add them to .env.local
+    
+    For remote Supabase:
+    1. Go to Supabase Dashboard > Project Settings > API
+    2. Copy the Project URL and anon/public key
+    3. Add them to .env.local
+    
+    Then restart the dev server (npm run dev)
+  `;
+  console.error(errorMsg);
+  
+  // Show error in browser
+  if (typeof window !== 'undefined') {
+    document.body.innerHTML = `
+      <div style="padding: 24px; font-family: system-ui; max-width: 600px; margin: 50px auto;">
+        <h1 style="color: #dc2626; margin-bottom: 16px;">⚠️ Configuration Error</h1>
+        <p style="margin-bottom: 16px; color: #374151;">
+          Missing Supabase environment variables. Please create a <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">.env.local</code> file.
+        </p>
+        <div style="background: #f9fafb; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+          <h3 style="margin-top: 0; font-size: 14px; font-weight: 600; margin-bottom: 8px;">For Local Supabase:</h3>
+          <ol style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px;">
+            <li>Run: <code style="background: #e5e7eb; padding: 2px 4px;">npx supabase status</code></li>
+            <li>Copy the API URL and anon key</li>
+            <li>Create <code>.env.local</code> with those values</li>
+          </ol>
+        </div>
+        <div style="background: #f9fafb; padding: 16px; border-radius: 8px;">
+          <h3 style="margin-top: 0; font-size: 14px; font-weight: 600; margin-bottom: 8px;">For Remote Supabase:</h3>
+          <ol style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px;">
+            <li>Go to Supabase Dashboard > Project Settings > API</li>
+            <li>Copy the Project URL and anon/public key</li>
+            <li>Create <code>.env.local</code> with those values</li>
+          </ol>
+        </div>
+        <p style="margin-top: 16px; color: #6b7280; font-size: 14px;">
+          After creating <code>.env.local</code>, restart the dev server.
+        </p>
+      </div>
+    `;
+  }
+  
+  // Still create client to prevent further errors, but it won't work
+  throw new Error('Missing Supabase environment variables. See console for details.');
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 

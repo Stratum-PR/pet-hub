@@ -34,9 +34,9 @@ export function BusinessDashboard() {
       try {
         const today = startOfDay(new Date());
 
-        // Fetch customers count
+        // CRITICAL: Fetch clients count (customers table was merged into clients)
         const { count: customersCount } = await supabase
-          .from('customers')
+          .from('clients')
           .select('*', { count: 'exact', head: true })
           .eq('business_id', businessId);
 
@@ -46,12 +46,12 @@ export function BusinessDashboard() {
           .select('*', { count: 'exact', head: true })
           .eq('business_id', businessId);
 
-        // Fetch today's appointments
+        // CRITICAL: Fetch today's appointments with clients (not customers)
         const { data: appointments } = await supabase
           .from('appointments')
           .select(`
             *,
-            customers:customer_id (first_name, last_name),
+            clients:client_id (first_name, last_name),
             pets:pet_id (name),
             services:service_id (name)
           `)
@@ -161,7 +161,7 @@ export function BusinessDashboard() {
           ) : (
             <div className="space-y-3">
               {todayAppointments.map((appointment) => {
-                const customer = appointment.customers;
+                const customer = appointment.clients; // CRITICAL: Use clients (not customers)
                 const pet = appointment.pets;
                 const service = appointment.services;
                 return (

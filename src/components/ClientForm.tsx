@@ -1,22 +1,56 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Client } from '@/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Check, ChevronsUpDown, Dog, Plus, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Client, Pet } from '@/types';
 import { formatPhoneNumber } from '@/lib/phoneFormat';
 import { CreditCard } from 'lucide-react';
 import { t } from '@/lib/translations';
+import { Badge } from '@/components/ui/badge';
 
 interface ClientFormProps {
   onSubmit: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => void;
   onCancel?: () => void;
   initialData?: Client | null;
   isEditing?: boolean;
+  pets?: Pet[];
+  onUpdatePet?: (id: string, pet: Partial<Pet>) => void;
 }
 
-export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: ClientFormProps) {
+export function ClientForm({ onSubmit, onCancel, initialData, isEditing, pets = [], onUpdatePet }: ClientFormProps) {
+  const [petSearch, setPetSearch] = useState('');
+  const [petOpen, setPetOpen] = useState(false);
+  
+  // Get pets assigned to this client
+  const clientPets = useMemo(() => {
+    if (!initialData || !isEditing) return [];
+    return pets.filter(p => String(p.client_id) === String(initialData.id));
+  }, [pets, initialData, isEditing]);
+  
+  // Get pets without owners (null client_id)
+  const unassignedPets = useMemo(() => {
+    return pets.filter(p => !p.client_id || p.client_id === null || p.client_id === '');
+  }, [pets]);
+  
+  const handleAssignPet = (petId: string) => {
+    if (onUpdatePet && initialData) {
+      onUpdatePet(petId, { client_id: initialData.id });
+      setPetOpen(false);
+      setPetSearch('');
+    }
+  };
+  
+  const handleUnassignPet = (petId: string) => {
+    if (onUpdatePet) {
+      onUpdatePet(petId, { client_id: null });
+    }
+  };
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -166,6 +200,103 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing }: Clien
               rows={2}
             />
           </div>
+
+          {/* Pets Section - Show existing pets and allow adding unassigned pets */}
+          {isEditing && initialData && (
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Dog className="w-5 h-5 text-muted-foreground" />
+                  <Label className="text-base font-semibold">Mascotas</Label>
+                </div>
+                <Popover open={petOpen} onOpenChange={setPetOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Añadir Mascota
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="end">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar mascota sin dueño por nombre o raza..." 
+                        value={petSearch}
+                        onValueChange={setPetSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron mascotas sin dueño.</CommandEmpty>
+                        <CommandGroup>
+                          {unassignedPets
+                            .filter((pet) => {
+                              if (!petSearch) return true;
+                              const search = petSearch.toLowerCase();
+                              const petName = (pet.name || '').toLowerCase();
+                              const breedName = ((pet as any).breeds?.name || pet.breed || '').toLowerCase();
+                              return petName.includes(search) || breedName.includes(search);
+                            })
+                            .map((pet) => {
+                              const breedName = (pet as any).breeds?.name || pet.breed || 'Sin raza';
+                              return (
+                                <CommandItem
+                                  key={pet.id}
+                                  value={pet.id}
+                                  onSelect={() => handleAssignPet(pet.id)}
+                                >
+                                  <div className="flex flex-col flex-1">
+                                    <span className="font-medium">{pet.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {breedName} • {pet.species}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              );
+                            })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              {/* Display assigned pets */}
+              <div className="space-y-2">
+                {clientPets.length > 0 ? (
+                  <div className="space-y-2">
+                    {clientPets.map((pet) => {
+                      const breedName = (pet as any).breeds?.name || pet.breed || 'Sin raza';
+                      return (
+                        <div
+                          key={pet.id}
+                          className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                        >
+                          <div className="flex flex-col flex-1">
+                            <span className="font-medium">{pet.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {breedName} • {pet.species}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleUnassignPet(pet.id)}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Este cliente no tiene mascotas registradas.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Payment Details Section */}
           <div className="space-y-4 border-t pt-4">

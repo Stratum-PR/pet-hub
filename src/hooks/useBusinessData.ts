@@ -22,24 +22,33 @@ export interface Customer {
 export interface Pet {
   id: string;
   business_id: string;
-  customer_id: string;
+  client_id: string; // CRITICAL: Use client_id (not customer_id) - customers table was merged into clients
   name: string;
   species: 'dog' | 'cat' | 'other';
   breed: string | null;
-  age: number | null;
+  birth_month: number | null;
+  birth_year: number | null;
   weight: number | null;
   color: string | null;
   notes: string | null;
   special_instructions: string | null;
+  vaccination_status: 'up_to_date' | 'out_of_date' | 'unknown' | null;
+  last_vaccination_date: string | null;
+  photo_url: string | null;
   created_at: string;
   updated_at: string;
-  // Customer data from JOIN (optional, populated when fetched with JOIN)
-  customer?: {
+  // Client data from JOIN (optional, populated when fetched with JOIN)
+  clients?: {
     id: string;
     first_name: string;
     last_name: string;
     email: string | null;
   } | null;
+  // Legacy field for backward compatibility
+  age?: number | null;
+  // Legacy field mapping (for compatibility during migration)
+  customer_id?: string; // Deprecated - use client_id
+  customer?: any; // Deprecated - use clients
 }
 
 export interface Service {
@@ -81,14 +90,31 @@ export function useCustomers() {
       return;
     }
 
+    // CRITICAL: Query clients table (not customers) - customers was merged into clients
     const { data, error } = await supabase
-      .from('customers')
+      .from('clients')
       .select('*')
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     
     if (!error && data) {
-      setCustomers(data);
+      // Convert clients format to Customer format for compatibility
+      const convertedCustomers = data.map((c: any) => ({
+        id: c.id,
+        business_id: c.business_id,
+        first_name: c.first_name || '',
+        last_name: c.last_name || '',
+        email: c.email || null,
+        phone: c.phone || '',
+        address: c.address || null,
+        city: c.city || null,
+        state: c.state || null,
+        zip_code: c.zip_code || null,
+        notes: c.notes || null,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+      }));
+      setCustomers(convertedCustomers);
     }
     setLoading(false);
   };
@@ -100,15 +126,32 @@ export function useCustomers() {
   const addCustomer = async (customerData: Omit<Customer, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
 
+    // CRITICAL: Insert into clients table (not customers)
     const { data, error } = await supabase
-      .from('customers')
+      .from('clients')
       .insert({ ...customerData, business_id: businessId })
       .select()
       .single();
     
     if (!error && data) {
-      setCustomers([data, ...customers]);
-      return data;
+      // Convert to Customer format
+      const convertedCustomer = {
+        id: data.id,
+        business_id: data.business_id,
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
+        email: data.email || null,
+        phone: data.phone || '',
+        address: data.address || null,
+        city: data.city || null,
+        state: data.state || null,
+        zip_code: data.zip_code || null,
+        notes: data.notes || null,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      setCustomers([convertedCustomer, ...customers]);
+      return convertedCustomer;
     }
     return null;
   };
@@ -116,8 +159,9 @@ export function useCustomers() {
   const updateCustomer = async (id: string, customerData: Partial<Customer>) => {
     if (!businessId) return null;
 
+    // CRITICAL: Update clients table (not customers)
     const { data, error } = await supabase
-      .from('customers')
+      .from('clients')
       .update(customerData)
       .eq('id', id)
       .eq('business_id', businessId)
@@ -125,8 +169,24 @@ export function useCustomers() {
       .single();
     
     if (!error && data) {
-      setCustomers(customers.map(c => c.id === id ? data : c));
-      return data;
+      // Convert to Customer format
+      const convertedCustomer = {
+        id: data.id,
+        business_id: data.business_id,
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
+        email: data.email || null,
+        phone: data.phone || '',
+        address: data.address || null,
+        city: data.city || null,
+        state: data.state || null,
+        zip_code: data.zip_code || null,
+        notes: data.notes || null,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+      setCustomers(customers.map(c => c.id === id ? convertedCustomer : c));
+      return convertedCustomer;
     }
     return null;
   };
@@ -134,8 +194,9 @@ export function useCustomers() {
   const deleteCustomer = async (id: string) => {
     if (!businessId) return false;
 
+    // CRITICAL: Delete from clients table (not customers)
     const { error } = await supabase
-      .from('customers')
+      .from('clients')
       .delete()
       .eq('id', id)
       .eq('business_id', businessId);
@@ -162,13 +223,13 @@ export function usePets() {
       return;
     }
 
-    // JOIN with customers table to get owner information
+    // CRITICAL: JOIN with clients table (not customers) - customers was merged into clients
     // Supabase automatically resolves foreign key relationships
     const { data, error } = await supabase
       .from('pets')
       .select(`
         *,
-        customers(
+        clients:client_id(
           id,
           first_name,
           last_name,
@@ -194,12 +255,19 @@ export function usePets() {
   const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
 
+    // CRITICAL: Map customer_id to client_id if present (for backward compatibility)
+    const petDataToInsert = {
+      ...petData,
+      client_id: (petData as any).client_id || (petData as any).customer_id, // Support both during migration
+    };
+    delete (petDataToInsert as any).customer_id; // Remove customer_id if present
+    
     const { data, error } = await supabase
       .from('pets')
-      .insert({ ...petData, business_id: businessId })
+      .insert({ ...petDataToInsert, business_id: businessId })
       .select(`
         *,
-        customers(
+        clients:client_id(
           id,
           first_name,
           last_name,
@@ -219,14 +287,21 @@ export function usePets() {
   const updatePet = async (id: string, petData: Partial<Pet>) => {
     if (!businessId) return null;
 
+    // CRITICAL: Map customer_id to client_id if present (for backward compatibility)
+    const petDataToUpdate = { ...petData };
+    if ((petDataToUpdate as any).customer_id && !(petDataToUpdate as any).client_id) {
+      (petDataToUpdate as any).client_id = (petDataToUpdate as any).customer_id;
+      delete (petDataToUpdate as any).customer_id;
+    }
+    
     const { data, error } = await supabase
       .from('pets')
-      .update(petData)
+      .update(petDataToUpdate)
       .eq('id', id)
       .eq('business_id', businessId)
       .select(`
         *,
-        customers(
+        clients:client_id(
           id,
           first_name,
           last_name,

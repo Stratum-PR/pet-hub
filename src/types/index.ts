@@ -16,20 +16,38 @@ export interface Client {
 
 export interface Pet {
   id: string;
-  client_id?: string; // Legacy field, deprecated - use customer_id
-  customer_id?: string; // New field - preferred
+  client_id?: string; // References clients.id
   business_id?: string; // Multi-tenant field
   name: string;
   species: 'dog' | 'cat' | 'other';
-  breed: string;
-  age: number;
+  breed_id?: string | null; // References breeds.id (canonical breed)
+  breed?: string | null; // Legacy TEXT field, kept for backward compatibility
+  birth_month?: number | null;
+  birth_year?: number | null;
   weight: number;
   notes?: string;
-  vaccination_status?: string;
+  vaccination_status?: 'up_to_date' | 'out_of_date' | 'unknown' | string;
+  last_vaccination_date?: string | null;
+  photo_url?: string | null;
   last_grooming_date?: string;
   special_instructions?: string;
   created_at: string;
   updated_at: string;
+  // Legacy field for backward compatibility
+  age?: number;
+  // Joined data from Supabase queries
+  clients?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+  } | null;
+  breeds?: {
+    id: string;
+    name: string;
+    species: string;
+  } | null;
 }
 
 export interface Employee {

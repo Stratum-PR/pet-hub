@@ -1,0 +1,86 @@
+/* Pawprint Animation - Slow upward floating */
+.pawprint-animation {
+  position: fixed;
+  bottom: -60px;
+  animation: pawprintFloat var(--animation-duration, 3500ms) ease-out forwards;
+  pointer-events: none;
+  z-index: 9998;
+  color: hsl(var(--primary));
+  opacity: var(--start-opacity, 0.9);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+@keyframes pawprintFloat {
+  0% {
+    transform: translateY(0) scale(0.7);
+    opacity: var(--start-opacity, 0.9);
+  }
+  30% {
+    transform: translateY(-30vh) scale(0.9);
+    opacity: calc(var(--start-opacity, 0.9) * 0.8);
+  }
+  70% {
+    transform: translateY(-70vh) scale(1);
+    opacity: calc(var(--start-opacity, 0.9) * 0.4);
+  }
+  100% {
+    transform: translateY(-100vh) scale(0.5);
+    opacity: var(--end-opacity, 0);
+  }
+}
+
+/* Cat Walking Animation - Slow walk across header */
+.cat-walking-animation {
+  position: fixed;
+  top: 20px; /* Position at top of header */
+  left: var(--start-x, -60px);
+  animation: catWalk var(--animation-duration, 6500ms) linear forwards;
+  pointer-events: none;
+  z-index: 9998;
+  color: hsl(var(--primary));
+  opacity: 0.7;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+@keyframes catWalk {
+  0% {
+    left: var(--start-x, -60px);
+    transform: scaleX(1) translateY(0);
+  }
+  25% {
+    transform: scaleX(1) translateY(-2px);
+  }
+  50% {
+    transform: scaleX(1) translateY(0);
+  }
+  75% {
+    transform: scaleX(1) translateY(-2px);
+  }
+  100% {
+    left: var(--end-x, calc(100vw + 60px));
+    transform: scaleX(1) translateY(0);
+  }
+}
+
+/* Subtle walking bounce effect */
+.cat-walking-animation svg {
+  animation: catBounce 0.6s ease-in-out infinite;
+}
+
+@keyframes catBounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(1deg);
+  }
+}
+
+/* Ensure animations don't interfere with page interactions */
+.pet-animations-container {
+  pointer-events: none;
+}
+
+.pet-animations-container > * {
+  pointer-events: none;
+}

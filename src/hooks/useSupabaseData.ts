@@ -4,6 +4,48 @@ import { Client, Pet, Employee, TimeEntry, Appointment, Service } from '@/types'
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 
+export interface Breed {
+  id: string;
+  name: string;
+  species: 'dog' | 'cat' | 'other';
+}
+
+export function useBreeds() {
+  const [breeds, setBreeds] = useState<Breed[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchBreeds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('breeds')
+        .select('*')
+        .order('species', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('[useBreeds] Error fetching breeds:', error);
+        setBreeds([]);
+      } else if (data) {
+        console.log('[useBreeds] Fetched', data.length, 'breeds');
+        setBreeds(data as Breed[]);
+      } else {
+        setBreeds([]);
+      }
+    } catch (err: any) {
+      console.error('[useBreeds] Exception:', err);
+      setBreeds([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBreeds();
+  }, []);
+
+  return { breeds, loading, refetch: fetchBreeds };
+}
+
 export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,69 +54,56 @@ export function useClients() {
 
   const fetchClients = async () => {
     if (!businessId) {
-      console.warn('[useClients] No businessId, skipping fetch. Profile:', profile);
+      console.warn('[useClients] No businessId, skipping fetch.', {
+        profile: profile ? { email: profile.email, business_id: profile.business_id } : null,
+        location: window.location.pathname,
+      });
       setLoading(false);
       setClients([]);
       return;
     }
 
-    console.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId);
+    // CRITICAL: Verify session exists before querying (RLS requires auth.uid())
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.error('[useClients] Session error:', sessionError);
+    }
+    if (!session && !sessionError) {
+      console.warn('[useClients] No active session - RLS may block query. This is OK for demo mode.');
+    }
+
+    console.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId, 'Has session:', !!session);
     
     try {
-      // Use customers table with business_id filter
-      let query = supabase
-        .from('customers' as any)
-        .select('*', { count: 'exact' });
-      
-      // Try with business_id filter
-      try {
-        query = query.eq('business_id', businessId);
-      } catch (err) {
-        console.warn('[useClients] business_id filter failed, trying without it');
-      }
-      
-      const { data, error, count } = await query
+      // CRITICAL: Query clients table directly (customers was merged into clients)
+      // Supabase client automatically includes session token in headers
+      const { data, error, count } = await supabase
+        .from('clients')
+        .select('*', { count: 'exact' })
+        .eq('business_id', businessId)
+        .neq('email', 'orphaned-pets@system.local') // Exclude orphaned pets placeholder
         .order('created_at', { ascending: false });
       
       if (error) {
         console.error('[useClients] Error fetching clients:', error);
         console.error('[useClients] Error details:', JSON.stringify(error, null, 2));
-        
-        // If customers table doesn't exist, try clients table as fallback
-        if (error.code === 'PGRST205' || error.message?.includes('customers')) {
-          console.warn('[useClients] customers table not found, trying clients table');
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('clients' as any)
-            .select('*', { count: 'exact' })
-            .order('created_at', { ascending: false });
-          
-          if (!fallbackError && fallbackData) {
-            const convertedClients = (fallbackData || []).map((c: any) => ({
-              id: c.id,
-              name: c.name || '',
-              email: c.email || '',
-              phone: c.phone || '',
-              address: c.address || '',
-              notes: c.notes || null,
-              created_at: c.created_at,
-              updated_at: c.updated_at,
-            }));
-            setClients(convertedClients);
-            setLoading(false);
-            return;
-          }
-        }
-        
         setClients([]);
       } else {
-        console.log('[useClients] Query successful. Count:', count, 'Data length:', data?.length || 0);
-        if (data && data.length > 0) {
-          console.log('[useClients] Sample customer:', data[0]);
-        }
-        // Convert customers to clients format for compatibility
+        console.log('[useClients] Query successful.', {
+          count,
+          dataLength: data?.length || 0,
+          businessId,
+          sampleClient: data?.[0] ? {
+            id: data[0].id,
+            name: `${data[0].first_name} ${data[0].last_name}`,
+            email: data[0].email,
+            business_id: data[0].business_id,
+          } : null,
+        });
+        // Convert clients to Client format (combine first_name + last_name into name)
         const convertedClients = (data || []).map((c: any) => ({
           id: c.id,
-          name: `${c.first_name} ${c.last_name}`,
+          name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sin nombre',
           email: c.email || '',
           phone: c.phone || '',
           address: c.address || '',
@@ -82,18 +111,20 @@ export function useClients() {
           created_at: c.created_at,
           updated_at: c.updated_at,
         }));
+        console.log('[useClients] Converted clients:', convertedClients.length, 'clients');
         setClients(convertedClients);
       }
     } catch (err: any) {
       console.error('[useClients] Exception:', err);
       setClients([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchClients();
-  }, [businessId]);
+  }, [businessId, profile?.business_id]); // Also depend on profile.business_id to refetch if it changes
 
   const addClient = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
@@ -103,8 +134,9 @@ export function useClients() {
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
 
+    // CRITICAL: Insert into clients table (not customers)
     const { data, error } = await supabase
-      .from('customers' as any)
+      .from('clients')
       .insert({
         business_id: businessId,
         first_name,
@@ -142,8 +174,9 @@ export function useClients() {
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
 
+    // CRITICAL: Update clients table (not customers)
     const { data, error } = await supabase
-      .from('customers' as any)
+      .from('clients')
       .update({
         first_name,
         last_name,
@@ -174,8 +207,9 @@ export function useClients() {
   };
 
   const deleteClient = async (id: string) => {
+    // CRITICAL: Delete from clients table (not customers)
     const { error } = await supabase
-      .from('customers' as any)
+      .from('clients')
       .delete()
       .eq('id', id);
     
@@ -203,49 +237,50 @@ export function usePets() {
 
     console.log('[usePets] Fetching pets for businessId:', businessId);
 
-    let query = supabase
+    // CRITICAL: JOIN with clients table and breeds table to get owner and canonical breed information
+    // Supabase PostgREST syntax: 
+    // - clients:client_id(...) means join clients table via client_id foreign key
+    // - breeds:breed_id(...) means join breeds table via breed_id foreign key
+    const { data, error } = await supabase
       .from('pets')
-      .select('*');
-    
-    // Try with business_id first, fallback if column doesn't exist
-    try {
-      query = query.eq('business_id', businessId);
-    } catch (err) {
-      console.warn('[usePets] business_id filter failed, trying without it');
-    }
-    
-    const { data, error } = await query
+      .select(`
+        *,
+        clients:client_id(
+          id,
+          first_name,
+          last_name,
+          email,
+          phone
+        ),
+        breeds:breed_id(
+          id,
+          name,
+          species
+        )
+      `)
+      .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     
     if (error) {
       console.error('[usePets] Error fetching pets:', error);
-      // If business_id column doesn't exist, try without it (fallback for schema drift)
-      if (error.code === '42703' || error.message?.includes('business_id')) {
-        console.warn('[usePets] business_id column not found, trying without filter');
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('pets')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (!fallbackError && fallbackData) {
-          const mappedPets = fallbackData.map((pet: any) => ({
-            ...pet,
-            client_id: pet.customer_id || pet.client_id, // Support both fields
-          }));
-          setPets(mappedPets as Pet[]);
-          setLoading(false);
-          return;
-        }
-      }
+      console.error('[usePets] Error details:', JSON.stringify(error, null, 2));
       setPets([]);
     } else if (data) {
-      console.log('[usePets] Fetched', data.length, 'pets');
-      // Map customer_id to client_id for backward compatibility
-      const mappedPets = data.map((pet: any) => ({
-        ...pet,
-        client_id: pet.customer_id || pet.client_id, // Support both fields
-      }));
-      setPets(mappedPets as Pet[]);
+      console.log('[usePets] Fetched', data.length, 'pets with client data');
+      // Log sample data to verify joins are working
+      if (data.length > 0) {
+        console.log('[usePets] Sample pet with client and breed:', {
+          petId: data[0].id,
+          petName: data[0].name,
+          clientId: data[0].client_id,
+          clientData: data[0].clients,
+          breedId: data[0].breed_id,
+          breedData: data[0].breeds,
+          legacyBreed: data[0].breed, // Keep for backward compatibility
+        });
+      }
+      // Data is already properly structured with clients join
+      setPets(data as Pet[]);
     } else {
       console.warn('[usePets] No data returned');
       setPets([]);
@@ -258,29 +293,64 @@ export function usePets() {
   }, [businessId]);
 
   const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!businessId) return null;
+
     const { data, error } = await supabase
       .from('pets')
-      .insert(petData)
-      .select()
+      .insert({ ...petData, business_id: businessId })
+      .select(`
+        *,
+        clients:client_id(
+          id,
+          first_name,
+          last_name,
+          email,
+          phone
+        ),
+        breeds:breed_id(
+          id,
+          name,
+          species
+        )
+      `)
       .single();
     
     if (!error && data) {
-      setPets([data as Pet, ...pets]);
+      // Refetch all pets to ensure consistency
+      await fetchPets();
       return data;
     }
     return null;
   };
 
   const updatePet = async (id: string, petData: Partial<Pet>) => {
+    if (!businessId) return null;
+
     const { data, error } = await supabase
       .from('pets')
       .update(petData)
       .eq('id', id)
-      .select()
+      .eq('business_id', businessId)
+      .select(`
+        *,
+        clients:client_id(
+          id,
+          first_name,
+          last_name,
+          email,
+          phone
+        ),
+        breeds:breed_id(
+          id,
+          name,
+          species
+        )
+      `)
       .single();
     
     if (!error && data) {
-      setPets(pets.map(p => p.id === id ? data as Pet : p));
+      // Refetch all pets to ensure consistency
+      await fetchPets();
       return data;
     }
     return null;

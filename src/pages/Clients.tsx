@@ -14,9 +14,10 @@ interface ClientsProps {
   onAddClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => void;
   onUpdateClient: (id: string, client: Partial<Client>) => void;
   onDeleteClient: (id: string) => void;
+  onUpdatePet?: (id: string, pet: Partial<Pet>) => void;
 }
 
-export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient }: ClientsProps) {
+export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient, onUpdatePet }: ClientsProps) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -99,6 +100,8 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
           onCancel={handleCancel}
           initialData={editingClient}
           isEditing={!!editingClient}
+          pets={pets}
+          onUpdatePet={onUpdatePet}
         />
       )}
 

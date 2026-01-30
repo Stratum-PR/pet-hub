@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { AdminImpersonationHeader } from '@/components/AdminImpersonationHeader';
 import { useAuth } from '@/contexts/AuthContext';
+import { PetAnimations } from '@/components/PetAnimations';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -55,6 +56,10 @@ export function Layout({ children, settings }: LayoutProps) {
   const [reportsMenuOpen, setReportsMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  // Track if menus were clicked open (to keep them open) vs hovered
+  const [employeesMenuClicked, setEmployeesMenuClicked] = useState(false);
+  const [reportsMenuClicked, setReportsMenuClicked] = useState(false);
+  const [moreMenuClicked, setMoreMenuClicked] = useState(false);
   
   // Force re-render when language changes by using language in state
   const [, forceUpdate] = useState(0);
@@ -156,7 +161,13 @@ export function Layout({ children, settings }: LayoutProps) {
               );
             })}
             {/* Employees Dropdown */}
-            <DropdownMenu open={employeesMenuOpen} onOpenChange={setEmployeesMenuOpen}>
+            <DropdownMenu 
+              open={employeesMenuOpen} 
+              onOpenChange={(open) => {
+                setEmployeesMenuOpen(open);
+                if (!open) setEmployeesMenuClicked(false);
+              }}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant={
@@ -180,8 +191,21 @@ export function Layout({ children, settings }: LayoutProps) {
                       ? 'shadow-sm'
                       : ''
                   }`}
-                  onMouseEnter={() => setEmployeesMenuOpen(true)}
-                  onMouseLeave={() => setEmployeesMenuOpen(false)}
+                  onMouseEnter={() => {
+                    if (!employeesMenuClicked) {
+                      setEmployeesMenuOpen(true);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (!employeesMenuClicked) {
+                      setEmployeesMenuOpen(false);
+                    }
+                  }}
+                  onClick={() => {
+                    const newState = !employeesMenuOpen;
+                    setEmployeesMenuOpen(newState);
+                    setEmployeesMenuClicked(newState);
+                  }}
                 >
                   <UserCog className="w-4 h-4" />
                   {t('nav.employees')}
@@ -211,7 +235,13 @@ export function Layout({ children, settings }: LayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
             {/* Reports Dropdown */}
-            <DropdownMenu open={reportsMenuOpen} onOpenChange={setReportsMenuOpen}>
+            <DropdownMenu 
+              open={reportsMenuOpen} 
+              onOpenChange={(open) => {
+                setReportsMenuOpen(open);
+                if (!open) setReportsMenuClicked(false);
+              }}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant={
@@ -229,8 +259,21 @@ export function Layout({ children, settings }: LayoutProps) {
                       ? 'shadow-sm'
                       : ''
                   }`}
-                  onMouseEnter={() => setReportsMenuOpen(true)}
-                  onMouseLeave={() => setReportsMenuOpen(false)}
+                  onMouseEnter={() => {
+                    if (!reportsMenuClicked) {
+                      setReportsMenuOpen(true);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (!reportsMenuClicked) {
+                      setReportsMenuOpen(false);
+                    }
+                  }}
+                  onClick={() => {
+                    const newState = !reportsMenuOpen;
+                    setReportsMenuOpen(newState);
+                    setReportsMenuClicked(newState);
+                  }}
                 >
                   <BarChart3 className="w-4 h-4" />
                   {t('nav.reports')}
@@ -260,7 +303,13 @@ export function Layout({ children, settings }: LayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
             {/* More Dropdown */}
-            <DropdownMenu open={moreMenuOpen} onOpenChange={setMoreMenuOpen}>
+            <DropdownMenu 
+              open={moreMenuOpen} 
+              onOpenChange={(open) => {
+                setMoreMenuOpen(open);
+                if (!open) setMoreMenuClicked(false);
+              }}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant={
@@ -284,8 +333,21 @@ export function Layout({ children, settings }: LayoutProps) {
                       ? 'shadow-sm'
                       : ''
                   }`}
-                  onMouseEnter={() => setMoreMenuOpen(true)}
-                  onMouseLeave={() => setMoreMenuOpen(false)}
+                  onMouseEnter={() => {
+                    if (!moreMenuClicked) {
+                      setMoreMenuOpen(true);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (!moreMenuClicked) {
+                      setMoreMenuOpen(false);
+                    }
+                  }}
+                  onClick={() => {
+                    const newState = !moreMenuOpen;
+                    setMoreMenuOpen(newState);
+                    setMoreMenuClicked(newState);
+                  }}
                 >
                   <MoreHorizontal className="w-4 h-4" />
                   {t('nav.more')}
@@ -516,6 +578,9 @@ export function Layout({ children, settings }: LayoutProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Pet Animations - Random fun animations */}
+      <PetAnimations />
     </div>
   );
 }

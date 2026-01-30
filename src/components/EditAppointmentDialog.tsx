@@ -295,7 +295,7 @@ export function EditAppointmentDialog({
 
       onUpdate(appointment.id, {
         pet_id: formData.petId,
-        employee_id: formData.employeeId || null,
+        employee_id: formData.employeeId && formData.employeeId !== '__unassigned__' ? formData.employeeId : null,
         scheduled_date: appointmentDate.toISOString(),
         service_type: serviceType,
         status: formData.status,
@@ -524,14 +524,14 @@ export function EditAppointmentDialog({
             <div className="space-y-2">
               <Label>Assign Employee (Optional)</Label>
               <Select
-                value={formData.employeeId}
-                onValueChange={(value) => setFormData({ ...formData, employeeId: value })}
+                value={formData.employeeId || '__unassigned__'}
+                onValueChange={(value) => setFormData({ ...formData, employeeId: value === '__unassigned__' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select an employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {employees.filter(e => e.status === 'active').map(employee => (
                     <SelectItem key={employee.id} value={employee.id}>
                       {employee.name}

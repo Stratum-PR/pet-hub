@@ -1,17 +1,21 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
 import { SearchFilter } from '@/components/SearchFilter';
-import { usePets, useCustomers, Pet, Customer } from '@/hooks/useBusinessData';
+import { usePets, useCustomers, useAppointments, Pet, Customer } from '@/hooks/useBusinessData';
 import { t } from '@/lib/translations';
+import { useToast } from '@/hooks/use-toast';
 
 export function BusinessPets() {
   const { pets, addPet, updatePet, deletePet } = usePets();
   const { customers } = useCustomers();
+  const { appointments } = useAppointments();
   const location = useLocation();
+  const { toast } = useToast();
+  const formRef = useRef<HTMLDivElement>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,14 +58,38 @@ export function BusinessPets() {
     return filtered;
   }, [pets, customers, searchTerm, speciesFilter]);
 
-  const handleSubmit = (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
-    if (editingPet) {
-      updatePet(editingPet.id, petData);
-      setEditingPet(null);
-    } else {
-      addPet(petData as Omit<Pet, 'id' | 'created_at' | 'updated_at'>);
+  const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
+    try {
+      if (editingPet) {
+        const result = await updatePet(editingPet.id, petData);
+        if (result) {
+          toast({
+            title: '¡Éxito!',
+            description: `¡Mascota actualizada exitosamente!${petData.name ? ` - ${petData.name}` : ''}`,
+          });
+          setEditingPet(null);
+        } else {
+          throw new Error('Error al actualizar la mascota');
+        }
+      } else {
+        const result = await addPet(petData as Omit<Pet, 'id' | 'created_at' | 'updated_at'>);
+        if (result) {
+          toast({
+            title: '¡Éxito!',
+            description: `¡Mascota guardada exitosamente!${petData.name ? ` - ${petData.name}` : ''}`,
+          });
+        } else {
+          throw new Error('Error al guardar la mascota');
+        }
+      }
+      setShowForm(false);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Error al guardar la mascota. Por favor intenta de nuevo.',
+        variant: 'destructive',
+      });
     }
-    setShowForm(false);
   };
 
   const handleEdit = (pet: Pet) => {
@@ -72,6 +100,11 @@ export function BusinessPets() {
       const el = document.getElementById('pet-form');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Add highlight animation
+        el.classList.add('ring-4', 'ring-primary', 'ring-offset-4', 'transition-all', 'duration-300');
+        setTimeout(() => {
+          el.classList.remove('ring-4', 'ring-primary', 'ring-offset-4');
+        }, 2000);
       }
     }, 100);
   };
@@ -110,7 +143,7 @@ export function BusinessPets() {
       )}
 
       {showForm && customers.length > 0 && (
-        <div id="pet-form">
+        <div id="pet-form" ref={formRef}>
           <PetForm 
             customers={customers}
             onSubmit={handleSubmit} 
@@ -139,6 +172,7 @@ export function BusinessPets() {
       <PetList 
         pets={filteredPets} 
         customers={customers}
+        appointments={appointments}
         onDelete={deletePet}
         onEdit={handleEdit}
       />

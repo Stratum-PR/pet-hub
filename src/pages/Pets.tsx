@@ -11,12 +11,13 @@ import { t } from '@/lib/translations';
 interface PetsProps {
   clients: Client[];
   pets: Pet[];
+  appointments?: any[];
   onAddPet: (pet: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => void;
   onUpdatePet: (id: string, pet: Partial<Pet>) => void;
   onDeletePet: (id: string) => void;
 }
 
-export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: PetsProps) {
+export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, onDeletePet }: PetsProps) {
   const location = useLocation();
   const [showForm, setShowForm] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
@@ -74,6 +75,22 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
   const handleEdit = (pet: Pet) => {
     setEditingPet(pet);
     setShowForm(true);
+    
+    // Scroll to edit form and highlight it
+    setTimeout(() => {
+      const formElement = document.getElementById('pet-form');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Add highlight class
+        formElement.classList.add('edit-highlight');
+        
+        // Remove highlight after animation
+        setTimeout(() => {
+          formElement.classList.remove('edit-highlight');
+        }, 2000);
+      }
+    }, 100);
   };
 
   const handleCancel = () => {
@@ -135,7 +152,9 @@ export function Pets({ clients, pets, onAddPet, onUpdatePet, onDeletePet }: Pets
 
       <PetList 
         pets={filteredPets as any} 
-        customers={clients as any} 
+        customers={clients as any}
+        clients={clients as any}
+        appointments={appointments}
         onDelete={onDeletePet}
         onEdit={handleEdit}
       />
