@@ -64,19 +64,27 @@ export function DataDiagnostics() {
         // Test clients query
         try {
           const startTime = performance.now();
-          // Try with business_id first, fallback to no filter if column doesn't exist
+          // First, check if business_id column exists by trying a simple query
+          let useBusinessId = false;
+          try {
+            const testQuery = await supabase
+              .from('clients')
+              .select('business_id')
+              .limit(1);
+            useBusinessId = !testQuery.error;
+          } catch (e) {
+            useBusinessId = false;
+          }
+          
           let query = supabase
             .from('clients')
             .select('*', { count: 'exact' })
             .neq('email', 'orphaned-pets@system.local')
             .limit(5);
           
-          // Only filter by business_id if the column exists (will fail gracefully if it doesn't)
-          try {
+          // Only filter by business_id if the column exists
+          if (useBusinessId && businessId) {
             query = query.eq('business_id', businessId);
-          } catch (e) {
-            // business_id column doesn't exist, query without it
-            console.warn('[DataDiagnostics] business_id column not found in clients table');
           }
           
           const { data: clients, error: clientsError, count } = await query;
@@ -191,16 +199,26 @@ export function DataDiagnostics() {
         // Test services query
         try {
           const startTime = performance.now();
+          // First, check if business_id column exists
+          let useBusinessId = false;
+          try {
+            const testQuery = await supabase
+              .from('services')
+              .select('business_id')
+              .limit(1);
+            useBusinessId = !testQuery.error;
+          } catch (e) {
+            useBusinessId = false;
+          }
+          
           let query = supabase
             .from('services')
             .select('*', { count: 'exact' })
             .limit(5);
           
           // Only filter by business_id if the column exists
-          try {
+          if (useBusinessId && businessId) {
             query = query.eq('business_id', businessId);
-          } catch (e) {
-            console.warn('[DataDiagnostics] business_id column not found in services table');
           }
           
           const { data: services, error: servicesError, count } = await query;
