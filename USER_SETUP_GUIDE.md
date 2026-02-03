@@ -55,7 +55,7 @@ WHERE email = 'admin@stratumpr.com';
 
 ### Step 4: Test Login
 
-1. Go to `http://localhost:3000/login`
+1. Go to `http://localhost:8080/login`
 2. Enter your credentials:
    - **Email**: `admin@stratumpr.com`
    - **Password**: (the password you set in Step 1)

@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { setLastRoute } from '@/lib/authRouting';
+import { setLastRoute, getDefaultRoute, slugify, setDemoMode } from '@/lib/authRouting';
+import { authLog } from '@/lib/authDebugLog';
+import { debugIngest } from '@/lib/debugIngest';
 import { PostLoginLoading } from '@/components/PostLoginLoading';
 import { supabase } from '@/integrations/supabase/client';
+import { isImpersonating, getImpersonatingBusinessName } from '@/lib/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,7 +15,6 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const { user, isAdmin, loading, profile, business } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const [showPostLoginLoading, setShowPostLoginLoading] = useState(false);
   const [loadingStartTime] = useState(Date.now());
@@ -24,39 +26,63 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   // must go through normal auth so their data is tied to the logged-in profile/business_id.
   const isPublicBusinessRoute = isDemoRoute && !requireAdmin;
 
-  useEffect(() => {
-    // Skip auth redirects for public demo / Pet Esthetic routes
-    if (isPublicBusinessRoute) return;
-
-    console.log('[ProtectedRoute] effect', {
-      path: location.pathname,
-      loading,
-      hasUser: !!user,
-      isAdmin,
-      requireAdmin,
-    });
-
-    // CRITICAL: Wait for loading to complete before making any redirect decisions
-    if (loading) {
-      console.log('[ProtectedRoute] Still loading auth, waiting...');
-      return;
+  // Compute redirect declaratively so we can use <Navigate replace /> instead of navigate()
+  // (imperative navigate() in effects triggers replace2 errors on refresh in react-router-dom)
+  const redirectTo = useMemo(() => {
+    if (loading) return null;
+    if (isDemoRoute && !requireAdmin && user && business?.name) {
+      const destination = getDefaultRoute({ isAdmin: false, business });
+      authLog('ProtectedRoute', 'User with business on demo route, redirect to dashboard', { destination });
+      return destination;
     }
-
-    // Not logged in → force to login
-    // IMPORTANT: Do NOT auto-redirect; just let the UI render a message.
-    // Auto-redirects combined with async auth hydration can cause loops.
-
-    // Logged in but needs admin → block IMMEDIATELY
+    if (isPublicBusinessRoute) return null;
     if (requireAdmin && !isAdmin) {
-      console.warn('[ProtectedRoute] SECURITY: Admin route accessed by non-admin user', {
-        path: location.pathname,
-        userId: user?.id,
-        isAdmin,
-      });
-      navigate('/', { replace: true });
-      return;
+      authLog('ProtectedRoute', 'SECURITY: Admin route accessed by non-admin, redirect to /', { path: location.pathname, userId: user?.id, isAdmin });
+      return '/';
     }
-  }, [loading, user, isAdmin, requireAdmin, location.pathname, location.search, navigate, isPublicBusinessRoute]);
+    if (!requireAdmin && user && !isDemoRoute) {
+      const segments = location.pathname.split('/').filter(Boolean);
+      const routeSlug = segments[0];
+      if (routeSlug && segments.length >= 2) {
+        const impersonating = isImpersonating();
+        const impersonatingName = getImpersonatingBusinessName();
+        const expectedSlug = impersonating && impersonatingName
+          ? slugify(impersonatingName)
+          : business?.slug?.trim()
+            ? slugify(business.slug.trim())
+            : business?.name
+              ? slugify(business.name)
+              : null;
+        if (expectedSlug !== null && routeSlug !== expectedSlug) {
+          authLog('ProtectedRoute', 'Business slug mismatch, redirect to default', { routeSlug, expectedSlug });
+          return getDefaultRoute({ isAdmin: false, business });
+        }
+        if (!impersonating && !business?.name && routeSlug !== 'demo') {
+          authLog('ProtectedRoute', 'No business for user on business route, redirect to /', { routeSlug });
+          return '/';
+        }
+      }
+    }
+    return null;
+  }, [loading, user, isAdmin, requireAdmin, business, location.pathname, isPublicBusinessRoute, isDemoRoute]);
+
+  useEffect(() => {
+    authLog('ProtectedRoute', 'effect', { path: location.pathname, loading, hasUser: !!user, isAdmin, requireAdmin });
+  }, [location.pathname, loading, user, isAdmin, requireAdmin]);
+
+  // When redirecting away from demo route, clear demo mode
+  useEffect(() => {
+    if (redirectTo && isDemoRoute) setDemoMode(false);
+  }, [redirectTo, isDemoRoute]);
+
+  // Full-page redirect when we need to leave (Navigate replace throws replace2 in this router)
+  useEffect(() => {
+    if (!redirectTo) return;
+    // #region agent log
+    debugIngest({ location: 'ProtectedRoute.tsx:effect', message: 'window.location.replace(redirectTo)', data: { redirectTo, pathname: location.pathname }, hypothesisId: 'H6,H8' });
+    // #endregion
+    window.location.replace(redirectTo);
+  }, [redirectTo]);
 
   // Persist last route for refresh/new tab restores (never store landing/login)
   useEffect(() => {
@@ -103,7 +129,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         }
         
         if (session?.user) {
-          console.log('[ProtectedRoute] Found session on re-check, waiting for AuthContext to hydrate');
+          authLog('ProtectedRoute', 'Found session on re-check, waiting for AuthContext to hydrate');
           setHasSession(true);
           // Wait a bit for AuthContext to catch up (max 2 seconds)
           setTimeout(() => {
@@ -122,6 +148,18 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     
     checkSession();
   }, [user, loading, isPublicBusinessRoute]);
+
+  // Redirect is handled in useEffect (window.location.replace); show minimal UI until it happens
+  if (redirectTo) {
+    // #region agent log
+    debugIngest({ location: 'ProtectedRoute.tsx:render', message: 'redirectTo computed', data: { redirectTo, pathname: location.pathname, hasUser: !!user, loading }, hypothesisId: 'H6,H8' });
+    // #endregion
+    return (
+      <div style={{ padding: 16, fontFamily: 'ui-sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh' }}>
+        Redirigiendo…
+      </div>
+    );
+  }
 
   // For public business routes (demo, Pet Esthetic), always render children without auth UI states
   if (isPublicBusinessRoute) {
@@ -187,6 +225,24 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         <p>You do not have permission to access this page.</p>
       </div>
     );
+  }
+
+  // Business slug route: do not render if user has no business and is not impersonating
+  if (!requireAdmin && !isDemoRoute && user) {
+    const segments = location.pathname.split('/').filter(Boolean);
+    const routeSlug = segments[0];
+    if (routeSlug && segments.length >= 2 && routeSlug !== 'demo') {
+      const expectedSlug = business?.slug?.trim() ? slugify(business.slug.trim()) : business?.name ? slugify(business.name) : null;
+      const hasAccess = isImpersonating() || (expectedSlug != null && expectedSlug === routeSlug);
+      if (!hasAccess) {
+        return (
+          <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
+            <h2 style={{ color: '#dc2626', marginBottom: 8 }}>Access Denied</h2>
+            <p>You do not have access to this business.</p>
+          </div>
+        );
+      }
+    }
   }
 
   return <>{children}</>;

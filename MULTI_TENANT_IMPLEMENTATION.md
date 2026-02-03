@@ -73,7 +73,7 @@ VITE_STRIPE_PRICE_PRO=price_...
 VITE_STRIPE_PRICE_ENTERPRISE=price_...
 
 # App
-VITE_APP_URL=http://localhost:3000
+VITE_APP_URL=http://localhost:8080
 ```
 
 ### Step 3: Set Up Stripe

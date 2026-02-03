@@ -1,8 +1,11 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentProfile, getCurrentBusiness, isSuperAdmin, Profile, Business } from '@/lib/auth';
-import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
+import { getCurrentProfile, isSuperAdmin, Profile, Business } from '@/lib/auth';
+import { setBusinessSlugForSession, setAuthContext, clearAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
+import { signOut } from '@/lib/auth';
+import { authLog } from '@/lib/authDebugLog';
+import { debugIngest } from '@/lib/debugIngest';
 
 interface AuthContextType {
   user: User | null;
@@ -26,10 +29,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatingBusinessName, setImpersonatingBusinessName] = useState<string | null>(null);
+  const refreshRunIdRef = useRef(0);
 
   const refreshAuth = async (userOverride?: User | null) => {
+    refreshRunIdRef.current += 1;
+    const myRunId = refreshRunIdRef.current;
     try {
-      console.log('[AuthContext] refreshAuth start');
+      authLog('AuthContext', 'refreshAuth start');
       setLoading(true);
 
       // Prefer the user we already have from onAuthStateChange, fall back to getSession()
@@ -42,19 +48,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         effectiveUser = session?.user ?? null;
       }
 
-      console.log('[AuthContext] effectiveUser', {
-        hasUser: !!effectiveUser,
-        userId: effectiveUser?.id,
-      });
+      authLog('AuthContext', 'effectiveUser', { hasUser: !!effectiveUser, userId: effectiveUser?.id });
 
+      if (myRunId !== refreshRunIdRef.current) return;
       setUser(effectiveUser);
 
       if (!effectiveUser) {
+        // #region agent log
+        debugIngest({ location: 'AuthContext.tsx:refreshAuth', message: 'No user after getSession, stopping', data: { myRunId }, hypothesisId: 'H4' });
+        // #endregion
         setProfile(null);
         setBusiness(null);
         setIsAdmin(false);
         setLoading(false);
-        console.log('[AuthContext] No user after getUser, stopping refreshAuth');
+        authLog('AuthContext', 'No user after getUser, stopping refreshAuth');
         return;
       }
 
@@ -70,39 +77,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         
         const { data: userProfile, error: profileError } = await Promise.race([profilePromise, profileTimeoutPromise]);
-        console.log('[AuthContext] profile query result', {
-          hasProfile: !!userProfile,
-          error: profileError?.message || null,
-        });
+        authLog('AuthContext', 'profile query result', { hasProfile: !!userProfile, error: profileError?.message || null });
 
-        if (profileError) {
-          console.error('[AuthContext] Error fetching profile:', profileError);
-          // User is authenticated even if profile fetch fails
+        if (myRunId !== refreshRunIdRef.current) return;
+        if (profileError || !userProfile) {
+          // Session exists but no profile (e.g. user deleted from DB) → clear stale session and send to signup
+          console.warn('[AuthContext] No profile for user (deleted or invalid account), signing out', { userId: effectiveUser.id, profileError: profileError?.message });
           setProfile(null);
           setIsAdmin(false);
           setBusiness(null);
-        } else if (userProfile) {
-          console.log('[AuthContext] Profile fetched:', {
-            email: userProfile.email,
-            business_id: userProfile.business_id,
-            is_super_admin: userProfile.is_super_admin
-          });
+          setUser(null);
+          clearAuthContext();
+          await signOut();
+          if (myRunId === refreshRunIdRef.current) setLoading(false);
+          if (typeof window !== 'undefined') {
+            window.location.replace('/signup?reason=no-account');
+          }
+          return;
+        }
+        if (userProfile) {
+          authLog('AuthContext', 'Profile fetched', { email: userProfile.email, business_id: userProfile.business_id, is_super_admin: userProfile.is_super_admin });
           setProfile(userProfile);
           const adminStatus = userProfile.is_super_admin ?? false;
           setIsAdmin(adminStatus);
 
           if (userProfile.business_id) {
             try {
-              // Add timeout to business fetch too
-              const businessPromise = getCurrentBusiness();
-              const businessTimeoutPromise = new Promise<Business | null>((resolve) =>
-                setTimeout(() => resolve(null), 5000)
+              // Fetch business by id (avoid getCurrentBusiness() which refetches profile)
+              const businessPromise = supabase
+                .from('businesses')
+                .select('*')
+                .eq('id', userProfile.business_id)
+                .maybeSingle();
+              const businessTimeoutPromise = new Promise<{ data: any }>((resolve) =>
+                setTimeout(() => resolve({ data: null }), 3000)
               );
-              const userBusiness = await Promise.race([businessPromise, businessTimeoutPromise]);
-              console.log('[AuthContext] Business fetched:', {
-                name: userBusiness?.name,
-                id: userBusiness?.id,
-              });
+              const { data: userBusiness } = await Promise.race([businessPromise, businessTimeoutPromise]) as { data: Business | null };
+              if (myRunId !== refreshRunIdRef.current) return;
+              authLog('AuthContext', 'Business fetched', { name: userBusiness?.name, id: userBusiness?.id });
               setBusiness(userBusiness);
               // Persist business slug for routing consistency across refresh/new tabs
               setBusinessSlugForSession(userBusiness);
@@ -122,11 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.warn('[AuthContext] Profile has no business_id:', userProfile.email);
             setBusiness(null);
           }
-        } else {
-          console.warn('[AuthContext] No profile found for user:', effectiveUser.id);
         }
       } catch (profileErr) {
         console.error('Error in profile fetch:', profileErr);
+        if (myRunId !== refreshRunIdRef.current) return;
         setProfile(null);
         setIsAdmin(false);
         setBusiness(null);
@@ -156,12 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAdmin(false);
       }
     } finally {
-      setLoading(false);
-      console.log('[AuthContext] refreshAuth end', {
-        hasUser: !!user,
-        hasProfile: !!profile,
-        hasBusiness: !!business,
-      });
+      if (myRunId === refreshRunIdRef.current) setLoading(false);
+      authLog('AuthContext', 'refreshAuth end');
     }
   };
 
@@ -187,13 +194,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[AuthContext] onAuthStateChange', {
-          event,
-          hasSession: !!session,
-          userId: session?.user?.id,
-        });
+        authLog('AuthContext', 'onAuthStateChange', { event, hasSession: !!session, userId: session?.user?.id });
 
         if (event === 'SIGNED_OUT') {
+          // #region agent log
+          debugIngest({ location: 'AuthContext.tsx:onAuthStateChange', message: 'SIGNED_OUT branch: clearing state', data: { event }, hypothesisId: 'H3,H4' });
+          // #endregion
           setUser(null);
           setProfile(null);
           setBusiness(null);
@@ -201,6 +207,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsImpersonating(false);
           setImpersonatingBusinessName(null);
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // #region agent log
+          debugIngest({ location: 'AuthContext.tsx:onAuthStateChange', message: 'SIGNED_IN or TOKEN_REFRESHED', data: { event, hasSession: !!session }, hypothesisId: 'H3' });
+          // #endregion
           // Hydrate directly from the session user; avoid getUser() entirely.
           await refreshAuth(session?.user ?? null);
         }

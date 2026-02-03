@@ -1,32 +1,74 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
-import { Calendar, Users, DollarSign, ArrowRight, Check } from 'lucide-react';
-import { useEffect } from 'react';
+import { AccountMenu } from '@/components/AccountMenu';
+import { Calendar, Users, DollarSign, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDefaultRoute, getLastRoute } from '@/lib/authRouting';
+import { getRedirectForAuthenticatedUser } from '@/lib/authRedirect';
+import { authLog } from '@/lib/authDebugLog';
+import { debugIngest } from '@/lib/debugIngest';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export function Landing() {
   const navigate = useNavigate();
-  const { user, isAdmin, business, loading } = useAuth();
+  const { user, profile, isAdmin, business, loading } = useAuth();
   const { language } = useLanguage(); // Force re-render on language change
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
 
-  // Logged-in users should never stay on landing page
+  // Logged-in users must NEVER see the marketing landing. Resolve destination and redirect declaratively.
   useEffect(() => {
-    if (loading) return;
-    if (!user) return;
+    if (loading || !user) return;
 
-    const last = getLastRoute();
-    if (last && last !== '/' && last !== '/login') {
-      navigate(last, { replace: true });
-      return;
-    }
+    authLog('Landing', 'redirect effect running', { loading, hasUser: !!user });
+    let cancelled = false;
+    (async () => {
+      try {
+        const last = getLastRoute();
+        authLog('Landing', 'last route check', { last });
+        if (last && last !== '/' && last !== '/login' && !last.startsWith('/signup')) {
+          authLog('Landing', 'redirect (last route)', { destination: last });
+          // #region agent log
+          debugIngest({ location: 'Landing.tsx:effect', message: 'setRedirectTo last route', data: { destination: last }, hypothesisId: 'H7,H14' });
+          // #endregion
+          if (!cancelled) setRedirectTo(last);
+          return;
+        }
 
-    navigate(getDefaultRoute({ isAdmin, business }), { replace: true });
-  }, [loading, user, isAdmin, business, navigate]);
+        authLog('Landing', 'calling getRedirectForAuthenticatedUser');
+        const destination = await getRedirectForAuthenticatedUser();
+        if (cancelled) return;
+        authLog('Landing', 'getRedirectForAuthenticatedUser returned', { destination });
+        // Always redirect when logged in (clients go to /client, never stay on /)
+        authLog('Landing', 'redirect (authenticated)', { destination });
+        // #region agent log
+        debugIngest({ location: 'Landing.tsx:effect', message: 'setRedirectTo authenticated', data: { destination }, hypothesisId: 'H7,H12,H14' });
+        // #endregion
+        setRedirectTo(destination);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('[Landing] redirect error', err);
+          authLog('Landing', 'redirect error', { error: (err as Error)?.message });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loading, user]);
+
+  // Logged-in users must NEVER see the marketing content. Redirect declaratively to avoid replace2 errors.
+  if (redirectTo) {
+    return <Navigate to={redirectTo} replace />;
+  }
+  if (user && !loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-accent/10">
+        <p className="text-muted-foreground">{t('landing.redirecting')}</p>
+      </div>
+    );
+  }
 
   const handleLogoClick = async () => {
     if (loading) return;
@@ -37,9 +79,13 @@ export function Landing() {
       return;
     }
 
-    // Logged in → send to appropriate dashboard using central routing helper
+    // Logged in → send to workspace root: business slug dashboard
     const target = getDefaultRoute({ isAdmin, business });
-    navigate(target, { replace: true });
+    try {
+      navigate(target, { replace: true });
+    } catch {
+      window.location.replace(target);
+    }
   };
 
   return (
@@ -64,16 +110,22 @@ export function Landing() {
           <span className="hidden sm:inline text-lg sm:text-xl font-semibold">Stratum Hub</span>
         </button>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
-          <Link to="/login" className="w-full sm:w-auto">
-            <Button variant="ghost" className="w-full sm:w-auto text-sm sm:text-base">{t('landing.login')}</Button>
-          </Link>
-          <Link to="/pricing" className="w-full sm:w-auto">
-            <Button className="w-full sm:w-auto text-sm sm:text-base">{t('landing.getStarted')}</Button>
-          </Link>
+          {user ? (
+            <AccountMenu user={user} profile={profile} />
+          ) : (
+            <>
+              <Link to="/login" className="w-full sm:w-auto">
+                <Button variant="ghost" className="w-full sm:w-auto text-sm sm:text-base">{t('landing.login')}</Button>
+              </Link>
+              <Link to="/signup" className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto text-sm sm:text-base">{t('landing.getStarted')}</Button>
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero Section - only shown to unauthenticated users */}
       <section className="container mx-auto px-4 py-12 sm:py-20 text-center">
         <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4 sm:mb-6">
           {t('landing.title')}
@@ -84,17 +136,19 @@ export function Landing() {
           {t('landing.heroText')}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto px-4 sm:px-0">
-          <Link to="/pricing" className="w-full sm:w-auto">
+          <Link to="/signup" className="w-full sm:w-auto">
             <Button size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
               {t('landing.startFreeTrial')}
               <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </Link>
-          <Link to="/demo/dashboard" className="w-full sm:w-auto">
-            <Button size="lg" variant="outline" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
-              {t('landing.viewDemo')}
-            </Button>
-          </Link>
+          {!user && (
+            <Link to="/demo/dashboard" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
+                {t('landing.viewDemo')}
+              </Button>
+            </Link>
+          )}
         </div>
       </section>
 

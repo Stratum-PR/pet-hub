@@ -1,4 +1,5 @@
 import type { Business } from '@/lib/auth';
+import { authLog } from '@/lib/authDebugLog';
 
 export const AUTH_CONTEXTS = {
   ADMIN: 'admin',
@@ -9,7 +10,8 @@ export const AUTH_CONTEXTS = {
 
 export type AuthContextType = (typeof AUTH_CONTEXTS)[keyof typeof AUTH_CONTEXTS];
 
-function slugify(input: string) {
+export function slugify(input: string | null | undefined): string {
+  if (input == null || typeof input !== 'string') return '';
   return input
     .trim()
     .toLowerCase()
@@ -37,9 +39,21 @@ export function clearAuthContext() {
 }
 
 export function setBusinessSlugForSession(business: Business | null) {
-  if (typeof window === 'undefined') return;
-  if (!business?.name) return;
-  sessionStorage.setItem('business_slug', slugify(business.name));
+  if (typeof window === 'undefined') {
+    authLog('authRouting', 'setBusinessSlugForSession skipped', { reason: 'no window' });
+    return;
+  }
+  const slug = business?.slug?.trim()
+    ? slugify(business.slug.trim())
+    : business?.name
+      ? slugify(business.name)
+      : '';
+  if (!slug) {
+    authLog('authRouting', 'setBusinessSlugForSession skipped', { reason: 'no business or business.name/slug', hasBusiness: !!business, businessName: business?.name ?? null });
+    return;
+  }
+  sessionStorage.setItem('business_slug', slug);
+  authLog('authRouting', 'setBusinessSlugForSession', { businessName: business.name, slug });
 }
 
 export function getBusinessSlugFromSession(): string | null {
@@ -67,11 +81,29 @@ export function getDefaultRoute(opts: {
   isAdmin: boolean;
   business: Business | null;
 }): string {
-  if (opts.isAdmin) return '/admin';
-  if (isDemoMode()) return '/demo/dashboard';
-  const slug = getBusinessSlugFromSession() || (opts.business?.name ? slugify(opts.business.name) : null);
-  if (slug) return `/${slug}/dashboard`;
-  return '/login';
+  if (opts.isAdmin) {
+    authLog('authRouting', 'getDefaultRoute', { destination: '/admin', reason: 'isAdmin' });
+    return '/admin';
+  }
+  if (isDemoMode()) {
+    authLog('authRouting', 'getDefaultRoute', { destination: '/demo/dashboard', reason: 'demoMode' });
+    return '/demo/dashboard';
+  }
+  const sessionSlug = getBusinessSlugFromSession();
+  const storedSlug = opts.business?.slug?.trim() || null;
+  const nameSlug = opts.business?.name != null ? slugify(opts.business.name) : '';
+  const slug = sessionSlug || storedSlug || (nameSlug || null);
+  const destination = slug ? `/${slug}/dashboard` : '/';
+  authLog('authRouting', 'getDefaultRoute', {
+    sessionSlug,
+    storedSlug: storedSlug ?? null,
+    nameSlug: nameSlug || null,
+    businessName: opts.business?.name ?? null,
+    slug: slug || null,
+    destination,
+    reason: slug ? 'slug resolved' : 'no slug – falling back to /',
+  });
+  return destination;
 }
 
 export function getLastRoute(): string | null {

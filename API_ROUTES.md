@@ -230,7 +230,7 @@ serve(async (req) => {
     )
   }
 
-  const appUrl = Deno.env.get('APP_URL') || 'http://localhost:3000'
+  const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080'
   const impersonateUrl = `${appUrl}/admin/impersonate/${data.token}`
 
   return new Response(

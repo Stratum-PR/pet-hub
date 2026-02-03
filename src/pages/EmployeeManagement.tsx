@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock, Link2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Employee } from '@/types';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { t } from '@/lib/translations';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface EmployeeManagementProps {
   employees: Employee[];
@@ -43,6 +45,8 @@ export function EmployeeManagement({
     last_date: '',
   });
   const [showPinInForm, setShowPinInForm] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const resetForm = () => {
     setFormData({
@@ -140,8 +144,84 @@ export function EmployeeManagement({
     setDeleteDialogOpen(false);
   };
 
+  const handleCreateInvite = async () => {
+    setInviteLoading(true);
+    setInviteLink(null);
+    try {
+      const { data, error } = await supabase.rpc('create_employee_invite', {
+        p_email: null,
+        p_expires_days: 7,
+      });
+      if (error) {
+        toast.error(error.message || 'Could not create invite');
+        return;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      const token = row?.invite_token;
+      if (token) {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        const url = `${origin}/signup?invite=${token}`;
+        setInviteLink(url);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not create invite');
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleCopyInviteLink = () => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    toast.success('Invite link copied to clipboard');
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="w-5 h-5 text-primary" />
+            {t('employeeManagement.inviteEmployee')}
+          </CardTitle>
+          <CardDescription>
+            {t('employeeManagement.inviteEmployeeDescription')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!inviteLink ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCreateInvite}
+              disabled={inviteLoading}
+            >
+              {inviteLoading ? t('signup.creating') : t('employeeManagement.createInviteLink')}
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground break-all">{inviteLink}</p>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" onClick={handleCopyInviteLink}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  {t('employeeManagement.copyInviteLink')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setInviteLink(null);
+                  }}
+                >
+                  {t('employeeManagement.createNewInvite')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t('employeeManagement.title')}</h1>

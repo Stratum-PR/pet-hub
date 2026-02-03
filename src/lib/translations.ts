@@ -73,6 +73,24 @@ export const translations: Translations = {
     en: 'View Pricing Plans',
     es: 'Ver Planes de Precios'
   },
+  'landing.redirecting': {
+    en: 'Redirecting…',
+    es: 'Redirigiendo…'
+  },
+
+  // Client home (logged-in user with role client, no business)
+  'clientHome.welcome': {
+    en: 'Welcome',
+    es: 'Bienvenido'
+  },
+  'clientHome.subtitle': {
+    en: 'You are signed in as a client. Use the menu above to manage your account.',
+    es: 'Has iniciado sesión como cliente. Usa el menú de arriba para gestionar tu cuenta.'
+  },
+  'clientHome.viewPricing': {
+    en: 'View Pricing',
+    es: 'Ver Precios'
+  },
 
   // Login page
   'login.title': {
@@ -114,6 +132,206 @@ export const translations: Translations = {
   'login.startTrial': {
     en: 'Start your free trial',
     es: 'Comienza tu prueba gratis'
+  },
+  'login.forgotPassword': {
+    en: 'Forgot password?',
+    es: '¿Olvidaste tu contraseña?'
+  },
+  // Forgot password
+  'forgotPassword.title': {
+    en: 'Reset your password',
+    es: 'Restablece tu contraseña'
+  },
+  'forgotPassword.subtitle': {
+    en: 'Enter your email and we’ll send you a link to reset your password.',
+    es: 'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.'
+  },
+  'forgotPassword.email': {
+    en: 'Email',
+    es: 'Correo electrónico'
+  },
+  'forgotPassword.sendLink': {
+    en: 'Send reset link',
+    es: 'Enviar enlace'
+  },
+  'forgotPassword.sending': {
+    en: 'Sending...',
+    es: 'Enviando...'
+  },
+  'forgotPassword.success': {
+    en: 'Check your email for a link to reset your password. If you don’t see it, check your spam folder.',
+    es: 'Revisa tu correo para ver el enlace de restablecimiento. Si no lo ves, revisa la carpeta de spam.'
+  },
+  'forgotPassword.backToLogin': {
+    en: 'Back to login',
+    es: 'Volver a iniciar sesión'
+  },
+  // Reset password (set new password after clicking email link)
+  'resetPassword.title': {
+    en: 'Set new password',
+    es: 'Establece una nueva contraseña'
+  },
+  'resetPassword.subtitle': {
+    en: 'Enter your new password below.',
+    es: 'Ingresa tu nueva contraseña a continuación.'
+  },
+  'resetPassword.newPassword': {
+    en: 'New password',
+    es: 'Nueva contraseña'
+  },
+  'resetPassword.confirmPassword': {
+    en: 'Confirm password',
+    es: 'Confirmar contraseña'
+  },
+  'resetPassword.update': {
+    en: 'Update password',
+    es: 'Actualizar contraseña'
+  },
+  'resetPassword.updating': {
+    en: 'Updating...',
+    es: 'Actualizando...'
+  },
+  'resetPassword.success': {
+    en: 'Your password has been updated. You can now sign in.',
+    es: 'Tu contraseña se actualizó. Ya puedes iniciar sesión.'
+  },
+  'resetPassword.invalidLink': {
+    en: 'This page is for setting a new password. Use the link from your email, or request a new one.',
+    es: 'Esta página es para establecer una nueva contraseña. Usa el enlace de tu correo o solicita uno nuevo.'
+  },
+  'resetPassword.requestNew': {
+    en: 'Request new link',
+    es: 'Solicitar nuevo enlace'
+  },
+  // Signup page
+  'signup.title': {
+    en: 'Create account',
+    es: 'Crear cuenta'
+  },
+  'signup.subtitle': {
+    en: 'Sign up with your email',
+    es: 'Regístrate con tu correo'
+  },
+  'signup.createAccount': {
+    en: 'Create account',
+    es: 'Crear cuenta'
+  },
+  'signup.creating': {
+    en: 'Creating...',
+    es: 'Creando...'
+  },
+  'signup.signIn': {
+    en: 'Sign in',
+    es: 'Iniciar sesión'
+  },
+  'signup.hasAccount': {
+    en: 'Already have an account?',
+    es: '¿Ya tienes cuenta?'
+  },
+  'signup.chooseTypeTitle': {
+    en: 'Create your account',
+    es: 'Crea tu cuenta'
+  },
+  'signup.chooseTypeSubtitle': {
+    en: 'Are you a business owner, a client, or an employee?',
+    es: '¿Eres dueño de negocio, cliente o empleado?'
+  },
+  'signup.typeBusinessOwner': {
+    en: 'Business owner',
+    es: 'Dueño de negocio'
+  },
+  'signup.typeClient': {
+    en: 'Client',
+    es: 'Cliente'
+  },
+  'signup.typeEmployee': {
+    en: 'Employee',
+    es: 'Empleado'
+  },
+  'signup.employeeNeedInvite': {
+    en: 'Employees need an invite link from their employer',
+    es: 'Los empleados necesitan un enlace de invitación de su empleador'
+  },
+  'signup.employeeNeedInviteDetail': {
+    en: 'Check your email or ask your manager for the signup link.',
+    es: 'Revisa tu correo o pide a tu manager el enlace de registro.'
+  },
+  'signup.employeeInviteHint': {
+    en: 'Employees must use the invite link sent by their manager.',
+    es: 'Los empleados deben usar el enlace de invitación enviado por su manager.'
+  },
+  'signup.back': {
+    en: 'Back',
+    es: 'Atrás'
+  },
+  'signup.continue': {
+    en: 'Continue',
+    es: 'Continuar'
+  },
+  'signup.inviteInvalid': {
+    en: 'Invalid or expired invite',
+    es: 'Invitación inválida o expirada'
+  },
+  'signup.inviteInvalidDetail': {
+    en: 'This invite link is invalid or has already been used. Ask your manager for a new link.',
+    es: 'Este enlace de invitación es inválido o ya fue usado. Pide a tu manager un nuevo enlace.'
+  },
+  'signup.employeeSignupTitle': {
+    en: 'Join your team',
+    es: 'Únete a tu equipo'
+  },
+  'signup.employeeSignupSubtitle': {
+    en: 'Create your account to access your workspace',
+    es: 'Crea tu cuenta para acceder a tu espacio de trabajo'
+  },
+  'signup.employeeJoiningBusiness': {
+    en: "You're joining {name}",
+    es: 'Te unes a {name}'
+  },
+  'signup.validatingInvite': {
+    en: 'Validating invite...',
+    es: 'Validando invitación...'
+  },
+  // Manager signup (create business)
+  'signupManager.title': {
+    en: 'Create your business',
+    es: 'Crea tu negocio'
+  },
+  'signupManager.subtitle': {
+    en: 'Sign up as a manager to get your own workspace',
+    es: 'Regístrate como manager para obtener tu espacio de trabajo'
+  },
+  'signupManager.businessName': {
+    en: 'Business name',
+    es: 'Nombre del negocio'
+  },
+  'signupManager.whatsYourBusinessName': {
+    en: "What's your business name?",
+    es: '¿Cuál es el nombre de tu negocio?'
+  },
+  'signupManager.enterBusinessNameFirst': {
+    en: 'Enter your business name below, then we\'ll set up your account.',
+    es: 'Ingresa el nombre de tu negocio y luego crearemos tu cuenta.'
+  },
+  'signupManager.enterEmailPassword': {
+    en: 'Enter your email and password to create your account.',
+    es: 'Ingresa tu correo y contraseña para crear tu cuenta.'
+  },
+  'signupManager.createBusiness': {
+    en: 'Create business account',
+    es: 'Crear cuenta de negocio'
+  },
+  'signupManager.creating': {
+    en: 'Creating...',
+    es: 'Creando...'
+  },
+  'signupManager.businessNameRequired': {
+    en: 'Business name is required before signing up with Google or Microsoft.',
+    es: 'El nombre del negocio es requerido antes de registrarte con Google o Microsoft.'
+  },
+  'signupManager.creatingSuccess': {
+    en: 'Check your email to confirm your account. Then you can sign in and access your workspace.',
+    es: 'Revisa tu correo para confirmar tu cuenta. Luego podrás iniciar sesión y acceder a tu espacio de trabajo.'
   },
   // Navigation
   'nav.dashboard': {
@@ -641,6 +859,26 @@ export const translations: Translations = {
   'employeeManagement.deleteConfirm': {
     en: 'Are you sure you want to delete this employee? This action cannot be undone.',
     es: '¿Estás seguro de que quieres eliminar este empleado? Esta acción no se puede deshacer.'
+  },
+  'employeeManagement.inviteEmployee': {
+    en: 'Invite employee',
+    es: 'Invitar empleado'
+  },
+  'employeeManagement.inviteEmployeeDescription': {
+    en: 'Create an invite link so new team members can sign up and join your business.',
+    es: 'Crea un enlace de invitación para que nuevos miembros se registren y se unan a tu negocio.'
+  },
+  'employeeManagement.createInviteLink': {
+    en: 'Create invite link',
+    es: 'Crear enlace de invitación'
+  },
+  'employeeManagement.copyInviteLink': {
+    en: 'Copy link',
+    es: 'Copiar enlace'
+  },
+  'employeeManagement.createNewInvite': {
+    en: 'Create new invite',
+    es: 'Crear nueva invitación'
   },
   'inventory.addNewProduct': {
     en: 'Add New Product',

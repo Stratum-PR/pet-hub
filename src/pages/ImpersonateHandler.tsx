@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { setImpersonation } from '@/lib/auth';
+import { slugify } from '@/lib/authRouting';
 import { toast } from 'sonner';
 
 export function ImpersonateHandler() {
@@ -49,11 +50,8 @@ export function ImpersonateHandler() {
       // Set impersonation in sessionStorage
       setImpersonation(business.id, business.name);
 
-      // Redirect to business dashboard with slug URL
-      const slug = business.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '');
+      // Redirect to business dashboard with slug URL (use stored slug when available)
+      const slug = (business as { slug?: string | null }).slug?.trim() || slugify(business.name);
 
       toast.success(`Impersonating ${business.name}`);
       if (slug) {
