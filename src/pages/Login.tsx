@@ -7,7 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDefaultRoute, setAuthContext, AUTH_CONTEXTS, setDemoMode, clearAuthContext } from '@/lib/authRouting';
+import { getRedirectForAuthenticatedUser } from '@/lib/authRedirect';
+import { performOAuthLogin } from '@/lib/authService';
+import { debugIngest } from '@/lib/debugIngest';
+import { setDemoMode, clearAuthContext } from '@/lib/authRouting';
+import { authLog } from '@/lib/authDebugLog';
 import { t } from '@/lib/translations';
 import { Footer } from '@/components/Footer';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -24,34 +28,6 @@ export function Login() {
   const location = useLocation();
   const { user, isAdmin, loading: authLoading } = useAuth();
   const { language } = useLanguage(); // Force re-render on language change
-
-  const getRedirectForAuthenticatedUser = async (): Promise<string> => {
-    // Always determine role from the database profile, never from client-side guesses.
-    const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userRes.user) return '/login';
-
-    const authUser = userRes.user;
-    const { data: profile, error: profileErr } = await supabase
-      .from('profiles' as any)
-      .select('is_super_admin,business_id')
-      .eq('id', authUser.id)
-      .maybeSingle();
-
-    if (profileErr) {
-      console.error('[Login] profile lookup error:', profileErr);
-      return '/login';
-    }
-
-    const isSuperAdmin = !!profile?.is_super_admin;
-    if (isSuperAdmin) {
-      setAuthContext(AUTH_CONTEXTS.ADMIN);
-      return '/admin';
-    }
-
-    // Business user: rely on persisted business slug if present
-    setAuthContext(AUTH_CONTEXTS.BUSINESS);
-    return getDefaultRoute({ isAdmin: false, business: null });
-  };
 
   /**
    * Low-level password login that talks directly to the Supabase REST auth endpoint.
@@ -124,20 +100,17 @@ export function Login() {
       // Try to persist it, but don't block login if this takes too long in some environments.
       const setSessionPromise = supabase.auth.setSession({ access_token, refresh_token });
       const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('setSession timeout') }), 8000)
+        setTimeout(() => resolve({ data: null, error: new Error('setSession timeout') }), 5000)
       );
       const { data, error } = await Promise.race([setSessionPromise, timeoutPromise]);
       if (error) {
         console.warn('[Login] setSession did not confirm in time; continuing anyway:', error);
-        // Wait a bit before redirect to give storage time to persist
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 200));
         return true;
       }
       console.log('[Login] setSession success', data);
-      
-      // Wait a moment for Supabase to fully persist the session before redirect
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
+      // Brief pause so storage can persist before redirect (was 1s; 150ms is enough)
+      await new Promise(resolve => setTimeout(resolve, 150));
       return true;
     } catch (err: any) {
       console.error('[Login] passwordLogin unexpected error', err);
@@ -149,6 +122,32 @@ export function Login() {
   // IMPORTANT: Do NOT auto-redirect from /login based on existing session.
   // This page should ONLY navigate after an explicit login or demo action,
   // so clicking "Login" on the landing page never "auto-logs" anyone in.
+
+  useEffect(() => {
+    authLog('Login', 'page mounted', { path: location.pathname });
+  }, []);
+
+  const handleOAuthLogin = async (provider: 'google' | 'azure') => {
+    setLoading(true);
+    setDemoMode(false);
+    try {
+      const { data, error } = await performOAuthLogin(supabase, provider);
+      if (error) {
+        toast.error(error.message || `Sign in with ${provider} failed.`);
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error('Could not start sign-in.');
+      }
+    } catch (err: unknown) {
+      console.error('[Login] OAuth error:', err);
+      toast.error('Sign-in failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDemoLogin = async () => {
     setLoading(true);
@@ -178,8 +177,16 @@ export function Login() {
       if (ok) {
         toast.success('Signed in successfully');
         const destination = await getRedirectForAuthenticatedUser();
-        console.log('[Login] Redirecting to:', destination);
-        navigate(destination, { replace: true });
+        authLog('Login', 'redirect after sign-in', { destination });
+        // #region agent log
+        debugIngest({ location: 'Login.tsx:handleLogin', message: 'redirect after password sign-in', data: { destination }, hypothesisId: 'H12,H13' });
+        // #endregion
+        try {
+          navigate(destination, { replace: true });
+        } catch (navErr) {
+          authLog('Login', 'navigate threw, using window.location.replace', { destination, error: (navErr as Error)?.message });
+          window.location.replace(destination);
+        }
       }
     } catch (error: any) {
       console.error('[Login] Unexpected error:', error);
@@ -221,7 +228,15 @@ export function Login() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">{t('login.password')}</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">{t('login.password')}</Label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {t('login.forgotPassword')}
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   type="password"
@@ -236,6 +251,36 @@ export function Login() {
                 {loading ? t('login.signingIn') : t('login.signIn')}
               </Button>
             </form>
+
+            {/* OAuth: Google & Microsoft */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading}
+                onClick={() => handleOAuthLogin('google')}
+              >
+                Google
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading}
+                onClick={() => handleOAuthLogin('azure')}
+              >
+                Microsoft
+              </Button>
+            </div>
 
             {/* Demo Button */}
             <div className="mt-6">
@@ -256,7 +301,7 @@ export function Login() {
             <div className="mt-6 text-center text-sm">
               <p className="text-muted-foreground">
                 {t('login.noAccount')}{' '}
-                <Link to="/pricing" className="text-primary hover:underline">
+                <Link to="/signup" className="text-primary hover:underline">
                   {t('login.startTrial')}
                 </Link>
               </p>

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Clients } from '@/pages/Clients';
@@ -39,10 +39,17 @@ const Index = () => {
         element={
         <Layout settings={settings}>
           <Routes>
-            {/* Default dashboard */}
+            {/* Default and dashboard: same content (avoids Navigate replace which throws replace2) */}
             <Route
               path=""
-              element={<Navigate to="dashboard" replace />}
+              element={
+                <Dashboard
+                  clients={clients}
+                  pets={pets}
+                  employees={employees}
+                  appointments={appointments}
+                />
+              }
             />
             <Route
               path="dashboard"

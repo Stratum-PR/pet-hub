@@ -400,9 +400,10 @@ export function useEmployees() {
   }, [businessId]);
 
   const addEmployee = async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!businessId) return null;
     const { data, error } = await supabase
       .from('employees')
-      .insert(employeeData)
+      .insert({ ...employeeData, business_id: businessId })
       .select()
       .single();
     
@@ -498,9 +499,10 @@ export function useTimeEntries() {
   }, [businessId]);
 
   const clockIn = async (employeeId: string) => {
+    if (!businessId) return null;
     const { data, error } = await supabase
       .from('time_entries')
-      .insert({ employee_id: employeeId })
+      .insert({ employee_id: employeeId, business_id: businessId })
       .select()
       .single();
     
@@ -546,9 +548,11 @@ export function useTimeEntries() {
   };
 
   const addTimeEntry = async (employeeId: string, clockIn: string, clockOut?: string) => {
+    if (!businessId) return null;
     const entryData: any = {
       employee_id: employeeId,
       clock_in: clockIn,
+      business_id: businessId,
     };
     if (clockOut) {
       entryData.clock_out = clockOut;
@@ -645,9 +649,10 @@ export function useAppointments() {
   }, [businessId]);
 
   const addAppointment = async (appointmentData: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!businessId) return null;
     const { data, error } = await supabase
       .from('appointments')
-      .insert(appointmentData)
+      .insert({ ...appointmentData, business_id: businessId })
       .select()
       .single();
     

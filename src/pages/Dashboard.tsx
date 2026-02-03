@@ -21,7 +21,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const recentClients = clients.slice(0, 5);
   const recentPets = pets.slice(0, 5);
-  
+
   const dogCount = pets.filter(p => p.species === 'dog').length;
   const catCount = pets.filter(p => p.species === 'cat').length;
 
@@ -44,8 +44,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
       onSelectClient(clientId);
     }
     const target = businessSlug ? `/${businessSlug}/clients` : '/clients';
-    // Use replace: false to preserve navigation history and auth state
-    navigate(target, { 
+    navigate(target, {
       state: { selectedClientId: clientId },
       replace: false
     });
@@ -53,13 +52,11 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
 
   const handlePetClick = (petId: string) => {
     const target = businessSlug ? `/${businessSlug}/pets?highlight=${petId}` : `/pets?highlight=${petId}`;
-    // Use replace: false to preserve navigation history and auth state
     navigate(target, { replace: false });
   };
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-accent/20 to-background rounded-2xl">
         <div className="p-8 md:p-12">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">
@@ -68,13 +65,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div 
+        <div
           onClick={() => {
             const target = businessSlug ? `/${businessSlug}/clients` : '/clients';
             navigate(target);
-          }} 
+          }}
           className="cursor-pointer h-full"
         >
           <StatCard
@@ -84,11 +80,11 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={t('dashboard.registeredClients')}
           />
         </div>
-        <div 
+        <div
           onClick={() => {
             const target = businessSlug ? `/${businessSlug}/pets` : '/pets';
             navigate(target);
-          }} 
+          }}
           className="cursor-pointer h-full"
         >
           <StatCard
@@ -98,11 +94,11 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={`${dogCount} ${t('dashboard.dogs')}, ${catCount} ${t('dashboard.cats')}`}
           />
         </div>
-        <div 
+        <div
           onClick={() => {
             const target = businessSlug ? `/${businessSlug}/employee-management` : '/employee-management';
             navigate(target);
-          }} 
+          }}
           className="cursor-pointer h-full"
         >
           <StatCard
@@ -120,11 +116,11 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             description={t('dashboard.appointments')}
           />
         </div>
-        <div 
+        <div
           onClick={() => {
             const target = businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics';
             navigate(target);
-          }} 
+          }}
           className="cursor-pointer h-full"
         >
           <StatCard
@@ -144,7 +140,6 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
         </div>
       </div>
 
-      {/* Today's Appointments */}
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -159,7 +154,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             <div className="space-y-3">
               {todaysAppointmentsList.map((appointment) => {
                 const pet = pets.find(p => p.id === appointment.pet_id);
-                const client = pet ? clients.find(c => c.id === pet.client_id) : null; // CRITICAL: Use client_id only
+                const client = pet ? clients.find(c => c.id === pet.client_id) : null;
                 const employee = appointment.employee_id ? employees.find(e => e.id === appointment.employee_id) : null;
                 return (
                   <div
@@ -201,7 +196,6 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
         </CardContent>
       </Card>
 
-      {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="shadow-sm">
           <CardHeader>
@@ -255,7 +249,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
             ) : (
               <div className="space-y-3">
                 {recentPets.map((pet) => {
-                  const owner = clients.find((c) => c.id === pet.client_id); // CRITICAL: Use client_id only
+                  const owner = clients.find((c) => c.id === pet.client_id);
                   const target = businessSlug ? `/${businessSlug}/pets?highlight=${pet.id}` : `/pets?highlight=${pet.id}`;
                   return (
                     <Link
@@ -281,7 +275,6 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
         </Card>
       </div>
 
-      {/* Collapsible Data Diagnostics at bottom */}
       <details className="mt-8 border border-border rounded-lg bg-card/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center justify-between">
           <span>Show Diagnostics</span>

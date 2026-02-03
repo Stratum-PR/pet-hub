@@ -1,5 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { clearAuthContext } from '@/lib/authRouting';
+import { debugIngest } from '@/lib/debugIngest';
+
+export type ProfileRole = 'admin' | 'manager' | 'employee' | 'client';
 
 export interface Profile {
   id: string;
@@ -7,6 +10,7 @@ export interface Profile {
   full_name: string | null;
   is_super_admin: boolean;
   business_id: string | null;
+  role?: ProfileRole | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +26,8 @@ export interface Business {
   zip_code: string | null;
   website: string | null;
   logo_url: string | null;
+  /** URL slug for /:slug/dashboard; generated from name if not set */
+  slug?: string | null;
   subscription_tier: 'basic' | 'pro' | 'enterprise';
   subscription_status: 'active' | 'canceled' | 'past_due' | 'trialing';
   stripe_customer_id: string | null;
@@ -166,6 +172,9 @@ export async function requireSuperAdmin() {
  * Sign out the current user
  */
 export async function signOut() {
+  // #region agent log
+  debugIngest({ location: 'auth.ts:signOut', message: 'signOut entry', hypothesisId: 'H1,H2' });
+  // #endregion
   // Clear impersonation first (before sign out)
   if (isImpersonating()) {
     if (typeof window !== 'undefined') {
@@ -178,15 +187,24 @@ export async function signOut() {
   try {
     // Best-effort sign out; don't let failures block UI navigation
     const { error } = await supabase.auth.signOut();
+    // #region agent log
+    debugIngest({ location: 'auth.ts:signOut', message: 'after supabase.auth.signOut', data: { error: error?.message ?? null }, hypothesisId: 'H2' });
+    // #endregion
     if (error) {
       console.error('[Auth] signOut error:', error);
     }
   } catch (err) {
     console.error('[Auth] signOut unexpected error:', err);
+    // #region agent log
+    debugIngest({ location: 'auth.ts:signOut', message: 'signOut threw', data: { err: (err as Error)?.message }, hypothesisId: 'H2' });
+    // #endregion
   }
 
   // Clear all session-scoped routing/context flags
   clearAuthContext();
+  // #region agent log
+  debugIngest({ location: 'auth.ts:signOut', message: 'after clearAuthContext', hypothesisId: 'H1' });
+  // #endregion
   try {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('lastRoute');
