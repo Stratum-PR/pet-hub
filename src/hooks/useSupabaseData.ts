@@ -127,32 +127,44 @@ export function useClients() {
   }, [businessId, profile?.business_id]); // Also depend on profile.business_id to refetch if it changes
 
   const addClient = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
-    if (!businessId) return null;
+    if (!businessId) {
+      console.warn('[useClients] addClient skipped: no businessId');
+      return null;
+    }
 
-    // Split name into first_name and last_name
-    const nameParts = clientData.name.split(' ');
+    // Split name into first_name and last_name (match inventory: one payload object)
+    const nameParts = (clientData.name || '').trim().split(/\s+/);
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
+    const fullName = `${first_name} ${last_name}`.trim() || clientData.name || '';
 
-    // CRITICAL: Insert into clients table (not customers)
+    // Match inventory: one payload with all fields. Include name for schemas that have it (NOT NULL).
+    const payload = {
+      business_id: businessId,
+      name: fullName || 'Sin nombre',
+      first_name,
+      last_name,
+      email: clientData.email || '',
+      phone: clientData.phone || '',
+      address: clientData.address ?? '',
+      notes: clientData.notes ?? null,
+    };
+
     const { data, error } = await supabase
       .from('clients')
-      .insert({
-        business_id: businessId,
-        first_name,
-        last_name,
-        email: clientData.email,
-        phone: clientData.phone,
-        address: clientData.address,
-        notes: clientData.notes,
-      })
+      .insert(payload)
       .select()
       .single();
-    
-    if (!error && data) {
+
+    if (error) {
+      console.error('[useClients] addClient error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
+      const d = data as { first_name?: string; last_name?: string; name?: string };
       const converted = {
         id: data.id,
-        name: `${data.first_name} ${data.last_name}`,
+        name: d.name ?? ((`${d.first_name ?? ''} ${d.last_name ?? ''}`.trim()) || 'Sin nombre'),
         email: data.email || '',
         phone: data.phone || '',
         address: data.address || '',
@@ -167,32 +179,43 @@ export function useClients() {
   };
 
   const updateClient = async (id: string, clientData: Partial<Client>) => {
-    if (!businessId) return null;
+    if (!businessId) {
+      console.warn('[useClients] updateClient skipped: no businessId');
+      return null;
+    }
 
-    // Convert client data to customer format
-    const nameParts = clientData.name?.split(' ') || [];
+    const nameParts = (clientData.name ?? '').trim().split(/\s+/);
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
+    const fullName = `${first_name} ${last_name}`.trim() || clientData.name || '';
 
-    // CRITICAL: Update clients table (not customers)
+    const patch: Record<string, unknown> = {
+      first_name,
+      last_name,
+      email: clientData.email,
+      phone: clientData.phone,
+      address: clientData.address,
+      notes: clientData.notes,
+    };
+    if (fullName) patch.name = fullName;
+
     const { data, error } = await supabase
       .from('clients')
-      .update({
-        first_name,
-        last_name,
-        email: clientData.email,
-        phone: clientData.phone,
-        address: clientData.address,
-        notes: clientData.notes,
-      })
+      .update(patch)
       .eq('id', id)
+      .eq('business_id', businessId)
       .select()
       .single();
-    
-    if (!error && data) {
+
+    if (error) {
+      console.error('[useClients] updateClient error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
+      const d = data as { first_name?: string; last_name?: string; name?: string };
       const converted = {
         id: data.id,
-        name: `${data.first_name} ${data.last_name}`,
+        name: d.name ?? ((`${d.first_name ?? ''} ${d.last_name ?? ''}`.trim()) || 'Sin nombre'),
         email: data.email || '',
         phone: data.phone || '',
         address: data.address || '',
@@ -207,17 +230,21 @@ export function useClients() {
   };
 
   const deleteClient = async (id: string) => {
-    // CRITICAL: Delete from clients table (not customers)
+    if (!businessId) {
+      console.warn('[useClients] deleteClient skipped: no businessId');
+      return false;
+    }
     const { error } = await supabase
       .from('clients')
       .delete()
-      .eq('id', id);
-    
-    if (!error) {
-      setClients(clients.filter(c => c.id !== id));
-      return true;
+      .eq('id', id)
+      .eq('business_id', businessId);
+    if (error) {
+      console.error('[useClients] deleteClient error:', error.message, error.code, error.details);
+      return false;
     }
-    return false;
+    setClients(clients.filter(c => c.id !== id));
+    return true;
   };
 
   return { clients, loading, addClient, updateClient, deleteClient, refetch: fetchClients };
@@ -315,7 +342,11 @@ export function usePets() {
       `)
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[usePets] addPet error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       // Refetch all pets to ensure consistency
       await fetchPets();
       return data;
@@ -348,7 +379,11 @@ export function usePets() {
       `)
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[usePets] updatePet error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       // Refetch all pets to ensure consistency
       await fetchPets();
       return data;
@@ -362,11 +397,12 @@ export function usePets() {
       .delete()
       .eq('id', id);
     
-    if (!error) {
-      setPets(pets.filter(p => p.id !== id));
-      return true;
+    if (error) {
+      console.error('[usePets] deletePet error:', error.message, error.code, error.details);
+      return false;
     }
-    return false;
+    setPets(pets.filter(p => p.id !== id));
+    return true;
   };
 
   return { pets, loading, addPet, updatePet, deletePet, refetch: fetchPets };
@@ -743,60 +779,84 @@ export function useServices() {
   }, [businessId]);
 
   const addService = async (serviceData: Omit<Service, 'id' | 'created_at'>) => {
+    if (!businessId) {
+      console.warn('[useServices] addService skipped: no businessId');
+      return null;
+    }
     // NOTE: `public.services` (in this project) does NOT have `category` or `cost` columns.
-    // Sending unknown columns causes PostgREST 400 and makes the UI look empty.
-    const cleanData: any = {
+    const cleanData: Record<string, unknown> = {
       business_id: businessId,
       name: serviceData.name,
-      description: (serviceData as any).description || null,
+      description: (serviceData as { description?: string }).description ?? null,
       price: serviceData.price,
       duration_minutes: serviceData.duration_minutes,
     };
-    delete cleanData.category;
-    delete cleanData.cost;
-    
+    delete (cleanData as Record<string, unknown>).category;
+    delete (cleanData as Record<string, unknown>).cost;
+
     const { data, error } = await supabase
       .from('services')
       .insert(cleanData)
       .select()
       .single();
-    
-    if (!error && data) {
+
+    if (error) {
+      console.error('[useServices] addService error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       setServices([...services, data as Service].sort((a, b) => a.name.localeCompare(b.name)));
       return data;
-    }
-    if (error) {
-      console.error('Error adding service:', error);
     }
     return null;
   };
 
   const updateService = async (id: string, serviceData: Partial<Service>) => {
+    if (!businessId) {
+      console.warn('[useServices] updateService skipped: no businessId');
+      return null;
+    }
+    const patch = { ...serviceData };
+    delete (patch as Record<string, unknown>).category;
+    delete (patch as Record<string, unknown>).cost;
+    delete (patch as Record<string, unknown>).id;
+    delete (patch as Record<string, unknown>).created_at;
+
     const { data, error } = await supabase
       .from('services')
-      .update(serviceData)
+      .update(patch)
       .eq('id', id)
+      .eq('business_id', businessId)
       .select()
       .single();
-    
-    if (!error && data) {
-      setServices(services.map(s => s.id === id ? data as Service : s));
+
+    if (error) {
+      console.error('[useServices] updateService error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
+      setServices(services.map(s => s.id === id ? (data as Service) : s));
       return data;
     }
     return null;
   };
 
   const deleteService = async (id: string) => {
+    if (!businessId) {
+      console.warn('[useServices] deleteService skipped: no businessId');
+      return false;
+    }
     const { error } = await supabase
       .from('services')
       .delete()
-      .eq('id', id);
-    
-    if (!error) {
-      setServices(services.filter(s => s.id !== id));
-      return true;
+      .eq('id', id)
+      .eq('business_id', businessId);
+    if (error) {
+      console.error('[useServices] deleteService error:', error.message, error.code, error.details);
+      return false;
     }
-    return false;
+    setServices(services.filter(s => s.id !== id));
+    return true;
   };
 
   return { services, loading, addService, updateService, deleteService, refetch: fetchServices };

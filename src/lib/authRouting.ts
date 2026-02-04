@@ -38,8 +38,9 @@ export function clearAuthContext() {
 
 export function setBusinessSlugForSession(business: Business | null) {
   if (typeof window === 'undefined') return;
-  if (!business?.name) return;
-  sessionStorage.setItem('business_slug', slugify(business.name));
+  if (!business) return;
+  const slug = business.slug || (business.name ? slugify(business.name) : null);
+  if (slug) sessionStorage.setItem('business_slug', slug);
 }
 
 export function getBusinessSlugFromSession(): string | null {
@@ -69,7 +70,7 @@ export function getDefaultRoute(opts: {
 }): string {
   if (opts.isAdmin) return '/admin';
   if (isDemoMode()) return '/demo/dashboard';
-  const slug = getBusinessSlugFromSession() || (opts.business?.name ? slugify(opts.business.name) : null);
+  const slug = getBusinessSlugFromSession() || (opts.business?.slug || (opts.business?.name ? slugify(opts.business.name) : null));
   if (slug) return `/${slug}/dashboard`;
   return '/login';
 }

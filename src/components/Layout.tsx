@@ -89,14 +89,12 @@ export function Layout({ children, settings }: LayoutProps) {
   const handleLogout = async () => {
     try {
       await signOut();
-      toast.success('Logged out successfully');
-      // Use window.location for a hard redirect to ensure auth state is cleared
-      window.location.href = '/login';
+      toast.success(t('logout.success'));
+      window.location.href = '/';
     } catch (err) {
       console.error('Logout error:', err);
-      toast.error('Error logging out');
-      // Still redirect even if there's an error
-      window.location.href = '/login';
+      toast.error('Error al cerrar sesión');
+      window.location.href = '/';
     }
   };
 
@@ -557,14 +555,14 @@ export function Layout({ children, settings }: LayoutProps) {
       <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Log out</DialogTitle>
+            <DialogTitle>{t('logout.title')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to log out of Stratum Hub?
+              {t('logout.confirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setLogoutDialogOpen(false)}>
-              Cancel
+              {t('logout.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -573,7 +571,7 @@ export function Layout({ children, settings }: LayoutProps) {
                 handleLogout();
               }}
             >
-              Log out
+              {t('logout.confirmButton')}
             </Button>
           </DialogFooter>
         </DialogContent>

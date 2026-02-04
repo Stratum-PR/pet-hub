@@ -133,7 +133,11 @@ export function useCustomers() {
       .select()
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[useCustomers] addCustomer error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       // Convert to Customer format
       const convertedCustomer = {
         id: data.id,
@@ -168,7 +172,11 @@ export function useCustomers() {
       .select()
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[useCustomers] updateCustomer error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       // Convert to Customer format
       const convertedCustomer = {
         id: data.id,
@@ -201,11 +209,12 @@ export function useCustomers() {
       .eq('id', id)
       .eq('business_id', businessId);
     
-    if (!error) {
-      setCustomers(customers.filter(c => c.id !== id));
-      return true;
+    if (error) {
+      console.error('[useCustomers] deleteCustomer error:', error.message, error.code, error.details);
+      return false;
     }
-    return false;
+    setCustomers(customers.filter(c => c.id !== id));
+    return true;
   };
 
   return { customers, loading, addCustomer, updateCustomer, deleteCustomer, refetch: fetchCustomers };
@@ -276,7 +285,11 @@ export function usePets() {
       `)
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[usePets] addPet error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       // Refetch all pets with JOIN to ensure consistency
       await fetchPets();
       return data;
@@ -310,7 +323,11 @@ export function usePets() {
       `)
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[usePets] updatePet error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       // Refetch all pets with JOIN to ensure consistency
       await fetchPets();
       return data;
@@ -327,12 +344,13 @@ export function usePets() {
       .eq('id', id)
       .eq('business_id', businessId);
     
-    if (!error) {
-      // Refetch all pets with JOIN to ensure consistency
-      await fetchPets();
-      return true;
+    if (error) {
+      console.error('[usePets] deletePet error:', error.message, error.code, error.details);
+      return false;
     }
-    return false;
+    // Refetch all pets with JOIN to ensure consistency
+    await fetchPets();
+    return true;
   };
 
   return { pets, loading, addPet, updatePet, deletePet, refetch: fetchPets };
@@ -375,7 +393,11 @@ export function useServices() {
       .select()
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[useServices] addService error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       setServices([...services, data].sort((a, b) => a.name.localeCompare(b.name)));
       return data;
     }
@@ -393,7 +415,11 @@ export function useServices() {
       .select()
       .single();
     
-    if (!error && data) {
+    if (error) {
+      console.error('[useServices] updateService error:', error.message, error.code, error.details);
+      return null;
+    }
+    if (data) {
       setServices(services.map(s => s.id === id ? data : s));
       return data;
     }
@@ -409,11 +435,12 @@ export function useServices() {
       .eq('id', id)
       .eq('business_id', businessId);
     
-    if (!error) {
-      setServices(services.filter(s => s.id !== id));
-      return true;
+    if (error) {
+      console.error('[useServices] deleteService error:', error.message, error.code, error.details);
+      return false;
     }
-    return false;
+    setServices(services.filter(s => s.id !== id));
+    return true;
   };
 
   return { services, loading, addService, updateService, deleteService, refetch: fetchServices };

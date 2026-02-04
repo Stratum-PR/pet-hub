@@ -28,11 +28,12 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate('/login');
-      toast.success('Logged out successfully');
+      window.location.href = '/';
+      toast.success(t('logout.confirmButton'));
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Failed to log out');
+      toast.error('Error al cerrar sesión');
+      window.location.href = '/';
     }
   };
 

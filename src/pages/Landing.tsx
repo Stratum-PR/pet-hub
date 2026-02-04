@@ -67,7 +67,7 @@ export function Landing() {
           <Link to="/login" className="w-full sm:w-auto">
             <Button variant="ghost" className="w-full sm:w-auto text-sm sm:text-base">{t('landing.login')}</Button>
           </Link>
-          <Link to="/pricing" className="w-full sm:w-auto">
+          <Link to="/registrarse" className="w-full sm:w-auto">
             <Button className="w-full sm:w-auto text-sm sm:text-base">{t('landing.getStarted')}</Button>
           </Link>
         </div>
@@ -84,7 +84,7 @@ export function Landing() {
           {t('landing.heroText')}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto px-4 sm:px-0">
-          <Link to="/pricing" className="w-full sm:w-auto">
+          <Link to="/registrarse" className="w-full sm:w-auto">
             <Button size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
               {t('landing.startFreeTrial')}
               <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />

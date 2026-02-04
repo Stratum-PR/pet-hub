@@ -134,6 +134,9 @@ export function Pricing() {
           <Link to="/login">
             <Button variant="ghost">Login</Button>
           </Link>
+          <Link to="/registrarse">
+            <Button>Registrarse</Button>
+          </Link>
         </div>
       </nav>
 
@@ -228,9 +231,13 @@ export function Pricing() {
         <div className="text-center mt-12 text-muted-foreground">
           <p>All plans include a 14-day free trial. No credit card required to start.</p>
           <p className="mt-2">
-            Already have an account?{' '}
+            ¿Ya tienes cuenta?{' '}
             <Link to="/login" className="text-primary hover:underline">
-              Sign in here
+              Inicia sesión aquí
+            </Link>
+            {' · '}
+            <Link to="/registrarse" className="text-primary hover:underline">
+              Registrarse
             </Link>
           </p>
         </div>
