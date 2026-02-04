@@ -7,6 +7,7 @@ export interface Profile {
   full_name: string | null;
   is_super_admin: boolean;
   business_id: string | null;
+  role?: 'super_admin' | 'manager' | 'employee' | 'client';
   created_at: string;
   updated_at: string;
 }
@@ -14,6 +15,7 @@ export interface Profile {
 export interface Business {
   id: string;
   name: string;
+  slug: string | null;
   email: string;
   phone: string | null;
   address: string | null;
@@ -22,7 +24,7 @@ export interface Business {
   zip_code: string | null;
   website: string | null;
   logo_url: string | null;
-  subscription_tier: 'basic' | 'pro' | 'enterprise';
+  subscription_tier: 'starter' | 'basic' | 'pro' | 'enterprise';
   subscription_status: 'active' | 'canceled' | 'past_due' | 'trialing';
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;

@@ -10,6 +10,7 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { CustomerForm } from '@/components/CustomerForm';
 import { SearchFilter } from '@/components/SearchFilter';
 import { t } from '@/lib/translations';
+import { toast } from 'sonner';
 
 export function BusinessCustomers() {
   const { customers, loading, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
@@ -75,12 +76,24 @@ export function BusinessCustomers() {
 
   const handleSubmit = async (customerData: Omit<Customer, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
     if (editingCustomer) {
-      await updateCustomer(editingCustomer.id, customerData);
+      const result = await updateCustomer(editingCustomer.id, customerData);
+      if (result) {
+        toast.success(t('clients.updateSuccess'));
+        setShowForm(false);
+        setEditingCustomer(null);
+      } else {
+        toast.error(t('clients.saveError'));
+      }
     } else {
-      await addCustomer(customerData as Omit<Customer, 'id' | 'created_at' | 'updated_at'>);
+      const result = await addCustomer(customerData as Omit<Customer, 'id' | 'created_at' | 'updated_at'>);
+      if (result) {
+        toast.success(t('clients.saveSuccess'));
+        setShowForm(false);
+        setEditingCustomer(null);
+      } else {
+        toast.error(t('clients.saveError'));
+      }
     }
-    setShowForm(false);
-    setEditingCustomer(null);
   };
 
   const handleCancel = () => {

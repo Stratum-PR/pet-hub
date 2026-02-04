@@ -10,7 +10,10 @@ import { BusinessLayout } from "@/components/BusinessLayout";
 import { Landing } from "@/pages/Landing";
 import { Pricing } from "@/pages/Pricing";
 import { Login } from "@/pages/Login";
+import { Register } from "@/pages/Register";
+import { AuthCallback } from "@/pages/AuthCallback";
 import { SignupSuccess } from "@/pages/SignupSuccess";
+import { ClientPlaceholder } from "@/pages/ClientPlaceholder";
 import Index from "@/pages/Index";
 import { AdminDashboard } from "@/pages/AdminDashboard";
 import { AdminBusinessDetail } from "@/pages/AdminBusinessDetail";
@@ -32,6 +35,9 @@ const App = () => (
               <Route path="/" element={<Landing />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/registrarse" element={<Register />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/cliente" element={<ClientPlaceholder />} />
               <Route path="/signup/success" element={<SignupSuccess />} />
 
               {/* Business Routes (header-based app) */}

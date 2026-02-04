@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDefaultRoute, setAuthContext, AUTH_CONTEXTS, setDemoMode, clearAuthContext } from '@/lib/authRouting';
+import { getDefaultRoute, setAuthContext, setBusinessSlugForSession, AUTH_CONTEXTS, setDemoMode, clearAuthContext } from '@/lib/authRouting';
+import type { Business } from '@/lib/auth';
 import { t } from '@/lib/translations';
 import { Footer } from '@/components/Footer';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -48,9 +49,23 @@ export function Login() {
       return '/admin';
     }
 
-    // Business user: rely on persisted business slug if present
     setAuthContext(AUTH_CONTEXTS.BUSINESS);
-    return getDefaultRoute({ isAdmin: false, business: null });
+    let business: Business | null = null;
+    if (profile?.business_id) {
+      const { data: biz } = await supabase
+        .from('businesses')
+        .select('*')
+        .eq('id', profile.business_id)
+        .single();
+      if (biz) {
+        business = biz as Business;
+        setBusinessSlugForSession(business);
+      }
+    }
+    if (!profile?.business_id) {
+      return '/cliente';
+    }
+    return getDefaultRoute({ isAdmin: false, business });
   };
 
   /**

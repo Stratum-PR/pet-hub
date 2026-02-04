@@ -115,6 +115,153 @@ export const translations: Translations = {
     en: 'Start your free trial',
     es: 'Comienza tu prueba gratis'
   },
+
+  // Register page
+  'register.title': {
+    en: 'Create your account',
+    es: 'Crea tu cuenta'
+  },
+  'register.subtitle': {
+    en: 'Join Stratum Hub',
+    es: 'Únete a Stratum Hub'
+  },
+  'register.userTypeQuestion': {
+    en: 'Are you a business owner or a client?',
+    es: '¿Eres dueño de negocio o cliente?'
+  },
+  'register.businessOwner': {
+    en: 'Business owner',
+    es: 'Dueño de negocio'
+  },
+  'register.client': {
+    en: 'Client',
+    es: 'Cliente'
+  },
+  'register.businessNameLabel': {
+    en: 'Business name',
+    es: 'Nombre de tu negocio'
+  },
+  'register.businessNamePlaceholder': {
+    en: 'e.g. Pet Esthetic Bayamón',
+    es: 'Ej: Pet Esthetic Bayamón'
+  },
+  'register.choosePlan': {
+    en: 'Choose your subscription plan',
+    es: 'Elige tu plan de suscripción'
+  },
+  'register.planStarter': {
+    en: 'Free Starter',
+    es: 'Starter gratuito'
+  },
+  'register.planStarterDesc': {
+    en: 'Limited functionality (no limits applied yet)',
+    es: 'Funcionalidad limitada (por ahora sin límites)'
+  },
+  'register.planBasic': {
+    en: 'Basic',
+    es: 'Básico'
+  },
+  'register.planPro': {
+    en: 'Pro',
+    es: 'Pro'
+  },
+  'register.planEnterprise': {
+    en: 'Enterprise',
+    es: 'Empresarial'
+  },
+  'register.planBasicDesc': {
+    en: 'For small grooming businesses',
+    es: 'Para negocios de grooming pequeños'
+  },
+  'register.planProDesc': {
+    en: 'Ideal for growing businesses',
+    es: 'Ideal para negocios en crecimiento'
+  },
+  'register.planEnterpriseDesc': {
+    en: 'For large operations',
+    es: 'Para operaciones grandes'
+  },
+  'register.fullName': {
+    en: 'Full name',
+    es: 'Nombre completo'
+  },
+  'register.createAccount': {
+    en: 'Create account',
+    es: 'Crear cuenta'
+  },
+  'register.creating': {
+    en: 'Creating...',
+    es: 'Creando...'
+  },
+  'register.next': {
+    en: 'Next',
+    es: 'Siguiente'
+  },
+  'register.back': {
+    en: 'Back',
+    es: 'Atrás'
+  },
+  'register.checkEmail': {
+    en: 'Check your email',
+    es: 'Revisa tu correo'
+  },
+  'register.checkEmailMessage': {
+    en: 'We sent you a confirmation link. Click it to activate your account, then you will be redirected to your dashboard.',
+    es: 'Te enviamos un enlace de confirmación. Haz clic para activar tu cuenta; luego serás redirigido a tu panel.'
+  },
+  'register.hasAccount': {
+    en: 'Already have an account?',
+    es: '¿Ya tienes cuenta?'
+  },
+  'register.signInHere': {
+    en: 'Sign in here',
+    es: 'Inicia sesión aquí'
+  },
+  'register.errorGeneric': {
+    en: 'Something went wrong. Please try again.',
+    es: 'Algo salió mal. Intenta de nuevo.'
+  },
+  'register.errorEmailInUse': {
+    en: 'This email is already registered.',
+    es: 'Este correo ya está registrado.'
+  },
+
+  // Logout dialog
+  'logout.title': {
+    en: 'Log out',
+    es: 'Cerrar sesión'
+  },
+  'logout.confirm': {
+    en: 'Are you sure you want to log out of Stratum Hub?',
+    es: '¿Seguro que quieres cerrar sesión en Stratum Hub?'
+  },
+  'logout.cancel': {
+    en: 'Cancel',
+    es: 'Cancelar'
+  },
+  'logout.confirmButton': {
+    en: 'Log out',
+    es: 'Cerrar sesión'
+  },
+  'logout.success': {
+    en: 'You have been signed out',
+    es: 'Sesión cerrada'
+  },
+
+  // Client placeholder
+  'clientPlaceholder.title': {
+    en: 'Client portal',
+    es: 'Portal de clientes'
+  },
+  'clientPlaceholder.comingSoon': {
+    en: 'Coming soon',
+    es: 'Próximamente'
+  },
+  'clientPlaceholder.message': {
+    en: 'The client portal is under construction. You can sign out and return later.',
+    es: 'El portal de clientes está en construcción. Puedes cerrar sesión y volver más tarde.'
+  },
+
   // Navigation
   'nav.dashboard': {
     en: 'Dashboard',
@@ -293,6 +440,18 @@ export const translations: Translations = {
   'clients.searchPlaceholder': {
     en: 'Search clients by name, email, or phone...',
     es: 'Buscar clientes por nombre, correo o teléfono...'
+  },
+  'clients.saveError': {
+    en: 'Could not save client. Please try again.',
+    es: 'No se pudo guardar el cliente. Por favor intente de nuevo.'
+  },
+  'clients.saveSuccess': {
+    en: 'Client saved successfully.',
+    es: 'Cliente guardado exitosamente.'
+  },
+  'clients.updateSuccess': {
+    en: 'Client updated successfully.',
+    es: 'Cliente actualizado exitosamente.'
   },
   
   // Pets page
