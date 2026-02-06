@@ -51,7 +51,7 @@ export function Checkout({ appointments, clients, pets, services, onUpdateAppoin
   const client = useMemo(() => {
     if (!appointment) return null;
     const pet = pets.find(p => p.id === appointment.pet_id);
-    return pet ? clients.find(c => c.id === (pet.customer_id || pet.client_id)) : null;
+    return pet ? clients.find(c => c.id === pet.client_id) : null;
   }, [appointment, pets, clients]);
 
   const pet = useMemo(() => {
@@ -163,7 +163,7 @@ export function Checkout({ appointments, clients, pets, services, onUpdateAppoin
             </CardHeader>
             <CardContent className="space-y-2">
               <div>
-                <p className="font-semibold">{client.name}</p>
+                <p className="font-semibold">{client.first_name} {client.last_name}</p>
                 <p className="text-sm text-muted-foreground">{client.email}</p>
                 <p className="text-sm text-muted-foreground">{client.phone}</p>
               </div>

@@ -5,13 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { CreditCard } from 'lucide-react';
-import { Customer } from '@/hooks/useBusinessData';
+import { BusinessClient } from '@/hooks/useBusinessData';
 import { formatPhoneNumber } from '@/lib/phoneFormat';
 import { t } from '@/lib/translations';
 
 interface CustomerFormProps {
-  initialData?: Customer | null;
-  onSubmit: (data: Omit<Customer, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => void;
+  initialData?: BusinessClient | null;
+  onSubmit: (data: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => void;
   onCancel?: () => void;
   isEditing?: boolean;
 }

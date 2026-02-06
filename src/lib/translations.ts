@@ -471,6 +471,18 @@ export const translations: Translations = {
     en: 'Add a client first before adding pets.',
     es: 'Agrega un cliente primero antes de agregar mascotas.'
   },
+  'pets.saveSuccess': {
+    en: 'Pet saved successfully.',
+    es: 'Mascota guardada exitosamente.'
+  },
+  'pets.updateSuccess': {
+    en: 'Pet updated successfully.',
+    es: 'Mascota actualizada exitosamente.'
+  },
+  'pets.saveError': {
+    en: 'Could not save pet. Please try again.',
+    es: 'No se pudo guardar la mascota. Por favor intente de nuevo.'
+  },
   'pets.searchPlaceholder': {
     en: 'Search pets by name, breed, or owner...',
     es: 'Buscar mascotas por nombre, raza o dueño...'
@@ -554,6 +566,26 @@ export const translations: Translations = {
   'services.addService': {
     en: 'Add Service',
     es: 'Agregar Servicio'
+  },
+  'services.serviceAdded': {
+    en: 'Service added successfully.',
+    es: 'Servicio agregado exitosamente.'
+  },
+  'services.serviceUpdated': {
+    en: 'Service updated successfully.',
+    es: 'Servicio actualizado exitosamente.'
+  },
+  'services.addError': {
+    en: 'Could not add service. Please try again.',
+    es: 'No se pudo agregar el servicio. Por favor intente de nuevo.'
+  },
+  'services.updateError': {
+    en: 'Could not update service. Please try again.',
+    es: 'No se pudo actualizar el servicio. Por favor intente de nuevo.'
+  },
+  'services.saveError': {
+    en: 'An error occurred while saving the service.',
+    es: 'Ocurrió un error al guardar el servicio.'
   },
   
   // Inventory page
@@ -815,6 +847,14 @@ export const translations: Translations = {
     en: 'Full Name',
     es: 'Nombre Completo'
   },
+  'form.firstName': {
+    en: 'First Name',
+    es: 'Nombre'
+  },
+  'form.lastName': {
+    en: 'Last Name',
+    es: 'Apellido'
+  },
   'form.email': {
     en: 'Email',
     es: 'Correo Electrónico'
@@ -1068,6 +1108,18 @@ export const translations: Translations = {
   'appointments.deleteConfirm': {
     en: 'This will permanently delete this appointment. This action cannot be undone.',
     es: 'Esto eliminará permanentemente esta cita. Esta acción no se puede deshacer.'
+  },
+  'appointments.deleteAppointmentTitle': {
+    en: 'Delete Appointment',
+    es: 'Eliminar Cita'
+  },
+  'appointments.deleteAppointmentDescription': {
+    en: 'Are you sure you want to delete this appointment? This action cannot be undone.',
+    es: '¿Estás seguro de que deseas eliminar esta cita? Esta acción no se puede deshacer.'
+  },
+  'appointments.appointmentDeleted': {
+    en: 'Appointment deleted successfully',
+    es: 'Cita eliminada exitosamente'
   },
   'appointments.checkout': {
     en: 'Checkout',

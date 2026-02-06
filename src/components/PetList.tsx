@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield, Clock } from 'lucide-react';
-import { Pet, Customer, Appointment } from '@/hooks/useBusinessData';
+import { Pet, BusinessClient, Appointment } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { t } from '@/lib/translations';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -13,8 +13,8 @@ import { format } from 'date-fns';
 
 interface PetListProps {
   pets: Pet[] | any[];
-  /** New multi-tenant customers */
-  customers?: Customer[] | any[];
+  /** New multi-tenant clients */
+  clients?: BusinessClient[] | any[];
   /** Legacy /app clients (clients table) */
   clients?: any[];
   /** Appointments for visit history */
@@ -38,7 +38,7 @@ const vaccinationColors: Record<string, string> = {
   'unknown': 'bg-gray-100 text-gray-800',
 };
 
-export function PetList({ pets, customers, clients, appointments, onDelete, onEdit }: PetListProps) {
+export function PetList({ pets, clients, appointments, onDelete, onEdit }: PetListProps) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
@@ -48,7 +48,7 @@ export function PetList({ pets, customers, clients, appointments, onDelete, onEd
 
   // Defensive: avoid runtime crashes if props are temporarily undefined during load/migration.
   const safePets = Array.isArray(pets) ? pets : [];
-  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safeClients2 = Array.isArray(clients) ? clients : [];
   const safeClients = Array.isArray(clients) ? clients : [];
   const safeAppointments = Array.isArray(appointments) ? appointments : [];
   
@@ -197,9 +197,8 @@ export function PetList({ pets, customers, clients, appointments, onDelete, onEd
           const ownerFromJoin = (pet as any).clients;
           
           // Fallback: Try to find owner from passed arrays (for backward compatibility)
-          const ownerFromCustomers = safeCustomers.find((c: any) => c.id === (pet as any).customer_id);
           const ownerFromClients = safeClients.find((c: any) => c.id === (pet as any).client_id);
-          const ownerFromArray = ownerFromCustomers || ownerFromClients;
+          const ownerFromArray = ownerFromClients || safeClients2.find((c: any) => c.id === (pet as any).client_id);
           
           // Prefer JOIN data, fallback to array lookup
           const owner = ownerFromJoin || ownerFromArray;
@@ -208,13 +207,11 @@ export function PetList({ pets, customers, clients, appointments, onDelete, onEd
           // Get owner name from Supabase data
           // JOIN returns: { id, first_name, last_name, email, phone }
           const ownerName = owner 
-            ? (owner.first_name || owner.last_name
-                ? `${owner.first_name || ''} ${owner.last_name || ''}`.trim()
-                : (owner as any).name || null)
+            ? `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || null
             : null;
           
           // Get owner ID - prefer from JOIN, fallback to pet.client_id
-          const ownerId = owner?.id || (pet as any).client_id || (pet as any).customer_id;
+          const ownerId = owner?.id || (pet as any).client_id;
           
           // CRITICAL: Get canonical breed name from breeds table join (breeds.name)
           // Fallback to legacy breed TEXT field for backward compatibility

@@ -34,7 +34,7 @@ export function BusinessDashboard() {
         const today = startOfDay(new Date());
 
         // CRITICAL: Fetch clients count - ALWAYS filter by business_id for multi-tenancy
-        const { count: customersCount } = await supabase
+        const { count: clientsCount } = await supabase
           .from('clients')
           .select('*', { count: 'exact', head: true })
           .eq('business_id', businessId);
@@ -71,7 +71,7 @@ export function BusinessDashboard() {
         ) || 0;
 
         setStats({
-          totalCustomers: customersCount || 0,
+          totalCustomers: clientsCount || 0,
           totalPets: petsCount || 0,
           todayAppointments: appointments?.length || 0,
           totalRevenue: revenue,
@@ -112,7 +112,7 @@ export function BusinessDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div onClick={() => navigate('/app/customers')} className="cursor-pointer">
+        <div onClick={() => navigate('/app/clients')} className="cursor-pointer">
           <StatCard
             title={t('dashboard.totalClients')}
             value={stats.totalCustomers}
@@ -160,7 +160,7 @@ export function BusinessDashboard() {
           ) : (
             <div className="space-y-3">
               {todayAppointments.map((appointment) => {
-                const customer = appointment.clients; // CRITICAL: Use clients (not customers)
+                const client = appointment.clients;
                 const pet = appointment.pets;
                 const service = appointment.services;
                 return (
@@ -186,10 +186,8 @@ export function BusinessDashboard() {
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {appointment.start_time || 'N/A'} •{' '}
-                        {customer
-                          ? (customer.first_name && customer.last_name
-                              ? `${customer.first_name} ${customer.last_name}`
-                              : customer.name || t('common.unknownClient'))
+                        {client
+                          ? `${client.first_name || ''} ${client.last_name || ''}`.trim() || t('common.unknownClient')
                           : t('common.unknownClient')}
                       </p>
                       {service && (

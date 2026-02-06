@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
 import { SearchFilter } from '@/components/SearchFilter';
-import { usePets, useCustomers, useAppointments, Pet, Customer } from '@/hooks/useBusinessData';
+import { usePets, useClients, useAppointments, Pet, BusinessClient } from '@/hooks/useBusinessData';
 import { t } from '@/lib/translations';
 import { useToast } from '@/hooks/use-toast';
 
 export function BusinessPets() {
   const { pets, addPet, updatePet, deletePet } = usePets();
-  const { customers } = useCustomers();
+  const { clients } = useClients();
   const { appointments } = useAppointments();
   const location = useLocation();
   const { toast } = useToast();
@@ -41,7 +41,7 @@ export function BusinessPets() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(pet => {
-        const owner = customers.find(c => c.id === pet.customer_id);
+        const owner = clients.find(c => c.id === pet.client_id);
         return (
           pet.name.toLowerCase().includes(term) ||
           pet.breed?.toLowerCase().includes(term) ||
@@ -56,7 +56,7 @@ export function BusinessPets() {
     }
     
     return filtered;
-  }, [pets, customers, searchTerm, speciesFilter]);
+  }, [pets, clients, searchTerm, speciesFilter]);
 
   const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
     try {
@@ -129,23 +129,23 @@ export function BusinessPets() {
             setShowForm(!showForm);
           }}
           className="shadow-sm flex items-center gap-2"
-          disabled={customers.length === 0}
+          disabled={clients.length === 0}
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           {showForm ? t('common.cancel') : t('pets.addPet')}
         </Button>
       </div>
 
-      {customers.length === 0 && (
+      {clients.length === 0 && (
         <div className="p-4 bg-accent rounded-lg">
           <p className="text-sm text-accent-foreground">{t('pets.addClientFirst')}</p>
         </div>
       )}
 
-      {showForm && customers.length > 0 && (
+      {showForm && clients.length > 0 && (
         <div id="pet-form" ref={formRef}>
           <PetForm 
-            customers={customers}
+            clients={clients}
             onSubmit={handleSubmit} 
             onCancel={handleCancel}
             initialData={editingPet}
@@ -171,7 +171,7 @@ export function BusinessPets() {
 
       <PetList 
         pets={filteredPets} 
-        customers={customers}
+        clients={clients}
         appointments={appointments}
         onDelete={deletePet}
         onEdit={handleEdit}

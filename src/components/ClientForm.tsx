@@ -15,7 +15,8 @@ import { t } from '@/lib/translations';
 import { Badge } from '@/components/ui/badge';
 
 interface ClientFormProps {
-  onSubmit: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => void;
+  /** Return true on successful save; false to keep form state */
+  onSubmit: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => Promise<boolean>;
   onCancel?: () => void;
   initialData?: Client | null;
   isEditing?: boolean;
@@ -52,7 +53,8 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing, pets = 
     }
   };
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
     address: '',
@@ -66,7 +68,8 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing, pets = 
   useEffect(() => {
     if (initialData) {
       setFormData({
-        name: initialData.name,
+        first_name: initialData.first_name || '',
+        last_name: initialData.last_name || '',
         email: initialData.email,
         phone: formatPhoneNumber(initialData.phone),
         address: initialData.address || '',
@@ -122,15 +125,16 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing, pets = 
     setFormData({ ...formData, card_cvv: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
-    if (!isEditing) {
-      setFormData({ 
-        name: '', 
-        email: '', 
-        phone: '', 
-        address: '', 
+    const ok = await onSubmit(formData);
+    if (ok && !isEditing) {
+      setFormData({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        address: '',
         notes: '',
         card_number: '',
         card_name: '',
@@ -149,13 +153,23 @@ export function ClientForm({ onSubmit, onCancel, initialData, isEditing, pets = 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">{t('form.fullName')}</Label>
+              <Label htmlFor="first_name">{t('form.firstName')}</Label>
               <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                id="first_name"
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 required
-                placeholder="John Doe"
+                placeholder="John"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="last_name">{t('form.lastName')}</Label>
+              <Input
+                id="last_name"
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                required
+                placeholder="Doe"
               />
             </div>
             <div className="space-y-2">

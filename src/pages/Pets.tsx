@@ -7,14 +7,15 @@ import { PetList } from '@/components/PetList';
 import { SearchFilter } from '@/components/SearchFilter';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
+import { toast } from 'sonner';
 
 interface PetsProps {
   clients: Client[];
   pets: Pet[];
   appointments?: any[];
-  onAddPet: (pet: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => void;
-  onUpdatePet: (id: string, pet: Partial<Pet>) => void;
-  onDeletePet: (id: string) => void;
+  onAddPet: (pet: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => Promise<Pet | null>;
+  onUpdatePet: (id: string, pet: Partial<Pet>) => Promise<Pet | null>;
+  onDeletePet: (id: string) => Promise<boolean>;
 }
 
 export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, onDeletePet }: PetsProps) {
@@ -46,7 +47,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(pet => {
-        const owner = clients.find(c => c.id === (pet.customer_id || pet.client_id));
+        const owner = clients.find(c => c.id === pet.client_id);
         return (
           pet.name.toLowerCase().includes(term) ||
           pet.breed.toLowerCase().includes(term) ||
@@ -62,14 +63,26 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     return filtered;
   }, [pets, clients, searchTerm, speciesFilter]);
 
-  const handleSubmit = (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
     if (editingPet) {
-      onUpdatePet(editingPet.id, petData);
-      setEditingPet(null);
-    } else {
-      onAddPet(petData);
+      const result = await onUpdatePet(editingPet.id, petData);
+      if (result) {
+        toast.success(t('pets.updateSuccess') || 'Mascota actualizada exitosamente.');
+        setEditingPet(null);
+        setShowForm(false);
+      } else {
+        toast.error(t('pets.saveError') || 'Error al guardar la mascota.');
+      }
+      return;
     }
-    setShowForm(false);
+
+    const result = await onAddPet(petData);
+    if (result) {
+      toast.success(t('pets.saveSuccess') || 'Mascota guardada exitosamente.');
+      setShowForm(false);
+    } else {
+      toast.error(t('pets.saveError') || 'Error al guardar la mascota.');
+    }
   };
 
   const handleEdit = (pet: Pet) => {
@@ -128,7 +141,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
 
       {showForm && clients.length > 0 && (
         <PetForm 
-          customers={clients as any} 
+          clients={clients as any} 
           onSubmit={handleSubmit} 
           onCancel={handleCancel}
           initialData={editingPet}
@@ -152,7 +165,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
 
       <PetList 
         pets={filteredPets as any} 
-        customers={clients as any}
+        clients={clients as any}
         clients={clients as any}
         appointments={appointments}
         onDelete={onDeletePet}
