@@ -73,9 +73,7 @@ export function ClientList({ clients, pets, onDelete, onEdit, selectedClientId }
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {clients.map((client) => {
-          // Support both legacy client_id and new customer_id on pets so
-          // customers are correctly connected to their pets.
-          const clientPets = pets.filter((pet: any) => pet.client_id === client.id || pet.customer_id === client.id);
+          const clientPets = pets.filter((pet: any) => pet.client_id === client.id);
           const isSelected = selectedClientId === client.id;
           return (
             <Card 
@@ -85,7 +83,7 @@ export function ClientList({ clients, pets, onDelete, onEdit, selectedClientId }
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="font-semibold text-lg">{client.name}</h3>
+                  <h3 className="font-semibold text-lg">{client.first_name} {client.last_name}</h3>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"

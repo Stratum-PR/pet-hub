@@ -11,9 +11,9 @@ import { t } from '@/lib/translations';
 
 interface ServicesProps {
   services: Service[];
-  onAddService: (service: Omit<Service, 'id' | 'created_at'>) => void;
-  onUpdateService: (id: string, service: Partial<Service>) => void;
-  onDeleteService: (id: string) => void;
+  onAddService: (service: Omit<Service, 'id' | 'created_at'>) => Promise<Service | null>;
+  onUpdateService: (id: string, service: Partial<Service>) => Promise<Service | null>;
+  onDeleteService: (id: string) => Promise<boolean>;
 }
 
 export function Services({ services, onAddService, onUpdateService, onDeleteService }: ServicesProps) {
@@ -49,18 +49,28 @@ export function Services({ services, onAddService, onUpdateService, onDeleteServ
       };
       
       if (editingService) {
-        onUpdateService(editingService.id, submitData);
-        toast.success('Service updated successfully!');
-        setEditingService(null);
+        const result = await onUpdateService(editingService.id, submitData);
+        if (result) {
+          toast.success(t('services.serviceUpdated') || 'Service updated successfully!');
+          setEditingService(null);
+        } else {
+          toast.error(t('services.updateError') || 'Could not update service.');
+          return;
+        }
       } else {
-        onAddService(submitData);
-        toast.success('Service added successfully!');
+        const result = await onAddService(submitData);
+        if (result) {
+          toast.success(t('services.serviceAdded') || 'Service added successfully!');
+        } else {
+          toast.error(t('services.addError') || 'Could not add service.');
+          return;
+        }
       }
       resetForm();
       setShowForm(false);
     } catch (error) {
       console.error('Error saving service:', error);
-      toast.error('An error occurred while saving the service');
+      toast.error(t('services.saveError') || 'An error occurred while saving the service');
     }
   };
 

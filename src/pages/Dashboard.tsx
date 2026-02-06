@@ -178,7 +178,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(appointment.scheduled_date), 'h:mm a')} • {client?.name || t('appointments.unknownClient')}
+                        {format(new Date(appointment.scheduled_date), 'h:mm a')} • {client ? `${client.first_name} ${client.last_name}`.trim() : t('appointments.unknownClient')}
                         {employee && ` • ${employee.name}`}
                       </p>
                       {appointment.service_type && (
@@ -225,7 +225,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                       className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg cursor-pointer hover:bg-secondary transition-colors block"
                     >
                       <div>
-                        <p className="font-medium hover:text-primary transition-colors cursor-pointer">{client.name || 'Sin nombre'}</p>
+                        <p className="font-medium hover:text-primary transition-colors cursor-pointer">{`${client.first_name} ${client.last_name}`.trim() || 'Sin nombre'}</p>
                         <p className="text-sm text-muted-foreground">{client.email || 'Sin email'}</p>
                       </div>
                       <span className="text-xs text-muted-foreground bg-accent px-2 py-1 rounded">
@@ -266,7 +266,7 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                       <div>
                         <p className="font-medium hover:text-primary transition-colors cursor-pointer">{pet.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {pet.breed} • {owner?.name || t('dashboard.unknownOwner')}
+                          {pet.breed} • {owner ? `${owner.first_name} ${owner.last_name}`.trim() : t('dashboard.unknownOwner')}
                         </p>
                       </div>
                       <span className="px-2 py-1 text-xs bg-accent rounded capitalize">

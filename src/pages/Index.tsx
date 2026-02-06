@@ -26,7 +26,7 @@ const Index = () => {
   const { pets, addPet, updatePet, deletePet } = usePets();
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const { timeEntries, clockIn, clockOut, getActiveEntry, updateTimeEntry, addTimeEntry } = useTimeEntries();
-  const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAppointments();
+  const { appointments, addAppointment, updateAppointment, deleteAppointment, refetch: refetchAppointments } = useAppointments();
   const { products, addProduct, updateProduct, deleteProduct } = useInventory();
   const { services, addService, updateService, deleteService } = useServices();
   const { settings, saveAllSettings } = useSettings();
@@ -93,6 +93,7 @@ const Index = () => {
                   onAddAppointment={addAppointment}
                   onUpdateAppointment={updateAppointment}
                   onDeleteAppointment={deleteAppointment}
+                  onRefreshAppointments={refetchAppointments}
                 />
               }
             />

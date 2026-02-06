@@ -6,21 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Appointment, Pet, Customer, Service } from '@/hooks/useBusinessData';
+import { Appointment, Pet, BusinessClient, Service } from '@/hooks/useBusinessData';
 import { format, isSameDay, startOfDay, addDays, eachDayOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { BookingFormDialog } from '@/components/BookingFormDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useAppointments, usePets, useCustomers, useServices } from '@/hooks/useBusinessData';
+import { useAppointments, usePets, useClients, useServices } from '@/hooks/useBusinessData';
 import { t } from '@/lib/translations';
 
 export function BusinessAppointments() {
   const navigate = useNavigate();
-  const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAppointments();
+  const { appointments, addAppointment, updateAppointment, deleteAppointment, refetch: refetchAppointments, pushAppointment } = useAppointments();
   const { pets } = usePets();
-  const { customers } = useCustomers();
+  const { clients } = useClients();
   const { services } = useServices();
   
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -93,12 +93,19 @@ export function BusinessAppointments() {
   };
 
   const handleAddAppointment = async (appointmentData: any) => {
-    // Convert to new schema format
+    // BookingFormDialog already inserted the appointment into the DB.
+    // Just refetch to get the latest data — do NOT insert again (causes 23505 conflict).
+    if (appointmentData?.id) {
+      await refetchAppointments();
+      setBookingDialogOpen(false);
+      return;
+    }
+    // Fallback: if no id, the caller expects us to insert
     const newAppointment = {
-      customer_id: appointmentData.customer_id,
+      client_id: appointmentData.client_id,
       pet_id: appointmentData.pet_id,
       service_id: appointmentData.service_id,
-      appointment_date: format(appointmentData.appointment_date, 'yyyy-MM-dd'),
+      appointment_date: appointmentData.appointment_date ? format(new Date(appointmentData.appointment_date), 'yyyy-MM-dd') : undefined,
       start_time: appointmentData.start_time,
       end_time: appointmentData.end_time,
       status: appointmentData.status || 'scheduled',
@@ -119,7 +126,7 @@ export function BusinessAppointments() {
     }
     if (appointmentData.start_time) updateData.start_time = appointmentData.start_time;
     if (appointmentData.end_time) updateData.end_time = appointmentData.end_time;
-    if (appointmentData.customer_id) updateData.customer_id = appointmentData.customer_id;
+    if (appointmentData.client_id) updateData.client_id = appointmentData.client_id;
     if (appointmentData.pet_id) updateData.pet_id = appointmentData.pet_id;
     if (appointmentData.service_id) updateData.service_id = appointmentData.service_id;
     if (appointmentData.status) updateData.status = appointmentData.status;
@@ -267,7 +274,7 @@ export function BusinessAppointments() {
                     <div className="space-y-2">
                       {dayAppointments.map((appointment) => {
                         const pet = pets.find(p => p.id === appointment.pet_id);
-                        const customer = customers.find(c => c.id === appointment.customer_id);
+                        const client = clients.find(c => c.id === (appointment as any).client_id);
                         const service = services.find(s => s.id === appointment.service_id);
                         
                         return (
@@ -284,7 +291,7 @@ export function BusinessAppointments() {
                               </div>
                               <p className="text-sm text-muted-foreground">
                                 {formatTime12H(appointment.start_time)} •{' '}
-                                {customer ? `${customer.first_name} ${customer.last_name}` : t('common.unknownClient')}
+                                {client ? `${client.first_name} ${client.last_name}` : t('common.unknownClient')}
                               </p>
                               {service && (
                                 <p className="text-xs text-muted-foreground mt-1">
@@ -328,11 +335,19 @@ export function BusinessAppointments() {
       <BookingFormDialog
         open={bookingDialogOpen}
         onOpenChange={setBookingDialogOpen}
-        customers={customers}
+        clients={clients}
         pets={pets}
         services={services}
         appointments={appointments}
-        onSuccess={() => setBookingDialogOpen(false)}
+        onSuccess={(newAppointment?: any) => {
+          console.log('[BusinessAppointments] onSuccess fired, appointment:', newAppointment?.id);
+          // Immediately add to local state so the UI updates right away
+          if (newAppointment?.id) {
+            pushAppointment(newAppointment);
+          }
+          // Also refetch in the background for full consistency
+          refetchAppointments();
+        }}
         onAddAppointment={handleAddAppointment}
       />
 
@@ -340,7 +355,7 @@ export function BusinessAppointments() {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         appointment={editingAppointment}
-        customers={customers}
+        clients={clients}
         pets={pets}
         services={services}
         employees={[]} // TODO: Add employees hook

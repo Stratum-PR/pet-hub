@@ -40,7 +40,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
   const navItems = [
     { path: '/app', labelKey: 'nav.dashboard', icon: LayoutDashboard },
     { path: '/app/appointments', labelKey: 'nav.appointments', icon: Calendar },
-    { path: '/app/customers', labelKey: 'nav.clients', icon: Users },
+    { path: '/app/clients', labelKey: 'nav.clients', icon: Users },
     { path: '/app/pets', labelKey: 'nav.pets', icon: Dog },
     { path: '/app/services', labelKey: 'nav.services', icon: Scissors },
     { path: '/app/reports', labelKey: 'nav.analytics', icon: BarChart3 },

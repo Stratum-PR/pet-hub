@@ -4,8 +4,7 @@ import { Plus, X, Edit, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCustomers } from '@/hooks/useBusinessData';
-import { Customer } from '@/hooks/useBusinessData';
+import { useClients, BusinessClient } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { CustomerForm } from '@/components/CustomerForm';
 import { SearchFilter } from '@/components/SearchFilter';
@@ -13,19 +12,19 @@ import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 
 export function BusinessCustomers() {
-  const { customers, loading, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
+  const { clients, loading, addClient, updateClient, deleteClient } = useClients();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
   const [showForm, setShowForm] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingClient, setEditingClient] = useState<BusinessClient | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<string | null>(null);
 
   // Handle highlight from URL parameter
   useEffect(() => {
     if (highlightId) {
-      const element = document.getElementById(`customer-${highlightId}`);
+      const element = document.getElementById(`client-${highlightId}`);
       if (element) {
         setTimeout(() => {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -38,23 +37,22 @@ export function BusinessCustomers() {
     }
   }, [highlightId]);
 
-  const filteredCustomers = useMemo(() => {
-    if (!searchTerm) return customers;
+  const filteredClients = useMemo(() => {
+    if (!searchTerm) return clients;
     const search = searchTerm.toLowerCase();
-    return customers.filter(customer =>
-      customer.first_name.toLowerCase().includes(search) ||
-      customer.last_name.toLowerCase().includes(search) ||
-      customer.email?.toLowerCase().includes(search) ||
-      customer.phone.toLowerCase().includes(search)
+    return clients.filter(client =>
+      client.first_name.toLowerCase().includes(search) ||
+      client.last_name.toLowerCase().includes(search) ||
+      client.email?.toLowerCase().includes(search) ||
+      client.phone.toLowerCase().includes(search)
     );
-  }, [customers, searchTerm]);
+  }, [clients, searchTerm]);
 
-  const handleEdit = (customer: Customer) => {
-    setEditingCustomer(customer);
+  const handleEdit = (client: BusinessClient) => {
+    setEditingClient(client);
     setShowForm(true);
-    // Scroll to form
     setTimeout(() => {
-      const formElement = document.getElementById('customer-form');
+      const formElement = document.getElementById('client-form');
       if (formElement) {
         formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -62,34 +60,34 @@ export function BusinessCustomers() {
   };
 
   const handleDeleteClick = (id: string) => {
-    setCustomerToDelete(id);
+    setClientToDelete(id);
     setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = () => {
-    if (customerToDelete) {
-      deleteCustomer(customerToDelete);
-      setCustomerToDelete(null);
+    if (clientToDelete) {
+      deleteClient(clientToDelete);
+      setClientToDelete(null);
     }
     setDeleteDialogOpen(false);
   };
 
-  const handleSubmit = async (customerData: Omit<Customer, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
-    if (editingCustomer) {
-      const result = await updateCustomer(editingCustomer.id, customerData);
+  const handleSubmit = async (clientData: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
+    if (editingClient) {
+      const result = await updateClient(editingClient.id, clientData);
       if (result) {
         toast.success(t('clients.updateSuccess'));
         setShowForm(false);
-        setEditingCustomer(null);
+        setEditingClient(null);
       } else {
         toast.error(t('clients.saveError'));
       }
     } else {
-      const result = await addCustomer(customerData as Omit<Customer, 'id' | 'created_at' | 'updated_at'>);
+      const result = await addClient(clientData as Omit<BusinessClient, 'id' | 'created_at' | 'updated_at'>);
       if (result) {
         toast.success(t('clients.saveSuccess'));
         setShowForm(false);
-        setEditingCustomer(null);
+        setEditingClient(null);
       } else {
         toast.error(t('clients.saveError'));
       }
@@ -98,7 +96,7 @@ export function BusinessCustomers() {
 
   const handleCancel = () => {
     setShowForm(false);
-    setEditingCustomer(null);
+    setEditingClient(null);
   };
 
   if (loading) {
@@ -120,7 +118,7 @@ export function BusinessCustomers() {
         </div>
         <Button
           onClick={() => {
-            setEditingCustomer(null);
+            setEditingClient(null);
             setShowForm(!showForm);
           }}
           className="shadow-sm flex items-center gap-2"
@@ -131,12 +129,12 @@ export function BusinessCustomers() {
       </div>
 
       {showForm && (
-        <div id="customer-form">
+        <div id="client-form">
           <CustomerForm
-            initialData={editingCustomer}
+            initialData={editingClient}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
-            isEditing={!!editingCustomer}
+            isEditing={!!editingClient}
           />
         </div>
       )}
@@ -147,7 +145,7 @@ export function BusinessCustomers() {
         placeholder={t('clients.searchPlaceholder')}
       />
 
-      {filteredCustomers.length === 0 ? (
+      {filteredClients.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground">
@@ -157,30 +155,30 @@ export function BusinessCustomers() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCustomers.map((customer) => {
-            const isHighlighted = highlightId === customer.id;
+          {filteredClients.map((client) => {
+            const isHighlighted = highlightId === client.id;
             return (
             <Card 
-              key={customer.id} 
-              id={`customer-${customer.id}`}
+              key={client.id} 
+              id={`client-${client.id}`}
               className={`shadow-sm hover:shadow-md transition-shadow ${isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''}`}
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="font-semibold text-lg">
-                      {customer.first_name} {customer.last_name}
+                      {client.first_name} {client.last_name}
                     </h3>
-                    {customer.email && (
-                      <p className="text-sm text-muted-foreground">{customer.email}</p>
+                    {client.email && (
+                      <p className="text-sm text-muted-foreground">{client.email}</p>
                     )}
-                    <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                    <p className="text-sm text-muted-foreground">{client.phone}</p>
                   </div>
                   <div className="flex gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleEdit(customer)}
+                      onClick={() => handleEdit(client)}
                       className="h-8 w-8"
                     >
                       <Edit className="w-4 h-4" />
@@ -188,23 +186,23 @@ export function BusinessCustomers() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDeleteClick(customer.id)}
+                      onClick={() => handleDeleteClick(client.id)}
                       className="h-8 w-8 text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-                {(customer.address || customer.city || customer.state) && (
+                {(client.address || client.city || client.state) && (
                   <p className="text-sm text-muted-foreground mb-2">
-                    {[customer.address, customer.city, customer.state, customer.zip_code]
+                    {[client.address, client.city, client.state, client.zip_code]
                       .filter(Boolean)
                       .join(', ')}
                   </p>
                 )}
-                {customer.notes && (
+                {client.notes && (
                   <p className="text-sm text-muted-foreground mt-2 border-t pt-2">
-                    {customer.notes}
+                    {client.notes}
                   </p>
                 )}
               </CardContent>

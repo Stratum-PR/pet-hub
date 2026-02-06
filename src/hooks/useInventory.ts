@@ -3,6 +3,23 @@ import { Product } from '@/types/inventory';
 import { useBusinessId } from './useBusinessId';
 import { supabase } from '@/integrations/supabase/client';
 
+function uuidv4(): string {
+  if (typeof crypto !== 'undefined') {
+    const anyCrypto = crypto as unknown as { randomUUID?: () => string; getRandomValues?: (a: Uint8Array) => Uint8Array };
+    if (typeof anyCrypto.randomUUID === 'function') return anyCrypto.randomUUID();
+    if (typeof anyCrypto.getRandomValues === 'function') {
+      const buf = new Uint8Array(16);
+      anyCrypto.getRandomValues(buf);
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      const b = Array.from(buf, (x) => x.toString(16).padStart(2, '0'));
+      return `${b[0]}${b[1]}${b[2]}${b[3]}-${b[4]}${b[5]}-${b[6]}${b[7]}-${b[8]}${b[9]}-${b[10]}${b[11]}${b[12]}${b[13]}${b[14]}${b[15]}`;
+    }
+  }
+  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+  return `${s4()}${s4()}-${s4()}-4${s4().slice(1)}-${((8 + Math.random() * 4) | 0).toString(16)}${s4().slice(1)}-${s4()}${s4()}${s4()}`;
+}
+
 export function useInventory() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +100,7 @@ export function useInventory() {
 
     const { data, error } = await supabase
       .from('inventory' as any)
-      .insert(payload)
+      .insert({ id: uuidv4(), ...payload })
       .select()
       .single();
     

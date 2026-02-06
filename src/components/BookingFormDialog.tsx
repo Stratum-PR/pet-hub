@@ -13,7 +13,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { DOG_BREEDS } from '@/lib/dogBreeds';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
-import { Customer, Pet, Service } from '@/hooks/useBusinessData';
+import { BusinessClient, Pet, Service } from '@/hooks/useBusinessData';
+import { useBusinessId } from '@/hooks/useBusinessId';
 import { t } from '@/lib/translations';
 
 const CAT_BREEDS = [
@@ -72,27 +73,28 @@ const parseTime12H = (time12: string): string => {
 interface BookingFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  customers: Customer[];
+  clients?: BusinessClient[];
   pets: Pet[];
   services: Service[];
   appointments: any[];
-  onSuccess: () => void;
+  onSuccess: (newAppointment?: any) => void;
   onAddAppointment?: (appointment: any) => void;
 }
 
 export function BookingFormDialog({
   open,
   onOpenChange,
-  customers,
+  clients,
   pets,
   services,
   appointments,
   onSuccess,
   onAddAppointment,
 }: BookingFormDialogProps) {
+  const businessId = useBusinessId();
   // Defensive defaults: during demo/public mode or while data hooks are loading,
   // these can be temporarily undefined. Avoid runtime crashes.
-  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safeClients: BusinessClient[] = Array.isArray(clients) ? clients : [];
   const safePets = Array.isArray(pets) ? pets : [];
   const safeServices = Array.isArray(services) ? services : [];
   const safeAppointments = Array.isArray(appointments) ? appointments : [];
@@ -175,8 +177,7 @@ export function BookingFormDialog({
 
   const clientPets = useMemo(() => {
     if (!formData.clientId) return [];
-    // Support both legacy `client_id` and new `customer_id` shapes.
-    return safePets.filter((p: any) => p.client_id === formData.clientId || p.customer_id === formData.clientId);
+    return safePets.filter((p: any) => p.client_id === formData.clientId);
   }, [formData.clientId, safePets]);
 
   const handleServiceToggle = (service: string) => {
@@ -189,14 +190,14 @@ export function BookingFormDialog({
   };
 
   const handleClientChange = (clientId: string) => {
-    const customer = safeCustomers.find(c => c.id === clientId);
-    if (customer) {
+    const client = safeClients.find(c => c.id === clientId);
+    if (client) {
       setFormData(prev => ({
         ...prev,
         clientId,
-        clientName: `${customer.first_name} ${customer.last_name}`,
-        clientEmail: customer.email || '',
-        clientPhone: formatPhoneNumber(customer.phone),
+        clientName: `${client.first_name} ${client.last_name}`,
+        clientEmail: client.email || '',
+        clientPhone: formatPhoneNumber(client.phone),
         createNewClient: false,
         petId: '',
         petName: '',
@@ -238,9 +239,11 @@ export function BookingFormDialog({
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
         
-        const { data: newCustomer } = await supabase
-          .from('customers')
+        const { data: newClient } = await supabase
+          .from('clients')
           .insert({
+            id: crypto.randomUUID(),
+            business_id: businessId,
             first_name: firstName,
             last_name: lastName,
             email: formData.clientEmail || null,
@@ -250,8 +253,8 @@ export function BookingFormDialog({
           .select()
           .single();
         
-        if (newCustomer) {
-          clientId = newCustomer.id;
+        if (newClient) {
+          clientId = newClient.id;
         }
       }
 
@@ -261,7 +264,9 @@ export function BookingFormDialog({
         const { data: newPet } = await supabase
           .from('pets')
           .insert({
-            customer_id: clientId,
+            id: crypto.randomUUID(),
+            business_id: businessId,
+            client_id: clientId,
             name: formData.petName,
             species: formData.petSpecies || 'other',
             breed: formData.petBreed || 'Unknown',
@@ -287,27 +292,35 @@ export function BookingFormDialog({
           return total + (service?.price || 0);
         }, 0);
 
+        // Find the primary service ID
+        const primaryService = safeServices.find(s => formData.services.includes(s.name));
+
         const { data: newAppointment, error } = await supabase
           .from('appointments')
           .insert({
+            id: crypto.randomUUID(),
+            business_id: businessId,
+            client_id: clientId,
             pet_id: petId,
+            service_id: primaryService?.id || null,
+            appointment_date: format(selectedDate, 'yyyy-MM-dd'),
+            start_time: selectedTime,
             scheduled_date: appointmentDate.toISOString(),
             service_type: serviceType,
             status: 'scheduled',
+            total_price: estimatedPrice,
             price: estimatedPrice,
             notes: formData.notes || `Client: ${formData.clientName}\nPet: ${formData.petName}\nServices: ${serviceType}`,
           })
           .select()
           .single();
 
-        if (!error && newAppointment) {
-          // Call onAddAppointment if provided
-          if (onAddAppointment) {
-            onAddAppointment(newAppointment);
-          }
-          onSuccess();
-          onOpenChange(false);
-          // Reset form
+        if (error) {
+          console.error('[BookingFormDialog] Appointment insert error:', error.message, error.code);
+          alert('Error creating appointment. Please try again.');
+        } else {
+          console.log('[BookingFormDialog] Appointment created successfully:', newAppointment?.id);
+          // Reset form first, then notify parent
           setFormData({
             clientId: '',
             clientName: '',
@@ -326,8 +339,8 @@ export function BookingFormDialog({
           });
           setSelectedDate(new Date());
           setSelectedTime('');
-        } else {
-          alert('Error creating appointment. Please try again.');
+          onSuccess(newAppointment);
+          onOpenChange(false);
         }
       }
     } catch (error) {
@@ -437,9 +450,9 @@ export function BookingFormDialog({
                         <Plus className="w-4 h-4 inline mr-2" />
                         {t('form.createNewClient')}
                       </SelectItem>
-                      {safeCustomers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.first_name} {customer.last_name} - {formatPhoneNumber(customer.phone)}
+                      {safeClients.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.first_name} {c.last_name} - {formatPhoneNumber(c.phone)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -510,7 +523,7 @@ export function BookingFormDialog({
                       </SelectItem>
                         {clientPets.map(pet => (
                           <SelectItem key={pet.id} value={pet.id}>
-                            {pet.name} - {pet.breed}
+                            {pet.name} {pet.breed ? `(${pet.breed})` : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>

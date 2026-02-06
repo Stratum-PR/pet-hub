@@ -23,7 +23,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading, refreshAuth } = useAuth();
   const { language } = useLanguage(); // Force re-render on language change
 
   const getRedirectForAuthenticatedUser = async (): Promise<string> => {
@@ -87,7 +87,7 @@ export function Login() {
           password: loginPassword,
         });
         const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error('signInWithPassword timeout') }), 4000)
+          setTimeout(() => resolve({ data: null, error: new Error('signInWithPassword timeout') }), 15000)
         );
         const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
         if (!error) {
@@ -136,17 +136,16 @@ export function Login() {
       }
 
       // Tell supabase-js about this session so the rest of the app uses it.
-      // Try to persist it, but don't block login if this takes too long in some environments.
+      // Persist it; if we can't confirm persistence, do NOT navigate (otherwise refresh will break).
       const setSessionPromise = supabase.auth.setSession({ access_token, refresh_token });
       const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('setSession timeout') }), 8000)
+        setTimeout(() => resolve({ data: null, error: new Error('setSession timeout') }), 20000)
       );
       const { data, error } = await Promise.race([setSessionPromise, timeoutPromise]);
       if (error) {
-        console.warn('[Login] setSession did not confirm in time; continuing anyway:', error);
-        // Wait a bit before redirect to give storage time to persist
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return true;
+        console.warn('[Login] setSession did not confirm in time:', error);
+        toast.error('No se pudo persistir la sesión. Intenta de nuevo.');
+        return false;
       }
       console.log('[Login] setSession success', data);
       
@@ -191,6 +190,8 @@ export function Login() {
 
       const ok = await passwordLogin(email, password);
       if (ok) {
+        // Ensure AuthContext and cached profile/business hydrate before deciding where to go.
+        await refreshAuth();
         toast.success('Signed in successfully');
         const destination = await getRedirectForAuthenticatedUser();
         console.log('[Login] Redirecting to:', destination);

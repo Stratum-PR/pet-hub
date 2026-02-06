@@ -2,8 +2,25 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
 
-// Types matching new schema
-export interface Customer {
+function uuidv4(): string {
+  if (typeof crypto !== 'undefined') {
+    const anyCrypto = crypto as unknown as { randomUUID?: () => string; getRandomValues?: (a: Uint8Array) => Uint8Array };
+    if (typeof anyCrypto.randomUUID === 'function') return anyCrypto.randomUUID();
+    if (typeof anyCrypto.getRandomValues === 'function') {
+      const buf = new Uint8Array(16);
+      anyCrypto.getRandomValues(buf);
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      const b = Array.from(buf, (x) => x.toString(16).padStart(2, '0'));
+      return `${b[0]}${b[1]}${b[2]}${b[3]}-${b[4]}${b[5]}-${b[6]}${b[7]}-${b[8]}${b[9]}-${b[10]}${b[11]}${b[12]}${b[13]}${b[14]}${b[15]}`;
+    }
+  }
+  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+  return `${s4()}${s4()}-${s4()}-4${s4().slice(1)}-${((8 + Math.random() * 4) | 0).toString(16)}${s4().slice(1)}-${s4()}${s4()}${s4()}`;
+}
+
+// Types matching clients table schema
+export interface BusinessClient {
   id: string;
   business_id: string;
   first_name: string;
@@ -19,10 +36,11 @@ export interface Customer {
   updated_at: string;
 }
 
+
 export interface Pet {
   id: string;
   business_id: string;
-  client_id: string; // CRITICAL: Use client_id (not customer_id) - customers table was merged into clients
+  client_id: string;
   name: string;
   species: 'dog' | 'cat' | 'other';
   breed: string | null;
@@ -46,9 +64,6 @@ export interface Pet {
   } | null;
   // Legacy field for backward compatibility
   age?: number | null;
-  // Legacy field mapping (for compatibility during migration)
-  customer_id?: string; // Deprecated - use client_id
-  customer?: any; // Deprecated - use clients
 }
 
 export interface Service {
@@ -65,7 +80,7 @@ export interface Service {
 export interface Appointment {
   id: string;
   business_id: string;
-  customer_id: string;
+  client_id: string;
   pet_id: string;
   service_id: string;
   appointment_date: string;
@@ -78,146 +93,103 @@ export interface Appointment {
   updated_at: string;
 }
 
-// Customers hook
-export function useCustomers() {
+// Clients hook (uses the `clients` table exclusively)
+export function useClients() {
   const businessId = useBusinessId();
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [clients, setClients] = useState<BusinessClient[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchCustomers = async () => {
+  const fetchClients = async () => {
     if (!businessId) {
       setLoading(false);
       return;
     }
 
-    // CRITICAL: Query clients table (not customers) - customers was merged into clients
     const { data, error } = await supabase
       .from('clients')
       .select('*')
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
-    
+
     if (!error && data) {
-      // Convert clients format to Customer format for compatibility
-      const convertedCustomers = data.map((c: any) => ({
-        id: c.id,
-        business_id: c.business_id,
-        first_name: c.first_name || '',
-        last_name: c.last_name || '',
-        email: c.email || null,
-        phone: c.phone || '',
-        address: c.address || null,
-        city: c.city || null,
-        state: c.state || null,
-        zip_code: c.zip_code || null,
-        notes: c.notes || null,
-        created_at: c.created_at,
-        updated_at: c.updated_at,
-      }));
-      setCustomers(convertedCustomers);
+      setClients(data as BusinessClient[]);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchCustomers();
+    fetchClients();
   }, [businessId]);
 
-  const addCustomer = async (customerData: Omit<Customer, 'id' | 'created_at' | 'updated_at'>) => {
+  const addClient = async (clientData: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
 
-    // CRITICAL: Insert into clients table (not customers)
     const { data, error } = await supabase
       .from('clients')
-      .insert({ ...customerData, business_id: businessId })
+      .insert({ id: uuidv4(), ...clientData, business_id: businessId } as any)
       .select()
       .single();
-    
+
     if (error) {
-      console.error('[useCustomers] addCustomer error:', error.message, error.code, error.details);
+      console.error('[useClients] addClient error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
-      // Convert to Customer format
-      const convertedCustomer = {
-        id: data.id,
-        business_id: data.business_id,
-        first_name: data.first_name || '',
-        last_name: data.last_name || '',
-        email: data.email || null,
-        phone: data.phone || '',
-        address: data.address || null,
-        city: data.city || null,
-        state: data.state || null,
-        zip_code: data.zip_code || null,
-        notes: data.notes || null,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-      setCustomers([convertedCustomer, ...customers]);
-      return convertedCustomer;
+      const newClient = data as BusinessClient;
+      setClients([newClient, ...clients]);
+      return newClient;
     }
     return null;
   };
 
-  const updateCustomer = async (id: string, customerData: Partial<Customer>) => {
+  const updateClient = async (id: string, clientData: Partial<BusinessClient>) => {
     if (!businessId) return null;
 
-    // CRITICAL: Update clients table (not customers)
     const { data, error } = await supabase
       .from('clients')
-      .update(customerData)
+      .update(clientData)
       .eq('id', id)
       .eq('business_id', businessId)
       .select()
       .single();
-    
+
     if (error) {
-      console.error('[useCustomers] updateCustomer error:', error.message, error.code, error.details);
+      console.error('[useClients] updateClient error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
-      // Convert to Customer format
-      const convertedCustomer = {
-        id: data.id,
-        business_id: data.business_id,
-        first_name: data.first_name || '',
-        last_name: data.last_name || '',
-        email: data.email || null,
-        phone: data.phone || '',
-        address: data.address || null,
-        city: data.city || null,
-        state: data.state || null,
-        zip_code: data.zip_code || null,
-        notes: data.notes || null,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-      setCustomers(customers.map(c => c.id === id ? convertedCustomer : c));
-      return convertedCustomer;
+      const updated = data as BusinessClient;
+      setClients(clients.map(c => c.id === id ? updated : c));
+      return updated;
     }
     return null;
   };
 
-  const deleteCustomer = async (id: string) => {
+  const deleteClient = async (id: string) => {
     if (!businessId) return false;
 
-    // CRITICAL: Delete from clients table (not customers)
     const { error } = await supabase
       .from('clients')
       .delete()
       .eq('id', id)
       .eq('business_id', businessId);
-    
+
     if (error) {
-      console.error('[useCustomers] deleteCustomer error:', error.message, error.code, error.details);
+      console.error('[useClients] deleteClient error:', error.message, error.code, error.details);
       return false;
     }
-    setCustomers(customers.filter(c => c.id !== id));
+    setClients(clients.filter(c => c.id !== id));
     return true;
   };
 
-  return { customers, loading, addCustomer, updateCustomer, deleteCustomer, refetch: fetchCustomers };
+  return {
+    clients,
+    loading,
+    addClient,
+    updateClient,
+    deleteClient,
+    refetch: fetchClients,
+  };
 }
 
 // Pets hook
@@ -232,7 +204,7 @@ export function usePets() {
       return;
     }
 
-    // CRITICAL: JOIN with clients table (not customers) - customers was merged into clients
+    // JOIN with clients table
     // Supabase automatically resolves foreign key relationships
     const { data, error } = await supabase
       .from('pets')
@@ -249,7 +221,7 @@ export function usePets() {
       .order('created_at', { ascending: false });
     
     if (!error && data) {
-      console.log('[usePets] Fetched pets with customer data:', data.length);
+      console.log('[usePets] Fetched pets with client data:', data.length);
       setPets(data as any);
     } else if (error) {
       console.error('[usePets] Error fetching pets:', error);
@@ -264,16 +236,9 @@ export function usePets() {
   const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
 
-    // CRITICAL: Map customer_id to client_id if present (for backward compatibility)
-    const petDataToInsert = {
-      ...petData,
-      client_id: (petData as any).client_id || (petData as any).customer_id, // Support both during migration
-    };
-    delete (petDataToInsert as any).customer_id; // Remove customer_id if present
-    
     const { data, error } = await supabase
       .from('pets')
-      .insert({ ...petDataToInsert, business_id: businessId })
+      .insert({ id: uuidv4(), ...petData, business_id: businessId })
       .select(`
         *,
         clients:client_id(
@@ -300,16 +265,9 @@ export function usePets() {
   const updatePet = async (id: string, petData: Partial<Pet>) => {
     if (!businessId) return null;
 
-    // CRITICAL: Map customer_id to client_id if present (for backward compatibility)
-    const petDataToUpdate = { ...petData };
-    if ((petDataToUpdate as any).customer_id && !(petDataToUpdate as any).client_id) {
-      (petDataToUpdate as any).client_id = (petDataToUpdate as any).customer_id;
-      delete (petDataToUpdate as any).customer_id;
-    }
-    
     const { data, error } = await supabase
       .from('pets')
-      .update(petDataToUpdate)
+      .update(petData)
       .eq('id', id)
       .eq('business_id', businessId)
       .select(`
@@ -389,7 +347,7 @@ export function useServices() {
 
     const { data, error } = await supabase
       .from('services')
-      .insert({ ...serviceData, business_id: businessId })
+      .insert({ id: uuidv4(), ...serviceData, business_id: businessId })
       .select()
       .single();
     
@@ -480,7 +438,7 @@ export function useAppointments() {
 
     const { data, error } = await supabase
       .from('appointments')
-      .insert({ ...appointmentData, business_id: businessId })
+      .insert({ id: uuidv4(), ...appointmentData, business_id: businessId })
       .select()
       .single();
     
@@ -525,5 +483,13 @@ export function useAppointments() {
     return false;
   };
 
-  return { appointments, loading, addAppointment, updateAppointment, deleteAppointment, refetch: fetchAppointments };
+  // Push an already-inserted appointment into local state (avoids re-insert)
+  const pushAppointment = (appointment: Appointment) => {
+    setAppointments(prev => {
+      if (prev.some(a => a.id === appointment.id)) return prev;
+      return [...prev, appointment];
+    });
+  };
+
+  return { appointments, loading, addAppointment, updateAppointment, deleteAppointment, refetch: fetchAppointments, pushAppointment };
 }

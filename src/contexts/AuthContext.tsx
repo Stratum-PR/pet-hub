@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentProfile, getCurrentBusiness, isSuperAdmin, Profile, Business } from '@/lib/auth';
+import type { Profile, Business } from '@/lib/auth';
 import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
 
 interface AuthContextType {
@@ -18,156 +19,137 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms)),
+  ]);
+}
+
+async function fetchProfile(userId: string): Promise<Profile> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  if (error || !data) throw error ?? new Error('Profile not found');
+  return data as Profile;
+}
+
+async function fetchBusiness(businessId: string): Promise<Business> {
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('*')
+    .eq('id', businessId)
+    .single();
+  if (error || !data) throw error ?? new Error('Business not found');
+  return data as Business;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatingBusinessName, setImpersonatingBusinessName] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const profileQuery = useQuery({
+    queryKey: ['profile', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => fetchProfile(user!.id),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: (failureCount) => failureCount < 3,
+    refetchOnWindowFocus: true,
+  });
+
+  const businessId = profileQuery.data?.business_id ?? null;
+  const businessQuery = useQuery({
+    queryKey: ['business', businessId],
+    enabled: !!businessId,
+    queryFn: async () => fetchBusiness(businessId!),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: (failureCount) => failureCount < 3,
+    refetchOnWindowFocus: true,
+  });
+
+  const profile = profileQuery.data ?? null;
+  const business = businessQuery.data ?? null;
+  const isAdmin = profile?.is_super_admin ?? false;
+
+  // Loading is only "blocking" until we know if a session exists.
+  // Profile/business hydrate stale-while-revalidate (keep previous data on refetch failures).
+  const loading = useMemo(() => {
+    if (!authInitialized) return true;
+    if (!user) return false;
+    // If user exists but we have no profile yet and it's still fetching, block once (initial hydration only).
+    if (!profile && profileQuery.isLoading) return true;
+    // If profile implies a business but it's still fetching the first time, block once.
+    if (!!businessId && !business && businessQuery.isLoading) return true;
+    return false;
+  }, [authInitialized, user, profile, profileQuery.isLoading, businessId, business, businessQuery.isLoading]);
 
   const refreshAuth = async (userOverride?: User | null) => {
-    try {
-      console.log('[AuthContext] refreshAuth start');
-      setLoading(true);
+    console.log('[AuthContext] refreshAuth start');
 
-      // Prefer the user we already have from onAuthStateChange, fall back to getSession()
-      let effectiveUser: User | null = userOverride ?? null;
-      if (!effectiveUser) {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          console.error('[AuthContext] Error getting session:', sessionError);
-        }
+    // 1) Determine effective user (never hang here; avoid infinite loading on refresh)
+    let effectiveUser: User | null = userOverride ?? user ?? null;
+    if (!effectiveUser) {
+      try {
+        const { data: { session }, error: sessionError } = await withTimeout(supabase.auth.getSession(), 15000, 'auth.getSession');
+        if (sessionError) console.error('[AuthContext] Error getting session:', sessionError);
         effectiveUser = session?.user ?? null;
+      } catch (e) {
+        console.warn('[AuthContext] getSession timed out/failed:', e);
       }
-
-      console.log('[AuthContext] effectiveUser', {
-        hasUser: !!effectiveUser,
-        userId: effectiveUser?.id,
-      });
-
-      setUser(effectiveUser);
-
-      if (!effectiveUser) {
-        setProfile(null);
-        setBusiness(null);
-        setIsAdmin(false);
-        setLoading(false);
-        console.log('[AuthContext] No user after getUser, stopping refreshAuth');
-        return;
-      }
-
-      // Fetch profile with error handling and timeout
-      try {
-        const profilePromise = supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', effectiveUser.id)
-          .single();
-        const profileTimeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error('Profile fetch timeout') }), 5000)
-        );
-        
-        const { data: userProfile, error: profileError } = await Promise.race([profilePromise, profileTimeoutPromise]);
-        console.log('[AuthContext] profile query result', {
-          hasProfile: !!userProfile,
-          error: profileError?.message || null,
-        });
-
-        if (profileError) {
-          console.error('[AuthContext] Error fetching profile:', profileError);
-          // User is authenticated even if profile fetch fails
-          setProfile(null);
-          setIsAdmin(false);
-          setBusiness(null);
-        } else if (userProfile) {
-          console.log('[AuthContext] Profile fetched:', {
-            email: userProfile.email,
-            business_id: userProfile.business_id,
-            is_super_admin: userProfile.is_super_admin
-          });
-          setProfile(userProfile);
-          const adminStatus = userProfile.is_super_admin ?? false;
-          setIsAdmin(adminStatus);
-
-          if (userProfile.business_id) {
-            try {
-              // Add timeout to business fetch too
-              const businessPromise = getCurrentBusiness();
-              const businessTimeoutPromise = new Promise<Business | null>((resolve) =>
-                setTimeout(() => resolve(null), 5000)
-              );
-              const userBusiness = await Promise.race([businessPromise, businessTimeoutPromise]);
-              console.log('[AuthContext] Business fetched:', {
-                name: userBusiness?.name,
-                id: userBusiness?.id,
-              });
-              setBusiness(userBusiness);
-              // Persist business slug for routing consistency across refresh/new tabs
-              setBusinessSlugForSession(userBusiness);
-              // Mark context as business unless impersonating or demo mode overrides it
-              if (typeof window !== 'undefined') {
-                const demoMode = sessionStorage.getItem('demoMode') === 'true';
-                const impersonating = sessionStorage.getItem('is_impersonating') === 'true';
-                if (!demoMode && !impersonating) {
-                  setAuthContext(AUTH_CONTEXTS.BUSINESS);
-                }
-              }
-            } catch (businessError) {
-              console.error('[AuthContext] Error fetching business:', businessError);
-              setBusiness(null);
-            }
-          } else {
-            console.warn('[AuthContext] Profile has no business_id:', userProfile.email);
-            setBusiness(null);
-          }
-        } else {
-          console.warn('[AuthContext] No profile found for user:', effectiveUser.id);
-        }
-      } catch (profileErr) {
-        console.error('Error in profile fetch:', profileErr);
-        setProfile(null);
-        setIsAdmin(false);
-        setBusiness(null);
-      }
-    } catch (error: any) {
-      // Ignore AbortError - it just means the request was cancelled (component unmounted, etc.)
-      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-        // Silently ignore abort errors
-        setLoading(false);
-        return;
-      }
-      
-      console.error('[AuthContext] Error refreshing auth:', error);
-      // On error, try to at least get the user
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user || null);
-        if (!user) {
-          setProfile(null);
-          setBusiness(null);
-          setIsAdmin(false);
-        }
-      } catch (err) {
-        setUser(null);
-        setProfile(null);
-        setBusiness(null);
-        setIsAdmin(false);
-      }
-    } finally {
-      setLoading(false);
-      console.log('[AuthContext] refreshAuth end', {
-        hasUser: !!user,
-        hasProfile: !!profile,
-        hasBusiness: !!business,
-      });
     }
+    if (!effectiveUser) {
+      try {
+        const { data: { user: apiUser }, error: userError } = await withTimeout(supabase.auth.getUser(), 15000, 'auth.getUser');
+        if (userError) console.error('[AuthContext] Error getting user:', userError);
+        effectiveUser = apiUser ?? null;
+      } catch (e) {
+        console.warn('[AuthContext] getUser timed out/failed:', e);
+      }
+    }
+
+    setUser(effectiveUser);
+    setAuthInitialized(true);
+
+    if (!effectiveUser) {
+      // Clear query caches on sign-out/anonymous state
+      queryClient.removeQueries({ queryKey: ['profile'] });
+      queryClient.removeQueries({ queryKey: ['business'] });
+      console.log('[AuthContext] refreshAuth end (no user)');
+      return;
+    }
+
+    // 2) Best-effort: prefill query cache for immediate UI stability.
+    // Fire-and-forget so refreshAuth returns instantly (React Query handles retries).
+    const userId = effectiveUser.id;
+    fetchProfile(userId)
+      .then((p) => {
+        queryClient.setQueryData(['profile', userId], p);
+        if (p.business_id) {
+          fetchBusiness(p.business_id)
+            .then((b) => queryClient.setQueryData(['business', p.business_id], b))
+            .catch((bizErr) => console.warn('[AuthContext] prefetchBusiness failed (non-blocking):', bizErr));
+        }
+      })
+      .catch((profileErr) => {
+        console.warn('[AuthContext] prefetchProfile failed (non-blocking):', profileErr);
+      });
+
+    // Trigger background revalidation via React Query (also non-blocking)
+    queryClient.invalidateQueries({ queryKey: ['profile', userId] }).catch(() => {});
+
+    console.log('[AuthContext] refreshAuth end');
   };
 
   useEffect(() => {
-    console.log('[AuthContext] mount – calling initial refreshAuth');
-    refreshAuth();
+    console.log('[AuthContext] mount – hydrating initial session');
+    refreshAuth().catch((e) => console.error('[AuthContext] initial refreshAuth failed:', e));
 
     // Check impersonation status
     const checkImpersonation = () => {
@@ -195,14 +177,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_OUT') {
           setUser(null);
-          setProfile(null);
-          setBusiness(null);
-          setIsAdmin(false);
+          setAuthInitialized(true);
+          queryClient.removeQueries({ queryKey: ['profile'] });
+          queryClient.removeQueries({ queryKey: ['business'] });
           setIsImpersonating(false);
           setImpersonatingBusinessName(null);
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Hydrate directly from the session user; avoid getUser() entirely.
+        } else if (event === 'SIGNED_IN') {
           await refreshAuth(session?.user ?? null);
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Don't clear UI state on refresh; just update user and let queries revalidate naturally.
+          if (session?.user) setUser(session.user);
+          setAuthInitialized(true);
+          if (session?.user?.id) {
+            queryClient.invalidateQueries({ queryKey: ['profile', session.user.id] }).catch(() => {});
+          }
         }
       }
     );
@@ -221,6 +209,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
+
+  // Keep session routing context/slug in sync when business loads.
+  useEffect(() => {
+    if (!business) return;
+    setBusinessSlugForSession(business);
+    if (typeof window !== 'undefined') {
+      const demoMode = sessionStorage.getItem('demoMode') === 'true';
+      const impersonating = sessionStorage.getItem('is_impersonating') === 'true';
+      if (!demoMode && !impersonating) {
+        setAuthContext(AUTH_CONTEXTS.BUSINESS);
+      }
+    }
+  }, [business]);
 
   return (
     <AuthContext.Provider

@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Pet, Customer } from '@/hooks/useBusinessData';
+import { Pet, BusinessClient } from '@/hooks/useBusinessData';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SPANISH_MONTHS, calculateVaccinationStatus, formatVaccinationStatusSpanish, getVaccinationStatusColor } from '@/lib/petHelpers';
@@ -20,14 +20,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PhotoCropDialog } from '@/components/PhotoCropDialog';
 
 interface PetFormProps {
-  customers: Customer[];
+  clients: BusinessClient[];
   onSubmit: (pet: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => void;
   onCancel?: () => void;
   initialData?: Pet | null;
   isEditing?: boolean;
 }
 
-export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
+export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,9 +47,9 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
   const isDemoUser = isDemoMode() && !isAdmin;
   
   // Defensive: ensure we always work with an array to avoid runtime map() crashes
-  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safeClients = Array.isArray(clients) ? clients : [];
   const [formData, setFormData] = useState({
-    client_id: '', // CRITICAL: Use client_id (not customer_id) - customers table was merged into clients
+    client_id: '',
     name: '',
     species: '' as 'dog' | 'cat' | 'other',
     breed_id: '' as string | null, // CRITICAL: Use breed_id (references breeds.id)
@@ -65,7 +65,7 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
 
   useEffect(() => {
     if (initialData) {
-      // Get client ID from Supabase - CRITICAL: Use client_id (customers table was merged into clients)
+      // Get client ID from Supabase
       // Also check if client data came from JOIN (initialData.clients)
       const clientId = (initialData as any).client_id || '';
       const species = (initialData.species || '').trim() as 'dog' | 'cat' | 'other';
@@ -85,26 +85,21 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
       }
       
       // CRITICAL: Always set client_id from Supabase data
-      // The Select component will display the name once safeCustomers loads
+      // The Select component will display the name once safeClients loads
       let validClientId = clientId || '';
       
-      // Verify client exists in the list if customers are loaded
-      if (safeCustomers.length > 0 && clientId) {
-        const foundCustomer = safeCustomers.find(c => String(c.id).trim() === String(clientId).trim());
+      // Verify client exists in the list if clients are loaded
+      if (safeClients.length > 0 && clientId) {
+        const foundCustomer = safeClients.find(c => String(c.id).trim() === String(clientId).trim());
         if (!foundCustomer) {
-          console.warn('[PetForm] Client not found in list:', clientId, 'Available:', safeCustomers.map(c => c.id));
-          // Keep the ID - it will show in the Select once customers load or if it's orphaned
+          console.warn('[PetForm] Client not found in list:', clientId, 'Available:', safeClients.map(c => c.id));
+          // Keep the ID - it will show in the Select once clients load or if it's orphaned
         } else {
-          // Handle both data structures
           const firstName = (foundCustomer as any).first_name || '';
           const lastName = (foundCustomer as any).last_name || '';
-          const combinedName = (foundCustomer as any).name || '';
-          const clientName = combinedName || `${firstName} ${lastName}`.trim();
           console.log('[PetForm] Found client in list:', {
             clientId,
-            clientName,
-            hasNameField: !!(foundCustomer as any).name,
-            hasFirstName: !!firstName,
+            clientName: `${firstName} ${lastName}`.trim(),
           });
         }
       }
@@ -115,7 +110,7 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
         breedId,
         breedName: (initialData as any).breeds?.name || (initialData as any).breed,
         species,
-        customersCount: safeCustomers.length,
+        clientsCount: safeClients.length,
         breedsCount: breeds.length,
         hasInitialData: !!initialData,
       });
@@ -170,7 +165,7 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
       setOriginalPhotoUrl(null);
       setPhotoToDelete(false);
     }
-  }, [initialData, safeCustomers]);
+  }, [initialData, safeClients]);
 
   // CRITICAL: Re-initialize breed_id when breeds load (if we have initialData but breeds weren't loaded yet)
   useEffect(() => {
@@ -655,15 +650,14 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
                     )}
                   >
                     {(() => {
-                      if (formData.client_id && safeCustomers.length > 0) {
-                        const selectedCustomer = safeCustomers.find(c => String(c.id).trim() === String(formData.client_id).trim());
+                      if (formData.client_id && safeClients.length > 0) {
+                        const selectedCustomer = safeClients.find(c => String(c.id).trim() === String(formData.client_id).trim());
                         if (selectedCustomer) {
                           const firstName = (selectedCustomer as any).first_name || '';
                           const lastName = (selectedCustomer as any).last_name || '';
-                          const combinedName = (selectedCustomer as any).name || '';
-                          const fullName = combinedName || `${firstName} ${lastName}`.trim();
+                          const fullName = `${firstName} ${lastName}`.trim();
                           const phone = (selectedCustomer as any).phone || '';
-                          return fullName ? `${fullName}${phone ? ` • ${phone}` : ''}` : (firstName || lastName || 'Sin nombre');
+                          return fullName ? `${fullName}${phone ? ` • ${phone}` : ''}` : 'Sin nombre';
                         }
                       }
                       return formData.client_id ? 'Cargando...' : 'Seleccionar propietario';
@@ -681,36 +675,33 @@ export function PetForm({ customers, onSubmit, onCancel, initialData, isEditing 
                     <CommandList>
                       <CommandEmpty>No se encontraron clientes.</CommandEmpty>
                       <CommandGroup>
-                        {safeCustomers
-                          .filter((customer) => {
+                        {safeClients
+                          .filter((cl) => {
                             if (!ownerSearch) return true;
                             const search = ownerSearch.toLowerCase();
-                            const firstName = ((customer as any).first_name || '').toLowerCase();
-                            const lastName = ((customer as any).last_name || '').toLowerCase();
-                            const combinedName = ((customer as any).name || '').toLowerCase();
-                            const phone = ((customer as any).phone || '').toLowerCase();
-                            const email = ((customer as any).email || '').toLowerCase();
+                            const firstName = ((cl as any).first_name || '').toLowerCase();
+                            const lastName = ((cl as any).last_name || '').toLowerCase();
+                            const phone = ((cl as any).phone || '').toLowerCase();
+                            const email = ((cl as any).email || '').toLowerCase();
                             return firstName.includes(search) || 
                                    lastName.includes(search) || 
-                                   combinedName.includes(search) ||
+                                   `${firstName} ${lastName}`.includes(search) ||
                                    phone.includes(search) ||
                                    email.includes(search);
                           })
-                          .map((customer) => {
-                            const firstName = (customer as any).first_name || '';
-                            const lastName = (customer as any).last_name || '';
-                            const combinedName = (customer as any).name || '';
-                            const displayName = combinedName || `${firstName} ${lastName}`.trim();
-                            const finalDisplayName = displayName || (firstName || lastName || 'Sin nombre');
-                            const phone = (customer as any).phone || '';
-                            const isSelected = String(formData.client_id) === String(customer.id);
+                          .map((cl) => {
+                            const firstName = (cl as any).first_name || '';
+                            const lastName = (cl as any).last_name || '';
+                            const finalDisplayName = `${firstName} ${lastName}`.trim() || 'Sin nombre';
+                            const phone = (cl as any).phone || '';
+                            const isSelected = String(formData.client_id) === String(cl.id);
                             
                             return (
                               <CommandItem
-                                key={customer.id}
-                                value={String(customer.id)}
+                                key={cl.id}
+                                value={String(cl.id)}
                                 onSelect={() => {
-                                  setFormData({ ...formData, client_id: String(customer.id) });
+                                  setFormData({ ...formData, client_id: String(cl.id) });
                                   setErrors({ ...errors, client_id: '' });
                                   setOwnerOpen(false);
                                   setOwnerSearch('');

@@ -46,9 +46,9 @@ export function BusinessReports() {
         .select('*', { count: 'exact', head: true })
         .eq('business_id', businessId);
 
-      // Fetch customers count
-      const { count: customersCount } = await supabase
-        .from('customers')
+      // Fetch clients count
+      const { count: clientsCount } = await supabase
+        .from('clients')
         .select('*', { count: 'exact', head: true })
         .eq('business_id', businessId);
 
@@ -100,24 +100,24 @@ export function BusinessReports() {
         const weekEnd = subDays(new Date(), (3 - i) * 7 - 6);
         return {
           week: `Week ${4 - i}`,
-          customers: 0,
+          clients: 0,
           pets: 0,
         };
       });
 
-      // Count customers by week
-      const { data: customers } = await supabase
-        .from('customers')
+      // Count clients by week
+      const { data: clientsByWeek } = await supabase
+        .from('clients')
         .select('created_at')
         .eq('business_id', businessId);
 
-      customers?.forEach(customer => {
-        const created = new Date(customer.created_at);
+      clientsByWeek?.forEach(c => {
+        const created = new Date(c.created_at);
         weeklyRegs.forEach((week, index) => {
           const weekStart = subDays(new Date(), (3 - index) * 7);
           const weekEnd = subDays(new Date(), (3 - index) * 7 - 6);
           if (created >= weekStart && created <= weekEnd) {
-            week.customers += 1;
+            week.clients += 1;
           }
         });
       });
@@ -137,7 +137,7 @@ export function BusinessReports() {
       setStats({
         totalRevenue,
         totalAppointments: appointmentsCount || 0,
-        totalCustomers: customersCount || 0,
+        totalCustomers: clientsCount || 0,
         totalPets: pets?.length || 0,
       });
       setRevenueData(last7Days);
@@ -275,7 +275,7 @@ export function BusinessReports() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="customers" fill="#0088FE" name={t('reports.customers')} />
+                <Bar dataKey="clients" fill="#0088FE" name={t('reports.clients')} />
                 <Bar dataKey="pets" fill="#00C49F" name={t('reports.pets')} />
               </BarChart>
             </ResponsiveContainer>

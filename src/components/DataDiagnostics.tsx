@@ -10,6 +10,9 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 export function DataDiagnostics() {
   const { profile, user, business } = useAuth();
   const businessId = useBusinessId();
+  const profileBusinessId = profile?.business_id ?? null;
+  const businessIdMismatch =
+    !!profileBusinessId && !!businessId && profileBusinessId !== businessId;
   const [diagnostics, setDiagnostics] = useState<any>({
     profile: null,
     businessId: null,
@@ -112,9 +115,7 @@ export function DataDiagnostics() {
             results.dataCounts.clients = count || 0;
             results.sampleData.clients = clients?.slice(0, 3).map((c: any) => ({
               id: c.id,
-              name: c.first_name && c.last_name 
-                ? `${c.first_name} ${c.last_name}` 
-                : c.name || 'Sin nombre',
+              name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sin nombre',
               email: c.email,
               phone: c.phone,
             })) || [];
@@ -336,7 +337,7 @@ export function DataDiagnostics() {
                   date: a.appointment_date || a.scheduled_date,
                   time: a.start_time || 'N/A',
                   pet_name: a.pet_id ? 'Linked (schema mismatch)' : 'No pet',
-                  client_name: a.client_id || a.customer_id ? 'Linked (schema mismatch)' : 'No client',
+                  client_name: a.client_id ? 'Linked (schema mismatch)' : 'No client',
                   status: a.status,
                 })) || [];
                 results.queryDetails.appointments = {
@@ -445,6 +446,18 @@ export function DataDiagnostics() {
                   {businessId || 'NULL'}
                 </Badge>
               </div>
+              {businessIdMismatch && (
+                <div className="text-sm">
+                  <Badge variant="destructive">Mismatch</Badge>
+                  <span className="ml-2 text-muted-foreground">
+                    Active route businessId does not match your profile.business_id. RLS will block inserts/updates for the active business.
+                  </span>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    <strong>profile.business_id:</strong> <code className="bg-muted px-1 py-0.5 rounded">{profileBusinessId}</code>{' '}
+                    <strong>active businessId:</strong> <code className="bg-muted px-1 py-0.5 rounded">{businessId}</code>
+                  </div>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>

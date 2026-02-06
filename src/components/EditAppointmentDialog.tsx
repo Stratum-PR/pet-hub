@@ -12,7 +12,7 @@ import { format, startOfDay, setHours, setMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
-import { Customer, Pet, Service, Appointment } from '@/hooks/useBusinessData';
+import { BusinessClient, Pet, Service, Appointment } from '@/hooks/useBusinessData';
 import { Employee } from '@/types';
 import { t } from '@/lib/translations';
 
@@ -37,7 +37,7 @@ interface EditAppointmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appointment: Appointment | null;
-  customers: Customer[];
+  clients: BusinessClient[];
   pets: Pet[];
   services: Service[];
   employees: Employee[];
@@ -50,7 +50,7 @@ export function EditAppointmentDialog({
   open,
   onOpenChange,
   appointment,
-  customers,
+  clients,
   pets,
   services,
   employees,
@@ -58,6 +58,8 @@ export function EditAppointmentDialog({
   onUpdate,
   onSuccess,
 }: EditAppointmentDialogProps) {
+  const normalizedClients: BusinessClient[] = Array.isArray(clients) ? clients : [];
+
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -82,7 +84,7 @@ export function EditAppointmentDialog({
     if (appointment && open && appointment.pet_id) {
       try {
         const pet = pets.find(p => p.id === appointment.pet_id);
-        const customer = pet ? customers.find(c => c.id === pet.customer_id) : null;
+        const matchedClient = pet ? normalizedClients.find(c => c.id === pet.client_id) : null;
         
         // Safely parse date
         let appointmentDate: Date;
@@ -109,10 +111,10 @@ export function EditAppointmentDialog({
         }
         
         setFormData({
-          clientId: customer?.id || '',
-          clientName: customer ? `${customer.first_name} ${customer.last_name}` : '',
-          clientEmail: customer?.email || '',
-          clientPhone: customer && customer.phone ? formatPhoneNumber(customer.phone) : '',
+          clientId: matchedClient?.id || '',
+          clientName: matchedClient ? `${matchedClient.first_name} ${matchedClient.last_name}` : '',
+          clientEmail: matchedClient?.email || '',
+          clientPhone: matchedClient && matchedClient.phone ? formatPhoneNumber(matchedClient.phone) : '',
           petId: appointment.pet_id || '',
           petName: pet?.name || '',
           petBreed: pet?.breed || '',
@@ -145,7 +147,7 @@ export function EditAppointmentDialog({
         setSelectedTime('09:00');
       }
     }
-  }, [appointment, open, pets, customers]);
+  }, [appointment, open, pets, clients]);
 
   // Fetch existing appointments for the selected date (excluding current appointment)
   useEffect(() => {
@@ -193,7 +195,7 @@ export function EditAppointmentDialog({
 
   const clientPets = useMemo(() => {
     if (!formData.clientId) return [];
-    return pets.filter(p => (p.customer_id || p.client_id) === formData.clientId);
+    return pets.filter(p => p.client_id === formData.clientId);
   }, [formData.clientId, pets]);
 
   const handleServiceToggle = (service: string) => {
@@ -206,14 +208,14 @@ export function EditAppointmentDialog({
   };
 
   const handleClientChange = (clientId: string) => {
-    const customer = customers.find(c => c.id === clientId);
-    if (customer) {
+    const selectedClient = normalizedClients.find(c => c.id === clientId);
+    if (selectedClient) {
       setFormData(prev => ({
         ...prev,
         clientId,
-        clientName: `${customer.first_name} ${customer.last_name}`,
-        clientEmail: customer.email || '',
-        clientPhone: formatPhoneNumber(customer.phone),
+        clientName: `${selectedClient.first_name} ${selectedClient.last_name}`,
+        clientEmail: selectedClient.email || '',
+        clientPhone: formatPhoneNumber(selectedClient.phone),
         petId: '',
         petName: '',
       }));
@@ -242,25 +244,25 @@ export function EditAppointmentDialog({
     setLoading(true);
 
     try {
-      // Update customer if info changed
+      // Update client if info changed
       if (formData.clientId) {
-        const customer = customers.find(c => c.id === formData.clientId);
-        if (customer) {
+        const existingClient = normalizedClients.find(c => c.id === formData.clientId);
+        if (existingClient) {
           const nameParts = formData.clientName.trim().split(' ');
-          const firstName = nameParts[0] || customer.first_name;
-          const lastName = nameParts.slice(1).join(' ') || customer.last_name;
+          const firstName = nameParts[0] || existingClient.first_name;
+          const lastName = nameParts.slice(1).join(' ') || existingClient.last_name;
           
-          if (customer.first_name !== firstName || customer.last_name !== lastName || 
-              customer.email !== formData.clientEmail || customer.phone !== unformatPhoneNumber(formData.clientPhone)) {
+          if (existingClient.first_name !== firstName || existingClient.last_name !== lastName || 
+              existingClient.email !== formData.clientEmail || existingClient.phone !== unformatPhoneNumber(formData.clientPhone)) {
             await supabase
-              .from('customers')
+              .from('clients')
               .update({
                 first_name: firstName,
                 last_name: lastName,
-                email: formData.clientEmail || customer.email || null,
-                phone: unformatPhoneNumber(formData.clientPhone) || customer.phone,
+                email: formData.clientEmail || existingClient.email || null,
+                phone: unformatPhoneNumber(formData.clientPhone) || existingClient.phone,
               })
-              .eq('id', customer.id);
+              .eq('id', existingClient.id);
           }
         }
       }
@@ -430,9 +432,9 @@ export function EditAppointmentDialog({
                     <SelectValue placeholder={t('form.selectClient')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {customers.map(customer => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.first_name} {customer.last_name} - {formatPhoneNumber(customer.phone)}
+                    {normalizedClients.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.first_name} {c.last_name} - {formatPhoneNumber(c.phone)}
                       </SelectItem>
                     ))}
                   </SelectContent>

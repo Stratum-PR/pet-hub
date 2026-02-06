@@ -1,10 +1,12 @@
 export interface Client {
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string;
   address: string;
   notes?: string;
+  business_id?: string;
   // Payment details (saved if user chooses to save payment in checkout)
   card_number?: string;
   card_name?: string;

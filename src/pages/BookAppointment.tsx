@@ -186,32 +186,32 @@ export function BookAppointment() {
         return;
       }
       
-      const { data: allCustomers } = await supabase
-        .from('customers' as any)
+      const { data: allClients } = await supabase
+        .from('clients' as any)
         .select('*')
         .eq('business_id', businessId);
       
       // Find client with matching phone (normalize both for comparison)
-      const matchingClientData = allCustomers?.find(customer => {
-        const customerPhoneDigits = unformatPhoneNumber(customer.phone);
-        return customerPhoneDigits === phoneDigits;
+      const matchingClientData = allClients?.find(c => {
+        const cPhoneDigits = unformatPhoneNumber(c.phone);
+        return cPhoneDigits === phoneDigits;
       });
       
       if (matchingClientData) {
-        // Convert customer to client format for compatibility
         const clientData = {
           id: matchingClientData.id,
-          name: `${matchingClientData.first_name} ${matchingClientData.last_name}`,
+          first_name: matchingClientData.first_name || '',
+          last_name: matchingClientData.last_name || '',
           email: matchingClientData.email || '',
           phone: matchingClientData.phone,
         };
         setMatchingClient(clientData);
         
-        // Get pets for this customer (using customer_id, not client_id)
+        // Get pets for this client
         const { data: pets } = await supabase
           .from('pets')
           .select('*')
-          .eq('customer_id', matchingClientData.id)
+          .eq('client_id', matchingClientData.id)
           .eq('business_id', businessId);
         
         setMatchingPets(pets || []);
@@ -243,7 +243,7 @@ export function BookAppointment() {
     if (matchingClient) {
       setFormData(prev => ({
         ...prev,
-        clientName: matchingClient.name,
+        clientName: `${matchingClient.first_name} ${matchingClient.last_name}`.trim(),
         email: matchingClient.email || '',
         phone: formatPhoneNumber(matchingClient.phone),
       }));
@@ -274,8 +274,9 @@ export function BookAppointment() {
       // Check if we have a matching client from phone lookup
       if (matchingClient) {
         // Verify name or pet name matches
-        const nameMatches = matchingClient.name.toLowerCase().includes(formData.clientName.toLowerCase()) ||
-                          formData.clientName.toLowerCase().includes(matchingClient.name.toLowerCase());
+        const fullName = `${matchingClient.first_name} ${matchingClient.last_name}`.trim().toLowerCase();
+        const nameMatches = fullName.includes(formData.clientName.toLowerCase()) ||
+                          formData.clientName.toLowerCase().includes(fullName);
         const petMatches = formData.petId || matchingPets.some(pet => 
           pet.name.toLowerCase() === formData.petName.toLowerCase()
         );
@@ -296,8 +297,9 @@ export function BookAppointment() {
           const last_name = nameParts.slice(1).join(' ') || '';
           
           const { data: newCustomer } = await supabase
-            .from('customers' as any)
+            .from('clients' as any)
             .insert({
+              id: crypto.randomUUID(),
               business_id: businessId,
               first_name,
               last_name,
@@ -325,8 +327,9 @@ export function BookAppointment() {
         const last_name = nameParts.slice(1).join(' ') || '';
         
         const { data: newCustomer } = await supabase
-          .from('customers' as any)
+          .from('clients' as any)
           .insert({
+            id: crypto.randomUUID(),
             business_id: businessId,
             first_name,
             last_name,
@@ -359,8 +362,9 @@ export function BookAppointment() {
           const { data: newPet } = await supabase
             .from('pets')
             .insert({
+              id: crypto.randomUUID(),
               business_id: businessId,
-              customer_id: clientId,
+              client_id: clientId,
               name: formData.petName,
               species: formData.petSpecies || 'other',
               breed: formData.petBreed || 'Unknown',
@@ -403,8 +407,9 @@ export function BookAppointment() {
         const { error } = await supabase
           .from('appointments')
           .insert({
+            id: crypto.randomUUID(),
             business_id: businessId,
-            customer_id: clientId,
+            client_id: clientId,
             pet_id: petId,
             service_id: primaryServiceId,
             appointment_date: format(selectedDate, 'yyyy-MM-dd'),
@@ -614,7 +619,7 @@ export function BookAppointment() {
                   <div className="p-4 bg-muted rounded-lg space-y-3">
                     <p className="text-sm font-medium">We found a client with this phone number:</p>
                     <div className="space-y-1 text-sm">
-                      <p><strong>Name:</strong> {matchingClient.name}</p>
+                      <p><strong>Name:</strong> {matchingClient.first_name} {matchingClient.last_name}</p>
                       {matchingClient.email && <p><strong>Email:</strong> {matchingClient.email}</p>}
                       {matchingPets.length > 0 && (
                         <div>

@@ -28,6 +28,7 @@ interface AppointmentsProps {
   onAddAppointment: (appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => void;
   onUpdateAppointment: (id: string, appointment: Partial<Appointment>) => void;
   onDeleteAppointment: (id: string) => void;
+  onRefreshAppointments?: () => void;
 }
 
 type SortField = 'date' | 'pet' | 'cost' | 'service';
@@ -41,7 +42,8 @@ export function Appointments({
   services,
   onAddAppointment, 
   onUpdateAppointment, 
-  onDeleteAppointment 
+  onDeleteAppointment,
+  onRefreshAppointments,
 }: AppointmentsProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -228,7 +230,7 @@ export function Appointments({
     const pet = pets.find(p => p.id === petId);
     if (!pet?.client_id) return t('appointments.unknownClient');
     const client = clients.find(c => c.id === pet.client_id);
-    return client ? client.name : t('appointments.unknownClient');
+    return client ? `${client.first_name} ${client.last_name}`.trim() : t('appointments.unknownClient');
   };
 
   const getEmployeeName = (employeeId?: string) => {
@@ -751,7 +753,7 @@ export function Appointments({
                       <SelectItem value="all">Todos los clientes</SelectItem>
                       {clients.map((client) => (
                         <SelectItem key={client.id} value={client.id}>
-                          {client.name}
+                          {client.first_name} {client.last_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -906,6 +908,8 @@ export function Appointments({
         onAddAppointment={onAddAppointment}
         onSuccess={() => {
           toast.success('Appointment created successfully!');
+          // Refetch appointments from the database so the list updates immediately
+          onRefreshAppointments?.();
         }}
       />
 
@@ -928,6 +932,7 @@ export function Appointments({
           onSuccess={() => {
             toast.success('Appointment updated successfully!');
             setEditingAppointment(null);
+            onRefreshAppointments?.();
           }}
         />
       )}

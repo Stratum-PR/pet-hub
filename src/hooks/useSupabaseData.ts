@@ -4,6 +4,26 @@ import { Client, Pet, Employee, TimeEntry, Appointment, Service } from '@/types'
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 
+function uuidv4(): string {
+  // Prefer native when available
+  if (typeof crypto !== 'undefined') {
+    const anyCrypto = crypto as unknown as { randomUUID?: () => string; getRandomValues?: (a: Uint8Array) => Uint8Array };
+    if (typeof anyCrypto.randomUUID === 'function') return anyCrypto.randomUUID();
+    if (typeof anyCrypto.getRandomValues === 'function') {
+      const buf = new Uint8Array(16);
+      anyCrypto.getRandomValues(buf);
+      // RFC4122 v4
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      const b = Array.from(buf, (x) => x.toString(16).padStart(2, '0'));
+      return `${b[0]}${b[1]}${b[2]}${b[3]}-${b[4]}${b[5]}-${b[6]}${b[7]}-${b[8]}${b[9]}-${b[10]}${b[11]}${b[12]}${b[13]}${b[14]}${b[15]}`;
+    }
+  }
+  // Last resort fallback
+  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+  return `${s4()}${s4()}-${s4()}-4${s4().slice(1)}-${((8 + Math.random() * 4) | 0).toString(16)}${s4().slice(1)}-${s4()}${s4()}${s4()}`;
+}
+
 export interface Breed {
   id: string;
   name: string;
@@ -75,7 +95,7 @@ export function useClients() {
     console.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId, 'Has session:', !!session);
     
     try {
-      // CRITICAL: Query clients table directly (customers was merged into clients)
+      // Query clients table
       // Supabase client automatically includes session token in headers
       const { data, error, count } = await supabase
         .from('clients')
@@ -95,24 +115,26 @@ export function useClients() {
           businessId,
           sampleClient: data?.[0] ? {
             id: data[0].id,
-            name: `${data[0].first_name} ${data[0].last_name}`,
+            first_name: data[0].first_name,
+            last_name: data[0].last_name,
             email: data[0].email,
             business_id: data[0].business_id,
           } : null,
         });
-        // Convert clients to Client format (combine first_name + last_name into name)
-        const convertedClients = (data || []).map((c: any) => ({
+        const mappedClients = (data || []).map((c: any) => ({
           id: c.id,
-          name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sin nombre',
+          first_name: c.first_name || '',
+          last_name: c.last_name || '',
           email: c.email || '',
           phone: c.phone || '',
           address: c.address || '',
           notes: c.notes || null,
+          business_id: c.business_id || '',
           created_at: c.created_at,
           updated_at: c.updated_at,
         }));
-        console.log('[useClients] Converted clients:', convertedClients.length, 'clients');
-        setClients(convertedClients);
+        console.log('[useClients] Fetched clients:', mappedClients.length);
+        setClients(mappedClients);
       }
     } catch (err: any) {
       console.error('[useClients] Exception:', err);
@@ -132,18 +154,14 @@ export function useClients() {
       return null;
     }
 
-    // Split name into first_name and last_name (match inventory: one payload object)
-    const nameParts = (clientData.name || '').trim().split(/\s+/);
-    const first_name = nameParts[0] || '';
-    const last_name = nameParts.slice(1).join(' ') || '';
-    const fullName = `${first_name} ${last_name}`.trim() || clientData.name || '';
+    // Some deployments have clients.id without a DEFAULT (NOT NULL) → inserts fail unless we provide one.
+    const newId = uuidv4();
 
-    // Match inventory: one payload with all fields. Include name for schemas that have it (NOT NULL).
     const payload = {
+      id: newId,
       business_id: businessId,
-      name: fullName || 'Sin nombre',
-      first_name,
-      last_name,
+      first_name: clientData.first_name || '',
+      last_name: clientData.last_name || '',
       email: clientData.email || '',
       phone: clientData.phone || '',
       address: clientData.address ?? '',
@@ -152,7 +170,7 @@ export function useClients() {
 
     const { data, error } = await supabase
       .from('clients')
-      .insert(payload)
+      .insert(payload as any)
       .select()
       .single();
 
@@ -161,19 +179,20 @@ export function useClients() {
       return null;
     }
     if (data) {
-      const d = data as { first_name?: string; last_name?: string; name?: string };
-      const converted = {
+      const newClient: Client = {
         id: data.id,
-        name: d.name ?? ((`${d.first_name ?? ''} ${d.last_name ?? ''}`.trim()) || 'Sin nombre'),
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
         email: data.email || '',
         phone: data.phone || '',
         address: data.address || '',
         notes: data.notes || null,
+        business_id: data.business_id || '',
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
-      setClients([converted, ...clients]);
-      return converted;
+      setClients([newClient, ...clients]);
+      return newClient;
     }
     return null;
   };
@@ -184,24 +203,20 @@ export function useClients() {
       return null;
     }
 
-    const nameParts = (clientData.name ?? '').trim().split(/\s+/);
-    const first_name = nameParts[0] || '';
-    const last_name = nameParts.slice(1).join(' ') || '';
-    const fullName = `${first_name} ${last_name}`.trim() || clientData.name || '';
-
     const patch: Record<string, unknown> = {
-      first_name,
-      last_name,
+      first_name: clientData.first_name,
+      last_name: clientData.last_name,
       email: clientData.email,
       phone: clientData.phone,
       address: clientData.address,
       notes: clientData.notes,
     };
-    if (fullName) patch.name = fullName;
+    // Remove undefined keys so we don't overwrite with null
+    Object.keys(patch).forEach(k => { if (patch[k] === undefined) delete patch[k]; });
 
     const { data, error } = await supabase
       .from('clients')
-      .update(patch)
+      .update(patch as any)
       .eq('id', id)
       .eq('business_id', businessId)
       .select()
@@ -212,19 +227,20 @@ export function useClients() {
       return null;
     }
     if (data) {
-      const d = data as { first_name?: string; last_name?: string; name?: string };
-      const converted = {
+      const updated: Client = {
         id: data.id,
-        name: d.name ?? ((`${d.first_name ?? ''} ${d.last_name ?? ''}`.trim()) || 'Sin nombre'),
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
         email: data.email || '',
         phone: data.phone || '',
         address: data.address || '',
         notes: data.notes || null,
+        business_id: data.business_id || '',
         created_at: data.created_at,
         updated_at: data.updated_at,
       };
-      setClients(clients.map(c => c.id === id ? converted : c));
-      return converted;
+      setClients(clients.map(c => c.id === id ? updated : c));
+      return updated;
     }
     return null;
   };
@@ -324,7 +340,7 @@ export function usePets() {
 
     const { data, error } = await supabase
       .from('pets')
-      .insert({ ...petData, business_id: businessId })
+      .insert({ id: uuidv4(), ...petData, business_id: businessId })
       .select(`
         *,
         clients:client_id(
@@ -436,31 +452,58 @@ export function useEmployees() {
   }, [businessId]);
 
   const addEmployee = async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => {
-    const { data, error } = await supabase
-      .from('employees')
-      .insert(employeeData)
-      .select()
-      .single();
-    
+    // Build payload with only columns known to the DB; add business_id.
+    const payload: Record<string, unknown> = {
+      id: uuidv4(),
+      business_id: businessId,
+      name: employeeData.name,
+      email: employeeData.email,
+      phone: employeeData.phone,
+      pin: employeeData.pin,
+      hourly_rate: employeeData.hourly_rate,
+      role: employeeData.role,
+      status: employeeData.status,
+      hire_date: (employeeData as any).hire_date ?? null,
+      last_date: (employeeData as any).last_date ?? null,
+    };
+
+    let { data, error } = await supabase.from('employees').insert(payload as any).select().single();
+
+    // If schema cache doesn't know hire_date/last_date, retry without them
+    if (error?.code === 'PGRST204') {
+      delete payload.hire_date;
+      delete payload.last_date;
+      ({ data, error } = await supabase.from('employees').insert(payload as any).select().single());
+    }
+
     if (!error && data) {
       setEmployees([data as Employee, ...employees]);
       return data;
     }
+    if (error) console.error('[useEmployees] addEmployee error:', error.message, error.code, error.details);
     return null;
   };
 
   const updateEmployee = async (id: string, employeeData: Partial<Employee>) => {
-    const { data, error } = await supabase
-      .from('employees')
-      .update(employeeData)
-      .eq('id', id)
-      .select()
-      .single();
-    
+    // Only send known columns
+    const safeFields = ['name', 'email', 'phone', 'pin', 'hourly_rate', 'role', 'status', 'hire_date', 'last_date'];
+    const payload: Record<string, unknown> = {};
+    for (const key of safeFields) {
+      if (key in employeeData) payload[key] = (employeeData as any)[key];
+    }
+
+    let { data, error } = await supabase.from('employees').update(payload as any).eq('id', id).select().single();
+    if (error?.code === 'PGRST204') {
+      delete payload.hire_date;
+      delete payload.last_date;
+      ({ data, error } = await supabase.from('employees').update(payload as any).eq('id', id).select().single());
+    }
+
     if (!error && data) {
       setEmployees(employees.map(e => e.id === id ? data as Employee : e));
       return data;
     }
+    if (error) console.error('[useEmployees] updateEmployee error:', error.message, error.code, error.details);
     return null;
   };
 
@@ -536,7 +579,7 @@ export function useTimeEntries() {
   const clockIn = async (employeeId: string) => {
     const { data, error } = await supabase
       .from('time_entries')
-      .insert({ employee_id: employeeId })
+      .insert({ id: uuidv4(), employee_id: employeeId })
       .select()
       .single();
     
@@ -592,7 +635,7 @@ export function useTimeEntries() {
     
     const { data, error } = await supabase
       .from('time_entries')
-      .insert(entryData)
+      .insert({ id: uuidv4(), ...entryData })
       .select()
       .single();
     
@@ -683,7 +726,7 @@ export function useAppointments() {
   const addAppointment = async (appointmentData: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
       .from('appointments')
-      .insert(appointmentData)
+      .insert({ id: uuidv4(), business_id: businessId, ...appointmentData })
       .select()
       .single();
     
@@ -796,7 +839,7 @@ export function useServices() {
 
     const { data, error } = await supabase
       .from('services')
-      .insert(cleanData)
+      .insert({ id: uuidv4(), ...cleanData })
       .select()
       .single();
 

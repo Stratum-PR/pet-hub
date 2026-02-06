@@ -7,14 +7,15 @@ import { ClientList } from '@/components/ClientList';
 import { SearchFilter } from '@/components/SearchFilter';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
+import { toast } from 'sonner';
 
 interface ClientsProps {
   clients: Client[];
   pets: Pet[];
-  onAddClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => void;
-  onUpdateClient: (id: string, client: Partial<Client>) => void;
-  onDeleteClient: (id: string) => void;
-  onUpdatePet?: (id: string, pet: Partial<Pet>) => void;
+  onAddClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => Promise<Client | null>;
+  onUpdateClient: (id: string, client: Partial<Client>) => Promise<Client | null>;
+  onDeleteClient: (id: string) => Promise<boolean>;
+  onUpdatePet?: (id: string, pet: Partial<Pet>) => Promise<Pet | null>;
 }
 
 export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient, onUpdatePet }: ClientsProps) {
@@ -40,20 +41,35 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
     if (!searchTerm) return clients;
     const term = searchTerm.toLowerCase();
     return clients.filter(client =>
-      client.name.toLowerCase().includes(term) ||
+      `${client.first_name} ${client.last_name}`.toLowerCase().includes(term) ||
       client.email.toLowerCase().includes(term) ||
       client.phone.includes(term)
     );
   }, [clients, searchTerm]);
 
-  const handleSubmit = (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleSubmit = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
     if (editingClient) {
-      onUpdateClient(editingClient.id, clientData);
-      setEditingClient(null);
-    } else {
-      onAddClient(clientData);
+      const result = await onUpdateClient(editingClient.id, clientData);
+      if (result) {
+        toast.success(t('clients.updateSuccess'));
+        setEditingClient(null);
+        setShowForm(false);
+        return true;
+      } else {
+        toast.error(t('clients.saveError'));
+      }
+      return false;
     }
-    setShowForm(false);
+
+    const result = await onAddClient(clientData);
+    if (result) {
+      toast.success(t('clients.saveSuccess'));
+      setShowForm(false);
+      return true;
+    } else {
+      toast.error(t('clients.saveError'));
+    }
+    return false;
   };
 
   const handleEdit = (client: Client) => {
