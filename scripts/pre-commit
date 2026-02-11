@@ -1,0 +1,906 @@
+#!/usr/bin/env node
+// ============================================================
+//  PRE-COMMIT SECURITY HOOK
+//  Stack: React 18 + Vite · Supabase (Postgres + Auth + Storage)
+//  Future integrations: Stripe · ATH Móvil
+//  Package manager: npm  |  Mode: BLOCK critical, WARN others
+//
+//  Install (from repo root):
+//    cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+//
+//  Or use Husky (recommended):
+//    npx husky init
+//    npx husky add .husky/pre-commit "node scripts/pre-commit"
+// ============================================================
+
+import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// ─── ANSI colours ───────────────────────────────────────────
+const R  = "\x1b[31m";   // red    – critical (blocks commit)
+const Y  = "\x1b[33m";   // yellow – warning  (allows commit)
+const G  = "\x1b[32m";   // green
+const B  = "\x1b[34m";   // blue
+const BL = "\x1b[1m";    // bold
+const DIM= "\x1b[2m";    // dim
+const X  = "\x1b[0m";    // reset
+
+// ─── Result accumulators ────────────────────────────────────
+const criticals = [];   // → exit 1
+const warnings  = [];   // → exit 0 but printed
+const passed    = [];   // → green checkmarks
+
+function crit(label, detail) { criticals.push({ label, detail }); }
+function warn(label, detail) { warnings.push({ label, detail }); }
+function pass(label)          { passed.push(label); }
+
+// ─── Helpers ────────────────────────────────────────────────
+function exec(cmd) {
+  try { return execSync(cmd, { encoding: "utf8" }).trim(); }
+  catch { return ""; }
+}
+
+function stagedFiles() {
+  return exec("git diff --cached --name-only --diff-filter=ACMR")
+    .split("\n")
+    .filter(Boolean);
+}
+
+function stagedContent(file) {
+  try { return execSync(`git show :${file}`, { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 }); }
+  catch { return ""; }
+}
+
+function fileExists(p) { return fs.existsSync(path.resolve(process.cwd(), p)); }
+
+// ─── Banner ─────────────────────────────────────────────────
+console.log(`\n${BL}${B}╔══════════════════════════════════════════════════╗${X}`);
+console.log(`${BL}${B}║   🔒  SECURITY PRE-COMMIT HOOK  (Senior SecEng)  ║${X}`);
+console.log(`${BL}${B}╚══════════════════════════════════════════════════╝${X}\n`);
+
+const files = stagedFiles();
+if (!files.length) {
+  console.log(`${G}✓ No staged files – nothing to check.${X}\n`);
+  process.exit(0);
+}
+
+console.log(`${DIM}Scanning ${files.length} staged file(s)…${X}\n`);
+
+// ════════════════════════════════════════════════════════════
+// CHECK 1 · SECRET / CREDENTIAL DETECTION
+// ════════════════════════════════════════════════════════════
+const SECRET_PATTERNS = [
+  // Generic credentials
+  { re: /(?:password|passwd|pwd)\s*[:=]\s*['"]?[^\s'"]{6,}/gi,           label: "Hardcoded password" },
+  { re: /(?:secret|private[_-]?key)\s*[:=]\s*['"]?[A-Za-z0-9+/=_-]{16,}/gi, label: "Hardcoded secret" },
+
+  // Supabase
+  { re: /eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9+/=_-]+\.[A-Za-z0-9+/=_-]+/g, label: "Supabase/JWT token" },
+  { re: /https:\/\/[a-z]{20}\.supabase\.co/g,                             label: "Supabase project URL (verify it's in .env)" },
+  { re: /service_role.*[A-Za-z0-9]{32,}/gi,                               label: "Supabase service_role key 🚨" },
+  { re: /supabase[_-]?service[_-]?role[_-]?key\s*[:=]\s*['"]?[A-Za-z0-9+/=_-]{100,}/gi, label: "Supabase service_role key 🚨" },
+
+  // Stripe (future integration)
+  { re: /sk_live_[A-Za-z0-9]{24,}/g,                                      label: "Stripe LIVE secret key 🚨" },
+  { re: /sk_test_[A-Za-z0-9]{24,}/g,                                      label: "Stripe TEST secret key" },
+  { re: /pk_live_[A-Za-z0-9]{24,}/g,                                      label: "Stripe LIVE publishable key" },
+  { re: /pk_test_[A-Za-z0-9]{24,}/g,                                      label: "Stripe TEST publishable key" },
+  { re: /whsec_[A-Za-z0-9+/=]{32,}/g,                                    label: "Stripe webhook secret" },
+  { re: /rk_live_[A-Za-z0-9]{24,}/g,                                      label: "Stripe restricted key (live)" },
+
+  // Cloud providers
+  { re: /AKIA[0-9A-Z]{16}/g,                                               label: "AWS Access Key ID" },
+  { re: /AIza[0-9A-Za-z_-]{35}/g,                                         label: "Google API key" },
+  { re: /ya29\.[0-9A-Za-z_-]{68}/g,                                       label: "Google OAuth token" },
+  { re: /github_pat_[A-Za-z0-9_]{82}/g,                                   label: "GitHub Personal Access Token" },
+  { re: /ghp_[A-Za-z0-9]{36}/g,                                           label: "GitHub PAT (classic)" },
+  { re: /xoxb-[0-9]{11}-[0-9]{11}-[A-Za-z0-9]{24}/g,                    label: "Slack bot token" },
+  { re: /xoxp-[0-9]{11}-[0-9]{11}-[0-9]{11}-[A-Za-z0-9]{32}/g,         label: "Slack user token" },
+
+  // Connection strings
+  { re: /postgres(?:ql)?:\/\/[^:]+:[^@]+@/gi,                            label: "PostgreSQL connection string with password" },
+  { re: /mysql:\/\/[^:]+:[^@]+@/gi,                                       label: "MySQL connection string with password" },
+  { re: /mongodb(?:\+srv)?:\/\/[^:]+:[^@]+@/gi,                          label: "MongoDB connection string with password" },
+  { re: /redis:\/\/[^:]+:[^@]+@/gi,                                       label: "Redis connection string with password" },
+
+  // .env style inline assignments (in non-.env files)
+  { re: /(?:VITE_SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL)\s*=\s*['"]?[^\s'"]+/gi,
+    label: "Hard-coded .env variable value in source code" },
+];
+
+const SAFE_EXTENSIONS = new Set([".png",".jpg",".jpeg",".gif",".webp",".ico",".woff",".woff2",".eot",".ttf",".otf",".mp4",".mp3",".pdf",".zip",".svg"]);
+const ENV_FILES = new Set([".env",".env.local",".env.development",".env.production",".env.staging",".env.test"]);
+
+let secretFound = false;
+files.forEach(file => {
+  const ext = path.extname(file).toLowerCase();
+  const base = path.basename(file);
+
+  // Never scan binary / font / media files
+  if (SAFE_EXTENSIONS.has(ext)) return;
+
+  // .env files themselves should never be committed
+  if (ENV_FILES.has(base) || file.endsWith(".env") || file.includes(".env.")) {
+    crit("🚨 .env file staged for commit", `File: ${file}\n     .env files must NEVER be committed. Add to .gitignore immediately.`);
+    secretFound = true;
+    return;
+  }
+
+  const content = stagedContent(file);
+  if (!content) return;
+
+  // Skip if file is in node_modules (shouldn't be staged but just in case)
+  if (file.includes("node_modules/")) return;
+
+  SECRET_PATTERNS.forEach(({ re, label }) => {
+    re.lastIndex = 0;
+    const matches = content.match(re);
+    if (matches) {
+      // Don't flag things inside .gitignore or comments that just reference the var name
+      const sanitized = matches[0].slice(0, 60);
+      crit(`🔑 ${label}`, `File: ${file}\n     Match: ${sanitized}…\n     → Move to .env and reference via import.meta.env.VITE_*`);
+      secretFound = true;
+    }
+  });
+});
+
+if (!secretFound) pass("No secrets / credentials detected in staged files");
+
+// ════════════════════════════════════════════════════════════
+// CHECK 2 · .GITIGNORE COMPLETENESS
+// ════════════════════════════════════════════════════════════
+const REQUIRED_GITIGNORE_ENTRIES = [
+  // Env files
+  ".env", ".env.local", ".env.*.local", ".env.production",
+  ".env.staging", ".env.test", ".env.development",
+  // Secrets
+  "*.pem", "*.key", "*.p12", "*.pfx",
+  // Dependencies
+  "node_modules",
+  // Vite build
+  "dist", "dist-ssr",
+  // Logs
+  "*.log", "npm-debug.log*", ".pnpm-debug.log*",
+  // System
+  ".DS_Store", "Thumbs.db",
+  // IDE
+  ".idea", ".vscode",
+  // Coverage
+  "coverage", ".nyc_output",
+];
+
+const gitignorePath = path.resolve(process.cwd(), ".gitignore");
+if (!fileExists(".gitignore")) {
+  crit("❌ .gitignore missing", "No .gitignore found at project root. This is critical.");
+} else {
+  const gi = fs.readFileSync(gitignorePath, "utf8");
+  const missing = REQUIRED_GITIGNORE_ENTRIES.filter(e => !gi.includes(e));
+  if (missing.length) {
+    warn("⚠️  .gitignore missing entries", `Add these to .gitignore:\n${missing.map(e => `     ${e}`).join("\n")}`);
+  } else {
+    pass(".gitignore covers all required patterns");
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 3 · .ENV.EXAMPLE FILE EXISTS & TEMPLATE IS CURRENT
+// ════════════════════════════════════════════════════════════
+if (!fileExists(".env.example") && !fileExists(".env.sample")) {
+  warn("⚠️  No .env.example file found",
+    "Create .env.example with all required keys (values redacted).\n" +
+    "     This documents required secrets without exposing them.\n" +
+    "     Example:\n" +
+    "       VITE_SUPABASE_URL=https://xxx.supabase.co\n" +
+    "       VITE_SUPABASE_ANON_KEY=eyJhbG...\n" +
+    "       SUPABASE_SERVICE_ROLE_KEY: from Supabase dashboard only");
+} else {
+  pass(".env.example / .env.sample present");
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 4 · console.log IN PRODUCTION CODE
+// ════════════════════════════════════════════════════════════
+const ALLOWED_CONSOLE_FILES = new Set(["vite.config.ts","vite.config.js","vitest.config.ts","vitest.config.js"]);
+const CONSOLE_EXTS = new Set([".ts",".tsx",".js",".jsx"]);
+
+let consoleCount = 0;
+files.forEach(file => {
+  const ext = path.extname(file).toLowerCase();
+  if (!CONSOLE_EXTS.has(ext)) return;
+  if (ALLOWED_CONSOLE_FILES.has(path.basename(file))) return;
+  if (file.includes("__tests__") || file.includes(".test.") || file.includes(".spec.")) return;
+  if (file.startsWith("scripts/") || file.startsWith("tools/")) return;
+
+  const content = stagedContent(file);
+  const matches = [...(content.matchAll(/console\.(log|error|warn|debug|info|table)\(/g))];
+  if (matches.length) {
+    const lines = content.split("\n");
+    const lineNums = [];
+    matches.forEach(m => {
+      const before = content.slice(0, m.index);
+      lineNums.push(before.split("\n").length);
+    });
+    warn(`⚠️  console.${matches.map(m=>m[1]).join("/")} in production code`,
+      `File: ${file} (lines: ${lineNums.join(", ")})\n` +
+      `     Remove or replace with a proper logger (e.g. pino, winston).\n` +
+      `     console.log exposes data to anyone with DevTools open.`);
+    consoleCount += matches.length;
+  }
+});
+if (!consoleCount) pass("No console.log / debug statements in production code");
+
+// ════════════════════════════════════════════════════════════
+// CHECK 5 · VITE ENV VARS – PUBLIC VS PRIVATE
+// ════════════════════════════════════════════════════════════
+// CRITICAL: Only VITE_* vars are exposed to client. Service role keys must NEVER have VITE_ prefix.
+files.forEach(file => {
+  if (!file.includes(".env") && !ENV_FILES.has(path.basename(file))) return;
+  const content = stagedContent(file);
+  
+  // Check for service_role with VITE_ prefix (would expose to client bundle)
+  if (/VITE_.*SERVICE_ROLE/i.test(content)) {
+    crit("🚨 Service role key exposed to client",
+      `File: ${file}\n` +
+      `     VITE_* env vars are bundled into the client JS.\n` +
+      `     Service role keys bypass RLS and must NEVER be client-accessible.\n` +
+      `     Fix: Remove VITE_ prefix. Use only on backend/server functions.`);
+  }
+
+  // Check for anon key WITHOUT VITE_ prefix (won't be accessible)
+  const lines = content.split("\n");
+  lines.forEach((line, i) => {
+    if (/SUPABASE_ANON_KEY\s*=/.test(line) && !/VITE_SUPABASE_ANON_KEY/.test(line)) {
+      warn("⚠️  Supabase anon key missing VITE_ prefix",
+        `File: ${file}, line ${i+1}\n` +
+        `     Anon key should be VITE_SUPABASE_ANON_KEY to be accessible in client code.\n` +
+        `     Without VITE_ prefix, import.meta.env.SUPABASE_ANON_KEY will be undefined.`);
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 6 · SQL INJECTION RISKS (string interpolation in queries)
+// ════════════════════════════════════════════════════════════
+const SQL_INJECTION_PATTERNS = [
+  // Template literals containing SQL with variables
+  { re: /`\s*SELECT\s.*\$\{/gi,  label: "SELECT query with template literal interpolation" },
+  { re: /`\s*INSERT\s.*\$\{/gi,  label: "INSERT query with template literal interpolation" },
+  { re: /`\s*UPDATE\s.*\$\{/gi,  label: "UPDATE query with template literal interpolation" },
+  { re: /`\s*DELETE\s.*\$\{/gi,  label: "DELETE query with template literal interpolation" },
+  // String concatenation in SQL
+  { re: /(?:query|sql)\s*=\s*["'`].*["'`]\s*\+/gi, label: "SQL built by string concatenation" },
+  { re: /\.query\s*\(\s*["'`].*\+/gi,              label: "DB query() call with string concatenation" },
+  // Raw Supabase danger
+  { re: /supabase\.rpc\([^)]*\$\{/g,               label: "Supabase RPC call with interpolated input" },
+];
+
+let sqlFound = false;
+files.forEach(file => {
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+  const content = stagedContent(file);
+  SQL_INJECTION_PATTERNS.forEach(({ re, label }) => {
+    re.lastIndex = 0;
+    if (re.test(content)) {
+      crit(`💉 SQL Injection risk: ${label}`,
+        `File: ${file}\n` +
+        `     NEVER interpolate user input directly into SQL.\n` +
+        `     Use parameterized queries:\n` +
+        `       Supabase: .eq('id', userId) – already parameterized\n` +
+        `       Raw SQL: Use Supabase's .rpc() with parameters, not string interpolation`);
+      sqlFound = true;
+    }
+  });
+});
+if (!sqlFound) pass("No obvious SQL injection patterns detected");
+
+// ════════════════════════════════════════════════════════════
+// CHECK 7 · XSS RISKS (dangerouslySetInnerHTML / innerHTML)
+// ════════════════════════════════════════════════════════════
+const XSS_PATTERNS = [
+  { re: /dangerouslySetInnerHTML\s*=\s*\{\s*\{\s*__html\s*:/g, label: "dangerouslySetInnerHTML (verify input is sanitized)" },
+  { re: /\.innerHTML\s*=\s*(?!["']<)/g,                         label: "innerHTML assignment (use textContent or DOMPurify)" },
+  { re: /document\.write\s*\(/g,                                label: "document.write() – classic XSS vector" },
+  { re: /eval\s*\(/g,                                           label: "eval() detected – code injection risk" },
+  { re: /new\s+Function\s*\(/g,                                 label: "new Function() – dynamic code execution" },
+];
+
+let xssFound = false;
+files.forEach(file => {
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+  const content = stagedContent(file);
+  XSS_PATTERNS.forEach(({ re, label }) => {
+    re.lastIndex = 0;
+    if (re.test(content)) {
+      warn(`⚠️  XSS risk: ${label}`,
+        `File: ${file}\n` +
+        `     If rendering user-supplied HTML, sanitize with DOMPurify first:\n` +
+        `       import DOMPurify from 'dompurify';\n` +
+        `       <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(input) }} />`);
+      xssFound = true;
+    }
+  });
+});
+if (!xssFound) pass("No obvious XSS patterns detected");
+
+// ════════════════════════════════════════════════════════════
+// CHECK 8 · SUPABASE CLIENT-SIDE SERVICE ROLE KEY USAGE
+// ════════════════════════════════════════════════════════════
+// Service role key should NEVER be used in client-side code (bypasses RLS)
+files.forEach(file => {
+  if (!file.startsWith("src/") && !file.startsWith("app/")) return;
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+
+  const content = stagedContent(file);
+  if (/createClient.*import\.meta\.env\.(?!VITE_)/g.test(content) ||
+      /createClient.*process\.env\.(?!VITE_)/g.test(content) ||
+      /SERVICE_ROLE/.test(content)) {
+    crit("🚨 Service role key detected in client-side code",
+      `File: ${file}\n` +
+      `     Service role keys bypass Row Level Security.\n` +
+      `     NEVER use them in client code (src/ directory).\n` +
+      `     Client should only use:\n` +
+      `       const supabase = createClient(\n` +
+      `         import.meta.env.VITE_SUPABASE_URL,\n` +
+      `         import.meta.env.VITE_SUPABASE_ANON_KEY\n` +
+      `       );\n` +
+      `     Service role is for backend/admin operations only.`);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 9 · STRIPE WEBHOOK SIGNATURE VERIFICATION (future)
+// ════════════════════════════════════════════════════════════
+files.forEach(file => {
+  const fileLC = file.toLowerCase();
+  if (!fileLC.includes("webhook") && !fileLC.includes("stripe")) return;
+
+  const content = stagedContent(file);
+  const hasStripe = content.includes("stripe") || content.includes("Stripe");
+  if (!hasStripe) return;
+
+  const hasVerification = content.includes("constructEvent") || content.includes("webhook.construct") ||
+    content.includes("stripe.webhooks.construct") || content.includes("verifyWebhookSignature");
+  if (!hasVerification) {
+    crit("💳 Stripe webhook missing signature verification",
+      `File: ${file}\n` +
+      `     Anyone can POST fake payment data to this endpoint.\n` +
+      `     Always verify the webhook signature before processing:\n\n` +
+      `       const sig = request.headers.get('stripe-signature');\n` +
+      `       const body = await request.text(); // raw body required\n` +
+      `       let event;\n` +
+      `       try {\n` +
+      `         event = stripe.webhooks.constructEvent(body, sig, import.meta.env.STRIPE_WEBHOOK_SECRET);\n` +
+      `       } catch (err) {\n` +
+      `         return new Response('Invalid signature', { status: 400 });\n` +
+      `       }\n\n` +
+      `     Note: Stripe webhooks need a backend endpoint (Vite dev server can't receive them).\n` +
+      `     Use Netlify/Vercel functions or a separate Express server.`);
+  } else {
+    pass("Stripe webhook signature verification present");
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 10 · REDIRECT URL VALIDATION
+// ════════════════════════════════════════════════════════════
+const REDIRECT_PATTERNS = [
+  /window\.location\s*=\s*(?:searchParams|params|query|location\.search)/gi,
+  /window\.location\.href\s*=\s*(?:searchParams|params|query|new URLSearchParams)/gi,
+  /navigate\s*\(\s*(?:searchParams|params|query)\.get\s*\(/gi,
+  /router\.push\s*\(\s*(?:searchParams|params|query)\.get\s*\(/gi,
+];
+
+files.forEach(file => {
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+  const content = stagedContent(file);
+  REDIRECT_PATTERNS.forEach(re => {
+    re.lastIndex = 0;
+    if (re.test(content)) {
+      crit("🔀 Open redirect risk",
+        `File: ${file}\n` +
+        `     Redirecting to user-supplied URLs enables phishing/open redirect attacks.\n` +
+        `     Always validate redirect URLs against an allowlist:\n\n` +
+        `       const ALLOWED_REDIRECTS = ['/', '/dashboard', '/profile'];\n` +
+        `       const dest = searchParams.get('redirect');\n` +
+        `       const safe = ALLOWED_REDIRECTS.includes(dest) ? dest : '/';\n` +
+        `       navigate(safe);`);
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 11 · FILE UPLOAD VALIDATION
+// ════════════════════════════════════════════════════════════
+const UPLOAD_KEYWORDS = ["upload","file","storage.from","supabase.storage"];
+files.forEach(file => {
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+  const content = stagedContent(file);
+  const isUploadCode = UPLOAD_KEYWORDS.some(k => content.includes(k));
+  if (!isUploadCode) return;
+
+  const hasSizeCheck = /size\s*[><=]|maxSize|max_size|5\s*\*\s*1024|5242880|fileSizeLimit/.test(content);
+  const hasTypeCheck = /type\s*===|mimetype|contentType|allowedTypes|image\/|application\//.test(content);
+
+  if (!hasSizeCheck) {
+    warn("⚠️  File upload missing size validation",
+      `File: ${file}\n` +
+      `     Add client-side file size check (max 5MB):\n` +
+      `       if (file.size > 5 * 1024 * 1024) {\n` +
+      `         alert('File too large');\n` +
+      `         return;\n` +
+      `       }\n` +
+      `     Also configure in Supabase Storage policies (bucket settings).`);
+  }
+  if (!hasTypeCheck) {
+    warn("⚠️  File upload missing MIME type validation",
+      `File: ${file}\n` +
+      `     Validate file type CLIENT-SIDE before upload:\n` +
+      `       const ALLOWED = ['image/jpeg','image/png','image/webp','image/gif'];\n` +
+      `       if (!ALLOWED.includes(file.type)) {\n` +
+      `         alert('Invalid file type');\n` +
+      `         return;\n` +
+      `       }\n` +
+      `     For stronger validation, also check magic bytes server-side or in Supabase Edge Function.`);
+  }
+  if (hasSizeCheck && hasTypeCheck) pass(`File upload validation present in ${path.basename(file)}`);
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 12 · ERROR HANDLING – EXPOSING SENSITIVE INFO
+// ════════════════════════════════════════════════════════════
+const ERROR_EXPOSURE_PATTERNS = [
+  /catch\s*\([^)]*\)\s*\{[^}]*alert\([^)]*\.message/g,
+  /catch\s*\([^)]*\)\s*\{[^}]*toast\([^)]*\.message/g,
+  /catch\s*\([^)]*\)\s*\{[^}]*console\.(error|log)\([^)]*error\)/g,
+];
+
+files.forEach(file => {
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+  const content = stagedContent(file);
+  ERROR_EXPOSURE_PATTERNS.forEach(re => {
+    re.lastIndex = 0;
+    if (re.test(content)) {
+      warn("⚠️  Error message exposed to user or console",
+        `File: ${file}\n` +
+        `     Never show raw error.message to users in production.\n` +
+        `     Errors may contain file paths, SQL queries, or stack traces.\n` +
+        `     Fix:\n` +
+        `       catch (err) {\n` +
+        `         console.error('[Internal]', err);  // dev only\n` +
+        `         toast.error('Something went wrong. Please try again.');\n` +
+        `       }`);
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 13 · DEPENDENCY / PACKAGE SAFETY
+// ════════════════════════════════════════════════════════════
+const PACKAGE_FILES = files.filter(f => path.basename(f) === "package.json" && !f.includes("node_modules"));
+if (PACKAGE_FILES.length) {
+  PACKAGE_FILES.forEach(file => {
+    const content = stagedContent(file);
+    let pkg;
+    try { pkg = JSON.parse(content); } catch { return; }
+
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+    // Check for known malicious / typosquatted package names
+    const SUSPICIOUS_PACKAGES = [
+      // Common typosquats
+      "crossenv","cross.env","cros-env","croos-env",
+      "lodahs","loadsh","lodash.js",
+      "mocha.js","webpack.js","react.js","react-dom.js",
+      "colouers","colorrs","colour.js",
+      "stripeapi","stripe-js","stripe.js",
+      "mongooses","mangodb","mongo.js",
+      "vite.js","vitejs","vite-js",
+      "supabasejs","supabase.js","supabase-client",
+      "tailwindcss.js","tailwind.js",
+      "react-router.js","react-query.js","tanstack.js",
+    ];
+
+    const foundSuspicious = Object.keys(allDeps).filter(d => SUSPICIOUS_PACKAGES.includes(d));
+    if (foundSuspicious.length) {
+      crit("📦 Suspicious/typosquatted package name",
+        `File: ${file}\n` +
+        `     Suspicious packages: ${foundSuspicious.join(", ")}\n` +
+        `     Verify these are legitimate before installing.\n` +
+        `     Check npmjs.com for exact package name, download count, and author.`);
+    }
+
+    // Warn about exact version pinning (^ or ~ can pull malicious minor updates)
+    const unpinned = Object.entries(allDeps)
+      .filter(([, v]) => typeof v === "string" && (v.startsWith("^") || v.startsWith("~") || v === "*" || v === "latest"))
+      .slice(0, 5); // cap output
+    if (unpinned.length) {
+      warn("⚠️  Unpinned package versions detected",
+        `File: ${file}\n` +
+        `     ${unpinned.map(([n,v])=>`${n}: ${v}`).join(", ")} (and possibly more)\n` +
+        `     Consider pinning exact versions in package.json and using npm ci in CI/CD.\n` +
+        `     Use npm audit after dependency changes.`);
+    }
+  });
+} else {
+  pass("No package.json changes staged");
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 14 · SECOND-LATEST LIBRARY VERSION REMINDER
+// ════════════════════════════════════════════════════════════
+// Heuristic – flag only when package.json is staged (full check is too slow for pre-commit)
+if (PACKAGE_FILES.length) {
+  warn("📋 Library version policy reminder",
+    `You staged package.json changes.\n` +
+    `     Security policy: use the SECOND-LATEST version of libraries, not bleeding edge.\n` +
+    `     Bleeding-edge versions may have undiscovered vulnerabilities.\n` +
+    `     Run after commit:\n` +
+    `       npm audit\n` +
+    `       npm audit fix\n` +
+    `     Check breaking changes before updating: https://npm.im/<package>/changelog`);
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 15 · ROW LEVEL SECURITY REMINDER (Supabase migrations)
+// ════════════════════════════════════════════════════════════
+const migrationFiles = files.filter(f =>
+  f.includes("migration") || f.includes("schema") ||
+  f.endsWith(".sql") || f.includes("supabase/"));
+
+migrationFiles.forEach(file => {
+  const content = stagedContent(file);
+  const hasTable = content.toUpperCase().includes("CREATE TABLE");
+  if (!hasTable) return;
+
+  const hasRLS = content.toUpperCase().includes("ROW LEVEL SECURITY") ||
+    content.toUpperCase().includes("ENABLE RLS") ||
+    content.toUpperCase().includes("ALTER TABLE") && content.toUpperCase().includes("FORCE ROW LEVEL SECURITY");
+  const hasPolicy = content.toUpperCase().includes("CREATE POLICY");
+
+  if (hasTable && !hasRLS) {
+    crit("🛡️  New table without Row Level Security",
+      `File: ${file}\n` +
+      `     Every Supabase table MUST have RLS enabled to prevent users\n` +
+      `     from reading each other's data.\n` +
+      `     Add after CREATE TABLE:\n\n` +
+      `       ALTER TABLE your_table ENABLE ROW LEVEL SECURITY;\n` +
+      `       CREATE POLICY "Users see own rows" ON your_table\n` +
+      `         FOR ALL USING (auth.uid() = user_id);\n\n` +
+      `     Also set Storage bucket policies so users only access their own files.`);
+  } else if (hasTable && hasRLS && !hasPolicy) {
+    warn("⚠️  RLS enabled but no policies defined",
+      `File: ${file}\n` +
+      `     RLS is on but no policies created → table is locked to everyone.\n` +
+      `     Add SELECT/INSERT/UPDATE/DELETE policies for authenticated users.`);
+  } else if (hasTable && hasRLS && hasPolicy) {
+    pass(`RLS + policies present in ${path.basename(file)}`);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 16 · API KEY ROTATION REMINDER (old commits)
+// ════════════════════════════════════════════════════════════
+// Passive reminder – we can't scan git history here but we inform the developer
+if (files.some(f => f.toLowerCase().includes(".env") || f.toLowerCase().includes("config"))) {
+  warn("🔄 API key rotation reminder",
+    `You are modifying config/env files.\n` +
+    `     Policy: Rotate ALL API keys every 90 days.\n` +
+    `     Use GitHub Secret Scanning to detect previously leaked keys:\n` +
+    `       → Repo Settings → Code security → Secret scanning → Enable\n` +
+    `     Supabase, Stripe, and other services all have key rotation flows.\n` +
+    `     There could be API keys in OLD commits – consider running:\n` +
+    `       git log -p | grep -E '(sk_live|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9)'`);
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 17 · VITE BUILD CONFIG – SOURCE MAPS IN PRODUCTION
+// ════════════════════════════════════════════════════════════
+const viteConfigFiles = files.filter(f => /vite\.config\.(ts|js)$/.test(f));
+viteConfigFiles.forEach(file => {
+  const content = stagedContent(file);
+  // Check if sourcemap is explicitly enabled for production builds
+  if (/build\s*:\s*\{[^}]*sourcemap\s*:\s*true/s.test(content)) {
+    warn("⚠️  Source maps enabled in production build",
+      `File: ${file}\n` +
+      `     Source maps expose your original source code to attackers.\n` +
+      `     For production, either disable them or use 'hidden' mode:\n` +
+      `       build: {\n` +
+      `         sourcemap: false  // or 'hidden' for error tracking only\n` +
+      `       }`);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 18 · AUTHENTICATION FLOW CHECKS
+// ════════════════════════════════════════════════════════════
+files.forEach(file => {
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+  if (!file.includes("auth") && !file.includes("login") && !file.includes("sign")) return;
+
+  const content = stagedContent(file);
+
+  // Check for password validation weakness
+  if (content.includes("signUp") || content.includes("register")) {
+    const hasMinLength = /password.*length|minLength.*8|\.min\(8\)/.test(content);
+    if (!hasMinLength) {
+      warn("⚠️  Password validation may be weak",
+        `File: ${file}\n` +
+        `     Enforce minimum password requirements:\n` +
+        `       - At least 8 characters\n` +
+        `       - Mix of upper/lower case, numbers, symbols\n` +
+        `     Use zod for validation:\n` +
+        `       z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/)`);
+    }
+  }
+
+  // Check for missing email verification reminder
+  if (content.includes("signUp") && !content.includes("emailRedirectTo") && !content.includes("confirm")) {
+    warn("⚠️  Email verification not configured",
+      `File: ${file}\n` +
+      `     Consider requiring email confirmation:\n` +
+      `       await supabase.auth.signUp({\n` +
+      `         email,\n` +
+      `         password,\n` +
+      `         options: {\n` +
+      `           emailRedirectTo: import.meta.env.VITE_APP_URL + '/confirm'\n` +
+      `         }\n` +
+      `       });\n` +
+      `     Configure in Supabase dashboard → Authentication → Email Templates`);
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 19 · GDPR - USER DATA DELETION CAPABILITY
+// ════════════════════════════════════════════════════════════
+// Check if there's any user deletion logic that might need GDPR compliance
+const hasDeleteUserCode = files.some(f =>
+  (f.includes("user") || f.includes("account") || f.includes("profile")) &&
+  (f.toLowerCase().includes("delete") || f.toLowerCase().includes("remove"))
+);
+
+if (hasDeleteUserCode) {
+  const deleteContent = files
+    .filter(f => f.toLowerCase().includes("delete") || f.toLowerCase().includes("remove"))
+    .map(f => stagedContent(f))
+    .join("\n");
+
+  const hasStorageCleanup = deleteContent.includes("storage.from") && deleteContent.includes("remove");
+  if (!hasStorageCleanup) {
+    warn("⚠️  User deletion may not clean up Supabase Storage",
+      `GDPR requires deleting ALL user data on request.\n` +
+      `     Ensure your delete flow also:\n` +
+      `       1. Removes all rows where user_id = userId in every table\n` +
+      `       2. Deletes all files in storage buckets belonging to the user:\n` +
+      `          await supabase.storage.from('avatars').remove([userId + '/'])\n` +
+      `       3. Revokes active sessions\n` +
+      `       4. Optionally sends a deletion confirmation email`);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 20 · REACT QUERY CACHE – SENSITIVE DATA PERSISTENCE
+// ════════════════════════════════════════════════════════════
+files.forEach(file => {
+  if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
+  const content = stagedContent(file);
+
+  // Check if sensitive data queries have appropriate cache settings
+  if (content.includes("useQuery") && (content.includes("payment") || content.includes("card") || content.includes("password"))) {
+    const hasNoCacheTime = /cacheTime\s*:\s*0/.test(content);
+    const hasNoStaleTime = /staleTime\s*:\s*0/.test(content);
+    if (!hasNoCacheTime && !hasNoStaleTime) {
+      warn("⚠️  Sensitive data in React Query may persist in cache",
+        `File: ${file}\n` +
+        `     Queries for payment/card/password data should not be cached:\n` +
+        `       useQuery(['payment'], fetchPayment, {\n` +
+        `         cacheTime: 0,\n` +
+        `         staleTime: 0\n` +
+        `       });`);
+    }
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// CHECK 21 · PROTECTED ROUTES – SERVER-SIDE ROLE CHECK
+// ════════════════════════════════════════════════════════════
+const hasProtectedOrAdmin = files.some(f => {
+  const c = stagedContent(f);
+  return (c.includes("ProtectedRoute") && c.includes("requireAdmin")) || c.includes("is_super_admin") || c.includes("isAdmin");
+});
+if (hasProtectedOrAdmin) {
+  warn("🛡️  Protected / admin route reminder",
+    `You have admin or protected route code.\n` +
+    `     Danger: Anyone can call your APIs with curl. Client-side checks are not enough.\n` +
+    `     Every protected API must verify on the server:\n` +
+    `       - Check user.role == 'admin' (or profile.is_super_admin) server-side before executing.\n` +
+    `     Use Supabase RLS for DB; for Edge Functions / serverless, validate JWT and profile server-side.`);
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 22 · SUPABASE STORAGE – POLICIES SO USERS ONLY ACCESS OWN FILES
+// ════════════════════════════════════════════════════════════
+const hasStorageUpload = files.some(f => {
+  const c = stagedContent(f);
+  return (c.includes("storage.from") || c.includes("supabase.storage")) && (c.includes("upload") || c.includes(".from("));
+});
+if (hasStorageUpload) {
+  warn("📁 Storage upload code detected",
+    `Ensure Supabase Storage has RLS policies so users can only:\n` +
+    `     - Upload to their own folder (e.g. auth.uid()::text = (storage.foldername(name))[1])\n` +
+    `     - Read/delete only their own files. Never allow bucket_id = 'X' with no USING clause.`);
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 23 · BATTLE-TESTED AUTH ONLY
+// ════════════════════════════════════════════════════════════
+const authFiles = files.filter(f => CONSOLE_EXTS.has(path.extname(f)) && (f.includes("auth") || f.includes("login") || f.includes("sign")));
+const usesKnownAuth = authFiles.some(f => {
+  const c = stagedContent(f);
+  return /supabase\.auth\.|@clerk|auth0|nextauth|getSession|signInWith/.test(c);
+});
+if (authFiles.length && !usesKnownAuth) {
+  warn("⚠️  Custom auth code without known provider",
+    `Use battle-tested auth only: Supabase Auth, Clerk, Auth0, NextAuth.\n` +
+    `     Custom token/session handling is easy to get wrong (session fixation, leakage).`);
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 24 · AUDIT_LOG – TABLE EXISTS WHEN NEW TABLES ADDED (5a)
+// ════════════════════════════════════════════════════════════
+const migrationFilesStaged = files.filter(f =>
+  f.includes("migration") || (f.includes("supabase/") && f.endsWith(".sql")) || f.endsWith(".sql"));
+const stagedCreatesTable = migrationFilesStaged.some(f => stagedContent(f).toUpperCase().includes("CREATE TABLE"));
+let repoHasAuditLogTable = false;
+try {
+  const migrationsDir = path.resolve(process.cwd(), "supabase", "migrations");
+  if (fs.existsSync(migrationsDir)) {
+    const allMigrations = fs.readdirSync(migrationsDir).filter(n => n.endsWith(".sql"));
+    for (const m of allMigrations) {
+      const content = fs.readFileSync(path.join(migrationsDir, m), "utf8");
+      if (/CREATE\s+TABLE[^;]*audit_log|audit_log\s*\(/i.test(content)) {
+        repoHasAuditLogTable = true;
+        break;
+      }
+    }
+  }
+} catch (_) { /* ignore */ }
+if (stagedCreatesTable && !repoHasAuditLogTable) {
+  warn("📋 New table(s) in migration but no audit_log table found",
+    `Create an audit_log table and log: user deletion, role changes, payments, data exports.\n` +
+    `     Keep it up to date when you add new sensitive actions. See docs/SECURITY-CHECKLIST.md.`);
+} else {
+  const hasMigrationsOrDelete = files.some(f =>
+    (f.includes("migration") || f.includes("supabase/") && f.endsWith(".sql")) ||
+    (f.includes("user") || f.includes("profile") || f.includes("account")) && stagedContent(f).includes("delete"));
+  if (hasMigrationsOrDelete) {
+    warn("📋 audit_log reminder",
+      `Ensure audit_log is updated for: user deletion, role changes, payments, data exports.`);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// CHECK 25 · NEW DEPENDENCIES – VERIFY BEFORE INSTALL
+// ════════════════════════════════════════════════════════════
+if (PACKAGE_FILES.length) {
+  warn("📦 New or changed dependencies",
+    `Before npm install: verify each package exists on npm (npm info <pkg>).\n` +
+    `     Typosquat/malware: hackers publish packages with names like 'lodahs', 'crossenv'.\n` +
+    `     Check download count, maintainer, and last publish date.`);
+}
+
+// ════════════════════════════════════════════════════════════
+// ADDITIONAL SENIOR SECURITY ENGINEER REMINDERS
+// ════════════════════════════════════════════════════════════
+const hasAnyAuthCode = files.some(f => f.includes("auth") || f.includes("login") || f.includes("protected"));
+if (hasAnyAuthCode) {
+  warn("🔍 Senior SecEng checklist for auth changes",
+    `Run through this for any auth-related code:\n\n` +
+    `  [ ] Protected routes: check user.role / profile server-side before executing (APIs callable via curl)\n` +
+    `  [ ] CORS: Supabase/API allowed origins = production domain only (never *)\n` +
+    `  [ ] Redirect URLs: validate against allowlist before redirecting\n` +
+    `  [ ] Rate limits: API 100 req/IP/hour; login 10/IP/15min; password reset 3/email/hour\n` +
+    `  [ ] JWT: 7-day expiry + refresh token rotation (Supabase Auth settings)\n` +
+    `  [ ] audit_log: log user deletion, role change, payment, data export; keep up to date\n` +
+    `  [ ] Stripe: test in prod only with test keys + separate Supabase staging project\n` +
+    `  [ ] DDoS: use Vercel/Cloudflare rate limiting; same auth + rate limits for mobile APIs\n` +
+    `  [ ] Errors: never return full trace to user; generic message + server-side logging only\n` +
+    `  [ ] RLS + Storage policies: users only access their own data/files`);
+}
+
+// ════════════════════════════════════════════════════════════
+// COMMIT SECURITY REPORT (console + file)
+// ════════════════════════════════════════════════════════════
+const reportLines = [];
+const ts = new Date().toISOString();
+reportLines.push("COMMIT SECURITY REPORT");
+reportLines.push(ts);
+reportLines.push("");
+
+reportLines.push("--- PASSED ---");
+if (passed.length) {
+  passed.forEach(p => reportLines.push("  [PASS] " + p));
+} else {
+  reportLines.push("  (none)");
+}
+reportLines.push("");
+
+reportLines.push("--- FAILED (fix before next deploy) ---");
+if (warnings.length) {
+  warnings.forEach(({ label }, i) => reportLines.push("  [FIX] " + (i + 1) + ". " + label));
+} else {
+  reportLines.push("  (none)");
+}
+reportLines.push("");
+
+reportLines.push("--- BLOCKED (must fix to commit) ---");
+if (criticals.length) {
+  criticals.forEach(({ label }, i) => reportLines.push("  [BLOCKED] " + (i + 1) + ". " + label));
+} else {
+  reportLines.push("  (none)");
+}
+reportLines.push("");
+
+const allowed = criticals.length === 0;
+reportLines.push("RESULT: " + (allowed ? "COMMIT ALLOWED" : "COMMIT BLOCKED"));
+reportLines.push("");
+const reportText = reportLines.join("\n");
+
+// Write report file
+const reportsDir = path.resolve(process.cwd(), "reports");
+try {
+  if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
+  fs.writeFileSync(path.join(reportsDir, "security-commit-report.txt"), reportText, "utf8");
+} catch (_) {
+  // fallback to project root
+  try {
+    fs.writeFileSync(path.resolve(process.cwd(), ".last-commit-security-report.txt"), reportText, "utf8");
+  } catch (_) {}
+}
+
+// Console output
+console.log("\n" + "─".repeat(60));
+console.log(`${BL}  COMMIT SECURITY REPORT  ${ts}${X}`);
+console.log("─".repeat(60));
+
+if (passed.length) {
+  console.log(`\n${G}${BL}✅ PASSED (${passed.length})${X}`);
+  passed.forEach(p => console.log(`  ${G}✓${X} ${p}`));
+}
+
+if (warnings.length) {
+  console.log(`\n${Y}${BL}❌ FAILED — FIX BEFORE NEXT DEPLOY (${warnings.length})${X}`);
+  warnings.forEach(({ label, detail }, i) => {
+    console.log(`\n  ${Y}[FIX ${i+1}] ${label}${X}`);
+    console.log(detail.split("\n").map(l => `  ${Y}│${X} ${l}`).join("\n"));
+  });
+  console.log(`\n${Y}  ↑ Commit will proceed, but fix the items above.${X}`);
+}
+
+if (criticals.length) {
+  console.log(`\n${R}${BL}🚨 BLOCKED — MUST FIX TO COMMIT (${criticals.length})${X}`);
+  criticals.forEach(({ label, detail }, i) => {
+    console.log(`\n  ${R}[BLOCKED ${i+1}] ${label}${X}`);
+    console.log(detail.split("\n").map(l => `  ${R}│${X} ${l}`).join("\n"));
+  });
+  console.log(`\n${R}${BL}╔════════════════════════════════════════════════════════════╗${X}`);
+  console.log(`${R}${BL}║  COMMIT BLOCKED — fix all CRITICAL issues above             ║${X}`);
+  console.log(`${R}${BL}║  Or bypass: git commit --no-verify (sparingly; never for    ║${X}`);
+  console.log(`${R}${BL}║  secrets). See docs/SECURITY-CHECKLIST.md                   ║${X}`);
+  console.log(`${R}${BL}╚════════════════════════════════════════════════════════════╝${X}\n`);
+  process.exit(1);
+}
+
+console.log(`\n${G}${BL}╔════════════════════════════════════════════════╗${X}`);
+console.log(`${G}${BL}║  ✅ All critical checks passed. Commit allowed.  ║${X}`);
+console.log(`${G}${BL}╚════════════════════════════════════════════════╝${X}\n`);
+console.log(`${DIM}  Report: reports/security-commit-report.txt${X}`);
+if (warnings.length) {
+  console.log(`${Y}  Fix the failed items above before next deploy.${X}\n`);
+} else {
+  console.log("");
+}
+process.exit(0);

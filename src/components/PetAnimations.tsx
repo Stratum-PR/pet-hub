@@ -22,7 +22,7 @@ const isDevMode = (): boolean => {
 };
 
 export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<AnimationConfig> }) {
-  const [isVisible, setIsVisible] = useState(isDevMode());
+  const [isVisible, setIsVisible] = useState(true); // Always show button for manual triggering
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationContainerRef = useRef<HTMLDivElement>(null);
   const animationIdRef = useRef<number>(0);
@@ -120,7 +120,7 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
       img.style.objectFit = 'contain';
       img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
       
-      // Handle image load error
+      // Handle imfage load error
       img.addEventListener('error', () => {
         console.warn('[PetAnimations] Failed to load paw print image');
         // Fallback: create a simple SVG paw print
@@ -196,7 +196,7 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
     }, 15000);
   }, []);
 
-  // Create pawprint animation using video - create multiple in a row (legacy)
+  // Create pawprint animation - alternating left/right with curved path
   const createPawprintAnimation = useCallback(() => {
     if (!animationContainerRef.current) return;
     
@@ -207,65 +207,143 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
 
     const container = animationContainerRef.current;
     
-    // Random horizontal position (10% to 90% of screen width)
-    const randomX = Math.random() * 80 + 10;
+    // Create walking path with curved route
+    const startX = -50; // Start off-screen left
+    const endX = window.innerWidth + 50; // End off-screen right
+    const startY = window.innerHeight * 0.3; // Start at 30% from top
+    const endY = window.innerHeight * 0.7; // End at 70% from top
     
-    // Random duration between 2-5 seconds for slow, noticeable motion
-    const duration = Math.random() * 3000 + 2000; // 2000-5000ms
+    // Create curved path using bezier-like control points
+    const controlPoint1X = window.innerWidth * 0.3;
+    const controlPoint1Y = window.innerHeight * 0.2;
+    const controlPoint2X = window.innerWidth * 0.7;
+    const controlPoint2Y = window.innerHeight * 0.8;
     
-    // Create multiple pawprint videos in a row (3-5 pawprints)
-    const pawprintCount = Math.floor(Math.random() * 3) + 3; // 3-5 pawprints
-    const spacing = 80; // Vertical spacing between pawprints in pixels
+    // Number of pawprints in the sequence
+    const pawprintCount = 12; // More pawprints for better walking effect
+    const stepInterval = 800; // Much slower - 800ms between each pawprint
+    const totalDuration = 15000; // Much slower - 15 seconds total duration
+    const fadeOutDelay = 8000; // Show each pawprint for 8 seconds before fading
+    
+    let isLeftPaw = Math.random() > 0.5; // Randomly start with left or right
+    
+    // Helper function to calculate position on bezier curve
+    const getBezierPoint = (t: number) => {
+      const mt = 1 - t;
+      const x = mt * mt * mt * startX + 
+                3 * mt * mt * t * controlPoint1X + 
+                3 * mt * t * t * controlPoint2X + 
+                t * t * t * endX;
+      const y = mt * mt * mt * startY + 
+                3 * mt * mt * t * controlPoint1Y + 
+                3 * mt * t * t * controlPoint2Y + 
+                t * t * t * endY;
+      return { x, y };
+    };
+    
+    // Helper function to calculate tangent (derivative) of bezier curve at point t
+    // This gives us the direction the curve is heading at that point
+    const getBezierTangent = (t: number) => {
+      const mt = 1 - t;
+      // Derivative of cubic bezier
+      const dx = 3 * mt * mt * (controlPoint1X - startX) + 
+                 6 * mt * t * (controlPoint2X - controlPoint1X) + 
+                 3 * t * t * (endX - controlPoint2X);
+      const dy = 3 * mt * mt * (controlPoint1Y - startY) + 
+                 6 * mt * t * (controlPoint2Y - controlPoint1Y) + 
+                 3 * t * t * (endY - controlPoint2Y);
+      return { dx, dy };
+    };
+    
+    // Helper function to calculate angle from tangent vector (in degrees)
+    const getAngleFromTangent = (dx: number, dy: number) => {
+      return Math.atan2(dy, dx) * (180 / Math.PI);
+    };
     
     for (let i = 0; i < pawprintCount; i++) {
       const id = `pawprint-${Date.now()}-${animationIdRef.current++}-${i}`;
       activePawprintsRef.current.add(id);
       
+      // Calculate progress along the path (0 to 1)
+      const progress = i / (pawprintCount - 1);
+      
+      // Calculate current position on curved path
+      const currentPos = getBezierPoint(progress);
+      
+      // Calculate tangent (direction) of the curve at this point
+      // This gives us the exact angle the curve is heading at this pawprint
+      const tangent = getBezierTangent(progress);
+      const angle = getAngleFromTangent(tangent.dx, tangent.dy);
+      
+      // Alternate left/right positioning
+      isLeftPaw = !isLeftPaw;
+      const offsetX = isLeftPaw ? -30 : 30; // Left paw to the left, right paw to the right
+      const offsetY = isLeftPaw ? -10 : 10; // Slight vertical offset for depth
+      
+      // Create pawprint element
       const pawprint = document.createElement('div');
-      pawprint.className = 'pawprint-animation';
+      pawprint.className = 'pawprint-walking';
       pawprint.id = id;
-      pawprint.style.left = `${randomX}%`;
-      pawprint.style.bottom = `${i * spacing - 60}px`; // Start below viewport, spaced vertically
-      pawprint.style.setProperty('--animation-duration', `${duration}ms`);
-      pawprint.style.setProperty('--start-opacity', '0.9');
-      pawprint.style.setProperty('--end-opacity', '0');
-
-      // Use video element instead of SVG
-      const video = document.createElement('video');
-      video.src = '/pawprints (1).mp4';
-      video.autoplay = true;
-      video.loop = false;
-      video.muted = true;
-      video.playsInline = true;
-      video.style.width = '64px';
-      video.style.height = '64px';
-      video.style.objectFit = 'contain';
+      pawprint.style.position = 'fixed';
+      pawprint.style.left = '0';
+      pawprint.style.top = '0';
+      pawprint.style.width = '50px';
+      pawprint.style.height = '50px';
+      pawprint.style.pointerEvents = 'none';
+      pawprint.style.zIndex = '9999';
+      pawprint.style.opacity = '0';
+      pawprint.style.transition = 'opacity 0.3s ease-in';
+      // Use transform for position and rotation - GPU accelerated
+      pawprint.style.transform = `translate(${currentPos.x + offsetX}px, ${currentPos.y + offsetY}px) rotate(${angle}deg)`;
+      pawprint.style.transformOrigin = 'center center';
+      pawprint.style.willChange = 'transform, opacity'; // GPU acceleration hint
       
-      // Handle video end - keep the element for the CSS animation
-      video.addEventListener('ended', () => {
-        // Video ended, but keep the container for the float animation
-      });
+      // Use pawprint.webp image
+      const img = document.createElement('img');
+      img.src = '/pawprint.webp';
+      img.alt = 'Paw print';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
       
-      // Handle video error - fallback to empty div
-      video.addEventListener('error', (e) => {
-        console.warn('[PetAnimations] Failed to load pawprint video:', e);
-        // Remove video but keep container for animation
-        video.remove();
+      // Handle image load error - fallback to SVG
+      img.addEventListener('error', () => {
+        console.warn('[PetAnimations] Failed to load paw print image');
+        // Fallback: create a simple SVG paw print
+        pawprint.innerHTML = `
+          <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="30" cy="30" r="12" fill="currentColor" opacity="0.6"/>
+            <circle cx="70" cy="30" r="12" fill="currentColor" opacity="0.6"/>
+            <circle cx="30" cy="70" r="12" fill="currentColor" opacity="0.6"/>
+            <circle cx="70" cy="70" r="12" fill="currentColor" opacity="0.6"/>
+            <ellipse cx="50" cy="50" rx="20" ry="25" fill="currentColor" opacity="0.6"/>
+          </svg>
+        `;
+        pawprint.style.color = '#666';
       });
 
-      pawprint.appendChild(video);
+      pawprint.appendChild(img);
       container.appendChild(pawprint);
-
-      // Clean up after animation completes
+      
+      // Animate pawprint appearance and fade (much slower)
       setTimeout(() => {
-        if (pawprint.parentNode) {
-          pawprint.remove();
-        }
-        activePawprintsRef.current.delete(id);
-      }, duration + 1000); // Give extra time for video to finish
+        pawprint.style.opacity = '0.8';
+      }, i * stepInterval);
+      
+      // Fade out and clean up (much slower)
+      setTimeout(() => {
+        pawprint.style.transition = 'opacity 1s ease-out';
+        pawprint.style.opacity = '0';
+        setTimeout(() => {
+          if (pawprint.parentNode) {
+            pawprint.remove();
+          }
+          activePawprintsRef.current.delete(id);
+        }, 1000);
+      }, i * stepInterval + fadeOutDelay); // Show for longer before fading
     }
   }, []);
-
 
   // Trigger random animation - ensures only one of each type
   const triggerRandomAnimation = useCallback(() => {

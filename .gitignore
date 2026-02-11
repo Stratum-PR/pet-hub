@@ -22,4 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment and secrets (never commit)
+.env
 .env.local
+.env.*.local
+.env.development
+.env.production
+.env.staging
+.env.test
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Security / CI reports (do not commit)
+reports/
+.last-commit-security-report.txt
