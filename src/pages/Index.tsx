@@ -17,6 +17,7 @@ import { Services } from '@/pages/Services';
 import { Personalization } from '@/pages/Personalization';
 import { Checkout } from '@/pages/Checkout';
 import { Payment } from '@/pages/Payment';
+import { AppointmentBook } from '@/pages/AppointmentBook';
 import { useClients, usePets, useEmployees, useTimeEntries, useAppointments, useSettings, useServices } from '@/hooks/useSupabaseData';
 import { useInventory } from '@/hooks/useInventory';
 import { DataDiagnostics } from '@/components/DataDiagnostics';
@@ -96,6 +97,10 @@ const Index = () => {
                   onRefreshAppointments={refetchAppointments}
                 />
               }
+            />
+            <Route
+              path="appt-book"
+              element={<AppointmentBook />}
             />
             <Route
               path="inventory"

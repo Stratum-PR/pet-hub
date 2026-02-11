@@ -120,10 +120,10 @@ export function Layout({ children, settings }: LayoutProps) {
       
       {/* Header */}
       <header 
-        className="border-b border-border bg-card shadow-sm sticky z-50"
+        className="border-b border-border bg-card shadow-sm sticky z-50 relative overflow-hidden"
         style={{ top: showAdminHeader ? '48px' : '0' }}
       >
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between relative z-50">
           <Link
             to={businessSlug ? `/${businessSlug}/dashboard` : '/'}
             className="flex items-center gap-2"
@@ -140,7 +140,7 @@ export function Layout({ children, settings }: LayoutProps) {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1 relative z-50">
             {navItems.map((item) => {
               const Icon = item.icon;
               const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
@@ -356,6 +356,21 @@ export function Layout({ children, settings }: LayoutProps) {
                 onMouseEnter={() => setMoreMenuOpen(true)}
                 onMouseLeave={() => setMoreMenuOpen(false)}
               >
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={businessSlug ? `/${businessSlug}/appt-book` : '/appt-book'}
+                    className={`flex items-center gap-2 ${
+                      (businessSlug &&
+                        location.pathname === `/${businessSlug}/appt-book`) ||
+                      (!businessSlug && location.pathname === '/appt-book')
+                        ? 'bg-accent'
+                        : ''
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Appt Book
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link
                     to={businessSlug ? `/${businessSlug}/services` : '/services'}

@@ -22,6 +22,14 @@ export function BusinessDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // DIAGNOSTIC: Log environment variables
+    console.log('=== BUSINESS DASHBOARD DIAGNOSTIC ===');
+    console.log('Environment:', import.meta.env.MODE);
+    console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL ? 'SET' : 'MISSING');
+    console.log('Supabase Key:', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? 'SET' : 'MISSING');
+    console.log('Business ID:', businessId || 'NULL');
+    console.log('Timestamp:', new Date().toISOString());
+
     // If we don't yet have a businessId, stop loading
     if (!businessId) {
       console.warn('[BusinessDashboard] No businessId available – skipping dashboard queries');
@@ -32,21 +40,55 @@ export function BusinessDashboard() {
     const fetchDashboardData = async () => {
       try {
         const today = startOfDay(new Date());
+        console.log('[BusinessDashboard] Fetching dashboard data for business:', businessId);
 
         // CRITICAL: Fetch clients count - ALWAYS filter by business_id for multi-tenancy
-        const { count: clientsCount } = await supabase
+        const startTime = performance.now();
+        const { count: customersCount, error: clientsError } = await supabase
           .from('clients')
           .select('*', { count: 'exact', head: true })
           .eq('business_id', businessId);
+        const clientsTime = performance.now() - startTime;
+
+        console.log('[BusinessDashboard] Clients query:', {
+          count: customersCount,
+          error: clientsError?.message,
+          time: `${clientsTime.toFixed(2)}ms`
+        });
+
+        if (clientsError) {
+          console.error('[BusinessDashboard] Clients query error:', {
+            code: clientsError.code,
+            message: clientsError.message,
+            details: clientsError.details,
+            hint: clientsError.hint
+          });
+        }
 
         // Fetch pets count - ALWAYS filter by business_id
-        const { count: petsCount } = await supabase
+        const petsStartTime = performance.now();
+        const { count: petsCount, error: petsError } = await supabase
           .from('pets')
           .select('*', { count: 'exact', head: true })
           .eq('business_id', businessId);
+        const petsTime = performance.now() - petsStartTime;
+
+        console.log('[BusinessDashboard] Pets query:', {
+          count: petsCount,
+          error: petsError?.message,
+          time: `${petsTime.toFixed(2)}ms`
+        });
+
+        if (petsError) {
+          console.error('[BusinessDashboard] Pets query error:', {
+            code: petsError.code,
+            message: petsError.message
+          });
+        }
 
         // CRITICAL: Fetch today's appointments with clients - ALWAYS filter by business_id
-        const { data: appointments } = await supabase
+        const appointmentsStartTime = performance.now();
+        const { data: appointments, error: appointmentsError } = await supabase
           .from('appointments')
           .select(`
             *,
@@ -57,21 +99,51 @@ export function BusinessDashboard() {
           .eq('business_id', businessId)
           .eq('appointment_date', format(today, 'yyyy-MM-dd'))
           .order('start_time', { ascending: true });
+        const appointmentsTime = performance.now() - appointmentsStartTime;
+
+        console.log('[BusinessDashboard] Appointments query:', {
+          count: appointments?.length || 0,
+          error: appointmentsError?.message,
+          time: `${appointmentsTime.toFixed(2)}ms`
+        });
+
+        if (appointmentsError) {
+          console.error('[BusinessDashboard] Appointments query error:', {
+            code: appointmentsError.code,
+            message: appointmentsError.message,
+            details: appointmentsError.details
+          });
+        }
 
         // Calculate revenue (from completed appointments) - ALWAYS filter by business_id
-        const { data: completedAppointments } = await supabase
+        const revenueStartTime = performance.now();
+        const { data: completedAppointments, error: revenueError } = await supabase
           .from('appointments')
           .select('total_price')
           .eq('business_id', businessId)
           .eq('status', 'completed');
+        const revenueTime = performance.now() - revenueStartTime;
+
+        console.log('[BusinessDashboard] Revenue query:', {
+          count: completedAppointments?.length || 0,
+          error: revenueError?.message,
+          time: `${revenueTime.toFixed(2)}ms`
+        });
 
         const revenue = completedAppointments?.reduce(
           (sum, apt) => sum + (apt.total_price || 0),
           0
         ) || 0;
 
+        console.log('[BusinessDashboard] Final stats:', {
+          totalCustomers: customersCount || 0,
+          totalPets: petsCount || 0,
+          todayAppointments: appointments?.length || 0,
+          totalRevenue: revenue
+        });
+
         setStats({
-          totalCustomers: clientsCount || 0,
+          totalCustomers: customersCount || 0,
           totalPets: petsCount || 0,
           todayAppointments: appointments?.length || 0,
           totalRevenue: revenue,
@@ -79,9 +151,13 @@ export function BusinessDashboard() {
 
         setTodayAppointments(appointments || []);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error('[BusinessDashboard] Unexpected error fetching dashboard data:', error);
+        if (error instanceof Error) {
+          console.error('[BusinessDashboard] Error stack:', error.stack);
+        }
       } finally {
         setLoading(false);
+        console.log('=== BUSINESS DASHBOARD DIAGNOSTIC END ===');
       }
     };
 
@@ -177,8 +253,8 @@ export function BusinessDashboard() {
                             appointment.status === 'completed'
                               ? 'default'
                               : appointment.status === 'canceled'
-                              ? 'destructive'
-                              : 'secondary'
+                                ? 'destructive'
+                                : 'secondary'
                           }
                         >
                           {appointment.status}

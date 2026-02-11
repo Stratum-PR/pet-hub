@@ -74,6 +74,8 @@ export interface Service {
   price: number;
   duration_minutes: number;
   is_active: boolean;
+  category?: string | null;
+  color?: string | null;
   created_at: string;
 }
 
@@ -416,6 +418,7 @@ export function useAppointments() {
       return;
     }
 
+    // Fetch appointments - we'll do lookups in the calendar helper
     const { data, error } = await supabase
       .from('appointments')
       .select('*')
@@ -424,7 +427,10 @@ export function useAppointments() {
       .order('start_time', { ascending: true });
     
     if (!error && data) {
-      setAppointments(data);
+      console.log('[useAppointments] Fetched', data.length, 'appointments');
+      setAppointments(data as any);
+    } else if (error) {
+      console.error('[useAppointments] Error fetching appointments:', error);
     }
     setLoading(false);
   };

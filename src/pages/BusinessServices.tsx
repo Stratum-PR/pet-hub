@@ -9,6 +9,7 @@ import { useServices, Service } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
+import { APPOINTMENT_COLORS } from '@/types/calendar';
 
 export function BusinessServices() {
   const { services, loading, addService, updateService, deleteService } = useServices();
@@ -25,6 +26,8 @@ export function BusinessServices() {
     price: 0,
     duration_minutes: 60,
     is_active: true,
+    category: '',
+    color: APPOINTMENT_COLORS.blue,
   });
 
   const categories = useMemo(() => {
@@ -56,6 +59,8 @@ export function BusinessServices() {
       price: 0,
       duration_minutes: 60,
       is_active: true,
+      category: '',
+      color: APPOINTMENT_COLORS.blue,
     });
   };
 
@@ -101,6 +106,8 @@ export function BusinessServices() {
       price: service.price,
       duration_minutes: service.duration_minutes,
       is_active: service.is_active,
+      category: (service as any).category || '',
+      color: (service as any).color || APPOINTMENT_COLORS.blue,
     });
     setShowForm(true);
   };
@@ -220,6 +227,48 @@ export function BusinessServices() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Input
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder="e.g., Grooming, Bath, etc."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="color">Appointment Color</Label>
+                  <Select
+                    value={formData.color}
+                    onValueChange={(value) => setFormData({ ...formData, color: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-4 h-4 rounded border border-gray-300"
+                            style={{ backgroundColor: formData.color }}
+                          />
+                          <span>{Object.entries(APPOINTMENT_COLORS).find(([_, v]) => v === formData.color)?.[0] || 'Blue'}</span>
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(APPOINTMENT_COLORS).map(([name, color]) => (
+                        <SelectItem key={name} value={color}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-4 h-4 rounded border border-gray-300"
+                              style={{ backgroundColor: color }}
+                            />
+                            <span className="capitalize">{name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Color used in appointment calendar</p>
+                </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="description">{t('serviceForm.description')}</Label>
                   <Input
@@ -291,9 +340,18 @@ export function BusinessServices() {
                           </div>
                         </div>
                         <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                          <span className="text-sm text-muted-foreground">
-                            {service.duration_minutes} {t('serviceForm.minutes')}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {(service as any).color && (
+                              <div
+                                className="w-4 h-4 rounded border border-gray-300"
+                                style={{ backgroundColor: (service as any).color }}
+                                title="Appointment color"
+                              />
+                            )}
+                            <span className="text-sm text-muted-foreground">
+                              {service.duration_minutes} {t('serviceForm.minutes')}
+                            </span>
+                          </div>
                           <span className="font-semibold">${service.price.toFixed(2)}</span>
                         </div>
                         {!service.is_active && (
