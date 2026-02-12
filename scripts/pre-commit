@@ -8,9 +8,10 @@
 //  Install (from repo root):
 //    cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 //
-//  Or use Husky (recommended):
-//    npx husky init
-//    npx husky add .husky/pre-commit "node scripts/pre-commit"
+//  Or use Husky 9 (recommended):
+//    npm install -D husky && npx husky init
+//    Then edit .husky/pre-commit to contain: node scripts/pre-commit
+//    (Do not use "husky add" — it is deprecated in v9.)
 // ============================================================
 
 import { execSync } from "child_process";
@@ -123,8 +124,9 @@ files.forEach(file => {
   // Never scan binary / font / media files
   if (SAFE_EXTENSIONS.has(ext)) return;
 
-  // .env files themselves should never be committed
-  if (ENV_FILES.has(base) || file.endsWith(".env") || file.includes(".env.")) {
+  // .env files themselves should never be committed (.env.example / .env.sample are allowed)
+  const allowedEnvTemplates = new Set([".env.example", ".env.sample"]);
+  if (!allowedEnvTemplates.has(base) && (ENV_FILES.has(base) || file.endsWith(".env") || file.includes(".env."))) {
     crit("🚨 .env file staged for commit", `File: ${file}\n     .env files must NEVER be committed. Add to .gitignore immediately.`);
     secretFound = true;
     return;
@@ -585,7 +587,8 @@ migrationFiles.forEach(file => {
 // CHECK 16 · API KEY ROTATION REMINDER (old commits)
 // ════════════════════════════════════════════════════════════
 // Passive reminder – we can't scan git history here but we inform the developer
-if (files.some(f => f.toLowerCase().includes(".env") || f.toLowerCase().includes("config"))) {
+const envOrConfigFiles = files.filter(f => (f.toLowerCase().includes(".env") && !f.endsWith(".env.example") && !f.endsWith(".env.sample")) || f.toLowerCase().includes("config"));
+if (envOrConfigFiles.length) {
   warn("🔄 API key rotation reminder",
     `You are modifying config/env files.\n` +
     `     Policy: Rotate ALL API keys every 90 days.\n` +
@@ -708,6 +711,7 @@ files.forEach(file => {
 // CHECK 21 · PROTECTED ROUTES – SERVER-SIDE ROLE CHECK
 // ════════════════════════════════════════════════════════════
 const hasProtectedOrAdmin = files.some(f => {
+  if (f.startsWith("scripts/")) return false; // avoid self-trigger from hook text
   const c = stagedContent(f);
   return (c.includes("ProtectedRoute") && c.includes("requireAdmin")) || c.includes("is_super_admin") || c.includes("isAdmin");
 });
@@ -724,6 +728,7 @@ if (hasProtectedOrAdmin) {
 // CHECK 22 · SUPABASE STORAGE – POLICIES SO USERS ONLY ACCESS OWN FILES
 // ════════════════════════════════════════════════════════════
 const hasStorageUpload = files.some(f => {
+  if (f.startsWith("scripts/")) return false; // avoid self-trigger from hook text
   const c = stagedContent(f);
   return (c.includes("storage.from") || c.includes("supabase.storage")) && (c.includes("upload") || c.includes(".from("));
 });
@@ -849,13 +854,17 @@ reportLines.push("RESULT: " + (allowed ? "COMMIT ALLOWED" : "COMMIT BLOCKED"));
 reportLines.push("");
 const reportText = reportLines.join("\n");
 
-// Write report file
+// Write report file: reports/security-scan-YYYY-MM-DD_HH-mm-ss.txt
 const reportsDir = path.resolve(process.cwd(), "reports");
+const now = new Date();
+const pad = (n) => String(n).padStart(2, "0");
+const reportDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+const reportTime = `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+const reportFilename = `security-scan-${reportDate}_${reportTime}.txt`;
 try {
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
-  fs.writeFileSync(path.join(reportsDir, "security-commit-report.txt"), reportText, "utf8");
+  fs.writeFileSync(path.join(reportsDir, reportFilename), reportText, "utf8");
 } catch (_) {
-  // fallback to project root
   try {
     fs.writeFileSync(path.resolve(process.cwd(), ".last-commit-security-report.txt"), reportText, "utf8");
   } catch (_) {}
@@ -897,7 +906,7 @@ if (criticals.length) {
 console.log(`\n${G}${BL}╔════════════════════════════════════════════════╗${X}`);
 console.log(`${G}${BL}║  ✅ All critical checks passed. Commit allowed.  ║${X}`);
 console.log(`${G}${BL}╚════════════════════════════════════════════════╝${X}\n`);
-console.log(`${DIM}  Report: reports/security-commit-report.txt${X}`);
+console.log(`${DIM}  Report: reports/${reportFilename}${X}`);
 if (warnings.length) {
   console.log(`${Y}  Fix the failed items above before next deploy.${X}\n`);
 } else {
