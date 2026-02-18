@@ -1,18 +1,20 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
-import { Calendar, Users, DollarSign, ArrowRight, Check } from 'lucide-react';
-import { useEffect } from 'react';
+import { Calendar, Users, DollarSign, ArrowRight, Check, Menu } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDefaultRoute, getLastRoute } from '@/lib/authRouting';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 export function Landing() {
   const navigate = useNavigate();
   const { user, isAdmin, business, loading } = useAuth();
   const { language } = useLanguage(); // Force re-render on language change
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Logged-in users should never stay on landing page
   useEffect(() => {
@@ -44,13 +46,13 @@ export function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10">
-      {/* Floating Language Switcher */}
-      <div className="fixed top-4 right-4 z-50">
+      {/* Floating Language Switcher - desktop only */}
+      <div className="fixed top-4 right-4 z-50 hidden md:block">
         <LanguageSwitcher />
       </div>
 
       {/* Navigation */}
-      <nav className="container mx-auto px-4 py-4 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <nav className="container mx-auto px-4 py-4 sm:py-6 flex items-center justify-between gap-4">
         <button
           type="button"
           onClick={handleLogoClick}
@@ -63,14 +65,46 @@ export function Landing() {
           />
           <span className="hidden sm:inline text-lg sm:text-xl font-semibold">Pet Hub</span>
         </button>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
-          <Link to="/login" className="w-full sm:w-auto">
-            <Button variant="ghost" className="w-full sm:w-auto text-sm sm:text-base">{t('landing.login')}</Button>
+        {/* Desktop nav */}
+        <div className="hidden md:flex flex-wrap items-center gap-2 sm:gap-4 justify-end">
+          <Link to="/login">
+            <Button variant="ghost" className="text-sm sm:text-base">{t('landing.login')}</Button>
           </Link>
-          <Link to="/registrarse" className="w-full sm:w-auto">
-            <Button className="w-full sm:w-auto text-sm sm:text-base">{t('landing.getStarted')}</Button>
+          <Link to="/registrarse">
+            <Button className="text-sm sm:text-base">{t('landing.getStarted')}</Button>
           </Link>
         </div>
+        {/* Mobile: hamburger → sheet with language first, then links */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden shrink-0" aria-label="Menu">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="flex flex-col gap-6 pt-8">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Idioma / Language</p>
+              <LanguageSwitcher />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.login')}</Button>
+              </Link>
+              <Link to="/registrarse" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.getStarted')}</Button>
+              </Link>
+              <Link to="/registrarse" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.startFreeTrial')}</Button>
+              </Link>
+              <Link to="/demo/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.viewDemo')}</Button>
+              </Link>
+              <Link to="/pricing" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.viewPricingPlans')}</Button>
+              </Link>
+            </div>
+          </SheetContent>
+        </Sheet>
       </nav>
 
       {/* Hero Section */}

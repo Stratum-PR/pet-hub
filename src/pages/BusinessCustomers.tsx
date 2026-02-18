@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, X, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, X, Edit, Trash2, Search, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,12 @@ export function BusinessCustomers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const CLIENT_VIEW_KEY = 'pet-hub-clients-view';
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    const stored = window.localStorage.getItem(CLIENT_VIEW_KEY);
+    return stored === 'list' ? 'list' : 'cards';
+  });
 
   // Handle highlight from URL parameter
   useEffect(() => {
@@ -36,6 +42,11 @@ export function BusinessCustomers() {
       }
     }
   }, [highlightId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(CLIENT_VIEW_KEY, viewMode);
+  }, [CLIENT_VIEW_KEY, viewMode]);
 
   const filteredClients = useMemo(() => {
     if (!searchTerm) return clients;
@@ -116,16 +127,43 @@ export function BusinessCustomers() {
             {t('clients.description')}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingClient(null);
-            setShowForm(!showForm);
-          }}
-          className="shadow-sm flex items-center gap-2"
-        >
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? t('common.cancel') : t('clients.addClient')}
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-muted-foreground sr-only sm:not-sr-only">View:</span>
+          <div className="inline-flex rounded-md border bg-muted p-0.5">
+            <button
+              type="button"
+              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
+                viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('cards')}
+              aria-label="Card view"
+            >
+              <LayoutGrid className="w-4 h-4 shrink-0" />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
+                viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('list')}
+              aria-label="List view"
+            >
+              <List className="w-4 h-4 shrink-0" />
+              <span>List</span>
+            </button>
+          </div>
+          <Button
+            onClick={() => {
+              setEditingClient(null);
+              setShowForm(!showForm);
+            }}
+            className="shadow-sm flex items-center gap-2"
+          >
+            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showForm ? t('common.cancel') : t('clients.addClient')}
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -153,62 +191,115 @@ export function BusinessCustomers() {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === 'cards' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredClients.map((client) => {
             const isHighlighted = highlightId === client.id;
             return (
-            <Card 
-              key={client.id} 
-              id={`client-${client.id}`}
-              className={`shadow-sm hover:shadow-md transition-shadow ${isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''}`}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">
-                      {client.first_name} {client.last_name}
-                    </h3>
-                    {client.email && (
-                      <p className="text-sm text-muted-foreground">{client.email}</p>
-                    )}
-                    <p className="text-sm text-muted-foreground">{client.phone}</p>
+              <Card
+                key={client.id}
+                id={`client-${client.id}`}
+                className={`shadow-sm hover:shadow-md transition-shadow ${isHighlighted ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="font-semibold text-lg">
+                        {client.first_name} {client.last_name}
+                      </h3>
+                      {client.email && (
+                        <p className="text-sm text-muted-foreground">{client.email}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground">{client.phone}</p>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(client)}
+                        className="h-8 w-8"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteClick(client.id)}
+                        className="h-8 w-8 text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(client)}
-                      className="h-8 w-8"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteClick(client.id)}
-                      className="h-8 w-8 text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                {(client.address || client.city || client.state) && (
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {[client.address, client.city, client.state, client.zip_code]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </p>
-                )}
-                {client.notes && (
-                  <p className="text-sm text-muted-foreground mt-2 border-t pt-2">
-                    {client.notes}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                  {(client.address || client.city || client.state) && (
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {[client.address, client.city, client.state, client.zip_code]
+                        .filter(Boolean)
+                        .join(', ')}
+                    </p>
+                  )}
+                  {client.notes && (
+                    <p className="text-sm text-muted-foreground mt-2 border-t pt-2">
+                      {client.notes}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             );
           })}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/60">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium">{t('clients.title')}</th>
+                <th className="text-left px-3 py-2 font-medium">Email</th>
+                <th className="text-left px-3 py-2 font-medium">{t('clients.phoneLabel') || 'Phone'}</th>
+                <th className="text-left px-3 py-2 font-medium w-[120px]">{t('common.actions') || 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredClients.map((client) => {
+                const isHighlighted = highlightId === client.id;
+                return (
+                  <tr
+                    key={client.id}
+                    id={`client-${client.id}`}
+                    className={`border-t hover:bg-muted/40 ${isHighlighted ? 'bg-primary/5' : ''}`}
+                  >
+                    <td className="px-3 py-2">
+                      <div className="font-medium">
+                        {client.first_name} {client.last_name}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{client.email || '—'}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{client.phone || '—'}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(client)}
+                          className="h-8 w-8"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteClick(client.id)}
+                          className="h-8 w-8 text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

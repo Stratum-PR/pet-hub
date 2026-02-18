@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Printer, Mail, DollarSign, XCircle } from 'lucide-react';
+import { ArrowLeft, Printer, Mail, DollarSign, XCircle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +33,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending',
   in_progress: 'In Progress',
-  paid: 'Paid',
+  paid: 'Full',
   partial: 'Partial',
   refunded: 'Refunded',
   partial_refund: 'Partial Refund',
@@ -47,7 +47,7 @@ function fromCents(c: number): number {
 export function TransactionDetail() {
   const { businessSlug, transactionId } = useParams<{ businessSlug: string; transactionId: string }>();
   const location = useLocation();
-  const { fetchTransactionById, updateTransactionStatus, createRefund, fetchReceiptSettings } = useTransactions();
+  const { fetchTransactionById, updateTransactionStatus, updateTransaction, createRefund, fetchReceiptSettings } = useTransactions();
   const { clients } = useClients();
   const { settings } = useSettings();
 
@@ -61,6 +61,11 @@ export function TransactionDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [emailReceiptOpen, setEmailReceiptOpen] = useState(false);
   const [walkInEmail, setWalkInEmail] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editPaymentMethod, setEditPaymentMethod] = useState<Transaction['payment_method']>(transaction?.payment_method ?? 'cash');
+  const [editTotal, setEditTotal] = useState('');
+  const [editAmountTendered, setEditAmountTendered] = useState('');
+  const [editNotes, setEditNotes] = useState(transaction?.notes ?? '');
   const isWalkIn = !transaction?.customer_id;
   const customerEmail = transaction?.customer_id
     ? clients.find((x) => x.id === transaction.customer_id)?.email
@@ -80,6 +85,15 @@ export function TransactionDetail() {
       setLoading(false);
     });
   }, [transactionId, fetchTransactionById]);
+
+  useEffect(() => {
+    if (transaction) {
+      setEditPaymentMethod(transaction.payment_method);
+      setEditTotal((transaction.total / 100).toFixed(2));
+      setEditAmountTendered(transaction.amount_tendered != null ? (transaction.amount_tendered / 100).toFixed(2) : '');
+      setEditNotes(transaction.notes ?? '');
+    }
+  }, [transaction]);
 
   const customerName = transaction?.customer_id
     ? (() => {
@@ -143,6 +157,25 @@ export function TransactionDetail() {
     }
     setEmailReceiptOpen(false);
     sendReceiptTo(trimmed);
+  };
+
+  const handleEditSave = async () => {
+    if (!transactionId || !transaction) return;
+    const totalCents = Math.round(parseFloat(editTotal || '0') * 100);
+    const amountTendered = editAmountTendered === '' ? null : Math.round(parseFloat(editAmountTendered || '0') * 100);
+    const ok = await updateTransaction(transactionId, {
+      payment_method: editPaymentMethod as Transaction['payment_method'],
+      total: totalCents,
+      amount_tendered: amountTendered,
+      notes: editNotes.trim() || null,
+    });
+    if (ok) {
+      setTransaction((t) => t ? { ...t, payment_method: editPaymentMethod as Transaction['payment_method'], total: totalCents, amount_tendered: amountTendered, notes: editNotes.trim() || null } : null);
+      setEditOpen(false);
+      toast.success(t('common.saved'));
+    } else {
+      toast.error(t('common.genericError'));
+    }
   };
 
   const handleVoid = async () => {
@@ -210,6 +243,10 @@ export function TransactionDetail() {
           </Badge>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1">
+            <Pencil className="h-4 w-4" />
+            {t('common.edit') ?? 'Edit'}
+          </Button>
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1">
             <Printer className="h-4 w-4" />
             {t('transactions.printReceipt')}
@@ -308,9 +345,15 @@ export function TransactionDetail() {
               </div>
             )}
             <div className="flex justify-between font-bold text-base pt-2">
-              <span>{t('transactions.total')}</span>
+              <span>{t('transactions.totalDue')}</span>
               <span>${fromCents(transaction.total).toFixed(2)}</span>
             </div>
+            {transaction.amount_tendered != null && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{t('transactions.amountPaid')}</span>
+                <span>${fromCents(transaction.amount_tendered).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           {transaction.notes && (
@@ -391,6 +434,65 @@ export function TransactionDetail() {
             </Button>
             <Button onClick={handleWalkInEmailSubmit}>
               {t('transactions.sendReceipt')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('common.edit') ?? 'Edit transaction'}</DialogTitle>
+            <DialogDescription>
+              Correct payment amount, method, or notes (e.g. if cash received didn&apos;t match).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('transactions.paymentMethod')}</Label>
+              <select
+                value={editPaymentMethod}
+                onChange={(e) => setEditPaymentMethod(e.target.value as Transaction['payment_method'])}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('transactions.totalDue')} ($)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.01}
+                value={editTotal}
+                onChange={(e) => setEditTotal(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('transactions.amountPaid')} ($) — optional</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.01}
+                value={editAmountTendered}
+                onChange={(e) => setEditAmountTendered(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional notes" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleEditSave}>
+              {t('common.save') ?? 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

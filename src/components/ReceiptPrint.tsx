@@ -76,22 +76,28 @@ export function ReceiptPrint({ businessName, headerText, footerText, transaction
 
 /** Open a new window and print the receipt. */
 export function printReceipt(props: ReceiptPrintProps) {
-  const win = window.open('', '_blank', 'width=400,height=600');
+  const win = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
   if (!win) return;
   win.document.write(`
 <!DOCTYPE html>
 <html>
 <head>
   <title>Receipt ${props.displayId}</title>
+  <meta charset="utf-8">
   <style>
-    body { margin: 0; padding: 8px; font-family: monospace; }
-    @media print { body { width: 80mm; } }
+    html, body { margin: 0; padding: 0; min-height: 100%; min-width: 100%; box-sizing: border-box; }
+    body { padding: 16px; font-family: monospace; font-size: 14px; }
+    #receipt-content { width: 80mm; max-width: 80mm; margin: 0 auto; min-height: 400px; }
+    @media print { body { width: 80mm; margin: 0; padding: 8px; } #receipt-content { min-height: auto; } }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script>
-    window.onload = function() { window.print(); window.close(); };
+    window.onload = function() {
+      window.focus();
+      setTimeout(function() { window.print(); window.close(); }, 250);
+    };
   </script>
 </body>
 </html>
@@ -99,6 +105,7 @@ export function printReceipt(props: ReceiptPrintProps) {
   const root = win.document.getElementById('root');
   if (root) {
     const div = win.document.createElement('div');
+    div.id = 'receipt-content';
     div.innerHTML = `
     <div style="width:80mm;margin:0 auto;padding:8px;font-family:monospace;font-size:12px">
       <div style="text-align:center;margin-bottom:8px;border-bottom:1px dashed #000;padding-bottom:8px">
@@ -126,7 +133,7 @@ export function printReceipt(props: ReceiptPrintProps) {
       <div style="text-align:center;font-size:10px;border-top:1px dashed #000;padding-top:8px;white-space:pre-wrap">${escapeHtml(props.footerText || 'Thank you for your business.')}</div>
     </div>
   `;
-    root.appendChild(div.firstElementChild || div);
+    root.appendChild(div);
   }
   win.document.close();
 }
