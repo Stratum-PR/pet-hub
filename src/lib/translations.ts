@@ -844,6 +844,10 @@ export const translations: Translations = {
     en: 'Last appointment',
     es: 'Última cita'
   },
+  'pets.listNextAppointment': {
+    en: 'Next appointment',
+    es: 'Próxima cita'
+  },
   'pets.deletePetTitle': {
     en: 'Delete pet?',
     es: '¿Eliminar mascota?'
@@ -2028,7 +2032,7 @@ export const getLanguage = (): Language => {
 export const t = (key: string, params?: Record<string, string | number>): string => {
   const translation = translations[key];
   if (!translation) {
-    console.warn(`Translation missing for key: ${key}`);
+    if (import.meta.env.DEV) console.warn(`Translation missing for key: ${key}`);
     return key;
   }
   const lang = getLanguage();

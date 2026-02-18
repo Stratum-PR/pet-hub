@@ -218,19 +218,22 @@ files.forEach(file => {
   if (file.startsWith("scripts/") || file.startsWith("tools/")) return;
 
   const content = stagedContent(file);
+  const lines = content.split("\n");
+  const devGuardPattern = /import\.meta\.env\.DEV|process\.env\.NODE_ENV|NODE_ENV\s*!==\s*['"]production['"]|__DEV__/;
   const matches = [...(content.matchAll(/console\.(log|error|warn|debug|info|table)\(/g))];
-  if (matches.length) {
-    const lines = content.split("\n");
-    const lineNums = [];
-    matches.forEach(m => {
-      const before = content.slice(0, m.index);
-      lineNums.push(before.split("\n").length);
-    });
-    warn(`⚠️  console.${matches.map(m=>m[1]).join("/")} in production code`,
+  const unguarded = matches.filter(m => {
+    const lineIndex = content.slice(0, m.index).split("\n").length - 1;
+    const line = lines[lineIndex] || "";
+    const prevLine = lineIndex > 0 ? (lines[lineIndex - 1] || "") : "";
+    return !devGuardPattern.test(line) && !devGuardPattern.test(prevLine);
+  });
+  if (unguarded.length) {
+    const lineNums = unguarded.map(m => content.slice(0, m.index).split("\n").length);
+    const types = [...new Set(unguarded.map(m => (content.slice(m.index).match(/console\.(\w+)/) || [])[1]).filter(Boolean))];
+    warn(`⚠️  console.${types.join("/")} in production code`,
       `File: ${file} (lines: ${lineNums.join(", ")})\n` +
-      `     Remove or replace with a proper logger (e.g. pino, winston).\n` +
-      `     console.log exposes data to anyone with DevTools open.`);
-    consoleCount += matches.length;
+      `     Guard with if (import.meta.env.DEV) { ... } or remove.`);
+    consoleCount += unguarded.length;
   }
 });
 if (!consoleCount) pass("No console.log / debug statements in production code");
@@ -417,15 +420,15 @@ files.forEach(file => {
 // ════════════════════════════════════════════════════════════
 // CHECK 11 · FILE UPLOAD VALIDATION
 // ════════════════════════════════════════════════════════════
-const UPLOAD_KEYWORDS = ["upload","file","storage.from","supabase.storage"];
+// Only require validation in files that actually perform uploads (type="file" or storage.from / .upload)
+const UPLOAD_CODE_PATTERN = /type\s*=\s*["']file["']|storage\.from\s*\(|\.upload\s*\(|supabase\.storage/;
 files.forEach(file => {
   if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
   const content = stagedContent(file);
-  const isUploadCode = UPLOAD_KEYWORDS.some(k => content.includes(k));
-  if (!isUploadCode) return;
+  if (!UPLOAD_CODE_PATTERN.test(content)) return;
 
   const hasSizeCheck = /size\s*[><=]|maxSize|max_size|5\s*\*\s*1024|5242880|fileSizeLimit/.test(content);
-  const hasTypeCheck = /type\s*===|mimetype|contentType|allowedTypes|image\/|application\//.test(content);
+  const hasTypeCheck = /type\s*===|\.startsWith\s*\(\s*["']image\/|mimetype|contentType|allowedTypes|image\/|application\//.test(content);
 
   if (!hasSizeCheck) {
     warn("⚠️  File upload missing size validation",
@@ -454,29 +457,36 @@ files.forEach(file => {
 // ════════════════════════════════════════════════════════════
 // CHECK 12 · ERROR HANDLING – EXPOSING SENSITIVE INFO
 // ════════════════════════════════════════════════════════════
-const ERROR_EXPOSURE_PATTERNS = [
+// alert/toast with .message: always flag. console with error: only flag if not DEV-guarded.
+const ERROR_ALERT_TOAST = [
   /catch\s*\([^)]*\)\s*\{[^}]*alert\([^)]*\.message/g,
   /catch\s*\([^)]*\)\s*\{[^}]*toast\([^)]*\.message/g,
-  /catch\s*\([^)]*\)\s*\{[^}]*console\.(error|log)\([^)]*error\)/g,
 ];
+const ERROR_CONSOLE = /catch\s*\([^)]*\)\s*\{([^}]*console\.(error|log)\([^)]*error\)[^}]*)\}/g;
 
 files.forEach(file => {
   if (!CONSOLE_EXTS.has(path.extname(file).toLowerCase())) return;
   const content = stagedContent(file);
-  ERROR_EXPOSURE_PATTERNS.forEach(re => {
+  ERROR_ALERT_TOAST.forEach(re => {
     re.lastIndex = 0;
     if (re.test(content)) {
       warn("⚠️  Error message exposed to user or console",
         `File: ${file}\n` +
         `     Never show raw error.message to users in production.\n` +
-        `     Errors may contain file paths, SQL queries, or stack traces.\n` +
-        `     Fix:\n` +
-        `       catch (err) {\n` +
-        `         console.error('[Internal]', err);  // dev only\n` +
-        `         toast.error('Something went wrong. Please try again.');\n` +
-        `       }`);
+        `     Use a generic message (e.g. toast.error('Something went wrong.')).`);
     }
   });
+  let m;
+  ERROR_CONSOLE.lastIndex = 0;
+  while ((m = ERROR_CONSOLE.exec(content)) !== null) {
+    const block = m[1] || "";
+    if (!/import\.meta\.env\.DEV|process\.env\.NODE_ENV|__DEV__/.test(block)) {
+      warn("⚠️  Error message exposed to user or console",
+        `File: ${file}\n` +
+        `     Guard console with if (import.meta.env.DEV) or do not log raw error object.`);
+      break;
+    }
+  }
 });
 
 // ════════════════════════════════════════════════════════════
@@ -854,12 +864,14 @@ reportLines.push("RESULT: " + (allowed ? "COMMIT ALLOWED" : "COMMIT BLOCKED"));
 reportLines.push("");
 const reportText = reportLines.join("\n");
 
-// Write report file: reports/security-scan-YYYY-MM-DD_HH-mm-ss.txt
+// Write report file: reports/security-scan-YYYY-MM-DD_HH-mm-AM|PM.txt (hour and minute, 12-hour)
 const reportsDir = path.resolve(process.cwd(), "reports");
 const now = new Date();
 const pad = (n) => String(n).padStart(2, "0");
 const reportDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-const reportTime = `${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+const h12 = now.getHours() % 12 || 12;
+const ampm = now.getHours() < 12 ? "AM" : "PM";
+const reportTime = `${pad(h12)}-${pad(now.getMinutes())}-${ampm}`;
 const reportFilename = `security-scan-${reportDate}_${reportTime}.txt`;
 try {
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });

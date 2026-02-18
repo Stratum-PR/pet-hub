@@ -283,7 +283,7 @@ export function useTransactions() {
       .select()
       .single();
     if (txnError) {
-      console.error('[useTransactions] createTransaction insert error', txnError);
+      if (import.meta.env.DEV) console.error('[useTransactions] createTransaction insert error', txnError);
       return { data: null, error: txnError.message || 'Failed to create transaction.' };
     }
     if (!txn) return { data: null, error: 'Failed to create transaction.' };

@@ -105,12 +105,10 @@ export function Pricing() {
       // For now, we'll show a message
       toast.success('Redirecting to checkout...');
       
-      // TODO: Integrate Stripe embedded checkout
-      // This requires Stripe.js and proper setup
-      console.log('Would redirect to Stripe checkout with session:', sessionId);
-      
+      // TODO: Integrate Stripe embedded checkout (Stripe.js)
+      if (import.meta.env.DEV) console.log('Would redirect to Stripe checkout with session:', sessionId);
     } catch (error) {
-      console.error('Error creating checkout:', error);
+      if (import.meta.env.DEV) console.error('Error creating checkout:', error);
       toast.error('Failed to start checkout. Please try again.');
     } finally {
       setLoading(false);

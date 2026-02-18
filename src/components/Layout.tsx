@@ -104,7 +104,7 @@ export function Layout({ children, settings }: LayoutProps) {
       toast.success(t('logout.success'));
       window.location.href = '/';
     } catch (err) {
-      console.error('Logout error:', err);
+      if (import.meta.env.DEV) console.error('Logout error:', err);
       toast.error('Error al cerrar sesión');
       window.location.href = '/';
     }
