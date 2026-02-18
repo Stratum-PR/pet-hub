@@ -28,31 +28,18 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     // Skip auth redirects for public demo / Pet Esthetic routes
     if (isPublicBusinessRoute) return;
 
-    console.log('[ProtectedRoute] effect', {
-      path: location.pathname,
-      loading,
-      hasUser: !!user,
-      isAdmin,
-      requireAdmin,
-    });
-
-    // CRITICAL: Wait for loading to complete before making any redirect decisions
-    if (loading) {
-      console.log('[ProtectedRoute] Still loading auth, waiting...');
-      return;
+    if (import.meta.env.DEV) {
+      console.log('[ProtectedRoute] effect', { path: location.pathname, loading, hasUser: !!user, isAdmin, requireAdmin });
     }
+
+    if (loading) return;
 
     // Not logged in → force to login
     // IMPORTANT: Do NOT auto-redirect; just let the UI render a message.
     // Auto-redirects combined with async auth hydration can cause loops.
 
-    // Logged in but needs admin → block IMMEDIATELY
     if (requireAdmin && !isAdmin) {
-      console.warn('[ProtectedRoute] SECURITY: Admin route accessed by non-admin user', {
-        path: location.pathname,
-        userId: user?.id,
-        isAdmin,
-      });
+      if (import.meta.env.DEV) console.warn('[ProtectedRoute] Admin route accessed by non-admin', location.pathname);
       navigate('/', { replace: true });
       return;
     }
@@ -96,14 +83,13 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
-          console.error('[ProtectedRoute] Error checking session:', error);
+          if (import.meta.env.DEV) console.error('[ProtectedRoute] Error checking session:', error);
           setHasSession(false);
           setSessionChecked(true);
           return;
         }
         
         if (session?.user) {
-          console.log('[ProtectedRoute] Found session on re-check, waiting for AuthContext to hydrate');
           setHasSession(true);
           // Wait a bit for AuthContext to catch up (max 2 seconds)
           setTimeout(() => {
@@ -114,7 +100,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           setSessionChecked(true);
         }
       } catch (err) {
-        console.error('[ProtectedRoute] Exception checking session:', err);
+        if (import.meta.env.DEV) console.error('[ProtectedRoute] Exception checking session:', err);
         setHasSession(false);
         setSessionChecked(true);
       }
@@ -134,8 +120,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       return (
         <PostLoginLoading
           onTimeout={() => {
-            // After 10 seconds, render anyway
-            console.warn('[ProtectedRoute] Loading timeout reached, rendering dashboard');
+            if (import.meta.env.DEV) console.warn('[ProtectedRoute] Loading timeout reached');
           }}
           timeoutMs={10000}
         />
@@ -174,13 +159,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       </div>
     );
   }
-  // CRITICAL SECURITY: Never render admin routes for non-admin users
   if (requireAdmin && !isAdmin) {
-    console.warn('[ProtectedRoute] SECURITY: Blocked admin route render', {
-      path: location.pathname,
-      userId: user?.id,
-      isAdmin,
-    });
+    if (import.meta.env.DEV) console.warn('[ProtectedRoute] Blocked admin route render', location.pathname);
     return (
       <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
         <h2 style={{ color: '#dc2626', marginBottom: 8 }}>Access Denied</h2>

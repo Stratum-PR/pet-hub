@@ -56,7 +56,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/app" className="flex items-center gap-2">
             <div className="w-[140px] h-[50px] flex items-center justify-center overflow-hidden bg-transparent -my-2">
-              <img src="/stratum hub logo.svg" alt="Stratum Hub" className="w-full h-full object-contain" />
+              <img src="/pet-hub-logo.svg" alt="Pet Hub" className="w-full h-full object-contain" />
             </div>
             {business && (
               <span className="text-xl font-semibold tracking-tight">

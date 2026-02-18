@@ -14,7 +14,7 @@ const PRICING_PLANS = [
     price: 29,
     description: 'Perfect for small grooming businesses',
     features: [
-      'Up to 100 customers',
+      'Up to 100 clients',
       'Unlimited appointments',
       'Basic reporting',
       'Email support',
@@ -28,7 +28,7 @@ const PRICING_PLANS = [
     price: 79,
     description: 'Ideal for growing businesses',
     features: [
-      'Unlimited customers',
+      'Unlimited clients',
       'Unlimited appointments',
       'Advanced analytics',
       'Priority support',
@@ -127,8 +127,8 @@ export function Pricing() {
       {/* Navigation */}
       <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <img src="/stratum hub logo.svg" alt="Stratum Hub" className="h-10" />
-          <span className="text-xl font-semibold">Stratum Hub</span>
+          <img src="/pet-hub-logo.svg" alt="Pet Hub" className="h-10" />
+          <span className="text-xl font-semibold">Pet Hub</span>
         </Link>
         <div className="flex items-center gap-4">
           <Link to="/login">

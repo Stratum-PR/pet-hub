@@ -910,14 +910,17 @@ export interface Settings {
   business_hours: string;
   primary_color: string;
   secondary_color: string;
+  /** Global default low-stock threshold (number). Used when product has no per-product reorder_level. */
+  default_low_stock_threshold: string;
 }
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>({
-    business_name: 'Stratum Hub',
+    business_name: 'Pet Hub',
     business_hours: '9:00 AM - 6:00 PM',
     primary_color: '168 60% 45%',
     secondary_color: '200 55% 55%',
+    default_low_stock_threshold: '5',
   });
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
@@ -962,18 +965,20 @@ export function useSettings() {
         settingsMap[item.key] = item.value;
       });
       setSettings({
-        business_name: business?.name || settingsMap.business_name || 'Stratum Hub',
+        business_name: business?.name || settingsMap.business_name || 'Pet Hub',
         business_hours: settingsMap.business_hours || '9:00 AM - 6:00 PM',
         primary_color: settingsMap.primary_color || '168 60% 45%',
         secondary_color: settingsMap.secondary_color || '200 55% 55%',
+        default_low_stock_threshold: settingsMap.default_low_stock_threshold ?? '5',
       });
     } else if (!businessError && business) {
       // If no settings but business exists, use business name
       setSettings({
-        business_name: business.name || 'Stratum Hub',
+        business_name: business.name || 'Pet Hub',
         business_hours: '9:00 AM - 6:00 PM',
         primary_color: '168 60% 45%',
         secondary_color: '200 55% 55%',
+        default_low_stock_threshold: '5',
       });
     }
     setLoading(false);
@@ -1047,18 +1052,14 @@ export function useSettings() {
     return true;
   };
 
-  const saveAllSettings = async (newSettings: Settings) => {
+  const saveAllSettings = async (newSettings: Partial<Settings>) => {
     if (!businessId) return false;
 
-    const updates = [
-      updateSetting('business_name', newSettings.business_name),
-      updateSetting('business_hours', newSettings.business_hours),
-      updateSetting('primary_color', newSettings.primary_color),
-      updateSetting('secondary_color', newSettings.secondary_color),
-    ];
-    
-    const results = await Promise.all(updates);
-    return results.every(r => r);
+    const keys = (['business_name', 'business_hours', 'primary_color', 'secondary_color', 'default_low_stock_threshold'] as const).filter(
+      (k) => newSettings[k] !== undefined && newSettings[k] !== ''
+    );
+    const results = await Promise.all(keys.map((k) => updateSetting(k, String(newSettings[k]))));
+    return results.every((r) => r);
   };
 
   return { settings, loading, updateSetting, saveAllSettings, refetch: fetchSettings };

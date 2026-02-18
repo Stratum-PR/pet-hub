@@ -1,151 +1,119 @@
 import { useState, useMemo } from 'react';
-import { Plus, X, Edit, Trash2, Package, Scan, Search, Check } from 'lucide-react';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Package,
+  Scan,
+  LayoutGrid,
+  List,
+  AlertTriangle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Card, CardContent } from '@/components/ui/card';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Product } from '@/types/inventory';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { SearchFilter } from '@/components/SearchFilter';
+import { InventoryProductForm } from '@/components/InventoryProductForm';
+import { InventoryProductDetailModal } from '@/components/InventoryProductDetailModal';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 
+type ViewMode = 'tile' | 'list';
+
 interface InventoryProps {
   products: Product[];
-  onAddProduct: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => void;
+  /** Global default low-stock threshold (used when product has no reorder_level). Default 5. */
+  defaultLowStockThreshold?: number;
+  onAddProduct: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => Promise<Product | null>;
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
+  stockMovements?: { product_id: string; quantity: number; movement_type: string; supplier?: string | null; created_at: string }[];
+  onUploadProductPhoto?: (productId: string, file: File) => Promise<string | null>;
 }
 
-export function Inventory({ products, onAddProduct, onUpdateProduct, onDeleteProduct }: InventoryProps) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+export function Inventory({
+  products,
+  defaultLowStockThreshold = 5,
+  onAddProduct,
+  onUpdateProduct,
+  onDeleteProduct,
+  stockMovements = [],
+  onUploadProductPhoto,
+}: InventoryProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchTerm, setSearchTerm] = useState('');
-  const [scanning, setScanning] = useState(false);
-  const [scannedCode, setScannedCode] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'in_stock'>('all');
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [productRegistryOpen, setProductRegistryOpen] = useState(false);
-  const [productSearchQuery, setProductSearchQuery] = useState('');
-
-  const [formData, setFormData] = useState({
-    name: '',
-    sku: '',
-    barcode: '',
-    price: 0,
-    quantity: 0,
-    supplier: '',
-    category: '',
-    description: '',
-    cost: 0,
-    reorder_level: 0,
-    notes: '',
-  });
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) return products;
-    const term = searchTerm.toLowerCase();
-    return products.filter(product =>
-      product.name.toLowerCase().includes(term) ||
-      product.sku.toLowerCase().includes(term) ||
-      product.barcode?.toLowerCase().includes(term) ||
-      product.category?.toLowerCase().includes(term) ||
-      product.supplier?.toLowerCase().includes(term)
-    );
-  }, [products, searchTerm]);
-
-  const filteredRegistryProducts = useMemo(() => {
-    if (!productSearchQuery) return products;
-    const query = productSearchQuery.toLowerCase();
-    return products.filter(product =>
-      product.name.toLowerCase().includes(query) ||
-      product.sku.toLowerCase().includes(query) ||
-      product.barcode?.toLowerCase().includes(query)
-    );
-  }, [products, productSearchQuery]);
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      sku: '',
-      barcode: '',
-      price: 0,
-      quantity: 0,
-      supplier: '',
-      category: '',
-      description: '',
-      cost: 0,
-      reorder_level: 0,
-      notes: '',
-    });
-    setSelectedProductId(null);
-    setProductSearchQuery('');
-  };
-
-  const handleSelectProduct = (productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (product) {
-      setSelectedProductId(productId);
-      setFormData({
-        name: product.name,
-        sku: product.sku,
-        barcode: product.barcode || '',
-        price: product.price,
-        quantity: product.quantity,
-        supplier: product.supplier || '',
-        category: product.category || '',
-        description: product.description || '',
-        cost: product.cost || 0,
-        reorder_level: product.reorder_level || 0,
-        notes: product.notes || '',
-      });
-      setProductRegistryOpen(false);
+    let list = products;
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(term) ||
+          p.sku.toLowerCase().includes(term) ||
+          (p.barcode && p.barcode.toLowerCase().includes(term)) ||
+          (p.category && p.category.toLowerCase().includes(term)) ||
+          (p.supplier && p.supplier.toLowerCase().includes(term))
+      );
     }
-  };
-
-  const handleAddNewProduct = () => {
-    setSelectedProductId(null);
-    resetForm();
-    setProductRegistryOpen(false);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingProduct) {
-      onUpdateProduct(editingProduct.id, formData);
-      setEditingProduct(null);
-    } else {
-      onAddProduct(formData);
+    if (stockFilter === 'low') {
+      list = list.filter((p) => p.reorder_level != null && p.quantity <= p.reorder_level);
+    } else if (stockFilter === 'in_stock') {
+      list = list.filter((p) => p.reorder_level == null || p.quantity > p.reorder_level);
     }
-    resetForm();
-    setShowForm(false);
-  };
+    return list;
+  }, [products, searchTerm, stockFilter]);
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
-    setFormData({
-      name: product.name,
-      sku: product.sku,
-      barcode: product.barcode || '',
-      price: product.price,
-      quantity: product.quantity,
-      supplier: product.supplier || '',
-      category: product.category || '',
-      description: product.description || '',
-      cost: product.cost || 0,
-        reorder_level: product.reorder_level || 0,
-        notes: product.notes || '',
-    });
-    setShowForm(true);
+    setFormOpen(true);
   };
 
-  const handleCancel = () => {
-    setShowForm(false);
+  const handleAddProduct = () => {
     setEditingProduct(null);
-    resetForm();
+    setFormOpen(true);
+  };
+
+  const handleSaveNew = async (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>, photoFile?: File) => {
+    const created = await onAddProduct(data);
+    if (created && photoFile && onUploadProductPhoto) {
+      const url = await onUploadProductPhoto(created.id, photoFile);
+      if (url) onUpdateProduct(created.id, { photo_url: url });
+    }
+    setFormOpen(false);
+  };
+
+  const handleSaveUpdate = (id: string, data: Partial<Product>, photoFile?: File) => {
+    onUpdateProduct(id, data);
+    if (photoFile && onUploadProductPhoto) {
+      onUploadProductPhoto(id, photoFile).then((url) => {
+        if (url) onUpdateProduct(id, { photo_url: url });
+      });
+    }
+    setFormOpen(false);
+    setEditingProduct(null);
   };
 
   const handleDeleteClick = (id: string) => {
@@ -161,380 +129,281 @@ export function Inventory({ products, onAddProduct, onUpdateProduct, onDeletePro
     setDeleteDialogOpen(false);
   };
 
-  const handleScan = () => {
-    setScanning(true);
-    // In a real implementation, this would use a barcode/QR scanner library
-    // For now, we'll use a manual input approach
-    const code = prompt('Enter barcode/QR code:');
-    if (code) {
-      setScannedCode(code);
-      setFormData({ ...formData, barcode: code });
-      setScanning(false);
-    } else {
-      setScanning(false);
-    }
+  const thresholdFor = (p: Product) => {
+    if (p.reorder_level != null && p.reorder_level >= 0) return p.reorder_level;
+    return defaultLowStockThreshold;
   };
+  const isLowStock = (p: Product) => p.quantity <= thresholdFor(p);
 
-  const handleBarcodeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const code = e.target.value;
-    setScannedCode(code);
-    setFormData({ ...formData, barcode: code });
+  const handleGenerateBarcode = (p: Product) => {
+    const code = `PH-${p.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+    onUpdateProduct(p.id, { barcode: code });
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t('inventory.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('inventory.description')}
-          </p>
+          <p className="text-muted-foreground mt-1">{t('inventory.description')}</p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleScan}
-            className="flex items-center gap-2"
-          >
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2" title={t('inventory.scanBarcode')}>
             <Scan className="w-4 h-4" />
-            {t('inventory.scanBarcode')}
+            <span className="hidden sm:inline">{t('inventory.scanBarcode')}</span>
           </Button>
-          <Button
-            onClick={() => {
-              setEditingProduct(null);
-              resetForm();
-              setShowForm(!showForm);
-            }}
-            className="shadow-sm flex items-center gap-2"
-          >
-            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showForm ? t('common.cancel') : t('inventory.addProduct')}
+          <Button onClick={handleAddProduct} className="gap-2 shadow-sm">
+            <Plus className="w-4 h-4" />
+            {t('inventory.addProduct')}
           </Button>
         </div>
       </div>
 
-      {showForm && (
-        <Card className="shadow-sm animate-fade-in">
-          <CardHeader>
-            <CardTitle>{editingProduct ? t('inventory.editProduct') : t('inventory.addProduct')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!editingProduct && (
-                <div className="space-y-2">
-                  <Label>Product Registry</Label>
-                  <Popover open={productRegistryOpen} onOpenChange={setProductRegistryOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between"
-                      >
-                        {selectedProductId
-                          ? products.find(p => p.id === selectedProductId)?.name || 'Select product...'
-                          : 'Search or select from product registry...'}
-                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0" align="start">
-                      <Command>
-                        <CommandInput 
-                          placeholder="Search products..." 
-                          value={productSearchQuery}
-                          onValueChange={setProductSearchQuery}
-                        />
-                        <CommandList>
-                          <CommandEmpty>
-                            <div className="py-4 text-center text-sm">
-                              <p className="mb-2">No product found in registry.</p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleAddNewProduct}
-                                className="mt-2"
-                              >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add New Product to Registry
-                              </Button>
+      <div className="space-y-4">
+          {/* Search, filters, view toggle */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex-1">
+              <SearchFilter
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                placeholder={t('inventory.searchPlaceholder')}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={stockFilter} onValueChange={(v: any) => setStockFilter(v)}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('inventory.stockFilterAll')}</SelectItem>
+                  <SelectItem value="low">{t('inventory.stockFilterLow')}</SelectItem>
+                  <SelectItem value="in_stock">{t('inventory.stockFilterInStock')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <ToggleGroup
+                type="single"
+                value={viewMode}
+                onValueChange={(v) => v && setViewMode(v as ViewMode)}
+                className="border rounded-md p-0.5"
+              >
+                <ToggleGroupItem value="tile" aria-label={t('inventory.tileView')}>
+                  <LayoutGrid className="w-4 h-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem value="list" aria-label={t('inventory.listView')}>
+                  <List className="w-4 h-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          </div>
+
+          {/* Product grid or list */}
+          {viewMode === 'tile' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredProducts.map((product) => {
+                const low = isLowStock(product);
+                return (
+                  <Card
+                    key={product.id}
+                    className="shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group cursor-pointer"
+                    onClick={() => setDetailProduct(product)}
+                  >
+                    <CardContent className="p-0">
+                      <div className="aspect-square bg-muted/50 relative flex items-center justify-center">
+                        {product.photo_url ? (
+                          <img
+                            src={product.photo_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Package className="w-12 h-12 text-muted-foreground" />
+                        )}
+                        {low && (
+                          <Badge
+                            variant="destructive"
+                            className="absolute top-2 right-2 gap-1 text-xs"
+                          >
+                            <AlertTriangle className="w-3 h-3" />
+                            {t('inventory.lowStock')}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold truncate">{product.name}</h3>
+                            <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEdit(product)}>
+                                  {t('inventory.editProduct')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => handleDeleteClick(product.id)}
+                                >
+                                  {t('common.delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn('w-2 h-2 rounded-full shrink-0', low ? 'bg-destructive' : 'bg-green-500')} aria-hidden />
+                            <span className="text-muted-foreground">{t('inventory.stock')}: </span>
+                            <span className={cn('font-medium', low && 'text-destructive')}>
+                              {product.quantity}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-muted-foreground">{t('inventory.costPrice')}: </span>
+                            <span>${(product.cost ?? 0).toFixed(2)}</span>
+                            <span className="text-muted-foreground ml-1">{t('inventory.salePrice')}: </span>
+                            <span className="font-medium">${product.price.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left p-3 text-sm font-medium">{t('inventory.productName')}</th>
+                      <th className="text-left p-3 text-sm font-medium">{t('inventory.sku')}</th>
+                      <th className="text-left p-3 text-sm font-medium">{t('inventory.stock')}</th>
+                      <th className="text-left p-3 text-sm font-medium">{t('inventory.costPrice')}</th>
+                      <th className="text-left p-3 text-sm font-medium">{t('inventory.salePrice')}</th>
+                      <th className="w-20 p-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProducts.map((product) => {
+                      const low = isLowStock(product);
+                      return (
+                        <tr
+                          key={product.id}
+                          className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                          onClick={() => setDetailProduct(product)}
+                        >
+                          <td className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                {product.photo_url ? (
+                                  <img
+                                    src={product.photo_url}
+                                    alt=""
+                                    className="w-10 h-10 rounded-lg object-cover"
+                                  />
+                                ) : (
+                                  <Package className="w-5 h-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-medium">{product.name}</span>
+                                {low && (
+                                  <Badge variant="destructive" className="ml-2 text-xs">
+                                    {t('inventory.lowStock')}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {filteredRegistryProducts.map((product) => (
-                              <CommandItem
-                                key={product.id}
-                                value={product.id}
-                                onSelect={() => handleSelectProduct(product.id)}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedProductId === product.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                <div className="flex-1">
-                                  <div className="font-medium">{product.name}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    SKU: {product.sku} {product.category && `• ${product.category}`}
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                            <CommandItem
-                              value="__add_new__"
-                              onSelect={handleAddNewProduct}
-                              className="border-t border-border mt-1 pt-2"
-                            >
-                              <Plus className="mr-2 h-4 w-4" />
-                              <span className="font-medium">Add New Product to Registry</span>
-                            </CommandItem>
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  {selectedProductId && (
-                    <p className="text-sm text-muted-foreground">
-                      Editing existing product. Modify details below and save to update.
-                    </p>
-                  )}
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Product Name *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder="Dog Shampoo"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>SKU *</Label>
-                  <Input
-                    value={formData.sku}
-                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                    required
-                    placeholder="DS-001"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Barcode/QR Code</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={formData.barcode}
-                      onChange={handleBarcodeInput}
-                      placeholder="Scan or enter barcode"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleScan}
-                      className="flex items-center gap-2"
-                    >
-                      <Scan className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Input
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="Shampoo, Food, Toys, etc."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Supplier</Label>
-                  <Input
-                    value={formData.supplier}
-                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                    placeholder="Supplier name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Quantity *</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cost Price ($)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.cost}
-                    onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Sale Price ($) *</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                    required
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Reorder Level</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.reorder_level}
-                    onChange={(e) => setFormData({ ...formData, reorder_level: Number(e.target.value) })}
-                    placeholder="Minimum stock level"
-                  />
-                </div>
+                          </td>
+                          <td className="p-3 text-muted-foreground font-mono text-sm">{product.sku}</td>
+                          <td className="p-3">
+                            <span className="flex items-center gap-1.5">
+                              <span className={cn('w-2 h-2 rounded-full shrink-0', low ? 'bg-destructive' : 'bg-green-500')} aria-hidden />
+                              <span className={cn('font-medium', low && 'text-destructive')}>
+                                {product.quantity}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="p-3">${(product.cost ?? 0).toFixed(2)}</td>
+                          <td className="p-3 font-medium">${product.price.toFixed(2)}</td>
+                          <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEdit(product)}>
+                                  {t('inventory.editProduct')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => handleDeleteClick(product.id)}
+                                >
+                                  {t('common.delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full min-h-[100px] px-3 py-2 text-sm border border-input rounded-md bg-background"
-                  placeholder="Product description..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Internal Notes</Label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full min-h-[80px] px-3 py-2 text-sm border border-input rounded-md bg-background"
-                  placeholder="Internal notes (not visible to customers)..."
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="shadow-sm">
-                  {editingProduct ? t('common.edit') + ' ' + t('inventory.title') : t('inventory.addProduct')}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  {t('common.cancel')}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+            </Card>
+          )}
 
-      <SearchFilter
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        placeholder="Search products by name, SKU, barcode, category, or supplier..."
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredProducts.map((product) => {
-          const isLowStock = product.reorder_level && product.quantity <= product.reorder_level;
-          return (
-            <Card key={product.id} className="shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-accent flex items-center justify-center rounded-lg">
-                      <Package className="w-5 h-5 text-accent-foreground" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{product.name}</h3>
-                      <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(product)}
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteClick(product.id)}
-                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm">
-                  {product.barcode && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Scan className="w-4 h-4" />
-                      <span className="font-mono">{product.barcode}</span>
-                    </div>
-                  )}
-                  {product.category && (
-                    <div className="text-muted-foreground">
-                      Category: {product.category}
-                    </div>
-                  )}
-                  {product.supplier && (
-                    <div className="text-muted-foreground">
-                      Supplier: {product.supplier}
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between pt-2">
-                    <div>
-                      <p className="text-muted-foreground">Quantity</p>
-                      <p className={`text-lg font-semibold ${isLowStock ? 'text-destructive' : ''}`}>
-                        {product.quantity}
-                        {isLowStock && <span className="text-xs ml-1">(Low Stock)</span>}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Price</p>
-                      <p className="text-lg font-semibold">${product.price.toFixed(2)}</p>
-                    </div>
-                  </div>
-                  {product.description && (
-                    <div className="pt-2 border-t border-border">
-                      <p className="text-sm text-muted-foreground line-clamp-2">{product.description}</p>
-                  </div>
-                  )}
-                  {product.notes && (
-                    <div className="pt-2 border-t border-dashed border-border mt-2">
-                      <p className="text-xs text-muted-foreground italic line-clamp-2">
-                        Notes: {product.notes}
-                      </p>
-                    </div>
-                  )}
-                </div>
+          {filteredProducts.length === 0 && (
+            <Card className="border-dashed">
+              <CardContent className="p-12 text-center">
+                <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  {searchTerm || stockFilter !== 'all'
+                    ? t('inventory.noResults')
+                    : t('inventory.emptyState')}
+                </p>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
+          )}
+        </div>
 
-      {filteredProducts.length === 0 && (
-        <Card className="border-dashed">
-          <CardContent className="p-12 text-center">
-            <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
-              {searchTerm ? 'No products found matching your search.' : 'No products yet. Add your first product above!'}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <InventoryProductForm
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) setEditingProduct(null);
+        }}
+        product={editingProduct}
+        products={products}
+        onSave={handleSaveNew}
+        onUpdate={handleSaveUpdate}
+      />
+
+      <InventoryProductDetailModal
+        product={detailProduct}
+        open={!!detailProduct}
+        onOpenChange={(open) => !open && setDetailProduct(null)}
+        stockMovements={stockMovements}
+        isLowStock={isLowStock}
+        onGenerateBarcode={handleGenerateBarcode}
+      />
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        title="Delete Product?"
-        description="This will permanently delete this product. This action cannot be undone."
+        title={t('inventory.deleteTitle')}
+        description={t('inventory.deleteDescription')}
       />
     </div>
   );

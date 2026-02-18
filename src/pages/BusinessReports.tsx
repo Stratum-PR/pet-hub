@@ -12,7 +12,7 @@ export function BusinessReports() {
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalAppointments: 0,
-    totalCustomers: 0,
+    totalClients: 0,
     totalPets: 0,
   });
   const [revenueData, setRevenueData] = useState<any[]>([]);
@@ -137,7 +137,7 @@ export function BusinessReports() {
       setStats({
         totalRevenue,
         totalAppointments: appointmentsCount || 0,
-        totalCustomers: clientsCount || 0,
+        totalClients: clientsCount || 0,
         totalPets: pets?.length || 0,
       });
       setRevenueData(last7Days);
@@ -194,11 +194,11 @@ export function BusinessReports() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t('reports.totalCustomers')}
+              {t('reports.totalClients')}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCustomers}</div>
+            <div className="text-2xl font-bold">{stats.totalClients}</div>
           </CardContent>
         </Card>
         <Card>

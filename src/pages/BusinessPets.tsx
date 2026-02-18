@@ -86,7 +86,7 @@ export function BusinessPets() {
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Error al guardar la mascota. Por favor intenta de nuevo.',
+        description: t('common.genericError') || t('pets.saveError'),
         variant: 'destructive',
       });
     }

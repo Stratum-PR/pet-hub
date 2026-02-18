@@ -5,6 +5,7 @@ export interface Profile {
   id: string;
   email: string;
   full_name: string | null;
+  avatar_url: string | null;
   is_super_admin: boolean;
   business_id: string | null;
   role?: 'super_admin' | 'manager' | 'employee' | 'client';
@@ -180,11 +181,13 @@ export async function signOut() {
   try {
     // Best-effort sign out; don't let failures block UI navigation
     const { error } = await supabase.auth.signOut();
-    if (error) {
+    if (error && typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
       console.error('[Auth] signOut error:', error);
     }
   } catch (err) {
-    console.error('[Auth] signOut unexpected error:', err);
+    if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+      console.error('[Auth] signOut unexpected error:', err);
+    }
   }
 
   // Clear all session-scoped routing/context flags

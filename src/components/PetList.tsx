@@ -68,12 +68,12 @@ export function PetList({ pets, clients, appointments, onDelete, onEdit }: PetLi
     }
   }, [safeAppointments.length]);
 
-  const handleOwnerClick = (customerId: string) => {
+  const handleOwnerClick = (clientId: string) => {
     // Use highlight parameter for consistent navigation pattern
     if (businessSlug) {
-      navigate(`/${businessSlug}/clients?highlight=${customerId}`);
+      navigate(`/${businessSlug}/clients?highlight=${clientId}`);
     } else {
-      navigate(`/clients?highlight=${customerId}`);
+      navigate(`/clients?highlight=${clientId}`);
     }
   };
 

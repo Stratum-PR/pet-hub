@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +29,10 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState<'success' | 'too_many' | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAdmin, loading: authLoading, refreshAuth } = useAuth();
@@ -39,7 +51,7 @@ export function Login() {
       .maybeSingle();
 
     if (profileErr) {
-      console.error('[Login] profile lookup error:', profileErr);
+      if (import.meta.env.DEV) console.error('[Login] profile lookup error:', profileErr);
       return '/login';
     }
 
@@ -91,12 +103,11 @@ export function Login() {
         );
         const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
         if (!error) {
-          console.log('[Login] signInWithPassword success', data);
           return true;
         }
-        console.warn('[Login] signInWithPassword failed/timeout, falling back to REST:', error);
+        if (import.meta.env.DEV) console.warn('[Login] signInWithPassword failed, falling back to REST:', error);
       } catch (err) {
-        console.warn('[Login] signInWithPassword threw, falling back to REST:', err);
+        if (import.meta.env.DEV) console.warn('[Login] signInWithPassword threw, falling back to REST:', err);
       }
 
       const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
@@ -115,7 +126,7 @@ export function Login() {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
-        console.error('[Login] REST auth error', { status: response.status, errorBody });
+        if (import.meta.env.DEV) console.error('[Login] REST auth error', response.status, errorBody);
         const message =
           errorBody?.error_description ||
           errorBody?.msg ||
@@ -126,7 +137,7 @@ export function Login() {
       }
 
       const json = await response.json();
-      console.log('[Login] REST auth success', json);
+      if (import.meta.env.DEV) console.log('[Login] REST auth success');
 
       const { access_token, refresh_token, user } = json;
 
@@ -143,19 +154,19 @@ export function Login() {
       );
       const { data, error } = await Promise.race([setSessionPromise, timeoutPromise]);
       if (error) {
-        console.warn('[Login] setSession did not confirm in time:', error);
+        if (import.meta.env.DEV) console.warn('[Login] setSession did not confirm in time:', error);
         toast.error('No se pudo persistir la sesión. Intenta de nuevo.');
         return false;
       }
-      console.log('[Login] setSession success', data);
+      if (import.meta.env.DEV) console.log('[Login] setSession success');
       
       // Wait a moment for Supabase to fully persist the session before redirect
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       return true;
     } catch (err: any) {
-      console.error('[Login] passwordLogin unexpected error', err);
-      toast.error(err?.message || 'Unexpected error during login.');
+      if (import.meta.env.DEV) console.error('[Login] passwordLogin unexpected error', err);
+      toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
       return false;
     }
   };
@@ -167,14 +178,58 @@ export function Login() {
   const handleDemoLogin = async () => {
     setLoading(true);
     try {
-      console.log('[Login] demo start (no-auth mode)');
+      if (import.meta.env.DEV) console.log('[Login] demo start');
       // Limpia cualquier contexto previo y activa modo demo
       clearAuthContext();
       setDemoMode(true);
-      toast.success('Bienvenido al demo de Stratum Hub');
+      toast.success('Bienvenido al demo de Pet Hub');
       navigate('/demo/dashboard', { replace: true });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotMessage(null);
+    if (!forgotEmail.trim()) return;
+    setForgotLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('rate-limited-reset-password', {
+        body: { email: forgotEmail.trim().toLowerCase() },
+      });
+      const isTooMany =
+        (data as { error?: string })?.error === 'too_many_requests' ||
+        (data as { error?: string })?.error?.includes('Too many');
+      if (error && (error as { status?: number }).status === 429) {
+        setForgotMessage('too_many');
+        setForgotLoading(false);
+        return;
+      }
+      if (isTooMany) {
+        setForgotMessage('too_many');
+        setForgotLoading(false);
+        return;
+      }
+      if (error) throw error;
+      const err = (data as { error?: string })?.error;
+      const msg = (data as { message?: string })?.message;
+      if (err) {
+        toast.error(err);
+        setForgotLoading(false);
+        return;
+      }
+      setForgotMessage('success');
+      if (msg) toast.success(msg);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('429') || message.includes('too many')) {
+        setForgotMessage('too_many');
+      } else {
+        toast.error(message || 'Failed to send reset email');
+      }
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -183,7 +238,7 @@ export function Login() {
     setLoading(true);
 
     try {
-      console.log('[Login] handleLogin start', { email });
+        if (import.meta.env.DEV) console.log('[Login] handleLogin start');
 
       // Normal login should NEVER inherit demo flags
       setDemoMode(false);
@@ -194,12 +249,12 @@ export function Login() {
         await refreshAuth();
         toast.success('Signed in successfully');
         const destination = await getRedirectForAuthenticatedUser();
-        console.log('[Login] Redirecting to:', destination);
+        if (import.meta.env.DEV) console.log('[Login] Redirecting to', destination);
         navigate(destination, { replace: true });
       }
     } catch (error: any) {
-      console.error('[Login] Unexpected error:', error);
-      toast.error(error.message || 'Unexpected error during sign in.');
+      if (import.meta.env.DEV) console.error('[Login] Unexpected error:', error);
+      toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -217,7 +272,7 @@ export function Login() {
               className="flex justify-center mb-4 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
               onClick={() => navigate('/')}
             >
-              <img src="/stratum hub logo.svg" alt="Stratum Hub" className="h-12" />
+              <img src="/pet-hub-logo.svg" alt="Pet Hub" className="h-12" />
             </div>
           <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
           <CardDescription>{t('login.subtitle')}</CardDescription>
@@ -237,7 +292,41 @@ export function Login() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">{t('login.password')}</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">{t('login.password')}</Label>
+                  <Dialog open={forgotOpen} onOpenChange={(open) => { setForgotOpen(open); setForgotMessage(null); setForgotEmail(''); }}>
+                    <DialogTrigger asChild>
+                      <button type="button" className="text-sm text-primary hover:underline">
+                        {t('login.forgotPassword')}
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>{t('login.resetPasswordTitle')}</DialogTitle>
+                        <DialogDescription>{t('login.resetPasswordHint')}</DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleForgotPassword} className="space-y-4 mt-2">
+                        <Input
+                          type="email"
+                          placeholder="you@example.com"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          required
+                          autoComplete="email"
+                        />
+                        {forgotMessage === 'too_many' && (
+                          <p className="text-sm text-destructive">{t('login.resetPasswordTooMany')}</p>
+                        )}
+                        {forgotMessage === 'success' && (
+                          <p className="text-sm text-green-600 dark:text-green-400">{t('login.resetPasswordSuccess')}</p>
+                        )}
+                        <Button type="submit" disabled={forgotLoading} className="w-full">
+                          {forgotLoading ? t('login.signingIn') : t('login.resetPasswordTitle')}
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 <Input
                   id="password"
                   type="password"

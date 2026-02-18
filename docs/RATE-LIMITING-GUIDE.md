@@ -20,7 +20,7 @@ When a user hits a limit, they see a clear message (see “User-facing messages�
 
 1. Go to [console.upstash.com](https://console.upstash.com) and sign up (or log in).
 2. Click **Create Database**.
-3. Name it (e.g. `stratum-rate-limit`), pick a region close to your users, click **Create**.
+3. Name it (e.g. `pet-hub-rate-limit`), pick a region close to your users, click **Create**.
 4. Open the database → **REST API**.
 5. Copy:
    - **UPSTASH_REDIS_REST_URL**
@@ -129,7 +129,7 @@ Or with explicit URL and request count:
 node scripts/test-rate-limit.js https://your-production-site.vercel.app 105
 ```
 
-The script fetches your site repeatedly. After 100 requests in the current window, the next request should return **429**. The script prints when it gets 429 and exits. Use your real Vercel URL (e.g. `https://stratum-hub.vercel.app`).
+The script fetches your site repeatedly. After 100 requests in the current window, the next request should return **429**. The script prints when it gets 429 and exits. Use your real Vercel URL (e.g. `https://pet-hub.vercel.app`).
 
 **Option 2 – Manual**  
 Open your site in a browser, then open DevTools → Console and run:

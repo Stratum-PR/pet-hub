@@ -20,65 +20,79 @@ function uuidv4(): string {
   return `${s4()}${s4()}-${s4()}-4${s4().slice(1)}-${((8 + Math.random() * 4) | 0).toString(16)}${s4().slice(1)}-${s4()}${s4()}${s4()}`;
 }
 
+function mapRowToProduct(row: any): Product {
+  return {
+    id: row.id,
+    name: row.product_name,
+    sku: row.sku,
+    barcode: row.barcode || '',
+    price: Number(row.retail_price ?? 0),
+    quantity: Number(row.quantity_on_hand ?? 0),
+    supplier: row.supplier || '',
+    category: row.category || '',
+    description: row.description || '',
+    cost: row.cost_price ? Number(row.cost_price) : 0,
+    reorder_level: row.reorder_level ? Number(row.reorder_level) : 0,
+    notes: row.notes || '',
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    folder_id: row.folder_id ?? null,
+    photo_url: row.photo_url ?? null,
+    custom_fields: row.custom_fields && typeof row.custom_fields === 'object' ? row.custom_fields : undefined,
+  };
+}
+
+export interface StockMovementRow {
+  id: string;
+  product_id: string;
+  quantity: number;
+  movement_type: string;
+  supplier?: string | null;
+  created_at: string;
+}
+
 export function useInventory() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
 
+  const fetchStockMovements = async () => {
+    if (!businessId) return;
+    const { data, error } = await supabase
+      .from('inventory_stock_movements' as any)
+      .select('id, product_id, quantity, movement_type, supplier, created_at')
+      .eq('business_id', businessId)
+      .order('created_at', { ascending: false });
+    if (!error && data) setStockMovements((data as any[]) as StockMovementRow[]);
+  };
+
   const fetchProducts = async () => {
-    if (!businessId) {
-      console.warn('[useInventory] No businessId, skipping fetch');
-      setLoading(false);
-      return;
-    }
-
-    console.log('[useInventory] Fetching inventory for businessId:', businessId);
-
+    if (!businessId) return;
     const { data, error } = await supabase
       .from('inventory' as any)
       .select('*')
       .eq('business_id', businessId)
       .order('product_name', { ascending: true });
-    
     if (error) {
-      console.error('[useInventory] Error fetching inventory:', error);
       setProducts([]);
-      setLoading(false);
       return;
     }
-
-    if (data) {
-      const mapped = (data as any[]).map((row) => ({
-        id: row.id,
-        name: row.product_name,
-        sku: row.sku,
-        barcode: row.barcode || '',
-        price: Number(row.retail_price ?? 0),
-        quantity: Number(row.quantity_on_hand ?? 0),
-        supplier: row.supplier || '',
-        category: row.category || '',
-        description: row.description || '',
-        cost: row.cost_price ? Number(row.cost_price) : 0,
-        reorder_level: row.reorder_level ? Number(row.reorder_level) : 0,
-        notes: row.notes || '',
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      })) as Product[];
-      setProducts(mapped);
-    } else {
-      setProducts([]);
-    }
-    setLoading(false);
+    setProducts((data || []).map(mapRowToProduct));
   };
 
   useEffect(() => {
-    fetchProducts();
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    Promise.all([fetchProducts(), fetchStockMovements()]).finally(() => setLoading(false));
   }, [businessId]);
 
   const addProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
-
-    const payload = {
+    const payload: any = {
       business_id: businessId,
       sku: productData.sku,
       product_name: productData.name,
@@ -96,32 +110,18 @@ export function useInventory() {
       supplier: productData.supplier || null,
       notes: productData.notes || null,
       is_active: true,
+      folder_id: null,
+      photo_url: productData.photo_url ?? null,
+      custom_fields: productData.custom_fields ?? {},
     };
-
     const { data, error } = await supabase
       .from('inventory' as any)
       .insert({ id: uuidv4(), ...payload })
       .select()
       .single();
-    
     if (!error && data) {
-      const mapped: Product = {
-        id: data.id,
-        name: data.product_name,
-        sku: data.sku,
-        barcode: data.barcode || '',
-        price: Number(data.retail_price ?? 0),
-        quantity: Number(data.quantity_on_hand ?? 0),
-        supplier: data.supplier || '',
-        category: data.category || '',
-        description: data.description || '',
-        cost: data.cost_price ? Number(data.cost_price) : 0,
-        reorder_level: data.reorder_level ? Number(data.reorder_level) : 0,
-        notes: data.notes || '',
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-      setProducts([...products, mapped].sort((a, b) => a.name.localeCompare(b.name)));
+      const mapped = mapRowToProduct(data);
+      setProducts((prev) => [...prev, mapped].sort((a, b) => a.name.localeCompare(b.name)));
       return mapped;
     }
     return null;
@@ -129,11 +129,7 @@ export function useInventory() {
 
   const updateProduct = async (id: string, productData: Partial<Product>) => {
     if (!businessId) return null;
-
-    const patch: any = {
-      updated_at: new Date().toISOString(),
-    };
-
+    const patch: any = { updated_at: new Date().toISOString() };
     if (productData.name !== undefined) patch.product_name = productData.name;
     if (productData.sku !== undefined) patch.sku = productData.sku;
     if (productData.description !== undefined) patch.description = productData.description;
@@ -145,6 +141,8 @@ export function useInventory() {
     if (productData.barcode !== undefined) patch.barcode = productData.barcode;
     if (productData.supplier !== undefined) patch.supplier = productData.supplier;
     if (productData.notes !== undefined) patch.notes = productData.notes;
+    if (productData.photo_url !== undefined) patch.photo_url = productData.photo_url;
+    if (productData.custom_fields !== undefined) patch.custom_fields = productData.custom_fields;
 
     const { data, error } = await supabase
       .from('inventory' as any)
@@ -153,25 +151,9 @@ export function useInventory() {
       .eq('business_id', businessId)
       .select()
       .single();
-    
     if (!error && data) {
-      const mapped: Product = {
-        id: data.id,
-        name: data.product_name,
-        sku: data.sku,
-        barcode: data.barcode || '',
-        price: Number(data.retail_price ?? 0),
-        quantity: Number(data.quantity_on_hand ?? 0),
-        supplier: data.supplier || '',
-        category: data.category || '',
-        description: data.description || '',
-        cost: data.cost_price ? Number(data.cost_price) : 0,
-        reorder_level: data.reorder_level ? Number(data.reorder_level) : 0,
-        notes: data.notes || '',
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
-      setProducts(products.map(p => p.id === id ? mapped : p));
+      const mapped = mapRowToProduct(data);
+      setProducts((prev) => prev.map((p) => (p.id === id ? mapped : p)));
       return mapped;
     }
     return null;
@@ -179,23 +161,44 @@ export function useInventory() {
 
   const deleteProduct = async (id: string) => {
     if (!businessId) return false;
-
     const { error } = await supabase
       .from('inventory' as any)
       .delete()
       .eq('id', id)
       .eq('business_id', businessId);
-    
     if (!error) {
-      setProducts(products.filter(p => p.id !== id));
+      setProducts((prev) => prev.filter((p) => p.id !== id));
       return true;
     }
     return false;
   };
 
   const refetch = async () => {
-    await fetchProducts();
+    await Promise.all([fetchProducts(), fetchStockMovements()]);
   };
 
-  return { products, loading, addProduct, updateProduct, deleteProduct, refetch };
+  const uploadProductPhoto = async (productId: string, file: File): Promise<string | null> => {
+    if (!businessId) return null;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+    const filePath = `${businessId}/${productId}/${fileName}`;
+    const { error } = await supabase.storage.from('product-photos').upload(filePath, file, { cacheControl: '3600', upsert: false });
+    if (error) {
+      console.error('[useInventory] upload error:', error);
+      return null;
+    }
+    const { data: { publicUrl } } = supabase.storage.from('product-photos').getPublicUrl(filePath);
+    return publicUrl;
+  };
+
+  return {
+    products,
+    stockMovements,
+    loading,
+    uploadProductPhoto,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    refetch,
+  };
 }

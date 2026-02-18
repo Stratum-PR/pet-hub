@@ -18,7 +18,7 @@ export const translations: Translations = {
     es: 'Administración Hecha Simple'
   },
   'landing.heroText': {
-    en: 'Streamline your grooming business with powerful scheduling, customer management, and revenue tracking tools. Start your free trial today.',
+    en: 'Streamline your grooming business with powerful scheduling, client management, and revenue tracking tools. Start your free trial today.',
     es: 'Optimiza tu negocio de grooming con herramientas poderosas de citas, manejo de clientes y seguimiento de ingresos. Comienza tu prueba gratis hoy.'
   },
   'landing.login': {
@@ -115,6 +115,34 @@ export const translations: Translations = {
     en: 'Start your free trial',
     es: 'Comienza tu prueba gratis'
   },
+  'login.forgotPassword': {
+    en: 'Forgot password?',
+    es: '¿Olvidaste tu contraseña?'
+  },
+  'login.resetPasswordTitle': {
+    en: 'Reset password',
+    es: 'Restablecer contraseña'
+  },
+  'login.resetPasswordHint': {
+    en: 'Enter your email. We’ll send a link to reset your password. Limit: 3 requests per hour per email.',
+    es: 'Ingresa tu correo. Enviaremos un enlace para restablecer tu contraseña. Límite: 3 solicitudes por hora por correo.'
+  },
+  'login.resetPasswordSuccess': {
+    en: 'If an account exists for this email, you’ll receive a password reset link.',
+    es: 'Si existe una cuenta con este correo, recibirás un enlace para restablecer tu contraseña.'
+  },
+  'login.resetPasswordTooMany': {
+    en: 'Too many reset requests for this email. Please try again in 1 hour.',
+    es: 'Demasiadas solicitudes para este correo. Intenta de nuevo en 1 hora.'
+  },
+  'login.errorGeneric': {
+    en: 'Something went wrong. Please try again.',
+    es: 'Algo salió mal. Por favor intenta de nuevo.'
+  },
+  'login.rateLimitSite': {
+    en: 'Too many requests from your network. Please wait 1 hour, then try again.',
+    es: 'Demasiadas solicitudes desde tu red. Espera 1 hora e intenta de nuevo.'
+  },
 
   // Register page
   'register.title': {
@@ -122,8 +150,8 @@ export const translations: Translations = {
     es: 'Crea tu cuenta'
   },
   'register.subtitle': {
-    en: 'Join Stratum Hub',
-    es: 'Únete a Stratum Hub'
+    en: 'Join Pet Hub',
+    es: 'Únete a Pet Hub'
   },
   'register.userTypeQuestion': {
     en: 'Are you a business owner or a client?',
@@ -232,8 +260,8 @@ export const translations: Translations = {
     es: 'Cerrar sesión'
   },
   'logout.confirm': {
-    en: 'Are you sure you want to log out of Stratum Hub?',
-    es: '¿Seguro que quieres cerrar sesión en Stratum Hub?'
+    en: 'Are you sure you want to log out of Pet Hub?',
+    es: '¿Seguro que quieres cerrar sesión en Pet Hub?'
   },
   'logout.cancel': {
     en: 'Cancel',
@@ -283,6 +311,10 @@ export const translations: Translations = {
     en: 'Inventory',
     es: 'Inventario'
   },
+  'nav.transactions': {
+    en: 'Transactions',
+    es: 'Transacciones'
+  },
   'nav.timeTracking': {
     en: 'Time Tracking',
     es: 'Registro de Tiempo'
@@ -323,7 +355,221 @@ export const translations: Translations = {
     en: 'Personalization',
     es: 'Personalización'
   },
-  
+  'nav.apptBook': {
+    en: 'Appt Book',
+    es: 'Reservar cita'
+  },
+  'nav.support': {
+    en: 'Support',
+    es: 'Soporte'
+  },
+  'nav.settings': {
+    en: 'Settings',
+    es: 'Configuración'
+  },
+  'nav.darkMode': {
+    en: 'Dark Mode',
+    es: 'Modo oscuro'
+  },
+  'nav.notifications': {
+    en: 'Notifications',
+    es: 'Notificaciones'
+  },
+  'nav.markAllRead': {
+    en: 'Mark all read',
+    es: 'Marcar todo leído'
+  },
+  'nav.noNotifications': {
+    en: 'No notifications',
+    es: 'Sin notificaciones'
+  },
+  'nav.user': {
+    en: 'User',
+    es: 'Usuario'
+  },
+  'nav.accountSettings': {
+    en: 'Account Settings',
+    es: 'Configuración de cuenta'
+  },
+  'nav.businessSettings': {
+    en: 'Business Settings',
+    es: 'Configuración del negocio'
+  },
+  'nav.bookingSettings': {
+    en: 'Booking Settings',
+    es: 'Configuración de reservas'
+  },
+  'nav.billing': {
+    en: 'Billing',
+    es: 'Facturación'
+  },
+  'nav.subscription': {
+    en: 'Subscription',
+    es: 'Suscripción'
+  },
+  'nav.help': {
+    en: 'Help',
+    es: 'Ayuda'
+  },
+  'nav.needHelp': {
+    en: 'Need Help?',
+    es: '¿Necesitas ayuda?'
+  },
+  'nav.logOut': {
+    en: 'Log Out',
+    es: 'Cerrar sesión'
+  },
+  'settings.backToMain': {
+    en: 'Back to main',
+    es: 'Volver al inicio'
+  },
+
+  'transactions.newTransaction': { en: 'New Transaction', es: 'Nueva transacción' },
+  'transactions.customer': { en: 'Customer', es: 'Cliente' },
+  'transactions.searchCustomer': { en: 'Search customer...', es: 'Buscar cliente...' },
+  'transactions.noCustomers': { en: 'No customers found', es: 'No se encontraron clientes' },
+  'transactions.lineItems': { en: 'Line items', es: 'Líneas' },
+  'transactions.addItemsHint': { en: 'Add services or products above', es: 'Agrega servicios o productos arriba' },
+  'transactions.insufficientStock': { en: 'Insufficient stock', es: 'Stock insuficiente' },
+  'transactions.adjustments': { en: 'Adjustments', es: 'Ajustes' },
+  'transactions.discount': { en: 'Discount', es: 'Descuento' },
+  'transactions.discountLabel': { en: 'Discount label', es: 'Etiqueta del descuento' },
+  'transactions.tip': { en: 'Tip', es: 'Propina' },
+  'transactions.summary': { en: 'Summary', es: 'Resumen' },
+  'transactions.subtotal': { en: 'Subtotal', es: 'Subtotal' },
+  'transactions.tax': { en: 'Tax', es: 'Impuesto' },
+  'transactions.total': { en: 'Total', es: 'Total' },
+  'transactions.payment': { en: 'Payment', es: 'Pago' },
+  'transactions.paymentMethod': { en: 'Payment method', es: 'Método de pago' },
+  'transactions.amountTendered': { en: 'Amount tendered', es: 'Monto entregado' },
+  'transactions.changeDue': { en: 'Change due', es: 'Cambio' },
+  'transactions.notes': { en: 'Notes', es: 'Notas' },
+  'transactions.notesPlaceholder': { en: 'Optional internal note', es: 'Nota interna opcional' },
+  'transactions.saveTransaction': { en: 'Save transaction', es: 'Guardar transacción' },
+  'transactions.created': { en: 'Transaction created', es: 'Transacción creada' },
+  'transactions.addAtLeastOneItem': { en: 'Add at least one line item', es: 'Agrega al menos un ítem' },
+  'transactions.printReceipt': { en: 'Print receipt', es: 'Imprimir recibo' },
+  'transactions.emailReceipt': { en: 'Email receipt', es: 'Enviar recibo por correo' },
+  'transactions.issueRefund': { en: 'Issue refund', es: 'Emitir reembolso' },
+  'transactions.void': { en: 'Void', es: 'Anular' },
+  'transactions.detail': { en: 'Transaction detail', es: 'Detalle de transacción' },
+  'transactions.refundAmount': { en: 'Refund amount ($)', es: 'Monto a reembolsar ($)' },
+  'transactions.refundReason': { en: 'Reason', es: 'Motivo' },
+  'transactions.returnToInventory': { en: 'Return items to inventory?', es: '¿Devolver ítems al inventario?' },
+  'transactions.backToList': { en: 'Back to transactions', es: 'Volver a transacciones' },
+  'transactions.date': { en: 'Date', es: 'Fecha' },
+  'transactions.item': { en: 'Item', es: 'Ítem' },
+  'transactions.qty': { en: 'Qty', es: 'Cant.' },
+  'transactions.price': { en: 'Price', es: 'Precio' },
+  'transactions.lineTotal': { en: 'Total', es: 'Total' },
+  'transactions.voided': { en: 'Transaction voided', es: 'Transacción anulada' },
+  'transactions.refundIssued': { en: 'Refund issued', es: 'Reembolso emitido' },
+  'transactions.refundAmountRequired': { en: 'Enter refund amount', es: 'Ingresa el monto a reembolsar' },
+  'transactions.refundExceedsTotal': { en: 'Refund cannot exceed transaction total', es: 'El reembolso no puede superar el total' },
+  'transactions.noEmailForCustomer': { en: 'No email on file for this customer', es: 'No hay correo registrado para este cliente' },
+  'transactions.walkInEmailDescription': { en: 'Enter the customer’s email to open your mail client and send the receipt.', es: 'Ingresa el correo del cliente para abrir tu correo y enviar el recibo.' },
+  'transactions.emailAddress': { en: 'Email address', es: 'Correo electrónico' },
+  'transactions.sendReceipt': { en: 'Send receipt', es: 'Enviar recibo' },
+  'transactions.enterEmail': { en: 'Please enter an email address', es: 'Ingresa una dirección de correo' },
+  'transactions.invalidEmail': { en: 'Please enter a valid email address', es: 'Ingresa una dirección de correo válida' },
+
+  'accountSettings.description': { en: 'Manage your account and preferences', es: 'Administra tu cuenta y preferencias' },
+  'accountSettings.language': { en: 'Language', es: 'Idioma' },
+  'accountSettings.languageDescription': { en: 'Choose your preferred language for the app', es: 'Elige el idioma de la aplicación' },
+  'accountSettings.selectLanguage': { en: 'Select language', es: 'Seleccionar idioma' },
+  'accountSettings.colorPalette': { en: 'Color palette', es: 'Paleta de colores' },
+  'accountSettings.colorPaletteDescription': { en: 'Set a primary brand color (HSL values, e.g. 168 60% 45%)', es: 'Establece un color de marca primario' },
+  'accountSettings.primaryColor': { en: 'Primary color', es: 'Color primario' },
+  'accountSettings.secondaryColor': { en: 'Secondary / Accent color', es: 'Color secundario / acento' },
+  'accountSettings.colorPicker': { en: 'Color picker', es: 'Selector de color' },
+  'accountSettings.standardThemes': { en: 'Standard themes', es: 'Temas estándar' },
+  'accountSettings.colorSaved': { en: 'Color saved', es: 'Color guardado' },
+  'accountSettings.changePassword': { en: 'Change password', es: 'Cambiar contraseña' },
+  'accountSettings.currentPassword': { en: 'Current password', es: 'Contraseña actual' },
+  'accountSettings.currentPasswordRequired': { en: 'Enter your current password', es: 'Ingresa tu contraseña actual' },
+  'accountSettings.currentPasswordVerified': { en: 'Password verified', es: 'Contraseña verificada' },
+  'accountSettings.verifyCurrentPassword': { en: 'Verify', es: 'Verificar' },
+  'accountSettings.changePasswordDescription': { en: 'Set a new password for your account', es: 'Establece una nueva contraseña' },
+  'accountSettings.newPassword': { en: 'New password', es: 'Nueva contraseña' },
+  'accountSettings.confirmPassword': { en: 'Confirm password', es: 'Confirmar contraseña' },
+  'accountSettings.passwordMismatch': { en: 'Passwords do not match', es: 'Las contraseñas no coinciden' },
+  'accountSettings.passwordTooShort': { en: 'Password must be at least 6 characters', es: 'La contraseña debe tener al menos 6 caracteres' },
+  'accountSettings.passwordUpdated': { en: 'Password updated', es: 'Contraseña actualizada' },
+  'accountSettings.updatePassword': { en: 'Update password', es: 'Actualizar contraseña' },
+  'accountSettings.navOrder': { en: 'Navigation order', es: 'Orden de navegación' },
+  'accountSettings.navOrderDescription': { en: 'Drag to reorder header menu items', es: 'Arrastra para reordenar el menú' },
+  'accountSettings.navOrderComingSoon': { en: 'Custom navigation order coming soon.', es: 'Orden de navegación personalizado próximamente.' },
+
+  'businessSettings.description': { en: 'Tax, receipts, payment, and business data', es: 'Impuestos, recibos, pago y datos del negocio' },
+  'businessSettings.businessName': { en: 'Business name', es: 'Nombre del negocio' },
+  'businessSettings.businessHours': { en: 'Business hours', es: 'Horario' },
+  'businessSettings.businessInfoSaved': { en: 'Business info saved', es: 'Información guardada' },
+  'businessSettings.taxConfiguration': { en: 'Tax configuration', es: 'Configuración de impuestos' },
+  'businessSettings.taxConfigurationDescription': { en: 'Select region or add custom taxes', es: 'Selecciona región o agrega impuestos personalizados' },
+  'businessSettings.taxPreset': { en: 'Region / preset', es: 'Región / valor predeterminado' },
+  'businessSettings.taxCustomComingSoon': { en: 'Up to 3 custom taxes (label, rate, enable/disable) coming soon.', es: 'Hasta 3 impuestos personalizados próximamente.' },
+  'businessSettings.receiptCustomization': { en: 'Receipt customization', es: 'Personalización de recibos' },
+  'businessSettings.receiptCustomizationDescription': { en: 'Header, footer, and receipt preview', es: 'Encabezado, pie y vista previa' },
+  'businessSettings.receiptHeader': { en: 'Header text', es: 'Texto del encabezado' },
+  'businessSettings.receiptHeaderPlaceholder': { en: 'Business name, tagline...', es: 'Nombre del negocio, eslogan...' },
+  'businessSettings.receiptFooter': { en: 'Footer text', es: 'Texto del pie' },
+  'businessSettings.receiptFooterPlaceholder': { en: 'Thank you message, return policy...', es: 'Mensaje de agradecimiento, política de devolución...' },
+  'businessSettings.receiptSaved': { en: 'Receipt settings saved', es: 'Configuración de recibo guardada' },
+  'businessSettings.paymentSetup': { en: 'Payment setup', es: 'Configuración de pago' },
+  'businessSettings.paymentSetupDescription': { en: 'Stripe and ATH Móvil', es: 'Stripe y ATH Móvil' },
+  'businessSettings.paymentStripePlaceholder': { en: 'Credit Card (Stripe): connect account and API keys — coming soon.', es: 'Tarjeta (Stripe): conectar cuenta y API — próximamente.' },
+  'businessSettings.paymentATHPlaceholder': { en: 'ATH Móvil: business phone and token — coming soon.', es: 'ATH Móvil: teléfono y token — próximamente.' },
+  'businessSettings.lowStockGlobal': { en: 'Default low-stock threshold', es: 'Umbral de stock bajo por defecto' },
+  'businessSettings.lowStockGlobalDescription': { en: 'Applied to all products unless overridden per product (default 5).', es: 'Aplicado a todos los productos salvo que se sobrescriba (default 5).' },
+  'businessSettings.defaultLowStock': { en: 'Default threshold', es: 'Umbral por defecto' },
+  'businessSettings.lowStockSaved': { en: 'Low-stock threshold saved', es: 'Umbral de stock bajo guardado' },
+  'businessSettings.dataExport': { en: 'Data export', es: 'Exportar datos' },
+  'businessSettings.dataExportDescription': { en: 'Download business data (CSV). For multi-sheet Excel (XLSX), add exceljs or xlsx dependency.', es: 'Descargar datos del negocio (CSV). Para Excel (XLSX), agregar dependencia exceljs o xlsx.' },
+  'businessSettings.downloadData': { en: 'Download business data (CSV)', es: 'Descargar datos (CSV)' },
+  'businessSettings.exportSuccess': { en: 'Export downloaded', es: 'Exportación descargada' },
+
+  'bookingSettings.description': { en: 'Services, availability, and booking window', es: 'Servicios, disponibilidad y ventana de reservas' },
+  'bookingSettings.servicesOffered': { en: 'Services offered', es: 'Servicios ofrecidos' },
+  'bookingSettings.servicesOfferedDescription': { en: 'Configure bookable services', es: 'Configura los servicios reservables' },
+  'bookingSettings.availability': { en: 'Availability', es: 'Disponibilidad' },
+  'bookingSettings.availabilityDescription': { en: 'Hours and booking window', es: 'Horas y ventana de reserva' },
+  'bookingSettings.bookingWindow': { en: 'Booking window', es: 'Ventana de reserva' },
+  'bookingSettings.bufferTime': { en: 'Buffer time', es: 'Tiempo de búfer' },
+  'bookingSettings.comingSoon': { en: 'Full booking logic in a later phase.', es: 'Lógica de reservas en una fase posterior.' },
+  'bookingSettings.options': { en: 'Booking options', es: 'Opciones de reserva' },
+  'bookingSettings.optionsDescription': { en: 'Control when and how clients can book', es: 'Controla cuándo y cómo los clientes pueden reservar' },
+  'bookingSettings.allowOutsideHours': { en: 'Allow booking outside employee working hours', es: 'Permitir reservas fuera del horario laboral' },
+  'bookingSettings.allowOutsideHoursDescription': { en: 'Clients can book slots outside staff schedules', es: 'Los clientes pueden reservar fuera del horario del personal' },
+  'bookingSettings.allowSameDay': { en: 'Allow same-day booking', es: 'Permitir reservas el mismo día' },
+  'bookingSettings.allowSameDayDescription': { en: 'Allow appointments to be booked for today', es: 'Permitir citas para el día de hoy' },
+  'bookingSettings.requireDeposit': { en: 'Require deposit for online bookings', es: 'Requerir depósito para reservas en línea' },
+  'bookingSettings.requireDepositDescription': { en: 'Collect a deposit when booking online', es: 'Cobrar depósito al reservar en línea' },
+
+  'billing.title': { en: 'Billing & Subscription', es: 'Facturación y suscripción' },
+  'billing.description': { en: 'Plan, payment method, and invoices', es: 'Plan, método de pago e facturas' },
+  'billing.currentPlan': { en: 'Current plan', es: 'Plan actual' },
+  'billing.standardPlan': { en: 'Standard', es: 'Estándar' },
+  'billing.planPlaceholder': { en: 'Your current plan will appear here.', es: 'Tu plan actual aparecerá aquí.' },
+  'billing.renewalPlaceholder': { en: 'Renewal date and payment method on file.', es: 'Fecha de renovación y método de pago.' },
+  'billing.upgradeDowngrade': { en: 'Upgrade / Downgrade', es: 'Subir / Bajar plan' },
+  'billing.invoiceHistory': { en: 'Invoice history', es: 'Historial de facturas' },
+  'billing.date': { en: 'Date', es: 'Fecha' },
+  'billing.amount': { en: 'Amount', es: 'Monto' },
+  'billing.status': { en: 'Status', es: 'Estado' },
+  'billing.download': { en: 'Download', es: 'Descargar' },
+  'billing.noInvoices': { en: 'No invoices yet.', es: 'Aún no hay facturas.' },
+
+  'help.description': { en: 'Contact us with any questions.', es: 'Contáctanos con cualquier pregunta.' },
+  'help.contactSupport': { en: 'Contact support', es: 'Contactar soporte' },
+  'help.contactSupportDescription': { en: 'Send us a message', es: 'Envíanos un mensaje' },
+  'help.yourName': { en: 'Name', es: 'Nombre' },
+  'help.yourEmail': { en: 'Email', es: 'Correo' },
+  'help.subject': { en: 'Subject', es: 'Asunto' },
+  'help.message': { en: 'Message', es: 'Mensaje' },
+  'help.submit': { en: 'Submit', es: 'Enviar' },
+  'help.messageSent': { en: 'Message sent. We will get back to you.', es: 'Mensaje enviado. Te responderemos.' },
+  'help.contactEmail': { en: 'Contact email', es: 'Correo de contacto' },
+
   // Personalization page
   'personalization.title': {
     en: 'Personalization',
@@ -423,7 +669,11 @@ export const translations: Translations = {
     en: 'Welcome to your Hub!',
     es: 'Bienvenido a tu Hub!'
   },
-  
+  'common.genericError': {
+    en: 'Something went wrong. Please try again.',
+    es: 'Algo salió mal. Por favor intenta de nuevo.'
+  },
+
   // Clients page
   'clients.title': {
     en: 'Clients',
@@ -597,7 +847,203 @@ export const translations: Translations = {
     en: 'Manage your product inventory and stock levels',
     es: 'Administra tu inventario de productos y niveles de stock'
   },
-  
+  'inventory.allItems': {
+    en: 'All items',
+    es: 'Todos los artículos'
+  },
+  'inventory.folders': {
+    en: 'Folders',
+    es: 'Carpetas'
+  },
+  'inventory.newFolder': {
+    en: 'New folder',
+    es: 'Nueva carpeta'
+  },
+  'inventory.folderName': {
+    en: 'Folder name',
+    es: 'Nombre de carpeta'
+  },
+  'inventory.noFolders': {
+    en: 'No folders yet',
+    es: 'Aún no hay carpetas'
+  },
+  'inventory.tileView': {
+    en: 'Tile view',
+    es: 'Vista de tarjetas'
+  },
+  'inventory.listView': {
+    en: 'List view',
+    es: 'Vista de lista'
+  },
+  'inventory.lowStock': {
+    en: 'Low stock',
+    es: 'Stock bajo'
+  },
+  'inventory.stock': {
+    en: 'Stock',
+    es: 'Stock'
+  },
+  'inventory.inStock': {
+    en: 'In stock',
+    es: 'En stock'
+  },
+  'inventory.noBarcode': {
+    en: 'No barcode',
+    es: 'Sin código de barras'
+  },
+  'inventory.generateBarcode': {
+    en: 'Generate barcode',
+    es: 'Generar código'
+  },
+  'inventory.orderHistory': {
+    en: 'Order history',
+    es: 'Historial de pedidos'
+  },
+  'inventory.noOrderHistory': {
+    en: 'No order history yet',
+    es: 'Aún no hay historial de pedidos'
+  },
+  'inventory.searchPlaceholder': {
+    en: 'Search by name, SKU, barcode, category...',
+    es: 'Buscar por nombre, SKU, código, categoría...'
+  },
+  'inventory.stockFilterAll': {
+    en: 'All stock',
+    es: 'Todo el stock'
+  },
+  'inventory.stockFilterLow': {
+    en: 'Low stock',
+    es: 'Stock bajo'
+  },
+  'inventory.stockFilterInStock': {
+    en: 'In stock',
+    es: 'En stock'
+  },
+  'inventory.productName': {
+    en: 'Product name',
+    es: 'Nombre del producto'
+  },
+  'inventory.sku': {
+    en: 'SKU',
+    es: 'SKU'
+  },
+  'inventory.folder': {
+    en: 'Folder',
+    es: 'Carpeta'
+  },
+  'inventory.noFolder': {
+    en: 'No folder',
+    es: 'Sin carpeta'
+  },
+  'inventory.barcode': {
+    en: 'Barcode',
+    es: 'Código de barras'
+  },
+  'inventory.category': {
+    en: 'Category',
+    es: 'Categoría'
+  },
+  'inventory.supplier': {
+    en: 'Supplier',
+    es: 'Proveedor'
+  },
+  'inventory.quantity': {
+    en: 'Quantity',
+    es: 'Cantidad'
+  },
+  'inventory.reorderLevel': {
+    en: 'Reorder level',
+    es: 'Nivel de reorden'
+  },
+  'inventory.costPrice': {
+    en: 'Cost',
+    es: 'Costo'
+  },
+  'inventory.salePrice': {
+    en: 'Sale price',
+    es: 'Precio de venta'
+  },
+  'inventory.photoUrl': {
+    en: 'Photo URL',
+    es: 'URL de foto'
+  },
+  'inventory.productPhoto': {
+    en: 'Product photo',
+    es: 'Foto del producto'
+  },
+  'inventory.photoUrlPlaceholder': {
+    en: 'Or paste image URL',
+    es: 'O pega URL de imagen'
+  },
+  'inventory.validationNameRequired': {
+    en: 'Product name is required',
+    es: 'El nombre del producto es obligatorio'
+  },
+  'inventory.validationSkuRequired': {
+    en: 'SKU is required',
+    es: 'El SKU es obligatorio'
+  },
+  'inventory.validationNegativeStock': {
+    en: 'Stock quantity cannot be negative',
+    es: 'La cantidad en stock no puede ser negativa'
+  },
+  'inventory.validationNegativePrice': {
+    en: 'Price cannot be negative',
+    es: 'El precio no puede ser negativo'
+  },
+  'inventory.validationNegativeCost': {
+    en: 'Cost cannot be negative',
+    es: 'El costo no puede ser negativo'
+  },
+  'inventory.duplicateSkuWarning': {
+    en: 'This SKU already exists for another product.',
+    es: 'Este SKU ya existe para otro producto.'
+  },
+  'inventory.duplicateSkuTitle': {
+    en: 'Duplicate SKU',
+    es: 'SKU duplicado'
+  },
+  'inventory.duplicateSkuDescription': {
+    en: 'This SKU is already used by another product. Save anyway?',
+    es: 'Este SKU ya está en uso por otro producto. ¿Guardar de todos modos?'
+  },
+  'inventory.saveAnyway': {
+    en: 'Save anyway',
+    es: 'Guardar de todos modos'
+  },
+  'inventory.productDescription': {
+    en: 'Description',
+    es: 'Descripción'
+  },
+  'inventory.notes': {
+    en: 'Notes',
+    es: 'Notas'
+  },
+  'inventory.productRegistry': {
+    en: 'Product registry',
+    es: 'Registro de productos'
+  },
+  'inventory.noResults': {
+    en: 'No products match your filters.',
+    es: 'No hay productos que coincidan con los filtros.'
+  },
+  'inventory.emptyState': {
+    en: 'No products in this folder. Add your first product above!',
+    es: 'No hay productos en esta carpeta. ¡Agrega tu primer producto arriba!'
+  },
+  'inventory.deleteTitle': {
+    en: 'Delete product?',
+    es: '¿Eliminar producto?'
+  },
+  'inventory.deleteDescription': {
+    en: 'This will permanently delete this product. This action cannot be undone.',
+    es: 'Se eliminará este producto de forma permanente. Esta acción no se puede deshacer.'
+  },
+  'inventory.moveTo': {
+    en: 'Move to',
+    es: 'Mover a'
+  },
+
   // Employees/Time Tracking page
   'timeTracking.title': {
     en: 'Time Clock',
@@ -1278,6 +1724,10 @@ export const translations: Translations = {
   'reports.clients': {
     en: 'Clients',
     es: 'Clientes'
+  },
+  'reports.totalClients': {
+    en: 'Total Clients',
+    es: 'Total de Clientes'
   },
   'reports.pets': {
     en: 'Pets',

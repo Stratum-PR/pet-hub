@@ -87,6 +87,8 @@ export interface Appointment {
   notes?: string;
   created_at: string;
   updated_at: string;
+  transaction_id?: string | null;
+  billed?: boolean;
 }
 
 export interface Service {

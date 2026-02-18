@@ -1,1 +1,0 @@
-Rate limiting is configured: Upstash middleware (100 req/h per IP) + Supabase auth limits.

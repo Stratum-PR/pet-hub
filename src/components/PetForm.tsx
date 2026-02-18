@@ -15,8 +15,10 @@ import { useToast } from '@/hooks/use-toast';
 import { SPANISH_MONTHS, calculateVaccinationStatus, formatVaccinationStatusSpanish, getVaccinationStatusColor } from '@/lib/petHelpers';
 import { Upload, X, Image as ImageIcon, Edit2, Trash2, Replace } from 'lucide-react';
 import { isDemoMode } from '@/lib/authRouting';
+import { t } from '@/lib/translations';
 import { useBreeds } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBusinessId } from '@/hooks/useBusinessId';
 import { PhotoCropDialog } from '@/components/PhotoCropDialog';
 
 interface PetFormProps {
@@ -30,6 +32,7 @@ interface PetFormProps {
 export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
+  const businessId = useBusinessId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -92,19 +95,18 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
       if (safeClients.length > 0 && clientId) {
         const foundCustomer = safeClients.find(c => String(c.id).trim() === String(clientId).trim());
         if (!foundCustomer) {
-          console.warn('[PetForm] Client not found in list:', clientId, 'Available:', safeClients.map(c => c.id));
-          // Keep the ID - it will show in the Select once clients load or if it's orphaned
+          if (import.meta.env.DEV) console.warn('[PetForm] Client not found in list:', clientId);
         } else {
           const firstName = (foundCustomer as any).first_name || '';
           const lastName = (foundCustomer as any).last_name || '';
-          console.log('[PetForm] Found client in list:', {
+          if (import.meta.env.DEV) console.log('[PetForm] Found client in list:', {
             clientId,
             clientName: `${firstName} ${lastName}`.trim(),
           });
         }
       }
       
-      console.log('[PetForm] Initializing form data from Supabase:', {
+      if (import.meta.env.DEV) console.log('[PetForm] Initializing form data from Supabase:', {
         clientId,
         validClientId,
         breedId,
@@ -176,7 +178,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
         const breedIdStr = String(breedId).trim();
         const breedExists = breeds.find(b => String(b.id).trim() === breedIdStr);
         if (breedExists) {
-          console.log('[PetForm] Re-initializing breed_id after breeds loaded:', breedIdStr);
+          if (import.meta.env.DEV) console.log('[PetForm] Re-initializing breed_id after breeds loaded:', breedIdStr);
           setFormData(prev => ({ ...prev, breed_id: breedIdStr }));
         }
       }
@@ -300,10 +302,10 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
       };
       reader.readAsDataURL(file);
     } catch (error: any) {
-      console.error('Error processing photo:', error);
+      if (import.meta.env.DEV) console.error('Error processing photo:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Error al procesar la foto. Por favor intenta de nuevo.',
+        description: t('common.genericError') || 'Error al procesar la foto. Por favor intenta de nuevo.',
         variant: 'destructive',
       });
       setUploading(false);
@@ -426,7 +428,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
           }
           return null;
         } catch (e) {
-          console.error('Error extracting file path from URL:', e);
+          if (import.meta.env.DEV) console.error('Error extracting file path from URL:', e);
           return null;
         }
       };
@@ -437,7 +439,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
         
         const filePath = extractFilePathFromUrl(photoUrl);
         if (!filePath) {
-          console.warn('[PetForm] Could not extract file path from URL:', photoUrl);
+          if (import.meta.env.DEV) console.warn('[PetForm] Could not extract file path from URL');
           return;
         }
         
@@ -447,31 +449,37 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
             .remove([filePath]);
           
           if (deleteError) {
-            console.error('[PetForm] Error deleting photo from Storage:', deleteError);
-            // Don't throw - continue with update even if deletion fails
-            // The old file will remain in Storage but won't be referenced
-          } else {
-            console.log('[PetForm] Successfully deleted old photo from Storage:', filePath);
+            if (import.meta.env.DEV) console.error('[PetForm] Error deleting photo from Storage:', deleteError);
           }
         } catch (err) {
-          console.error('[PetForm] Exception deleting photo:', err);
+          if (import.meta.env.DEV) console.error('[PetForm] Exception deleting photo:', err);
           // Continue with update even if deletion fails
         }
       };
       
+      // Security: only allow storage operations when pet belongs to current business
+      const petBusinessId = initialData ? (initialData as { business_id?: string }).business_id : null;
+      const canTouchStorage = !businessId || !petBusinessId || petBusinessId === businessId;
+      if (!canTouchStorage) {
+        toast({
+          title: 'Error',
+          description: t('common.genericError') || t('pets.saveError'),
+          variant: 'destructive',
+        });
+        setUploading(false);
+        return;
+      }
+
       // Delete old photo if it exists (when replacing or deleting)
       if (originalPhotoUrl && !demoMode) {
-        // Only delete if we're uploading a new photo OR deleting the photo
         if ((formData.photo_url && formData.photo_url.startsWith('data:image/')) || photoToDelete) {
           await deletePhotoFromStorage(originalPhotoUrl);
         }
       }
       
-      // Handle photo upload if a new photo was selected (data URL indicates local file)
       let finalPhotoUrl = formData.photo_url;
       
       if (formData.photo_url && formData.photo_url.startsWith('data:image/')) {
-        // This is a new photo that needs to be uploaded
         if (demoMode) {
           // Demo mode: Store in localStorage
           const petId = initialData?.id || `demo-pet-${Date.now()}`;
@@ -487,16 +495,25 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
             }
           }
         } else {
-          // Real mode: Upload to Supabase Storage
+          // Real mode: Upload to Supabase Storage (path = business_id/filename for RLS)
           try {
+            if (!businessId) {
+              toast({
+                title: 'Error',
+                description: t('common.genericError') || t('pets.saveError'),
+                variant: 'destructive',
+              });
+              setUploading(false);
+              return;
+            }
             // Convert data URL to blob
             const response = await fetch(formData.photo_url);
             const blob = await response.blob();
             
-            // Generate unique filename
+            // Generate unique filename; path prefix by business_id for Storage RLS
             const fileExt = blob.type.split('/')[1] || 'jpg';
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `${fileName}`;
+            const filePath = `${businessId}/${fileName}`;
 
             // Upload to Supabase Storage
             const { data: uploadData, error: uploadError } = await supabase.storage
@@ -517,7 +534,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
 
             finalPhotoUrl = publicUrl;
           } catch (uploadError: any) {
-            console.error('Error uploading photo:', uploadError);
+            if (import.meta.env.DEV) console.error('Error uploading photo:', uploadError);
             toast({
               title: 'Error',
               description: 'Error al subir la foto. Por favor intenta de nuevo.',
@@ -580,7 +597,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Error al guardar la mascota. Por favor intenta de nuevo.',
+        description: t('common.genericError') || t('pets.saveError'),
         variant: 'destructive',
       });
     }
@@ -595,20 +612,20 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
   // Get the selected breed object for display
   const selectedBreed = useMemo(() => {
     if (!formData.breed_id) {
-      console.log('[PetForm] No breed_id in formData');
+      if (import.meta.env.DEV) console.log('[PetForm] No breed_id in formData');
       return null;
     }
     if (breeds.length === 0) {
-      console.log('[PetForm] Breeds array is empty, waiting for breeds to load...');
+      if (import.meta.env.DEV) console.log('[PetForm] Breeds array is empty');
       return null;
     }
     // Ensure we're comparing strings
     const breedIdStr = String(formData.breed_id).trim();
     const found = breeds.find(b => String(b.id).trim() === breedIdStr);
     if (found) {
-      console.log('[PetForm] Found selected breed:', { id: found.id, name: found.name, species: found.species });
+      if (import.meta.env.DEV) console.log('[PetForm] Found selected breed:', found.name);
     } else {
-      console.warn('[PetForm] Breed not found in breeds list:', {
+      if (import.meta.env.DEV) console.warn('[PetForm] Breed not found in breeds list:', {
         breedId: formData.breed_id,
         breedIdType: typeof formData.breed_id,
         breedIdStr,

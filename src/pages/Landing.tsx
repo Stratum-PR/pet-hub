@@ -57,11 +57,11 @@ export function Landing() {
           className="flex items-center gap-2 focus:outline-none"
         >
           <img
-            src="/stratum hub logo.svg"
-            alt="Stratum Hub - Ir al inicio"
+            src="/pet-hub-logo.svg"
+            alt="Pet Hub - Ir al inicio"
             className="h-8 sm:h-10 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
           />
-          <span className="hidden sm:inline text-lg sm:text-xl font-semibold">Stratum Hub</span>
+          <span className="hidden sm:inline text-lg sm:text-xl font-semibold">Pet Hub</span>
         </button>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
           <Link to="/login" className="w-full sm:w-auto">

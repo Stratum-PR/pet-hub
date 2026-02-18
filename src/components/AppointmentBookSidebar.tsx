@@ -49,13 +49,12 @@ export function AppointmentBookSidebar({
   const dayAbbreviations = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full overflow-hidden">
+    <div className="w-80 bg-card border-r border-border flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-xl font-semibold mb-3">Appointment Book</h2>
+      <div className="p-4 border-b border-border">
+        <h2 className="text-xl font-semibold mb-3 text-foreground">Appointment Book</h2>
         <div className="flex gap-2">
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 py-2 text-sm font-medium"
+          <Button
             onClick={onCreateClick}
           >
             <Plus className="w-4 h-4 mr-1" />
@@ -63,7 +62,6 @@ export function AppointmentBookSidebar({
           </Button>
           <Button
             variant="outline"
-            className="border-gray-300 text-gray-700 rounded-md px-4 py-2 text-sm font-medium"
             onClick={onToday}
           >
             TODAY
@@ -72,27 +70,27 @@ export function AppointmentBookSidebar({
       </div>
 
       {/* Calendar Widget */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Calendar</h3>
+          <h3 className="text-sm font-semibold text-foreground">Calendar</h3>
         </div>
         
         {/* Month Navigation */}
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={handlePreviousMonth}
-            className="p-1 hover:bg-gray-100 rounded"
+            className="p-1 hover:bg-muted rounded"
           >
-            <ChevronLeft className="w-4 h-4 text-gray-600" />
+            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
           </button>
-          <span className="text-sm font-medium text-gray-900">
+          <span className="text-sm font-medium text-foreground">
             {format(currentMonth, 'MMMM yyyy').toUpperCase()}
           </span>
           <button
             onClick={handleNextMonth}
-            className="p-1 hover:bg-gray-100 rounded"
+            className="p-1 hover:bg-muted rounded"
           >
-            <ChevronRight className="w-4 h-4 text-gray-600" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
 
@@ -101,7 +99,7 @@ export function AppointmentBookSidebar({
           {dayAbbreviations.map((day, idx) => (
             <div
               key={idx}
-              className="text-center text-xs font-medium text-gray-600 py-1"
+              className="text-center text-xs font-medium text-muted-foreground py-1"
             >
               {day}
             </div>
@@ -121,10 +119,10 @@ export function AppointmentBookSidebar({
                 onClick={() => handleDayClick(day)}
                 className={cn(
                   "h-8 w-8 rounded-full text-sm font-medium transition-colors",
-                  !isCurrentMonth && "text-gray-300",
-                  isCurrentMonth && !isSelected && !isToday && "text-gray-700 hover:bg-gray-100",
-                  isToday && !isSelected && "bg-gray-100 text-gray-900",
-                  isSelected && "bg-blue-600 text-white"
+                  !isCurrentMonth && "text-muted-foreground/50",
+                  isCurrentMonth && !isSelected && !isToday && "text-foreground hover:bg-muted",
+                  isToday && !isSelected && "bg-muted text-foreground",
+                  isSelected && "bg-primary text-primary-foreground"
                 )}
               >
                 {format(day, 'd')}
@@ -134,13 +132,13 @@ export function AppointmentBookSidebar({
         </div>
 
         {/* Week Navigation Footer */}
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <div className="flex items-center gap-1 text-xs text-gray-600">
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <span>+</span>
             {[1, 2, 3, 4, 5, 6, 7, 8].map((week) => (
               <button
                 key={week}
-                className="px-1 hover:text-blue-600"
+                className="px-1 hover:text-primary"
               >
                 {week}
               </button>
@@ -154,15 +152,15 @@ export function AppointmentBookSidebar({
       <div className="flex-1 overflow-hidden flex flex-col">
         <button
           onClick={onWaitlistToggle}
-          className="flex items-center justify-between p-4 border-b border-gray-200 hover:bg-gray-50"
+          className="flex items-center justify-between p-4 border-b border-border hover:bg-muted/50"
         >
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3 className="text-sm font-semibold text-foreground">
             Waitlist ({waitlist.length})
           </h3>
           {waitlistCollapsed ? (
-            <ChevronDown className="w-4 h-4 text-gray-600" />
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
           ) : (
-            <ChevronUp className="w-4 h-4 text-gray-600" />
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
           )}
         </button>
 
@@ -171,42 +169,42 @@ export function AppointmentBookSidebar({
             {waitlist.map((entry) => (
               <div
                 key={entry.id}
-                className="border border-gray-200 rounded-lg p-3 bg-white hover:shadow-sm transition-shadow"
+                className="border border-border rounded-lg p-3 bg-card hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-start gap-2 mb-2">
                   {entry.hasAlert && (
-                    <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-sm text-gray-900">
+                      <span className="font-semibold text-sm text-foreground">
                         {entry.petName}
                       </span>
                       {entry.breed && (
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           ({entry.breed})
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600">{entry.ownerName}</p>
-                    <p className="text-xs text-gray-500">{entry.ownerPhone}</p>
+                    <p className="text-xs text-muted-foreground">{entry.ownerName}</p>
+                    <p className="text-xs text-muted-foreground">{entry.ownerPhone}</p>
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-gray-100">
-                  <p className="text-xs text-gray-600 mb-1">
+                <div className="mt-2 pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground mb-1">
                     {entry.service} - ${entry.price.toFixed(2)}
                   </p>
-                  <p className="text-xs text-gray-500 mb-1">
+                  <p className="text-xs text-muted-foreground mb-1">
                     with {entry.requestedTime || 'First Available Any Time'}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground/80">
                     Since {format(new Date(entry.dateAdded), 'EEEE, MMM d, yyyy')} {format(new Date(entry.dateAdded), 'M/d/yyyy')}
                   </p>
                 </div>
               </div>
             ))}
             {waitlist.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4">
+              <p className="text-sm text-muted-foreground text-center py-4">
                 No waitlist entries
               </p>
             )}
