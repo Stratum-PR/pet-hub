@@ -1,3 +1,0 @@
-# Netlify redirects file
-# This ensures all routes are handled by the SPA
-/*    /index.html   200

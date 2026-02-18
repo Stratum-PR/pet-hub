@@ -41,7 +41,7 @@ export function SignupSuccess() {
             <ul className="list-disc list-inside space-y-1 ml-2">
               <li>Access your business dashboard</li>
               <li>Start managing appointments</li>
-              <li>Add customers and pets</li>
+              <li>Add clients and pets</li>
               <li>Set up your services</li>
             </ul>
           </div>

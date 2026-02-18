@@ -8,6 +8,7 @@ import { Business } from '@/lib/auth';
 import { format } from 'date-fns';
 import { ArrowLeft, Lock, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { t } from '@/lib/translations';
 
 export function AdminBusinessDetail() {
   const { id } = useParams<{ id: string }>();
@@ -73,7 +74,7 @@ export function AdminBusinessDetail() {
       toast.success(`Opening ${businessName} dashboard in new tab...`);
     } catch (error: any) {
       console.error('Error generating impersonation token:', error);
-      toast.error(error.message || 'Failed to generate impersonation link');
+      toast.error(t('common.genericError') || 'Failed to generate impersonation link');
     }
   };
 

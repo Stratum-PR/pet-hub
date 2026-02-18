@@ -21,8 +21,8 @@ Usage:
   node scripts/test-rate-limit.js https://your-production-site.vercel.app [maxRequests]
 
 Examples:
-  node scripts/test-rate-limit.js https://stratum-hub.vercel.app
-  node scripts/test-rate-limit.js https://stratum-hub.vercel.app 105
+  node scripts/test-rate-limit.js https://pet-hub.vercel.app
+  node scripts/test-rate-limit.js https://pet-hub.vercel.app 105
 
 The middleware allows 100 requests per hour per IP. So request 101+ should return 429.
 `);

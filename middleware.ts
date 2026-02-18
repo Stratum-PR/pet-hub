@@ -34,7 +34,7 @@ export default async function middleware(request: Request): Promise<Response> {
   const ratelimit = new Ratelimit({
     redis,
     limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW),
-    prefix: "stratum-rate",
+    prefix: "pet-hub-rate",
   });
 
   const ip = ipAddress(request) ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";

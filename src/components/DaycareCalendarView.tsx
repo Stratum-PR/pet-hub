@@ -92,21 +92,19 @@ export function DaycareCalendarView({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-background">
       {/* Header Controls */}
-      <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+      <div className="border-b border-border bg-muted/30 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900">Appointment Book</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Appointment Book</h1>
           <div className="flex items-center gap-3">
-            <Button 
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 py-2 text-sm font-medium"
+            <Button
               onClick={onCreateClick}
             >
               Create
             </Button>
             <Button
               variant="outline"
-              className="border-gray-300 text-gray-700 rounded-md px-4 py-2 text-sm font-medium"
               onClick={onToday}
             >
               TODAY
@@ -119,18 +117,18 @@ export function DaycareCalendarView({
           <div className="flex items-center gap-4">
             <button
               onClick={onPreviousDay}
-              className="p-1 hover:bg-gray-200 rounded"
+              className="p-1 hover:bg-muted rounded"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
+              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
             </button>
-            <span className="text-base font-medium text-gray-900 min-w-[200px] text-center">
+            <span className="text-base font-medium text-foreground min-w-[200px] text-center">
               {formatDateHeader(selectedDate)}
             </span>
             <button
               onClick={onNextDay}
-              className="p-1 hover:bg-gray-200 rounded"
+              className="p-1 hover:bg-muted rounded"
             >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
 
@@ -139,7 +137,7 @@ export function DaycareCalendarView({
               value={filters.service}
               onValueChange={(value) => onFilterChange('service', value)}
             >
-              <SelectTrigger className="w-[140px] bg-white">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -152,7 +150,7 @@ export function DaycareCalendarView({
               value={filters.employee || 'All Rooms'}
               onValueChange={(value) => onFilterChange('employee', value)}
             >
-              <SelectTrigger className="w-[140px] bg-white">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -169,7 +167,7 @@ export function DaycareCalendarView({
               value={filters.view}
               onValueChange={(value) => onFilterChange('view', value as CalendarView)}
             >
-              <SelectTrigger className="w-[100px] bg-white">
+              <SelectTrigger className="w-[100px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -179,8 +177,8 @@ export function DaycareCalendarView({
               </SelectContent>
             </Select>
 
-            <button className="p-2 hover:bg-gray-200 rounded">
-              <Printer className="w-5 h-5 text-gray-600" />
+            <button className="p-2 hover:bg-muted rounded">
+              <Printer className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
         </div>
@@ -196,15 +194,15 @@ export function DaycareCalendarView({
               : [];
 
             return (
-              <div key={room.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+              <div key={room.id} className="border border-border rounded-lg p-4 bg-card">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-foreground">
                     Daycare - {room.name} ({filteredAppointments.length} pets; {room.maxPets} max)
                   </h3>
                 </div>
 
                 {filteredAppointments.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-4">No pets scheduled for this room</p>
+                  <p className="text-sm text-muted-foreground py-4">No pets scheduled for this room</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {filteredAppointments.map((appointment) => {
@@ -215,12 +213,12 @@ export function DaycareCalendarView({
                       return (
                         <div
                           key={appointment.id}
-                          className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+                          className="border border-border rounded-lg p-4 bg-card hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2 flex-1">
                               {petPhoto ? (
-                                <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-200 flex-shrink-0">
+                                <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-border flex-shrink-0">
                                   <img
                                     src={petPhoto}
                                     alt={appointment.petName}
@@ -228,39 +226,39 @@ export function DaycareCalendarView({
                                   />
                                 </div>
                               ) : (
-                                <div className="w-12 h-12 bg-gray-100 flex items-center justify-center rounded-lg flex-shrink-0">
-                                  <SpeciesIcon className="w-6 h-6 text-gray-600" />
+                                <div className="w-12 h-12 bg-muted flex items-center justify-center rounded-lg flex-shrink-0">
+                                  <SpeciesIcon className="w-6 h-6 text-muted-foreground" />
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1">
-                                  <span className="font-semibold text-sm text-gray-900 truncate">
+                                  <span className="font-semibold text-sm text-foreground truncate">
                                     {appointment.petName}
                                   </span>
                                   {hasAlert && (
-                                    <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                    <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
                                   )}
-                                  <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                                 </div>
                                 {appointment.breed && (
-                                  <p className="text-xs text-gray-500 truncate">
+                                  <p className="text-xs text-muted-foreground truncate">
                                     {appointment.breed}
                                   </p>
                                 )}
                               </div>
                             </div>
-                            <button className="p-1 hover:bg-gray-100 rounded">
-                              <MoreVertical className="w-4 h-4 text-gray-400" />
+                            <button className="p-1 hover:bg-muted rounded">
+                              <MoreVertical className="w-4 h-4 text-muted-foreground" />
                             </button>
                           </div>
 
                           <div className="space-y-2">
-                            <p className="text-xs text-gray-600">
+                            <p className="text-xs text-muted-foreground">
                               Check In {appointment.startTime}
                             </p>
                             <Button
                               size="sm"
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                              className="w-full text-xs"
                               onClick={() => handleCheckIn(appointment.id)}
                             >
                               <CheckCircle className="w-3 h-3 mr-1" />

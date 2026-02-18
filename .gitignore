@@ -43,3 +43,6 @@ coverage
 # Pre-commit security reports
 reports/
 .last-commit-security-report.txt
+
+# Supabase CLI generated
+supabase/.temp

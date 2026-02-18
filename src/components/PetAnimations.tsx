@@ -420,16 +420,17 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
         }}
       />
 
-      {/* Manual trigger button - only visible in dev mode */}
+      {/* Manual trigger button: bottom-right, desktop only, label "Woof!" */}
       {isVisible && (
         <Button
           onClick={handleManualTrigger}
           variant="outline"
-          size="icon"
-          className="fixed bottom-4 left-4 z-[9999] h-12 w-12 rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background border-2 border-primary/20 hover:border-primary/40 transition-all"
-          title="Trigger Pet Animation (Dev Mode)"
+          size="sm"
+          className="fixed bottom-4 right-4 z-[9999] hidden md:flex items-center gap-2 h-12 px-4 rounded-full shadow-lg bg-background/80 backdrop-blur-sm hover:bg-background border-2 border-primary/20 hover:border-primary/40 transition-all"
+          title="Woof!"
         >
-          <Sparkles className="h-5 w-5 text-primary" />
+          <Sparkles className="h-5 w-5 text-primary shrink-0" />
+          <span className="font-medium">Woof!</span>
         </Button>
       )}
     </>

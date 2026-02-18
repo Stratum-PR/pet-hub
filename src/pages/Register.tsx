@@ -121,7 +121,7 @@ export function Register() {
           );
         } else {
           setShowRetryAfterTimeout(false);
-          toast.error(error.message || t('register.errorGeneric'));
+          toast.error(t('register.errorGeneric'));
         }
         return;
       }
@@ -142,14 +142,14 @@ export function Register() {
         const route = getDefaultRoute({ isAdmin: false, business: null });
         addLog(`Redirigiendo a ${route}`);
         navigate(route, { replace: true });
-        toast.success('Cuenta creada. Bienvenido a Stratum Hub.');
+        toast.success('Cuenta creada. Bienvenido a Pet Hub.');
       } else {
         addLog('Sin sesión (confirmar email): mostrando pantalla "Revisa tu correo"');
         setEmailConfirmSent(true);
       }
     } catch (err: any) {
       addLog(`Excepción: ${err?.message || String(err)}`);
-      toast.error(err?.message || t('register.errorGeneric'));
+      toast.error(t('register.errorGeneric'));
     } finally {
       setLoading(false);
       addLog('Fin del flujo de registro');
@@ -213,7 +213,7 @@ export function Register() {
           );
         } else {
           setShowRetryAfterTimeout(false);
-          toast.error(error.message || t('register.errorGeneric'));
+          toast.error(t('register.errorGeneric'));
         }
         return;
       }
@@ -230,7 +230,7 @@ export function Register() {
       }
     } catch (err: any) {
       addLog(`Excepción: ${err?.message || String(err)}`);
-      toast.error(err?.message || t('register.errorGeneric'));
+      toast.error(t('register.errorGeneric'));
     } finally {
       setLoading(false);
       addLog('Fin del flujo de registro');
@@ -273,7 +273,7 @@ export function Register() {
               className="flex justify-center mb-4 cursor-pointer"
               onClick={() => navigate('/')}
             >
-              <img src="/stratum hub logo.svg" alt="Stratum Hub" className="h-12" />
+              <img src="/pet-hub-logo.svg" alt="Pet Hub" className="h-12" />
             </div>
             <CardTitle className="text-2xl">{t('register.title')}</CardTitle>
             <CardDescription>{t('register.subtitle')}</CardDescription>

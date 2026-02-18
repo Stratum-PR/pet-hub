@@ -101,12 +101,12 @@ If **Crear cuenta** takes ~30+ seconds and then shows a timeout and **no user or
    - Turn **off** "Confirm email"
    - Signup will return a session immediately and avoid waiting on the confirmation email.
 
-2. **Apply the profile-insert fix** so the trigger doesn’t block:
+2. **Apply the profile-insert fix** so the trigger doesn't block:
    - Run the migration `supabase/migrations/20260203100000_fix_profile_insert_trigger.sql` (or `npx supabase db push`) so the trigger can insert into `profiles` when `auth.uid()` is null.
 
 3. **Use "Reintentar"** on the Registrarse page after a timeout; the form keeps your data.
 
-4. **Hosted Supabase**: Check project health/region and that the database isn’t overloaded; timeouts can also be due to cold starts or slow DB.
+4. **Hosted Supabase**: Check project health/region and that the database isn't overloaded; timeouts can also be due to cold starts or slow DB.
 
 ## Notes
 

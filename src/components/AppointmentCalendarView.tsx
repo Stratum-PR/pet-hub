@@ -76,21 +76,19 @@ export function AppointmentCalendarView({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-background">
       {/* Header Controls */}
-      <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+      <div className="border-b border-border bg-muted/30 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold text-gray-900">Appointment Book</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Appointment Book</h1>
           <div className="flex items-center gap-3">
-            <Button 
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-4 py-2 text-sm font-medium"
+            <Button
               onClick={onCreateClick}
             >
               Create
             </Button>
             <Button
               variant="outline"
-              className="border-gray-300 text-gray-700 rounded-md px-4 py-2 text-sm font-medium"
               onClick={onToday}
             >
               TODAY
@@ -103,18 +101,18 @@ export function AppointmentCalendarView({
           <div className="flex items-center gap-4">
             <button
               onClick={onPreviousDay}
-              className="p-1 hover:bg-gray-200 rounded"
+              className="p-1 hover:bg-muted rounded"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
+              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
             </button>
-            <span className="text-base font-medium text-gray-900 min-w-[200px] text-center">
+            <span className="text-base font-medium text-foreground min-w-[200px] text-center">
               {formatDateHeader(selectedDate)}
             </span>
             <button
               onClick={onNextDay}
-              className="p-1 hover:bg-gray-200 rounded"
+              className="p-1 hover:bg-muted rounded"
             >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
 
@@ -123,7 +121,7 @@ export function AppointmentCalendarView({
               value={filters.service}
               onValueChange={(value) => onFilterChange('service', value)}
             >
-              <SelectTrigger className="w-[140px] bg-white">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -137,7 +135,7 @@ export function AppointmentCalendarView({
               value={filters.employee || 'All Employees'}
               onValueChange={(value) => onFilterChange('employee', value)}
             >
-              <SelectTrigger className="w-[160px] bg-white">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -154,7 +152,7 @@ export function AppointmentCalendarView({
               value={filters.view}
               onValueChange={(value) => onFilterChange('view', value as CalendarView)}
             >
-              <SelectTrigger className="w-[100px] bg-white">
+              <SelectTrigger className="w-[100px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -164,8 +162,8 @@ export function AppointmentCalendarView({
               </SelectContent>
             </Select>
 
-            <button className="p-2 hover:bg-gray-200 rounded">
-              <Printer className="w-5 h-5 text-gray-600" />
+            <button className="p-2 hover:bg-muted rounded">
+              <Printer className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
         </div>
@@ -176,19 +174,19 @@ export function AppointmentCalendarView({
         <div className="relative min-h-full">
           {/* Grid Container */}
           <div 
-            className="grid sticky top-0 bg-white z-10 border-b border-gray-200"
+            className="grid sticky top-0 bg-card z-10 border-b border-border"
             style={{ gridTemplateColumns: `80px repeat(${employees.length}, 1fr)` }}
           >
             {/* Time Column Header */}
-            <div className="border-r border-gray-200 bg-gray-50"></div>
+            <div className="border-r border-border bg-muted/30"></div>
             
             {/* Employee Column Headers */}
             {employees.map((employee) => (
               <div
                 key={employee.id}
-                className="border-r border-gray-200 bg-gray-50 px-4 py-3 text-center"
+                className="border-r border-border bg-muted/30 px-4 py-3 text-center"
               >
-                <span className="text-sm font-semibold text-gray-900">{employee.name}</span>
+                <span className="text-sm font-semibold text-foreground">{employee.name}</span>
               </div>
             ))}
           </div>
@@ -196,13 +194,13 @@ export function AppointmentCalendarView({
           {/* Time Slots and Appointments */}
           <div className="relative" style={{ minHeight: `${timeSlots.length * 80}px` }}>
             {/* Time Labels */}
-            <div className="absolute left-0 top-0 w-20 border-r border-gray-200 bg-white">
+            <div className="absolute left-0 top-0 w-20 border-r border-border bg-card">
               {timeSlots.map((slot, idx) => (
                 <div
                   key={slot.hour}
-                  className="h-20 border-b border-gray-100 flex items-start justify-end pr-3 pt-1"
+                  className="h-20 border-b border-border flex items-start justify-end pr-3 pt-1"
                 >
-                  <span className="text-xs text-gray-600">{slot.label}</span>
+                  <span className="text-xs text-muted-foreground">{slot.label}</span>
                 </div>
               ))}
             </div>
@@ -215,13 +213,13 @@ export function AppointmentCalendarView({
               {employees.map((employee) => (
                 <div
                   key={employee.id}
-                  className="border-r border-gray-200 relative"
+                  className="border-r border-border relative"
                 >
                   {/* Time Slot Grid Lines */}
                   {timeSlots.map((slot) => (
                     <div
                       key={slot.hour}
-                      className="h-20 border-b border-gray-100"
+                      className="h-20 border-b border-border"
                     />
                   ))}
 
@@ -236,7 +234,7 @@ export function AppointmentCalendarView({
                     return (
                       <div
                         key={appointment.id}
-                        className="absolute left-1 right-1 rounded-md p-2 shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
+                        className="absolute left-1 right-1 rounded-md p-2 shadow-sm border border-border cursor-pointer hover:shadow-md transition-shadow bg-card"
                         style={{
                           top: `${position.top}px`,
                           height: `${position.height}px`,
@@ -245,26 +243,26 @@ export function AppointmentCalendarView({
                         }}
                       >
                         <div className="flex items-start gap-1 mb-1">
-                          <PawPrint className="w-3 h-3 text-gray-600 flex-shrink-0 mt-0.5" />
+                          <PawPrint className="w-3 h-3 text-muted-foreground flex-shrink-0 mt-0.5" />
                           {appointment.hasAlert && (
-                            <Bell className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
+                            <Bell className="w-3 h-3 text-destructive flex-shrink-0 mt-0.5" />
                           )}
                         </div>
-                        <div className="text-xs font-semibold text-gray-900 mb-0.5">
+                        <div className="text-xs font-semibold text-foreground mb-0.5">
                           {appointment.petName}
                           {appointment.breed && (
                             <span className="font-normal"> ({appointment.breed})</span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-600 italic mb-0.5">
+                        <div className="text-xs text-muted-foreground italic mb-0.5">
                           {appointment.ownerName}
                         </div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-muted-foreground">
                           {appointment.service}
                           {appointment.serviceSize && ` - ${appointment.serviceSize}`}
                           {appointment.duration && ` - ${appointment.duration} Min`}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           {appointment.startTime} - {appointment.endTime}
                         </div>
                       </div>

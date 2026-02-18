@@ -34,7 +34,7 @@ export function AuthCallback() {
       p_subscription_tier: pendingTier,
     });
     if (error) {
-      setRpcError(error.message || String(error));
+      setRpcError('Something went wrong. Please try again.');
       return false;
     }
     setRpcError(null);

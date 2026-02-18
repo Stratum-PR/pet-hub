@@ -129,5 +129,5 @@ INSERT INTO public.services (name, description, price, duration_minutes) VALUES
 -- Insert default settings
 INSERT INTO public.settings (key, value) VALUES
   ('color_scheme', 'soft-green-blue'),
-  ('business_name', 'Stratum Hub'),
+  ('business_name', 'Pet Hub'),
   ('business_hours', '9:00 AM - 6:00 PM');

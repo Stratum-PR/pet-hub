@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useClients, BusinessClient } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
-import { CustomerForm } from '@/components/CustomerForm';
+import { ClientForm } from '@/components/ClientForm';
 import { SearchFilter } from '@/components/SearchFilter';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
@@ -130,7 +130,7 @@ export function BusinessCustomers() {
 
       {showForm && (
         <div id="client-form">
-          <CustomerForm
+          <ClientForm
             initialData={editingClient}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

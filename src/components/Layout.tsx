@@ -1,5 +1,5 @@
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Dog, Users, LayoutDashboard, Menu, X, Clock, MoreHorizontal, BarChart3, UserCog, DollarSign, Package, Calendar, Scissors, Palette, LogOut } from 'lucide-react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { Menu, LogOut, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,78 +9,86 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Settings as SettingsType } from '@/hooks/useSupabaseData';
-import { t, getLanguage } from '@/lib/translations';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { t } from '@/lib/translations';
 import { signOut } from '@/lib/auth';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { AdminImpersonationHeader } from '@/components/AdminImpersonationHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { PetAnimations } from '@/components/PetAnimations';
+import { useNotifications } from '@/hooks/useNotifications';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { format } from 'date-fns';
+import { AppSidebar, getSidebarCollapsed, setSidebarCollapsed } from '@/components/AppSidebar';
 
 interface LayoutProps {
   children: React.ReactNode;
   settings: SettingsType;
 }
 
-const navItems = [
-  // Paths are relative to /:businessSlug/
-  { path: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
-  { path: 'clients', labelKey: 'nav.clients', icon: Users },
-  { path: 'pets', labelKey: 'nav.pets', icon: Dog },
-  { path: 'appointments', labelKey: 'nav.appointments', icon: Calendar },
-  { path: 'inventory', labelKey: 'nav.inventory', icon: Package },
-];
-
-const employeeItems = [
-  { path: 'employee-management', labelKey: 'nav.employeeInfo', icon: UserCog },
-  { path: 'employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
-  { path: 'time-tracking', labelKey: 'nav.timeTracking', icon: Clock },
-];
-
-const reportsItems = [
-  { path: 'reports/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
-  { path: 'reports/payroll', labelKey: 'nav.payroll', icon: DollarSign },
-];
+function getPageTitle(pathname: string, businessSlug: string | undefined): string {
+  const base = businessSlug ? `/${businessSlug}` : '';
+  const path = pathname.replace(base, '') || '/';
+  const segment = path.split('/').filter(Boolean)[0] || 'dashboard';
+  if (segment === 'settings') {
+    const sub = path.split('/').filter(Boolean)[1];
+    if (sub === 'account') return t('nav.accountSettings');
+    if (sub === 'business') return t('nav.businessSettings');
+    if (sub === 'booking') return t('nav.bookingSettings');
+    if (sub === 'billing') return t('nav.subscription');
+    return t('nav.settings');
+  }
+  const titles: Record<string, string> = {
+    dashboard: t('nav.dashboard'),
+    clients: t('nav.clients'),
+    pets: t('nav.pets'),
+    appointments: t('nav.appointments'),
+    inventory: t('nav.inventory'),
+    'employee-management': t('nav.employeeInfo'),
+    'employee-schedule': t('nav.schedule'),
+    'time-tracking': t('nav.timeTracking'),
+    reports: t('nav.reports'),
+    analytics: t('nav.analytics'),
+    payroll: t('nav.payroll'),
+    'appt-book': t('nav.apptBook'),
+    services: t('nav.services'),
+    checkout: 'Checkout',
+    payment: 'Payment',
+    help: t('nav.help'),
+    transactions: t('nav.transactions'),
+  };
+  return titles[segment] || segment;
+}
 
 export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
-  const navigate = useNavigate();
   const { businessSlug } = useParams();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const { notifications, markRead, markAllRead } = useNotifications();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { language } = useLanguage();
-  const [employeesMenuOpen, setEmployeesMenuOpen] = useState(false);
-  const [reportsMenuOpen, setReportsMenuOpen] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
-  // Track if menus were clicked open (to keep them open) vs hovered
-  const [employeesMenuClicked, setEmployeesMenuClicked] = useState(false);
-  const [reportsMenuClicked, setReportsMenuClicked] = useState(false);
-  const [moreMenuClicked, setMoreMenuClicked] = useState(false);
-  
-  // Force re-render when language changes by using language in state
-  const [, forceUpdate] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(getSidebarCollapsed);
+
+  const setCollapsed = (value: boolean) => {
+    setSidebarCollapsedState(value);
+    setSidebarCollapsed(value);
+  };
+
+  // Close mobile sheet when route changes
   useEffect(() => {
-    const handleLanguageChange = () => {
-      forceUpdate((prev) => prev + 1);
-    };
-    window.addEventListener('languagechange', handleLanguageChange);
-    return () => window.removeEventListener('languagechange', handleLanguageChange);
-  }, []);
+    if (mobileMenuOpen) setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   // Apply dynamic colors
   useEffect(() => {
     const root = document.documentElement;
     if (settings.primary_color) {
-      // Ensure format is correct (remove 'hsl(' and ')' if present)
       const primaryValue = settings.primary_color.replace(/hsl\(|\)/g, '').trim();
       root.style.setProperty('--primary', primaryValue);
     }
     if (settings.secondary_color) {
-      // Ensure format is correct (remove 'hsl(' and ')' if present)
       const secondaryValue = settings.secondary_color.replace(/hsl\(|\)/g, '').trim();
       root.style.setProperty('--secondary', secondaryValue);
     }
@@ -99,500 +107,164 @@ export function Layout({ children, settings }: LayoutProps) {
   };
 
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.classList.add('menu-open');
-    } else {
-      document.body.classList.remove('menu-open');
-    }
-    return () => {
-      document.body.classList.remove('menu-open');
-    };
+    if (mobileMenuOpen) document.body.classList.add('menu-open');
+    else document.body.classList.remove('menu-open');
+    return () => document.body.classList.remove('menu-open');
   }, [mobileMenuOpen]);
 
-  // Check if admin impersonation header is showing
   const isImpersonating = typeof window !== 'undefined' && sessionStorage.getItem('is_impersonating') === 'true';
   const showAdminHeader = isAdmin && isImpersonating;
+  const pageTitle = getPageTitle(location.pathname, businessSlug);
+  const settingsBase = businessSlug ? `/${businessSlug}/settings` : '/settings';
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Admin Impersonation Header - Fixed at top */}
-      <AdminImpersonationHeader />
-      
-      {/* Header */}
-      <header 
-        className="border-b border-border bg-card shadow-sm sticky z-50 relative overflow-hidden"
-        style={{ top: showAdminHeader ? '48px' : '0' }}
-      >
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between relative z-50">
-          <Link
-            to={businessSlug ? `/${businessSlug}/dashboard` : '/'}
-            className="flex items-center gap-2"
-          >
-            <div className="w-[140px] h-[50px] flex items-center justify-center overflow-hidden bg-transparent -my-2">
-              <img src="/stratum hub logo.svg" alt="Stratum Hub" className="w-full h-full object-contain" />
-            </div>
-            <span className="text-xl font-semibold tracking-tight">
-              {settings.business_name &&
-              settings.business_name.toLowerCase().includes('demo')
-                ? 'Demo'
-                : settings.business_name || 'Stratum Hub'}
-            </span>
-          </Link>
+    <div className="h-screen overflow-hidden flex flex-col bg-background">
+      {showAdminHeader && <AdminImpersonationHeader />}
 
-          {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-1 relative z-50">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-              const isActive = location.pathname === targetPath;
-              return (
-                <Link key={item.path} to={targetPath}>
-                  <Button
-                    variant={isActive ? 'default' : 'ghost'}
-                    size="sm"
-                    className={`flex items-center gap-2 ${isActive ? 'shadow-sm' : ''}`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {t(item.labelKey)}
+      <div className="flex flex-1 min-h-0 overflow-hidden" style={{ paddingTop: showAdminHeader ? 48 : 0 }}>
+        {/* Desktop sidebar: no scroll on column; only the nav list scrolls when user scrolls inside it */}
+        <div className="hidden lg:flex flex-col shrink-0 border-r border-border bg-card h-full overflow-hidden">
+          <AppSidebar
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setCollapsed}
+            businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Pet Hub'}
+            mobile={false}
+          />
+        </div>
+
+        {/* Main area: only this content scrolls when page is long */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+          {/* Slim top bar */}
+          <header
+            className="border-b border-border bg-card shadow-sm shrink-0 flex items-center justify-between gap-4 px-4 py-2 lg:px-6"
+            style={{ minHeight: '52px' }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden shrink-0"
+                onClick={() => setMobileMenuOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              <h1 className="text-lg font-semibold truncate">{pageTitle}</h1>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="w-4 h-4" />
+                    {notifications.filter((n) => !n.read).length > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground flex items-center justify-center">
+                        {notifications.filter((n) => !n.read).length > 9 ? '9+' : notifications.filter((n) => !n.read).length}
+                      </span>
+                    )}
                   </Button>
-                </Link>
-              );
-            })}
-            {/* Employees Dropdown */}
-            <DropdownMenu 
-              open={employeesMenuOpen} 
-              onOpenChange={(open) => {
-                setEmployeesMenuOpen(open);
-                if (!open) setEmployeesMenuClicked(false);
-              }}
-            >
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant={
-                    (businessSlug &&
-                      (location.pathname.startsWith(`/${businessSlug}/employee`) ||
-                        location.pathname === `/${businessSlug}/time-tracking`)) ||
-                    (!businessSlug &&
-                      (location.pathname.startsWith('/employee') ||
-                        location.pathname === '/time-tracking'))
-                      ? 'default'
-                      : 'ghost'
-                  }
-                  size="sm"
-                  className={`flex items-center gap-2 ${
-                    (businessSlug &&
-                      (location.pathname.startsWith(`/${businessSlug}/employee`) ||
-                        location.pathname === `/${businessSlug}/time-tracking`)) ||
-                    (!businessSlug &&
-                      (location.pathname.startsWith('/employee') ||
-                        location.pathname === '/time-tracking'))
-                      ? 'shadow-sm'
-                      : ''
-                  }`}
-                  onMouseEnter={() => {
-                    if (!employeesMenuClicked) {
-                      setEmployeesMenuOpen(true);
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    if (!employeesMenuClicked) {
-                      setEmployeesMenuOpen(false);
-                    }
-                  }}
-                  onClick={() => {
-                    const newState = !employeesMenuOpen;
-                    setEmployeesMenuOpen(newState);
-                    setEmployeesMenuClicked(newState);
-                  }}
-                >
-                  <UserCog className="w-4 h-4" />
-                  {t('nav.employees')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end"
-                onMouseEnter={() => setEmployeesMenuOpen(true)}
-                onMouseLeave={() => setEmployeesMenuOpen(false)}
-              >
-                {employeeItems.map((item) => {
-                  const Icon = item.icon;
-                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-                  const isActive = location.pathname === targetPath;
-                  return (
-                    <DropdownMenuItem key={item.path} asChild>
-                      <Link
-                        to={targetPath}
-                        className={`flex items-center gap-2 ${isActive ? 'bg-accent' : ''}`}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 max-h-[360px] overflow-y-auto">
+                  <div className="px-2 py-1.5 flex items-center justify-between border-b">
+                    <span className="font-medium text-sm">{t('nav.notifications')}</span>
+                    {notifications.some((n) => !n.read) && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => markAllRead()}>
+                        {t('nav.markAllRead')}
+                      </Button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">{t('nav.noNotifications')}</div>
+                  ) : (
+                    notifications.slice(0, 15).map((n) => (
+                      <div
+                        key={n.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => markRead(n.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && markRead(n.id)}
+                        className={`px-3 py-2 text-left text-sm cursor-pointer hover:bg-muted/50 ${!n.read ? 'bg-muted/30' : ''}`}
                       >
-                        <Icon className="w-4 h-4" />
-                        {t(item.labelKey)}
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {/* Reports Dropdown */}
-            <DropdownMenu 
-              open={reportsMenuOpen} 
-              onOpenChange={(open) => {
-                setReportsMenuOpen(open);
-                if (!open) setReportsMenuClicked(false);
-              }}
-            >
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant={
-                    (businessSlug &&
-                      location.pathname.startsWith(`/${businessSlug}/reports`)) ||
-                    (!businessSlug && location.pathname.startsWith('/reports'))
-                      ? 'default'
-                      : 'ghost'
-                  }
-                  size="sm"
-                  className={`flex items-center gap-2 ${
-                    (businessSlug &&
-                      location.pathname.startsWith(`/${businessSlug}/reports`)) ||
-                    (!businessSlug && location.pathname.startsWith('/reports'))
-                      ? 'shadow-sm'
-                      : ''
-                  }`}
-                  onMouseEnter={() => {
-                    if (!reportsMenuClicked) {
-                      setReportsMenuOpen(true);
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    if (!reportsMenuClicked) {
-                      setReportsMenuOpen(false);
-                    }
-                  }}
-                  onClick={() => {
-                    const newState = !reportsMenuOpen;
-                    setReportsMenuOpen(newState);
-                    setReportsMenuClicked(newState);
-                  }}
-                >
-                  <BarChart3 className="w-4 h-4" />
-                  {t('nav.reports')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end"
-                onMouseEnter={() => setReportsMenuOpen(true)}
-                onMouseLeave={() => setReportsMenuOpen(false)}
-              >
-                {reportsItems.map((item) => {
-                  const Icon = item.icon;
-                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-                  const isActive = location.pathname === targetPath;
-                  return (
-                    <DropdownMenuItem key={item.path} asChild>
-                      <Link
-                        to={targetPath}
-                        className={`flex items-center gap-2 ${isActive ? 'bg-accent' : ''}`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {t(item.labelKey)}
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {/* More Dropdown */}
-            <DropdownMenu 
-              open={moreMenuOpen} 
-              onOpenChange={(open) => {
-                setMoreMenuOpen(open);
-                if (!open) setMoreMenuClicked(false);
-              }}
-            >
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant={
-                    (businessSlug &&
-                      (location.pathname.startsWith(`/${businessSlug}/services`) ||
-                        location.pathname.startsWith(`/${businessSlug}/personalization`))) ||
-                    (!businessSlug &&
-                      (location.pathname.startsWith('/services') ||
-                        location.pathname.startsWith('/personalization')))
-                      ? 'default'
-                      : 'ghost'
-                  }
-                  size="sm"
-                  className={`flex items-center gap-2 ${
-                    (businessSlug &&
-                      (location.pathname.startsWith(`/${businessSlug}/services`) ||
-                        location.pathname.startsWith(`/${businessSlug}/personalization`))) ||
-                    (!businessSlug &&
-                      (location.pathname.startsWith('/services') ||
-                        location.pathname.startsWith('/personalization')))
-                      ? 'shadow-sm'
-                      : ''
-                  }`}
-                  onMouseEnter={() => {
-                    if (!moreMenuClicked) {
-                      setMoreMenuOpen(true);
-                    }
-                  }}
-                  onMouseLeave={() => {
-                    if (!moreMenuClicked) {
-                      setMoreMenuOpen(false);
-                    }
-                  }}
-                  onClick={() => {
-                    const newState = !moreMenuOpen;
-                    setMoreMenuOpen(newState);
-                    setMoreMenuClicked(newState);
-                  }}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                  {t('nav.more')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end"
-                onMouseEnter={() => setMoreMenuOpen(true)}
-                onMouseLeave={() => setMoreMenuOpen(false)}
-              >
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={businessSlug ? `/${businessSlug}/appt-book` : '/appt-book'}
-                    className={`flex items-center gap-2 ${
-                      (businessSlug &&
-                        location.pathname === `/${businessSlug}/appt-book`) ||
-                      (!businessSlug && location.pathname === '/appt-book')
-                        ? 'bg-accent'
-                        : ''
-                    }`}
+                        <p className="font-medium truncate">{n.message}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(n.created_at), 'MMM d, HH:mm')}</p>
+                      </div>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* User menu: avatar — Log out only */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={profile?.avatar_url ?? undefined} alt="" />
+                      <AvatarFallback className="text-xs">
+                        {(profile?.full_name || profile?.email || 'U').slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem
+                    onClick={() => setLogoutDialogOpen(true)}
+                    className="flex items-center gap-2 text-destructive cursor-pointer"
                   >
-                    <Calendar className="w-4 h-4" />
-                    Appt Book
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={businessSlug ? `/${businessSlug}/services` : '/services'}
-                    className={`flex items-center gap-2 ${
-                      (businessSlug &&
-                        location.pathname === `/${businessSlug}/services`) ||
-                      (!businessSlug && location.pathname === '/services')
-                        ? 'bg-accent'
-                        : ''
-                    }`}
-                  >
-                    <Scissors className="w-4 h-4" />
-                    {t('nav.services')}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={businessSlug ? `/${businessSlug}/personalization` : '/personalization'}
-                    className={`flex items-center gap-2 ${
-                      (businessSlug &&
-                        location.pathname === `/${businessSlug}/personalization`) ||
-                      (!businessSlug && location.pathname === '/personalization')
-                        ? 'bg-accent'
-                        : ''
-                    }`}
-                  >
-                    <Palette className="w-4 h-4" />
-                    {t('nav.personalization')}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setLogoutDialogOpen(true)}
-                  className="flex items-center gap-2 text-destructive cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Logout</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </nav>
-
-          {/* Mobile Menu Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </Button>
-        </div>
-
-        {/* Mobile Nav - Compact Sheet Sidebar (opens from the right) */}
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetContent side="right" className="w-[280px] sm:w-[320px] p-0">
-            <SheetHeader className="px-6 py-4 border-b">
-              <SheetTitle>Menú</SheetTitle>
-            </SheetHeader>
-            <nav className="flex flex-col h-[calc(100vh-80px)] overflow-y-auto">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-                const isActive = location.pathname === targetPath;
-                return (
-                  <Link
-                    key={item.path}
-                    to={targetPath}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-6 py-3 border-b border-border transition-colors ${
-                      isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {t(item.labelKey)}
-                  </Link>
-                );
-              })}
-              {/* Employees Submenu for Mobile */}
-              <div className="border-b border-border">
-                <div className="px-6 py-3 text-sm font-medium text-muted-foreground">{t('nav.employees')}</div>
-                {employeeItems.map((item) => {
-                  const Icon = item.icon;
-                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-                  const isActive = location.pathname === targetPath;
-                  return (
-                    <Link
-                      key={item.path}
-                      to={targetPath}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
-                        isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      {t(item.labelKey)}
-                    </Link>
-                  );
-                })}
-              </div>
-              {/* Reports Submenu for Mobile */}
-              <div className="border-b border-border">
-                <div className="px-6 py-3 text-sm font-medium text-muted-foreground">{t('nav.reports')}</div>
-                {reportsItems.map((item) => {
-                  const Icon = item.icon;
-                  const targetPath = businessSlug ? `/${businessSlug}/${item.path}` : `/${item.path}`;
-                  const isActive = location.pathname === targetPath;
-                  return (
-                    <Link
-                      key={item.path}
-                      to={targetPath}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
-                        isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      {t(item.labelKey)}
-                    </Link>
-                  );
-                })}
-              </div>
-              {/* More Submenu for Mobile */}
-              <div className="border-b border-border">
-                <div className="px-6 py-3 text-sm font-medium text-muted-foreground">{t('nav.more')}</div>
-                <Link
-                  to={businessSlug ? `/${businessSlug}/services` : '/services'}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
-                    location.pathname.includes('/services') ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                  }`}
-                >
-                  <Scissors className="w-5 h-5" />
-                  {t('nav.services')}
-                </Link>
-                <Link
-                  to={businessSlug ? `/${businessSlug}/personalization` : '/personalization'}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-10 py-3 border-b border-border transition-colors ${
-                    location.pathname.includes('/personalization') ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                  }`}
-                >
-                  <Palette className="w-5 h-5" />
-                  {t('nav.personalization')}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setLogoutDialogOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-10 py-3 border-b border-border text-destructive text-left hover:bg-muted transition-colors"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </nav>
-          </SheetContent>
-        </Sheet>
-      </header>
-
-      {/* Impersonation / client view banner (admin mode) - Only show for non-impersonating admin views */}
-      {!showAdminHeader && <ImpersonationBanner />}
-
-      {/* Main Content */}
-      <main 
-        className="container mx-auto px-4 py-8 flex-1"
-        style={{ paddingTop: showAdminHeader ? 'calc(2rem + 48px)' : '2rem' }}
-      >
-        {children}
-      </main>
-
-      {/* Global footer */}
-      <footer className="border-t mt-8 bg-[#f9fafb]">
-        <div className="container mx-auto px-4 py-8 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <a
-              href="https://stratumpr.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block hover:opacity-90 transition-opacity"
-            >
-              <img
-                src="/Logo 4.svg"
-                alt="STRATUM PR LLC"
-                className="object-contain w-[180px] max-w-[220px] h-auto sm:w-[160px] md:w-[190px] cursor-pointer"
-              />
-            </a>
-            <div className="text-xs sm:text-sm text-muted-foreground">
-              © 2025 STRATUM PR LLC. All rights reserved.
+                    <LogOut className="w-4 h-4" />
+                    {t('nav.logOut')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </div>
-        </div>
-      </footer>
+          </header>
 
-      {/* Logout confirmation dialog */}
+          {!showAdminHeader && <ImpersonationBanner />}
+
+          <main className="flex-1 min-h-0 overflow-auto container mx-auto px-4 py-6">
+            {children}
+          </main>
+
+          <footer className="border-t shrink-0 bg-muted/30">
+            <div className="max-w-[200px] mx-auto px-4 py-4 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2 text-center">
+                <a href="https://stratumpr.com" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-90 transition-opacity">
+                  <img src="/Logo 4.svg" alt="STRATUM PR LLC" className="object-contain w-[120px] h-auto cursor-pointer" />
+                </a>
+                <div className="text-[10px] text-muted-foreground">© 2025 STRATUM PR LLC</div>
+              </div>
+            </div>
+          </footer>
+        </div>
+      </div>
+
+      {/* Mobile: hamburger opens sheet with sidebar content */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
+          <AppSidebar
+            collapsed={false}
+            onCollapsedChange={() => {}}
+            businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Pet Hub'}
+            mobile={true}
+          />
+        </SheetContent>
+      </Sheet>
+
       <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('logout.title')}</DialogTitle>
-            <DialogDescription>
-              {t('logout.confirm')}
-            </DialogDescription>
+            <DialogDescription>{t('logout.confirm')}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setLogoutDialogOpen(false)}>
               {t('logout.cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setLogoutDialogOpen(false);
-                handleLogout();
-              }}
-            >
+            <Button variant="destructive" onClick={() => { setLogoutDialogOpen(false); handleLogout(); }}>
               {t('logout.confirmButton')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Pet Animations - Random fun animations */}
       <PetAnimations />
     </div>
   );

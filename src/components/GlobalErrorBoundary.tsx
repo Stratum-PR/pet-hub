@@ -75,19 +75,23 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
 
     if (!error && !lastEventError) return this.props.children;
 
-    const message =
-      (error && (error.stack || error.message)) ||
-      (typeof lastEventError === 'string'
-        ? lastEventError
-        : JSON.stringify(lastEventError, null, 2));
+    const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
+    const message = isDev
+      ? ((error && (error.stack || error.message)) ||
+          (typeof lastEventError === 'string'
+            ? lastEventError
+            : JSON.stringify(lastEventError, null, 2)))
+      : 'Something went wrong. Please refresh the page or try again later.';
 
     return (
       <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-          App crashed (showing error instead of blank screen)
+          Something went wrong
         </h2>
         <p style={{ marginBottom: 12 }}>
-          Open DevTools Console for full logs. Copy the error below and paste it here.
+          {isDev
+            ? 'Open DevTools Console for full logs. Copy the error below and paste it here.'
+            : 'Please refresh the page or try again later.'}
         </p>
         <pre
           style={{
@@ -102,7 +106,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
           }}
         >
           {message}
-          {errorInfo?.componentStack ? `\n\nComponent stack:\n${errorInfo.componentStack}` : ''}
+          {isDev && errorInfo?.componentStack ? `\n\nComponent stack:\n${errorInfo.componentStack}` : ''}
         </pre>
       </div>
     );

@@ -7,7 +7,7 @@ import { DaycareCalendarView } from '@/components/DaycareCalendarView';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { t } from '@/lib/translations';
-import { useAppointments, usePets, useServices, useCustomers } from '@/hooks/useBusinessData';
+import { useAppointments, usePets, useServices, useClients } from '@/hooks/useBusinessData';
 import { useEmployees } from '@/hooks/useSupabaseData';
 import { convertAppointmentsToCalendar, convertEmployeesToCalendar } from '@/lib/calendarHelpers';
 import { BookingFormDialog } from '@/components/BookingFormDialog';
@@ -28,7 +28,7 @@ export function AppointmentBook() {
   const { pets, loading: petsLoading } = usePets();
   const { employees, loading: employeesLoading } = useEmployees();
   const { services, loading: servicesLoading } = useServices();
-  const { customers } = useCustomers();
+  const { clients } = useClients();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const loading = appointmentsLoading || petsLoading || employeesLoading || servicesLoading;
@@ -120,7 +120,7 @@ export function AppointmentBook() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] bg-gray-50 -m-6 overflow-hidden">
+    <div className="flex h-[calc(100vh-8rem)] bg-background -m-6 overflow-hidden">
       {/* Left Sidebar */}
       <AppointmentBookSidebar
         selectedDate={selectedDate}
@@ -135,20 +135,20 @@ export function AppointmentBook() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation Tabs */}
-        <div className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="bg-card border-b border-border px-6 py-3">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
             <TabsList className="bg-transparent">
-              <TabsTrigger value="calendar" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600">
+              <TabsTrigger value="calendar">
                 {t('appointments.calendar') || 'Calendar'}
               </TabsTrigger>
-              <TabsTrigger value="list" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600">
+              <TabsTrigger value="list">
                 Appointment List
               </TabsTrigger>
-              <TabsTrigger value="requests" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 relative">
+              <TabsTrigger value="requests" className="relative">
                 Online Requests
-                <Badge className="ml-2 bg-red-500 text-white text-xs">13</Badge>
+                <Badge className="ml-2 bg-destructive text-destructive-foreground text-xs">13</Badge>
               </TabsTrigger>
-              <TabsTrigger value="settings" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600">
+              <TabsTrigger value="settings">
                 Settings
               </TabsTrigger>
             </TabsList>
@@ -160,7 +160,7 @@ export function AppointmentBook() {
           <div className="flex-1 overflow-hidden relative">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               </div>
             ) : filters.service === 'Daycare' ? (
               <DaycareCalendarView
@@ -218,7 +218,7 @@ export function AppointmentBook() {
       <BookingFormDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        customers={customers}
+        clients={clients}
         pets={pets}
         services={services}
         appointments={appointments}

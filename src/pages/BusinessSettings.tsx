@@ -66,7 +66,7 @@ export function BusinessSettings() {
       toast.success(t('personalization.settingsSaved'));
     } catch (error: any) {
       console.error('Error updating business:', error);
-      toast.error(error.message || t('personalization.saveError'));
+      toast.error(t('common.genericError') || t('personalization.saveError'));
     } finally {
       setLoading(false);
     }

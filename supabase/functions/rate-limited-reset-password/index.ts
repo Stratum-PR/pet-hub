@@ -5,9 +5,22 @@
 const RESET_LIMIT = 3;
 const WINDOW_SECONDS = 3600; // 1 hour
 
-function corsHeaders() {
+// Set ALLOWED_ORIGINS in Supabase Edge Function secrets (e.g. https://yourapp.com,https://www.yourapp.com).
+// Comma-separated; if unset, falls back to * for backward compatibility.
+function getCorsOrigin(req: Request): string {
+  const allowed = Deno.env.get("ALLOWED_ORIGINS")?.trim();
+  if (allowed) {
+    const origins = allowed.split(",").map((o) => o.trim()).filter(Boolean);
+    const origin = req.headers.get("Origin") ?? "";
+    if (origins.includes(origin)) return origin;
+    if (origins.length > 0) return origins[0];
+  }
+  return "*";
+}
+
+function corsHeaders(req: Request) {
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": getCorsOrigin(req),
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
@@ -31,13 +44,13 @@ async function upstashRedisCommand(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders() });
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ error: "Method not allowed" }),
-      { status: 405, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+      { status: 405, headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
     );
   }
 
@@ -50,7 +63,7 @@ Deno.serve(async (req) => {
     console.error("Missing env: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, or SUPABASE_ANON_KEY");
     return new Response(
       JSON.stringify({ error: "Server configuration error" }),
-      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
     );
   }
 
@@ -61,14 +74,14 @@ Deno.serve(async (req) => {
   } catch {
     return new Response(
       JSON.stringify({ error: "Invalid JSON body. Send { \"email\": \"you@example.com\" }" }),
-      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
     );
   }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return new Response(
       JSON.stringify({ error: "Valid email is required" }),
-      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+      { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
     );
   }
 
@@ -81,7 +94,7 @@ Deno.serve(async (req) => {
     console.error("Upstash INCR error:", incrRes.error);
     return new Response(
       JSON.stringify({ error: "Rate limit check failed. Try again later." }),
-      { status: 503, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+      { status: 503, headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
     );
   }
 
@@ -101,7 +114,7 @@ Deno.serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           "Retry-After": String(WINDOW_SECONDS),
-          ...corsHeaders(),
+          ...corsHeaders(req),
         },
       },
     );
@@ -132,7 +145,7 @@ Deno.serve(async (req) => {
     const msg = (authJson as { msg?: string }).msg || authBody || "Failed to send reset email";
     return new Response(
       JSON.stringify({ error: msg }),
-      { status: authRes.status, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+      { status: authRes.status, headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
     );
   }
 
@@ -140,6 +153,6 @@ Deno.serve(async (req) => {
     JSON.stringify({
       message: "If an account exists for this email, you will receive a password reset link.",
     }),
-    { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders() } },
+    { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders(req) } },
   );
 });
