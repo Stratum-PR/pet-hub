@@ -3,8 +3,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingUp, DollarSign, Clock, Users, Dog, Calendar } from 'lucide-react';
 import { Client, Pet, Employee, TimeEntry, Appointment } from '@/types';
-import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInHours, parseISO } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInHours, startOfDay } from 'date-fns';
 import { t } from '@/lib/translations';
+import { useTransactions } from '@/hooks/useTransactions';
 
 interface ReportsProps {
   clients: Client[];
@@ -16,7 +17,40 @@ interface ReportsProps {
 
 const COLORS = ['hsl(168, 60%, 45%)', 'hsl(200, 55%, 55%)', 'hsl(145, 50%, 45%)', 'hsl(180, 45%, 50%)'];
 
+const SALE_STATUSES = ['paid', 'partial'];
+const REVENUE_PERIOD_DAYS = 30;
+
 export function Reports({ clients, pets, employees, timeEntries, appointments }: ReportsProps) {
+  const { transactions } = useTransactions();
+  const sales = useMemo(
+    () => transactions.filter((t) => SALE_STATUSES.includes(t.status)),
+    [transactions]
+  );
+
+  // Total revenue from transactions (last 30 days)
+  const totalRevenue = useMemo(() => {
+    const periodStart = subDays(new Date(), REVENUE_PERIOD_DAYS);
+    const cents = sales
+      .filter((t) => new Date(t.created_at) >= periodStart)
+      .reduce((sum, t) => sum + t.total, 0);
+    return cents / 100;
+  }, [sales]);
+
+  // Revenue by day from transactions (last 7 days)
+  const revenueData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
+    return last7Days.map((day) => {
+      const dayStart = startOfDay(day);
+      const dayRevenueCents = sales
+        .filter((t) => startOfDay(new Date(t.created_at)).getTime() === dayStart.getTime())
+        .reduce((sum, t) => sum + t.total, 0);
+      return {
+        day: format(day, 'MMM d'),
+        revenue: dayRevenueCents / 100,
+      };
+    });
+  }, [sales]);
+
   // Species distribution
   const speciesData = useMemo(() => {
     const counts = { dog: 0, cat: 0, other: 0 };
@@ -86,27 +120,6 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
     ].filter(d => d.value > 0);
   }, [appointments]);
 
-  // Revenue by day (last 7 days)
-  const revenueData = useMemo(() => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
-    
-    return last7Days.map(day => {
-      const dayStr = format(day, 'yyyy-MM-dd');
-      const dayRevenue = appointments
-        .filter(a => a.status === 'completed' && format(new Date(a.scheduled_date), 'yyyy-MM-dd') === dayStr)
-        .reduce((sum, a) => sum + (a.price || 0), 0);
-      
-      return {
-        day: format(day, 'MMM d'),
-        revenue: dayRevenue,
-      };
-    });
-  }, [appointments]);
-
-  const totalRevenue = appointments
-    .filter(a => a.status === 'completed')
-    .reduce((sum, a) => sum + (a.price || 0), 0);
-
   const totalHoursWorked = employeeHours.reduce((sum, e) => sum + e.hours, 0);
   const totalPayroll = employeeHours.reduce((sum, e) => sum + e.earnings, 0);
 
@@ -128,8 +141,9 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                 <DollarSign className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{t('reports.totalRevenue')}</p>
-                <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">{t('reports.totalRevenueLast30Days')}</p>
+                <p className="text-2xl font-bold">${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('reports.revenueFromTransactions')}</p>
               </div>
             </div>
           </CardContent>
@@ -177,13 +191,14 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
+        {/* Revenue Chart - from transactions */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
               {t('reports.revenueLast7Days')}
             </CardTitle>
+            <CardDescription>{t('reports.revenueDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
