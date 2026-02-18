@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield, Clock } from 'lucide-react';
+import { Eye, Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield } from 'lucide-react';
 import { Pet, BusinessClient, Appointment } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { t } from '@/lib/translations';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatAgeFromBirth, formatVaccinationStatusSpanish, getVaccinationStatusColor } from '@/lib/petHelpers';
 import { isDemoMode } from '@/lib/authRouting';
 import { format } from 'date-fns';
@@ -19,6 +18,8 @@ interface PetListProps {
   clients?: any[];
   /** Appointments for visit history */
   appointments?: Appointment[] | any[];
+  /** Open pet detail (view-only); when set, cards show Eye only and no Edit/Delete */
+  onViewPet?: (pet: any) => void;
   onDelete: (id: string) => void;
   onEdit: (pet: any) => void;
 }
@@ -38,7 +39,7 @@ const vaccinationColors: Record<string, string> = {
   'unknown': 'bg-gray-100 text-gray-800',
 };
 
-export function PetList({ pets, clients, appointments, onDelete, onEdit }: PetListProps) {
+export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEdit }: PetListProps) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
@@ -236,10 +237,14 @@ export function PetList({ pets, clients, appointments, onDelete, onEdit }: PetLi
           const vaccinationStatusColor = getVaccinationStatusColor(vaccinationStatus);
           
           return (
-            <Card 
-              key={pet.id} 
+            <Card
+              key={pet.id}
               id={`pet-${pet.id}`}
-              className="shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in"
+              role={onViewPet ? 'button' : undefined}
+              tabIndex={onViewPet ? 0 : undefined}
+              className={`shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in ${onViewPet ? 'cursor-pointer' : ''}`}
+              onClick={onViewPet ? () => onViewPet(pet) : undefined}
+              onKeyDown={onViewPet ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewPet(pet); } } : undefined}
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -266,38 +271,26 @@ export function PetList({ pets, clients, appointments, onDelete, onEdit }: PetLi
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEdit(pet)}
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Editar información de la mascota</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteClick(pet.id)}
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Eliminar mascota permanentemente</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
+                  {onViewPet ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => { e.stopPropagation(); onViewPet(pet); }}
+                      className="h-8 w-8"
+                      aria-label="View pet details"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  ) : (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onEdit(pet); }}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteClick(pet.id); }}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2 text-sm">
                   {ownerName && ownerId ? (
@@ -344,7 +337,7 @@ export function PetList({ pets, clients, appointments, onDelete, onEdit }: PetLi
                 </div>
                 
                 {/* Past Appointments Button */}
-                <div className="mt-4 pt-4 border-t border-border">
+                <div className="mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
                   <Button
                     variant="outline"
                     size="sm"
@@ -367,13 +360,15 @@ export function PetList({ pets, clients, appointments, onDelete, onEdit }: PetLi
         })}
       </div>
 
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleConfirmDelete}
-        title={t('pets.deletePetTitle')}
-        description={t('pets.deletePetDescription')}
-      />
+      {!onViewPet && (
+        <DeleteConfirmDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={handleConfirmDelete}
+          title={t('pets.deletePetTitle')}
+          description={t('pets.deletePetDescription')}
+        />
+      )}
     </>
   );
 }

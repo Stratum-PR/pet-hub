@@ -20,6 +20,7 @@ import { AdminDashboard } from "@/pages/AdminDashboard";
 import { AdminBusinessDetail } from "@/pages/AdminBusinessDetail";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
+import { ThemeGuard } from "@/components/ThemeGuard";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
             <Toaster />
             <Sonner />
           <BrowserRouter>
+            <ThemeGuard />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />

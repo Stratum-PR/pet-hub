@@ -27,11 +27,11 @@ export const translations: Translations = {
   },
   'landing.getStarted': {
     en: 'Get Started',
-    es: 'Registrarse'
+    es: 'Registro'
   },
   'landing.startFreeTrial': {
     en: 'Start Free Trial',
-    es: 'Registrarse Trial Gratis'
+    es: 'Trial Gratis'
   },
   'landing.viewDemo': {
     en: 'View Demo',
@@ -71,7 +71,7 @@ export const translations: Translations = {
   },
   'landing.viewPricingPlans': {
     en: 'View Pricing Plans',
-    es: 'Ver Planes de Precios'
+    es: 'Planes de Subscripción'
   },
 
   // Login page
@@ -439,6 +439,8 @@ export const translations: Translations = {
   'transactions.subtotal': { en: 'Subtotal', es: 'Subtotal' },
   'transactions.tax': { en: 'Tax', es: 'Impuesto' },
   'transactions.total': { en: 'Total', es: 'Total' },
+  'transactions.amountPaid': { en: 'Amount Paid', es: 'Monto pagado' },
+  'transactions.totalDue': { en: 'Total Due', es: 'Total a pagar' },
   'transactions.payment': { en: 'Payment', es: 'Pago' },
   'transactions.paymentMethod': { en: 'Payment method', es: 'Método de pago' },
   'transactions.amountTendered': { en: 'Amount tendered', es: 'Monto entregado' },
@@ -477,6 +479,8 @@ export const translations: Translations = {
   'accountSettings.language': { en: 'Language', es: 'Idioma' },
   'accountSettings.languageDescription': { en: 'Choose your preferred language for the app', es: 'Elige el idioma de la aplicación' },
   'accountSettings.selectLanguage': { en: 'Select language', es: 'Seleccionar idioma' },
+  'accountSettings.saveLanguage': { en: 'Save', es: 'Guardar' },
+  'accountSettings.languageSavedRefresh': { en: 'Language saved. Refreshing to apply changes…', es: 'Idioma guardado. Actualizando para aplicar los cambios…' },
   'accountSettings.colorPalette': { en: 'Color palette', es: 'Paleta de colores' },
   'accountSettings.colorPaletteDescription': { en: 'Set a primary brand color (HSL values, e.g. 168 60% 45%)', es: 'Establece un color de marca primario' },
   'accountSettings.primaryColor': { en: 'Primary color', es: 'Color primario' },
@@ -505,9 +509,20 @@ export const translations: Translations = {
   'businessSettings.businessHours': { en: 'Business hours', es: 'Horario' },
   'businessSettings.businessInfoSaved': { en: 'Business info saved', es: 'Información guardada' },
   'businessSettings.taxConfiguration': { en: 'Tax configuration', es: 'Configuración de impuestos' },
-  'businessSettings.taxConfigurationDescription': { en: 'Select region or add custom taxes', es: 'Selecciona región o agrega impuestos personalizados' },
-  'businessSettings.taxPreset': { en: 'Region / preset', es: 'Región / valor predeterminado' },
-  'businessSettings.taxCustomComingSoon': { en: 'Up to 3 custom taxes (label, rate, enable/disable) coming soon.', es: 'Hasta 3 impuestos personalizados próximamente.' },
+  'businessSettings.taxConfigurationDescription': { en: 'Choose a region or custom taxes. They will appear on receipts as specified.', es: 'Elige una región o impuestos personalizados. Aparecerán en los recibos como se indique.' },
+  'businessSettings.taxMode': { en: 'Tax setup', es: 'Configuración de impuestos' },
+  'businessSettings.taxModeRegion': { en: 'Region', es: 'Región' },
+  'businessSettings.taxModeCustom': { en: 'Custom', es: 'Personalizado' },
+  'businessSettings.taxRegion': { en: 'Region', es: 'Región' },
+  'businessSettings.taxRegionPuertoRico': { en: 'Puerto Rico', es: 'Puerto Rico' },
+  'businessSettings.taxNamePlaceholder': { en: 'e.g. State Tax, Municipal Tax', es: 'ej. Impuesto estatal, Municipal' },
+  'businessSettings.taxAppliesBoth': { en: 'Services & products', es: 'Servicios y productos' },
+  'businessSettings.taxAppliesService': { en: 'Services only', es: 'Solo servicios' },
+  'businessSettings.taxAppliesProduct': { en: 'Products only', es: 'Solo productos' },
+  'businessSettings.taxAddAnother': { en: 'Add another tax', es: 'Agregar otro impuesto' },
+  'businessSettings.taxCustomNone': { en: 'No custom taxes. Add one above.', es: 'Sin impuestos personalizados. Agrega uno arriba.' },
+  'businessSettings.taxSaved': { en: 'Tax settings saved', es: 'Configuración de impuestos guardada' },
+  'businessSettings.taxSaveEmpty': { en: 'Select a region or add at least one custom tax.', es: 'Selecciona una región o agrega al menos un impuesto personalizado.' },
   'businessSettings.receiptCustomization': { en: 'Receipt customization', es: 'Personalización de recibos' },
   'businessSettings.receiptCustomizationDescription': { en: 'Header, footer, and receipt preview', es: 'Encabezado, pie y vista previa' },
   'businessSettings.receiptHeader': { en: 'Header text', es: 'Texto del encabezado' },
@@ -645,6 +660,14 @@ export const translations: Translations = {
     en: 'Save',
     es: 'Guardar'
   },
+  'common.saved': {
+    en: 'Saved.',
+    es: 'Guardado.'
+  },
+  'common.loading': {
+    en: 'Loading...',
+    es: 'Cargando...'
+  },
   'common.saving': {
     en: 'Saving...',
     es: 'Guardando...'
@@ -703,7 +726,31 @@ export const translations: Translations = {
     en: 'Client updated successfully.',
     es: 'Cliente actualizado exitosamente.'
   },
-  
+  'clients.listName': {
+    en: 'Name',
+    es: 'Nombre'
+  },
+  'clients.listEmail': {
+    en: 'Email',
+    es: 'Correo'
+  },
+  'clients.listPhone': {
+    en: 'Phone',
+    es: 'Teléfono'
+  },
+  'clients.listPets': {
+    en: 'Pets',
+    es: 'Mascotas'
+  },
+  'clients.deleteClientTitle': {
+    en: 'Delete client?',
+    es: '¿Eliminar cliente?'
+  },
+  'clients.deleteClientDescription': {
+    en: 'This will permanently delete this client. This action cannot be undone.',
+    es: 'Se eliminará este cliente de forma permanente. Esta acción no se puede deshacer.'
+  },
+
   // Pets page
   'pets.title': {
     en: 'Pets',
@@ -772,6 +819,38 @@ export const translations: Translations = {
   'pets.lbs': {
     en: 'lbs',
     es: 'lbs'
+  },
+  'pets.listPhoto': {
+    en: 'Photo',
+    es: 'Foto'
+  },
+  'pets.listName': {
+    en: 'Name',
+    es: 'Nombre'
+  },
+  'pets.listOwner': {
+    en: 'Owner',
+    es: 'Dueño'
+  },
+  'pets.listBreed': {
+    en: 'Breed',
+    es: 'Raza'
+  },
+  'pets.listWeight': {
+    en: 'Weight',
+    es: 'Peso'
+  },
+  'pets.listLastAppointment': {
+    en: 'Last appointment',
+    es: 'Última cita'
+  },
+  'pets.deletePetTitle': {
+    en: 'Delete pet?',
+    es: '¿Eliminar mascota?'
+  },
+  'pets.deletePetDescription': {
+    en: 'This will permanently delete this pet. This action cannot be undone.',
+    es: 'Se eliminará esta mascota de forma permanente. Esta acción no se puede deshacer.'
   },
   
   // Appointments page

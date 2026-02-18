@@ -81,19 +81,24 @@ export function TransactionCreate() {
   }, [urlAppointmentId, appointments, services]);
 
   const subtotalCents = useMemo(() => lineItems.reduce((s, li) => s + li.line_total, 0), [lineItems]);
-  const taxableCents = Math.max(0, subtotalCents - toCents(discountAmount));
+  const discountCents = toCents(discountAmount);
+  const serviceSubtotalCents = useMemo(() => lineItems.filter((li) => li.type === 'service').reduce((s, li) => s + li.line_total, 0), [lineItems]);
+  const productSubtotalCents = useMemo(() => lineItems.filter((li) => li.type === 'product').reduce((s, li) => s + li.line_total, 0), [lineItems]);
+  const serviceTaxableCents = subtotalCents <= 0 ? 0 : Math.round(Math.max(0, serviceSubtotalCents - (discountCents * serviceSubtotalCents) / subtotalCents));
+  const productTaxableCents = subtotalCents <= 0 ? 0 : Math.round(Math.max(0, productSubtotalCents - (discountCents * productSubtotalCents) / subtotalCents));
+  const taxableCents = serviceTaxableCents + productTaxableCents;
   const [taxTotalCents, setTaxTotalCents] = useState(0);
   const [taxSnapshot, setTaxSnapshot] = useState<{ label: string; rate: number; amount: number }[]>([]);
   useEffect(() => {
     let cancelled = false;
-    computeTax(taxableCents).then(({ taxSnapshot: snap, totalTaxCents }) => {
+    computeTax(serviceTaxableCents, productTaxableCents).then(({ taxSnapshot: snap, totalTaxCents }) => {
       if (!cancelled) {
         setTaxSnapshot(snap);
         setTaxTotalCents(totalTaxCents);
       }
     });
     return () => { cancelled = true; };
-  }, [taxableCents, computeTax]);
+  }, [serviceTaxableCents, productTaxableCents, computeTax]);
 
   const tipCents = toCents(tipAmount);
   const totalCents = taxableCents + taxTotalCents + tipCents;
@@ -146,7 +151,7 @@ export function TransactionCreate() {
       payment_method_secondary: null,
       amount_tendered: paymentMethod === 'cash' ? toCents(Number(amountTendered || 0)) : totalCents,
       change_given: paymentMethod === 'cash' ? changeCents : null,
-      status: totalCents <= toCents(Number(amountTendered || 0)) ? 'paid' : 'partial',
+      status: (paymentMethod !== 'cash' || totalCents <= toCents(Number(amountTendered || 0))) ? 'paid' : 'partial',
       notes: notes || null,
     });
     setSaving(false);

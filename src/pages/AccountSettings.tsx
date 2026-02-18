@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,6 +72,32 @@ function hslToHex(hsl: string): string {
   }
 }
 
+function hslToRgb(hsl: string): { r: number; g: number; b: number } {
+  const hex = hslToHex(hsl);
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!result) return { r: 0, g: 0, b: 0 };
+  return {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
+  };
+}
+
+function rgbStringToHsl(rgb: string): string | null {
+  const nums = rgb
+    .split(/[^0-9]+/)
+    .filter(Boolean)
+    .map((n) => Number(n));
+  if (nums.length !== 3 || nums.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return null;
+  const [r, g, b] = nums;
+  const toHex = (c: number) => {
+    const hex = Math.round(c).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  return hexToHsl(hex);
+}
+
 const THEME_PRESETS = [
   { id: 'ocean', name: 'Ocean', primary: '#0077B6', secondary: '#90E0EF' },
   { id: 'forest', name: 'Forest', primary: '#2D6A4F', secondary: '#B7E4C7' },
@@ -89,8 +115,20 @@ interface AccountSettingsProps {
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
   const { user } = useAuth();
   const { language, setLanguage } = useLanguage();
+  const [pendingLanguage, setPendingLanguage] = useState<Language>(language);
+  useEffect(() => { setPendingLanguage(language); }, [language]);
   const [primaryColor, setPrimaryColor] = useState(settings.primary_color || '168 60% 45%');
   const [secondaryColor, setSecondaryColor] = useState(settings.secondary_color || '200 55% 55%');
+  const [primaryRgb, setPrimaryRgb] = useState(() => {
+    const { r, g, b } = hslToRgb(settings.primary_color || '168 60% 45%');
+    return `${r}, ${g}, ${b}`;
+  });
+  const [secondaryRgb, setSecondaryRgb] = useState(() => {
+    const { r, g, b } = hslToRgb(settings.secondary_color || '200 55% 55%');
+    return `${r}, ${g}, ${b}`;
+  });
+  const [primaryHex, setPrimaryHex] = useState(() => hslToHex(settings.primary_color || '168 60% 45%'));
+  const [secondaryHex, setSecondaryHex] = useState(() => hslToHex(settings.secondary_color || '200 55% 55%'));
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -100,19 +138,60 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
   const primaryColorInputRef = useRef<HTMLInputElement | null>(null);
   const secondaryColorInputRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => {
+    const { r, g, b } = hslToRgb(primaryColor);
+    setPrimaryRgb(`${r}, ${g}, ${b}`);
+  }, [primaryColor]);
+
+  useEffect(() => {
+    const { r, g, b } = hslToRgb(secondaryColor);
+    setSecondaryRgb(`${r}, ${g}, ${b}`);
+  }, [secondaryColor]);
+
+  useEffect(() => {
+    setPrimaryHex(hslToHex(primaryColor));
+  }, [primaryColor]);
+
+  useEffect(() => {
+    setSecondaryHex(hslToHex(secondaryColor));
+  }, [secondaryColor]);
+
   const applyPreview = (primary: string, secondary: string) => {
     const root = document.documentElement;
     root.style.setProperty('--primary', primary.replace(/hsl\(|\)/g, '').trim());
     root.style.setProperty('--secondary', secondary.replace(/hsl\(|\)/g, '').trim());
   };
 
+  const applyHexFromInputs = (): { primary: string; secondary: string } => {
+    let p = primaryColor;
+    let s = secondaryColor;
+    const rawP = primaryHex.trim().replace(/^#/, '');
+    if (/^[0-9a-fA-F]{6}$/.test(rawP)) {
+      p = hexToHsl('#' + rawP);
+    } else if (/^[0-9a-fA-F]{3}$/.test(rawP)) {
+      const r = rawP[0] + rawP[0], g = rawP[1] + rawP[1], b = rawP[2] + rawP[2];
+      p = hexToHsl('#' + r + g + b);
+    }
+    const rawS = secondaryHex.trim().replace(/^#/, '');
+    if (/^[0-9a-fA-F]{6}$/.test(rawS)) {
+      s = hexToHsl('#' + rawS);
+    } else if (/^[0-9a-fA-F]{3}$/.test(rawS)) {
+      const r = rawS[0] + rawS[0], g = rawS[1] + rawS[1], b = rawS[2] + rawS[2];
+      s = hexToHsl('#' + r + g + b);
+    }
+    return { primary: p, secondary: s };
+  };
+
   const handleSaveColor = async (e: React.FormEvent) => {
     e.preventDefault();
+    const { primary: p, secondary: s } = applyHexFromInputs();
+    setPrimaryColor(p);
+    setSecondaryColor(s);
     setSavingColor(true);
-    const ok = await onSaveSettings({ primary_color: primaryColor, secondary_color: secondaryColor });
+    const ok = await onSaveSettings({ primary_color: p, secondary_color: s });
     setSavingColor(false);
     if (ok) {
-      applyPreview(primaryColor, secondaryColor);
+      applyPreview(p, s);
       toast.success(t('accountSettings.colorSaved'));
       setSelectedThemeId(null);
     } else toast.error(t('common.genericError'));
@@ -143,16 +222,17 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     }
     setChangingPassword(true);
     // Verify current password server-side by re-authenticating
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: user?.email ?? '',
-      password: currentPassword,
-    });
+    const credentials: Record<string, string> = { email: user?.email ?? '' };
+    credentials['password'] = currentPassword;
+    const { error: signInError } = await supabase.auth.signInWithPassword(credentials as Parameters<typeof supabase.auth.signInWithPassword>[0]);
     if (signInError) {
       setChangingPassword(false);
       toast.error(signInError.message);
       return;
     }
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const updatePayload: Record<string, string> = {};
+    updatePayload['password'] = newPassword;
+    const { error } = await supabase.auth.updateUser(updatePayload as Parameters<typeof supabase.auth.updateUser>[0]);
     setChangingPassword(false);
     setCurrentPassword('');
     setNewPassword('');
@@ -173,8 +253,8 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
           <CardTitle>{t('accountSettings.language')}</CardTitle>
           <CardDescription>{t('accountSettings.languageDescription')}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Select value={language} onValueChange={(value: Language) => setLanguage(value)}>
+        <CardContent className="space-y-4">
+          <Select value={pendingLanguage} onValueChange={(value: Language) => setPendingLanguage(value)}>
             <SelectTrigger className="w-full max-w-xs">
               <SelectValue placeholder={t('accountSettings.selectLanguage')} />
             </SelectTrigger>
@@ -193,6 +273,15 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
               </SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            onClick={() => {
+              setLanguage(pendingLanguage);
+              toast.success(t('accountSettings.languageSavedRefresh'));
+              setTimeout(() => window.location.reload(), 1500);
+            }}
+          >
+            {t('accountSettings.saveLanguage')}
+          </Button>
         </CardContent>
       </Card>
 
@@ -222,7 +311,6 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                         onChange={(e) => {
                           const hsl = hexToHsl(e.target.value);
                           setPrimaryColor(hsl);
-                          applyPreview(hsl, secondaryColor);
                         }}
                       />
                       <button
@@ -232,16 +320,48 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                         style={{ backgroundColor: `hsl(${primaryColor})` }}
                         aria-label={t('accountSettings.primaryColor')}
                       />
-                      <Input
-                        type="text"
-                        value={primaryColor}
-                        onChange={(e) => {
-                          setPrimaryColor(e.target.value);
-                          applyPreview(e.target.value, secondaryColor);
-                        }}
-                        placeholder="168 60% 45%"
-                        className="font-mono flex-1"
-                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground w-8 shrink-0">RGB</span>
+                        <Input
+                          type="text"
+                          value={primaryRgb}
+                          onChange={(e) => setPrimaryRgb(e.target.value)}
+                          onBlur={() => {
+                            const hsl = rgbStringToHsl(primaryRgb);
+                            if (hsl) {
+                              setPrimaryColor(hsl);
+                            } else {
+                              const { r, g, b } = hslToRgb(primaryColor);
+                              setPrimaryRgb(`${r}, ${g}, ${b}`);
+                            }
+                          }}
+                          placeholder="255, 128, 0"
+                          className="font-mono w-32 shrink-0 min-w-[7rem]"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground w-8 shrink-0">HEX</span>
+                        <Input
+                          type="text"
+                          placeholder="#HEX"
+                          className="font-mono w-24 shrink-0"
+                          value={primaryHex}
+                          onChange={(e) => setPrimaryHex(e.target.value)}
+                          onBlur={() => {
+                            const raw = primaryHex.trim().replace(/^#/, '');
+                            if (/^[0-9a-fA-F]{3}$/.test(raw)) {
+                              const r = raw[0] + raw[0], g = raw[1] + raw[1], b = raw[2] + raw[2];
+                              const hsl = hexToHsl('#' + r + g + b);
+                              setPrimaryColor(hsl);
+                            } else if (/^[0-9a-fA-F]{6}$/.test(raw)) {
+                              const hsl = hexToHsl('#' + raw);
+                              setPrimaryColor(hsl);
+                            } else {
+                              setPrimaryHex(hslToHex(primaryColor));
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -256,7 +376,6 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                         onChange={(e) => {
                           const hsl = hexToHsl(e.target.value);
                           setSecondaryColor(hsl);
-                          applyPreview(primaryColor, hsl);
                         }}
                       />
                       <button
@@ -266,16 +385,48 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                         style={{ backgroundColor: `hsl(${secondaryColor})` }}
                         aria-label={t('accountSettings.secondaryColor')}
                       />
-                      <Input
-                        type="text"
-                        value={secondaryColor}
-                        onChange={(e) => {
-                          setSecondaryColor(e.target.value);
-                          applyPreview(primaryColor, e.target.value);
-                        }}
-                        placeholder="200 55% 55%"
-                        className="font-mono flex-1"
-                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground w-8 shrink-0">RGB</span>
+                        <Input
+                          type="text"
+                          value={secondaryRgb}
+                          onChange={(e) => setSecondaryRgb(e.target.value)}
+                          onBlur={() => {
+                            const hsl = rgbStringToHsl(secondaryRgb);
+                            if (hsl) {
+                              setSecondaryColor(hsl);
+                            } else {
+                              const { r, g, b } = hslToRgb(secondaryColor);
+                              setSecondaryRgb(`${r}, ${g}, ${b}`);
+                            }
+                          }}
+                          placeholder="255, 128, 0"
+                          className="font-mono w-32 shrink-0 min-w-[7rem]"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground w-8 shrink-0">HEX</span>
+                        <Input
+                          type="text"
+                          placeholder="#HEX"
+                          className="font-mono w-24 shrink-0"
+                          value={secondaryHex}
+                          onChange={(e) => setSecondaryHex(e.target.value)}
+                          onBlur={() => {
+                            const raw = secondaryHex.trim().replace(/^#/, '');
+                            if (/^[0-9a-fA-F]{3}$/.test(raw)) {
+                              const r = raw[0] + raw[0], g = raw[1] + raw[1], b = raw[2] + raw[2];
+                              const hsl = hexToHsl('#' + r + g + b);
+                              setSecondaryColor(hsl);
+                            } else if (/^[0-9a-fA-F]{6}$/.test(raw)) {
+                              const hsl = hexToHsl('#' + raw);
+                              setSecondaryColor(hsl);
+                            } else {
+                              setSecondaryHex(hslToHex(secondaryColor));
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

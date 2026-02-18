@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Edit, Trash2, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
@@ -20,6 +20,12 @@ export function BusinessPets() {
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [speciesFilter, setSpeciesFilter] = useState('all');
+  const PET_VIEW_KEY = 'pet-hub-pets-view';
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    const stored = window.localStorage.getItem(PET_VIEW_KEY);
+    return stored === 'list' ? 'list' : 'cards';
+  });
 
   // Handle location state for selected pet
   useEffect(() => {
@@ -34,6 +40,11 @@ export function BusinessPets() {
       }, 100);
     }
   }, [location]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(PET_VIEW_KEY, viewMode);
+  }, [PET_VIEW_KEY, viewMode]);
 
   const filteredPets = useMemo(() => {
     let filtered = pets;
@@ -123,17 +134,44 @@ export function BusinessPets() {
             {t('pets.description')}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingPet(null);
-            setShowForm(!showForm);
-          }}
-          className="shadow-sm flex items-center gap-2"
-          disabled={clients.length === 0}
-        >
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? t('common.cancel') : t('pets.addPet')}
-        </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-muted-foreground sr-only sm:not-sr-only">View:</span>
+          <div className="inline-flex rounded-md border bg-muted p-0.5">
+            <button
+              type="button"
+              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
+                viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('cards')}
+              aria-label="Card view"
+            >
+              <LayoutGrid className="w-4 h-4 shrink-0" />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
+                viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('list')}
+              aria-label="List view"
+            >
+              <List className="w-4 h-4 shrink-0" />
+              <span>List</span>
+            </button>
+          </div>
+          <Button
+            onClick={() => {
+              setEditingPet(null);
+              setShowForm(!showForm);
+            }}
+            className="shadow-sm flex items-center gap-2"
+            disabled={clients.length === 0}
+          >
+            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showForm ? t('common.cancel') : t('pets.addPet')}
+          </Button>
+        </div>
       </div>
 
       {clients.length === 0 && (
@@ -169,13 +207,67 @@ export function BusinessPets() {
         filterLabel={t('pets.species')}
       />
 
-      <PetList 
-        pets={filteredPets} 
-        clients={clients}
-        appointments={appointments}
-        onDelete={deletePet}
-        onEdit={handleEdit}
-      />
+      {viewMode === 'cards' ? (
+        <PetList 
+          pets={filteredPets} 
+          clients={clients}
+          appointments={appointments}
+          onDelete={deletePet}
+          onEdit={handleEdit}
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/60">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium">{t('pets.title')}</th>
+                <th className="text-left px-3 py-2 font-medium">{t('pets.owner') || 'Owner'}</th>
+                <th className="text-left px-3 py-2 font-medium">{t('pets.species')}</th>
+                <th className="text-left px-3 py-2 font-medium w-[120px]">{t('common.actions') || 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPets.map((pet) => {
+                const owner = clients.find((c: BusinessClient) => c.id === (pet as any).client_id);
+                const ownerName = owner ? `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || owner.email : t('pets.notAssigned');
+                return (
+                  <tr
+                    key={pet.id}
+                    id={`pet-${pet.id}`}
+                    className="border-t hover:bg-muted/40"
+                  >
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{pet.name}</div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{ownerName}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{pet.species || '—'}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(pet)}
+                          className="h-8 w-8"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deletePet(pet.id)}
+                          className="h-8 w-8 text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

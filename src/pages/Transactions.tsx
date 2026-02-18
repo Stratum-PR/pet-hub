@@ -24,7 +24,7 @@ type TransactionStatus =
 const STATUS_LABELS: Record<TransactionStatus, string> = {
   pending: 'Pending',
   in_progress: 'In Progress',
-  paid: 'Paid',
+  paid: 'Full',
   partial: 'Partial',
   refunded: 'Refunded',
   partial_refund: 'Partial Refund',
@@ -129,8 +129,8 @@ export function Transactions() {
                     <th className="text-left py-3 px-2 font-medium">ID</th>
                     <th className="text-left py-3 px-2 font-medium">Date & time</th>
                     <th className="text-left py-3 px-2 font-medium">Customer</th>
-                    <th className="text-right py-3 px-2 font-medium">Subtotal</th>
-                    <th className="text-right py-3 px-2 font-medium">Total</th>
+                    <th className="text-right py-3 px-2 font-medium">{t('transactions.amountPaid')}</th>
+                    <th className="text-right py-3 px-2 font-medium">{t('transactions.totalDue')}</th>
                     <th className="text-left py-3 px-2 font-medium">Status</th>
                     <th className="text-left py-3 px-2 font-medium">Payment</th>
                   </tr>
@@ -151,7 +151,7 @@ export function Transactions() {
                         <td className="py-3 px-2 font-mono">{displayId}</td>
                         <td className="py-3 px-2">{format(new Date(txn.created_at), 'MMM d, yyyy HH:mm')}</td>
                         <td className="py-3 px-2">{name}</td>
-                        <td className="py-3 px-2 text-right">${centsToDollars(txn.subtotal)}</td>
+                        <td className="py-3 px-2 text-right">${centsToDollars(txn.amount_tendered ?? 0)}</td>
                         <td className="py-3 px-2 text-right font-medium">${centsToDollars(txn.total)}</td>
                         <td className="py-3 px-2">
                           <Badge

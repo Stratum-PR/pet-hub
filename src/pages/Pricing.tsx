@@ -4,8 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Check, ArrowRight } from 'lucide-react';
+import { Check, ArrowRight, Menu } from 'lucide-react';
 import { toast } from 'sonner';
+import { t } from '@/lib/translations';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const PRICING_PLANS = [
   {
@@ -60,6 +63,7 @@ export function Pricing() {
   const [email, setEmail] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleStartTrial = async (tier: 'basic' | 'pro' | 'enterprise') => {
     if (!email || !businessName) {
@@ -124,20 +128,54 @@ export function Pricing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10">
+      {/* Language - desktop only; mobile gets it in sheet */}
+      <div className="fixed top-4 right-4 z-50 hidden md:block">
+        <LanguageSwitcher />
+      </div>
       {/* Navigation */}
       <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <img src="/pet-hub-logo.svg" alt="Pet Hub" className="h-10" />
           <span className="text-xl font-semibold">Pet Hub</span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-4">
           <Link to="/login">
-            <Button variant="ghost">Login</Button>
+            <Button variant="ghost">{t('landing.login')}</Button>
           </Link>
           <Link to="/registrarse">
-            <Button>Registrarse</Button>
+            <Button>{t('landing.getStarted')}</Button>
           </Link>
         </div>
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden shrink-0" aria-label="Menu">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="flex flex-col gap-6 pt-8">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Idioma / Language</p>
+              <LanguageSwitcher />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.login')}</Button>
+              </Link>
+              <Link to="/registrarse" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.getStarted')}</Button>
+              </Link>
+              <Link to="/registrarse" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.startFreeTrial')}</Button>
+              </Link>
+              <Link to="/demo/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.viewDemo')}</Button>
+              </Link>
+              <Link to="/pricing" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start">{t('landing.viewPricingPlans')}</Button>
+              </Link>
+            </div>
+          </SheetContent>
+        </Sheet>
       </nav>
 
       <div className="container mx-auto px-4 py-12">

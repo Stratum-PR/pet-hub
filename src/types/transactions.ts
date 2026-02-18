@@ -60,6 +60,8 @@ export interface TransactionRefund {
   restock_applied: boolean;
 }
 
+export type TaxAppliesTo = 'both' | 'service' | 'product';
+
 export interface TaxSettingRow {
   id: string;
   business_id: string;
@@ -67,6 +69,8 @@ export interface TaxSettingRow {
   rate: number;
   enabled: boolean;
   region: string | null;
+  sort_order?: number;
+  applies_to?: TaxAppliesTo;
 }
 
 export interface ReceiptSettingRow {

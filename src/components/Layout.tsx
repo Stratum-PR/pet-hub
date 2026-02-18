@@ -1,5 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Menu, LogOut, Bell } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,6 +67,7 @@ export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
   const { businessSlug } = useParams();
   const { isAdmin, profile } = useAuth();
+  const { setTheme } = useTheme();
   const { notifications, markRead, markAllRead } = useNotifications();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
@@ -96,6 +98,8 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const handleLogout = async () => {
     try {
+      setTheme('light');
+      if (typeof localStorage !== 'undefined') localStorage.removeItem('pet-hub-theme');
       await signOut();
       toast.success(t('logout.success'));
       window.location.href = '/';
@@ -149,6 +153,12 @@ export function Layout({ children, settings }: LayoutProps) {
                 <Menu className="w-5 h-5" />
               </Button>
               <h1 className="text-lg font-semibold truncate">{pageTitle}</h1>
+              <span
+                className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                title="Gracias por ayudarnos a perfeccionar este programa!"
+              >
+                BETA
+              </span>
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
@@ -224,13 +234,14 @@ export function Layout({ children, settings }: LayoutProps) {
           </main>
 
           <footer className="border-t shrink-0 bg-muted/30">
-            <div className="max-w-[200px] mx-auto px-4 py-4 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <a href="https://stratumpr.com" target="_blank" rel="noopener noreferrer" className="inline-block hover:opacity-90 transition-opacity">
-                  <img src="/Logo 4.svg" alt="STRATUM PR LLC" className="object-contain w-[120px] h-auto cursor-pointer" />
+            <div className="max-w-[320px] mx-auto px-4 py-4 flex flex-col items-center gap-1">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xs text-muted-foreground">Powered by</span>
+                <a href="https://stratumpr.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center hover:opacity-90 transition-opacity shrink-0">
+                  <img src="/Logo 4.svg" alt="STRATUM PR LLC" className="object-contain h-6 w-auto max-w-[100px] cursor-pointer" />
                 </a>
-                <div className="text-[10px] text-muted-foreground">© 2025 STRATUM PR LLC</div>
               </div>
+              <div className="text-[10px] text-muted-foreground">© 2025 STRATUM PR LLC</div>
             </div>
           </footer>
         </div>

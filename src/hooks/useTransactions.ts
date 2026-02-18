@@ -142,7 +142,7 @@ export function useTransactions() {
       .eq('enabled', true)
       .order('sort_order', { ascending: true });
     if (error || !data) return [];
-    return data as TaxSettingRow[];
+    return (data as any[]).map((r) => ({ ...r, applies_to: r.applies_to ?? 'both' }));
   };
 
   const fetchReceiptSettings = async () => {
@@ -156,19 +156,31 @@ export function useTransactions() {
     return data as any;
   };
 
-  /** Compute tax snapshot and amounts from taxable amount (cents). Returns { taxSnapshot, totalTaxCents }. Uses PR state+municipal default when no tax_settings. */
-  const computeTax = async (taxableCents: number): Promise<{ taxSnapshot: TaxSnapshotItem[]; totalTaxCents: number }> => {
+  /**
+   * Compute tax snapshot from service and product taxable amounts (cents).
+   * Each tax row can apply to: both, service only, or product only.
+   * Uses PR defaults (State IVU 10.5%, Municipal 1%) when no tax_settings exist.
+   */
+  const computeTax = async (
+    serviceTaxableCents: number,
+    productTaxableCents: number
+  ): Promise<{ taxSnapshot: TaxSnapshotItem[]; totalTaxCents: number }> => {
     const rows = await fetchTaxSettings();
     const taxSnapshot: TaxSnapshotItem[] = [];
     let totalTaxCents = 0;
     const defaultPR: TaxSettingRow[] = [
-      { label: 'State (IVU)', rate: 10.5, enabled: true, sort_order: 0 } as TaxSettingRow,
-      { label: 'Municipal', rate: 1, enabled: true, sort_order: 1 } as TaxSettingRow,
+      { label: 'State Tax', rate: 10.5, enabled: true, sort_order: 0, applies_to: 'both' } as TaxSettingRow,
+      { label: 'Municipal Tax', rate: 1, enabled: true, sort_order: 1, applies_to: 'both' } as TaxSettingRow,
     ];
     const effectiveRows = rows.length > 0 ? rows : defaultPR;
+    const appliesTo = (row: TaxSettingRow) => row.applies_to ?? 'both';
     for (const row of effectiveRows) {
       const rate = Number(row.rate);
-      const amount = Math.round((taxableCents * rate) / 100);
+      let taxable = 0;
+      if (appliesTo(row) === 'both') taxable = serviceTaxableCents + productTaxableCents;
+      else if (appliesTo(row) === 'service') taxable = serviceTaxableCents;
+      else taxable = productTaxableCents;
+      const amount = Math.round((taxable * rate) / 100);
       taxSnapshot.push({ label: row.label, rate, amount });
       totalTaxCents += amount;
     }
@@ -193,8 +205,13 @@ export function useTransactions() {
   const createTransaction = async (payload: CreateTransactionPayload): Promise<{ data: Transaction | null; error: string | null }> => {
     if (!businessId) return { data: null, error: 'No business selected.' };
     const subtotalCents = payload.line_items.reduce((sum, li) => sum + li.line_total, 0);
-    const taxableCents = Math.max(0, subtotalCents - payload.discount_amount);
-    const { taxSnapshot, totalTaxCents } = await computeTax(taxableCents);
+    const serviceSubtotalCents = payload.line_items.filter((li) => li.type === 'service').reduce((sum, li) => sum + li.line_total, 0);
+    const productSubtotalCents = payload.line_items.filter((li) => li.type === 'product').reduce((sum, li) => sum + li.line_total, 0);
+    const discountAmount = payload.discount_amount;
+    const serviceTaxableCents = subtotalCents <= 0 ? 0 : Math.round(Math.max(0, serviceSubtotalCents - (discountAmount * serviceSubtotalCents) / subtotalCents));
+    const productTaxableCents = subtotalCents <= 0 ? 0 : Math.round(Math.max(0, productSubtotalCents - (discountAmount * productSubtotalCents) / subtotalCents));
+    const { taxSnapshot, totalTaxCents } = await computeTax(serviceTaxableCents, productTaxableCents);
+    const taxableCents = serviceTaxableCents + productTaxableCents;
     const totalCents = taxableCents + totalTaxCents + payload.tip_amount;
 
     const isDemoLocal = isDemoLocalMode() && !user?.id;
@@ -323,6 +340,27 @@ export function useTransactions() {
     return false;
   };
 
+  type TransactionUpdatePatch = Partial<Pick<Transaction, 'payment_method' | 'payment_method_secondary' | 'total' | 'amount_tendered' | 'change_given' | 'notes' | 'status'>>;
+
+  const updateTransaction = async (id: string, patch: TransactionUpdatePatch): Promise<boolean> => {
+    if (!businessId) return false;
+    if (id.startsWith('local-') && isDemoLocalMode()) {
+      setLocalDemoEntries((prev) =>
+        prev.map((e) =>
+          e.transaction.id === id ? { ...e, transaction: { ...e.transaction, ...patch } } : e
+        )
+      );
+      return true;
+    }
+    const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
+    const { error } = await supabase.from('transactions' as any).update(payload).eq('id', id).eq('business_id', businessId);
+    if (!error) {
+      setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+      return true;
+    }
+    return false;
+  };
+
   const createRefund = async (
     transactionId: string,
     amountCents: number,
@@ -390,6 +428,7 @@ export function useTransactions() {
     computeTax,
     createTransaction,
     updateTransactionStatus,
+    updateTransaction,
     createRefund,
   };
 }

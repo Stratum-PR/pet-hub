@@ -10,40 +10,45 @@ import { useSettings } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
-import { Download } from 'lucide-react';
+import { Download, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import type { TaxAppliesTo } from '@/types/transactions';
 
-/** Tax presets with optional breakdown (e.g. PR: state + municipal). */
-const TAX_PRESETS = [
-  {
-    id: 'pr',
-    label: 'Puerto Rico',
-    totalRate: 11.5,
-    breakdown: [
-      { label: 'State (IVU)', rate: 10.5 },
-      { label: 'Municipal', rate: 1 },
-    ],
-  },
-  { id: 'us', label: 'US (varies by state)', totalRate: 0, breakdown: [] },
-  { id: 'intl', label: 'International (VAT)', totalRate: 0, breakdown: [] },
+interface TaxRow {
+  id: string | null;
+  label: string;
+  rate: number;
+  applies_to: TaxAppliesTo;
+  enabled: boolean;
+  sort_order: number;
+}
+
+const TAX_MODE_REGION = 'region';
+const TAX_MODE_CUSTOM = 'custom';
+const REGION_PUERTO_RICO = 'puerto_rico';
+
+const PUERTO_RICO_TAXES: Omit<TaxRow, 'id'>[] = [
+  { label: 'State Tax', rate: 10.5, applies_to: 'both', enabled: true, sort_order: 0 },
+  { label: 'Municipal Tax', rate: 1, applies_to: 'both', enabled: true, sort_order: 1 },
 ];
 
-/** Per-state/territory tax breakdown for display. */
-const TAX_BREAKDOWN_BY_REGION: { region: string; taxes: { label: string; rate: number }[] }[] = [
-  { region: 'Puerto Rico', taxes: [{ label: 'State (IVU)', rate: 10.5 }, { label: 'Municipal', rate: 1 }] },
-  { region: 'Alabama', taxes: [{ label: 'State sales tax', rate: 4 }] },
-  { region: 'Alaska', taxes: [{ label: 'No state sales tax', rate: 0 }] },
-  { region: 'California', taxes: [{ label: 'State', rate: 7.25 }] },
-  { region: 'Florida', taxes: [{ label: 'State', rate: 6 }] },
-  { region: 'Texas', taxes: [{ label: 'State', rate: 6.25 }] },
-  { region: 'New York', taxes: [{ label: 'State', rate: 4 }] },
-  { region: 'Other US states', taxes: [{ label: 'Varies by state/local', rate: 0 }] },
-];
+function isPuertoRicoTaxSetup(rows: { label: string; rate: number }[]): boolean {
+  if (rows.length !== 2) return false;
+  const rates = [rows[0].rate, rows[1].rate].map((r) => Math.round(r * 100));
+  const prRates = [10.5, 1].map((r) => Math.round(r * 100));
+  const hasRate1 = rates.some((r) => r === prRates[0]);
+  const hasRate2 = rates.some((r) => r === prRates[1]);
+  return hasRate1 && hasRate2;
+}
 
 export function BusinessSettingsPage() {
   const businessId = useBusinessId();
   const { settings, updateSetting } = useSettings();
-  const [taxPreset, setTaxPreset] = useState('pr');
+  const [taxMode, setTaxMode] = useState<'region' | 'custom'>(TAX_MODE_REGION);
+  const [taxRegion, setTaxRegion] = useState<string | null>(REGION_PUERTO_RICO);
+  const [customTaxRows, setCustomTaxRows] = useState<TaxRow[]>([]);
+  const [taxLoading, setTaxLoading] = useState(true);
+  const [taxSaving, setTaxSaving] = useState(false);
   const [receiptHeader, setReceiptHeader] = useState('');
   const [receiptFooter, setReceiptFooter] = useState('');
   const [defaultLowStock, setDefaultLowStock] = useState(settings.default_low_stock_threshold || '5');
@@ -72,6 +77,38 @@ export function BusinessSettingsPage() {
         if (data) {
           setReceiptHeader((data as any).header_text || '');
           setReceiptFooter((data as any).footer_text || '');
+        }
+      });
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    setTaxLoading(true);
+    supabase
+      .from('tax_settings' as any)
+      .select('*')
+      .eq('business_id', businessId)
+      .order('sort_order', { ascending: true })
+      .then(({ data, error }) => {
+        setTaxLoading(false);
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+        const rows = (data || []).map((r: any) => ({
+          id: r.id,
+          label: r.label || '',
+          rate: Number(r.rate) || 0,
+          applies_to: (r.applies_to || 'both') as TaxAppliesTo,
+          enabled: r.enabled !== false,
+          sort_order: r.sort_order ?? 0,
+        }));
+        if (isPuertoRicoTaxSetup(rows)) {
+          setTaxMode(TAX_MODE_REGION);
+          setTaxRegion(REGION_PUERTO_RICO);
+        } else {
+          setTaxMode(TAX_MODE_CUSTOM);
+          setCustomTaxRows(rows);
         }
       });
   }, [businessId]);
@@ -113,6 +150,62 @@ export function BusinessSettingsPage() {
     );
     if (error) toast.error(error.message);
     else toast.success(t('businessSettings.receiptSaved'));
+  };
+
+  const handleSaveTaxes = async () => {
+    if (!businessId) return;
+    const rows = taxMode === TAX_MODE_REGION && taxRegion === REGION_PUERTO_RICO ? PUERTO_RICO_TAXES : customTaxRows.filter((r) => r.label.trim());
+    if (rows.length === 0) {
+      toast.error(t('businessSettings.taxSaveEmpty'));
+      return;
+    }
+    setTaxSaving(true);
+    try {
+      await supabase.from('tax_settings' as any).delete().eq('business_id', businessId);
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] as TaxRow;
+        await supabase.from('tax_settings' as any).insert({
+          business_id: businessId,
+          label: row.label.trim(),
+          rate: Math.min(100, Math.max(0, Number(row.rate))),
+          applies_to: row.applies_to || 'both',
+          enabled: true,
+          sort_order: i,
+        });
+      }
+      toast.success(t('businessSettings.taxSaved'));
+      if (taxMode === TAX_MODE_REGION) {
+        setTaxRegion(REGION_PUERTO_RICO);
+      } else {
+        const { data } = await supabase.from('tax_settings' as any).select('*').eq('business_id', businessId).order('sort_order', { ascending: true });
+        setCustomTaxRows(
+          (data || []).map((r: any) => ({
+            id: r.id,
+            label: r.label || '',
+            rate: Number(r.rate) || 0,
+            applies_to: (r.applies_to || 'both') as TaxAppliesTo,
+            enabled: r.enabled !== false,
+            sort_order: r.sort_order ?? 0,
+          }))
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message || t('common.genericError'));
+    } finally {
+      setTaxSaving(false);
+    }
+  };
+
+  const updateCustomTaxRow = (index: number, patch: Partial<TaxRow>) => {
+    setCustomTaxRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  };
+
+  const addAnotherTax = () => {
+    setCustomTaxRows((prev) => [...prev, { id: null, label: '', rate: 0, applies_to: 'both', enabled: true, sort_order: prev.length }]);
+  };
+
+  const removeCustomTaxRow = (index: number) => {
+    setCustomTaxRows((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleExport = async () => {
@@ -192,35 +285,113 @@ export function BusinessSettingsPage() {
           <CardDescription>{t('businessSettings.taxConfigurationDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>{t('businessSettings.taxPreset')}</Label>
-            <Select value={taxPreset} onValueChange={setTaxPreset}>
-              <SelectTrigger className="w-full max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TAX_PRESETS.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.breakdown.length ? `${p.label} (${p.breakdown.map((b) => `${b.label} ${b.rate}%`).join(' + ')})` : p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-2">
+              <Label>{t('businessSettings.taxMode')}</Label>
+              <Select value={taxMode} onValueChange={(v: 'region' | 'custom') => setTaxMode(v)}>
+                <SelectTrigger className="w-full min-w-[140px] max-w-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TAX_MODE_REGION}>{t('businessSettings.taxModeRegion')}</SelectItem>
+                  <SelectItem value={TAX_MODE_CUSTOM}>{t('businessSettings.taxModeCustom')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {taxMode === TAX_MODE_REGION && (
+              <div className="space-y-2">
+                <Label>{t('businessSettings.taxRegion')}</Label>
+                <Select value={taxRegion ?? ''} onValueChange={setTaxRegion}>
+                  <SelectTrigger className="w-full min-w-[140px] max-w-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={REGION_PUERTO_RICO}>{t('businessSettings.taxRegionPuertoRico')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Breakdown by state / territory</p>
-            <ul className="text-sm space-y-1.5">
-              {TAX_BREAKDOWN_BY_REGION.map((row) => (
-                <li key={row.region} className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium">{row.region}:</span>
-                  <span className="text-muted-foreground">
-                    {row.taxes.length ? row.taxes.map((t) => `${t.label} ${t.rate}%`).join(', ') : 'Varies'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <p className="text-sm text-muted-foreground">{t('businessSettings.taxCustomComingSoon')}</p>
+
+          {taxMode === TAX_MODE_REGION && taxRegion === REGION_PUERTO_RICO && (
+                <div className="space-y-3">
+                  {PUERTO_RICO_TAXES.map((row, index) => (
+                    <div key={index} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+                      <span className="text-sm font-medium min-w-[140px]">{row.label}</span>
+                      <span className="text-sm text-muted-foreground">{row.rate}%</span>
+                      <Select value={row.applies_to} disabled>
+                        <SelectTrigger className="w-[240px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="both">{t('businessSettings.taxAppliesBoth')}</SelectItem>
+                          <SelectItem value="service">{t('businessSettings.taxAppliesService')}</SelectItem>
+                          <SelectItem value="product">{t('businessSettings.taxAppliesProduct')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+          )}
+
+          {taxMode === TAX_MODE_CUSTOM && (
+            <>
+              {taxLoading ? (
+                <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+              ) : (
+                <div className="space-y-3">
+                  {customTaxRows.map((row, index) => (
+                    <div key={row.id ?? `new-${index}`} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+                      <Input
+                        placeholder={t('businessSettings.taxNamePlaceholder')}
+                        value={row.label}
+                        onChange={(e) => updateCustomTaxRow(index, { label: e.target.value })}
+                        className="max-w-[180px]"
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.01}
+                        placeholder="%"
+                        value={row.rate || ''}
+                        onChange={(e) => updateCustomTaxRow(index, { rate: parseFloat(e.target.value) || 0 })}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                      <Select
+                        value={row.applies_to}
+                        onValueChange={(v: TaxAppliesTo) => updateCustomTaxRow(index, { applies_to: v })}
+                      >
+                        <SelectTrigger className="w-[240px] min-w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="both">{t('businessSettings.taxAppliesBoth')}</SelectItem>
+                          <SelectItem value="service">{t('businessSettings.taxAppliesService')}</SelectItem>
+                          <SelectItem value="product">{t('businessSettings.taxAppliesProduct')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeCustomTaxRow(index)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={addAnotherTax} className="gap-1">
+                    <Plus className="w-4 h-4" />
+                    {t('businessSettings.taxAddAnother')}
+                  </Button>
+                  {customTaxRows.length === 0 && (
+                    <p className="text-sm text-muted-foreground">{t('businessSettings.taxCustomNone')}</p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          <Button onClick={handleSaveTaxes} disabled={taxSaving || taxLoading}>
+            {taxSaving ? t('common.saving') : t('common.save')}
+          </Button>
         </CardContent>
       </Card>
 
