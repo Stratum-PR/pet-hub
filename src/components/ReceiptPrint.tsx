@@ -74,15 +74,40 @@ export function ReceiptPrint({ businessName, headerText, footerText, transaction
   );
 }
 
-/** Open a new window and print the receipt. */
+/** Build receipt body HTML with all user content escaped to prevent XSS. */
+function buildReceiptBodyHtml(props: ReceiptPrintProps): string {
+  const c = props.transaction;
+  return `<div style="width:80mm;margin:0 auto;padding:8px;font-family:monospace;font-size:12px">
+  <div style="text-align:center;margin-bottom:8px;border-bottom:1px dashed #000;padding-bottom:8px">
+    <div style="font-weight:bold;font-size:14px">${escapeHtml(props.businessName)}</div>
+    ${props.headerText ? `<div style="margin-top:4px;white-space:pre-wrap">${escapeHtml(props.headerText)}</div>` : ''}
+  </div>
+  <div style="margin-bottom:8px">
+    <div>${escapeHtml(props.displayId)}</div>
+    <div>${escapeHtml(formatDate(c.created_at))}</div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:8px"><tbody>
+    ${props.lineItems.map((li) => `<tr><td style="padding:2px 0">${escapeHtml(li.name)} x${li.quantity}</td><td style="text-align:right">$${fromCents(li.line_total).toFixed(2)}</td></tr>`).join('')}
+  </tbody></table>
+  <div style="border-top:1px dashed #000;padding-top:8px;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>$${fromCents(c.subtotal).toFixed(2)}</span></div>
+    ${c.discount_amount > 0 ? `<div style="display:flex;justify-content:space-between"><span>Discount</span><span>-$${fromCents(c.discount_amount).toFixed(2)}</span></div>` : ''}
+    ${(c.tax_snapshot || []).map((t) => `<div style="display:flex;justify-content:space-between;margin-top:2px"><span>${escapeHtml(t.label)}</span><span>$${fromCents(t.amount).toFixed(2)}</span></div>`).join('')}
+    ${c.tip_amount > 0 ? `<div style="display:flex;justify-content:space-between"><span>Tip</span><span>$${fromCents(c.tip_amount).toFixed(2)}</span></div>` : ''}
+    <div style="display:flex;justify-content:space-between;font-weight:bold;margin-top:4px"><span>TOTAL</span><span>$${fromCents(c.total).toFixed(2)}</span></div>
+  </div>
+  <div style="text-align:center;font-size:10px;border-top:1px dashed #000;padding-top:8px;white-space:pre-wrap">${escapeHtml(props.footerText || 'Thank you for your business.')}</div>
+</div>`;
+}
+
+/** Open a new window and print the receipt. Uses Blob URL so the window loads and is not blocked. */
 export function printReceipt(props: ReceiptPrintProps) {
-  const win = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
-  if (!win) return;
-  win.document.write(`
-<!DOCTYPE html>
+  const bodyHtml = buildReceiptBodyHtml(props);
+  const title = escapeHtml(props.displayId);
+  const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Receipt ${props.displayId}</title>
+  <title>Receipt ${title}</title>
   <meta charset="utf-8">
   <style>
     html, body { margin: 0; padding: 0; min-height: 100%; min-width: 100%; box-sizing: border-box; }
@@ -92,50 +117,25 @@ export function printReceipt(props: ReceiptPrintProps) {
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script>
-    window.onload = function() {
-      window.focus();
-      setTimeout(function() { window.print(); window.close(); }, 250);
-    };
-  </script>
+  <div id="receipt-content">${bodyHtml}</div>
 </body>
-</html>
-  `);
-  const root = win.document.getElementById('root');
-  if (root) {
-    const div = win.document.createElement('div');
-    div.id = 'receipt-content';
-    div.innerHTML = `
-    <div style="width:80mm;margin:0 auto;padding:8px;font-family:monospace;font-size:12px">
-      <div style="text-align:center;margin-bottom:8px;border-bottom:1px dashed #000;padding-bottom:8px">
-        <div style="font-weight:bold;font-size:14px">${escapeHtml(props.businessName)}</div>
-        ${props.headerText ? `<div style="margin-top:4px;white-space:pre-wrap">${escapeHtml(props.headerText)}</div>` : ''}
-      </div>
-      <div style="margin-bottom:8px">
-        <div>${escapeHtml(props.displayId)}</div>
-        <div>${escapeHtml(formatDate(props.transaction.created_at))}</div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:8px">
-        <tbody>
-          ${props.lineItems.map((li) => `
-            <tr><td style="padding:2px 0">${escapeHtml(li.name)} x${li.quantity}</td><td style="text-align:right">$${fromCents(li.line_total).toFixed(2)}</td></tr>
-          `).join('')}
-        </tbody>
-      </table>
-      <div style="border-top:1px dashed #000;padding-top:8px;margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between"><span>Subtotal</span><span>$${fromCents(props.transaction.subtotal).toFixed(2)}</span></div>
-        ${props.transaction.discount_amount > 0 ? `<div style="display:flex;justify-content:space-between"><span>Discount</span><span>-$${fromCents(props.transaction.discount_amount).toFixed(2)}</span></div>` : ''}
-        ${(props.transaction.tax_snapshot || []).map((t) => `<div style="display:flex;justify-content:space-between;margin-top:2px"><span>${escapeHtml(t.label)}</span><span>$${fromCents(t.amount).toFixed(2)}</span></div>`).join('')}
-        ${props.transaction.tip_amount > 0 ? `<div style="display:flex;justify-content:space-between"><span>Tip</span><span>$${fromCents(props.transaction.tip_amount).toFixed(2)}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;font-weight:bold;margin-top:4px"><span>TOTAL</span><span>$${fromCents(props.transaction.total).toFixed(2)}</span></div>
-      </div>
-      <div style="text-align:center;font-size:10px;border-top:1px dashed #000;padding-top:8px;white-space:pre-wrap">${escapeHtml(props.footerText || 'Thank you for your business.')}</div>
-    </div>
-  `;
-    root.appendChild(div);
+</html>`;
+  const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
+  const win = window.open(blobUrl, '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
+  if (win) {
+    win.addEventListener('load', () => {
+      URL.revokeObjectURL(blobUrl);
+      win.focus();
+      setTimeout(() => { win.print(); win.close(); }, 300);
+    });
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  } else {
+    URL.revokeObjectURL(blobUrl);
+    if (typeof window !== 'undefined' && window.alert) {
+      window.alert('Popup blocked. Please allow popups for this site to print receipts.');
+    }
   }
-  win.document.close();
 }
 
 function escapeHtml(s: string): string {

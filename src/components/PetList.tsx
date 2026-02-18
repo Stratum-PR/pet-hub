@@ -8,7 +8,7 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { t } from '@/lib/translations';
 import { formatAgeFromBirth, formatVaccinationStatusSpanish, getVaccinationStatusColor } from '@/lib/petHelpers';
 import { isDemoMode } from '@/lib/authRouting';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface PetListProps {
   pets: Pet[] | any[];
@@ -53,18 +53,8 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
   const safeClients = Array.isArray(clients) ? clients : [];
   const safeAppointments = Array.isArray(appointments) ? appointments : [];
   
-  // Debug: Log appointments data for troubleshooting
   useEffect(() => {
-    if (safeAppointments.length > 0) {
-      console.log('[PetList] Appointments loaded:', {
-        total: safeAppointments.length,
-        samplePetIds: safeAppointments.slice(0, 5).map((a: any) => ({ 
-          pet_id: a.pet_id, 
-          appointment_date: a.appointment_date,
-          id: a.id 
-        })),
-      });
-    } else {
+    if (import.meta.env.DEV && safeAppointments.length === 0) {
       console.warn('[PetList] No appointments provided to PetList component');
     }
   }, [safeAppointments.length]);
@@ -99,6 +89,19 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
     return petAppointments[0] || null;
   };
 
+  const today = format(new Date(), 'yyyy-MM-dd');
+
+  const getUpcomingForPet = (petId: string): string[] => {
+    const petAppointments = safeAppointments
+      .filter((apt: any) => apt.pet_id && String(apt.pet_id).trim() === String(petId).trim())
+      .map((a: any) => {
+        const dateStr = a.appointment_date || a.scheduled_date;
+        return typeof dateStr === 'string' && dateStr.includes('T') ? dateStr.slice(0, 10) : dateStr;
+      })
+      .filter((d: string) => d && d >= today);
+    return [...new Set(petAppointments)].sort();
+  };
+
   const getAllPetAppointments = (petId: string) => {
     if (!petId) return [];
     
@@ -115,15 +118,9 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
       // Exact string match
       if (aptPetId === targetPetId) return true;
       
-      // Debug: log mismatches for troubleshooting
-      if (aptPetId && targetPetId && aptPetId !== targetPetId) {
-        console.debug('[PetList] Pet ID mismatch:', {
-          appointmentPetId: aptPetId,
-          targetPetId: targetPetId,
-          appointmentId: apt.id,
-        });
+      if (import.meta.env.DEV && aptPetId && targetPetId && aptPetId !== targetPetId) {
+        console.debug('[PetList] Pet ID mismatch:', { appointmentPetId: aptPetId, targetPetId, appointmentId: apt.id });
       }
-      
       return false;
     });
     
@@ -229,13 +226,6 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
             }
           }
           
-          const birthMonth = (pet as any).birth_month;
-          const birthYear = (pet as any).birth_year;
-          const ageDisplay = formatAgeFromBirth(birthMonth, birthYear);
-          const vaccinationStatus = (pet as any).vaccination_status || 'unknown';
-          const vaccinationStatusText = formatVaccinationStatusSpanish(vaccinationStatus);
-          const vaccinationStatusColor = getVaccinationStatusColor(vaccinationStatus);
-          
           return (
             <Card
               key={pet.id}
@@ -297,7 +287,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       <div 
-                        onClick={() => handleOwnerClick(ownerId)}
+                        onClick={(e) => { e.stopPropagation(); handleOwnerClick(ownerId); }}
                         className="px-2 py-1 bg-accent rounded-md hover:bg-accent/80 transition-colors cursor-pointer font-medium text-sm inline-block"
                         title={t('pets.clickToViewOwner')}
                       >
@@ -305,7 +295,6 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                       </div>
                     </div>
                   ) : (
-                    // Only show "Sin dueño asignado" if client_id is actually null/empty in Supabase
                     (pet as any).client_id ? (
                       <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                         <User className="w-4 h-4" />
@@ -318,21 +307,28 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                       </div>
                     )
                   )}
-                  {(birthMonth || birthYear) && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>{ageDisplay}</span>
-                    </div>
-                  )}
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Scale className="w-4 h-4" />
-                    <span>{pet.weight || 0} {t('pets.lbs')}</span>
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span>{t('pets.listLastAppointment')}: {(() => {
+                      const recent = getRecentVisit(pet.id);
+                      if (!recent) return '—';
+                      const d = recent.appointment_date || recent.scheduled_date;
+                      if (!d) return '—';
+                      try {
+                        const dateStr = typeof d === 'string' && d.includes('T') ? d.slice(0, 10) : d;
+                        return format(parseISO(dateStr + (dateStr.length === 10 ? 'T00:00:00' : '')), 'MMM d, yyyy');
+                      } catch {
+                        return String(d);
+                      }
+                    })()}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-muted-foreground" />
-                    <span className={`px-2 py-0.5 rounded text-xs ${vaccinationStatusColor}`}>
-                      {vaccinationStatusText}
-                    </span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Calendar className="w-4 h-4 flex-shrink-0" />
+                    <span>{t('pets.listNextAppointment')}: {(() => {
+                      const upcoming = getUpcomingForPet(pet.id);
+                      if (!upcoming.length) return '—';
+                      return format(parseISO(upcoming[0] + 'T00:00:00'), 'MMM d, yyyy');
+                    })()}</span>
                   </div>
                 </div>
                 

@@ -339,8 +339,26 @@ export function InventoryProductForm({
               className="text-sm file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                setPhotoFile(f || null);
-                if (f) setFormData((d) => ({ ...d, photo_url: null }));
+                if (!f) {
+                  setPhotoFile(null);
+                  return;
+                }
+                const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                if (!ALLOWED_TYPES.includes(f.type)) {
+                  setErrors((prev) => ({ ...prev, photo: 'Invalid file type. Use JPEG, PNG, WebP or GIF.' }));
+                  e.target.value = '';
+                  setPhotoFile(null);
+                  return;
+                }
+                if (f.size > 5 * 1024 * 1024) {
+                  setErrors((prev) => ({ ...prev, photo: 'File too large. Maximum size is 5MB.' }));
+                  e.target.value = '';
+                  setPhotoFile(null);
+                  return;
+                }
+                setErrors((prev) => ({ ...prev, photo: '' }));
+                setPhotoFile(f);
+                setFormData((d) => ({ ...d, photo_url: null }));
               }}
             />
             {!photoFile && (
@@ -351,6 +369,7 @@ export function InventoryProductForm({
               />
             )}
             {photoFile && <p className="text-sm text-muted-foreground">{photoFile.name}</p>}
+            {errors.photo && <p className="text-sm text-destructive">{errors.photo}</p>}
           </div>
         </div>
       </div>
