@@ -6,25 +6,34 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
-import { useSettings } from '@/hooks/useSupabaseData';
+import { Copy, Mail, Send } from 'lucide-react';
 
-const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_HELP_FORM_ID
-  ? `https://formspree.io/f/${import.meta.env.VITE_FORMSPREE_HELP_FORM_ID}`
-  : '';
+const FORMSPREE_FORM_ID = import.meta.env.VITE_FORMSPREE_HELP_FORM_ID || 'xyzjgyzq';
+const FORMSPREE_ENDPOINT = `https://formspree.io/f/${FORMSPREE_FORM_ID}`;
+
+const SUPPORT_EMAIL = 'admin@stratumpr.com';
+const MAX_WIDTH = '28rem';
 
 export function Help() {
-  const { settings } = useSettings();
-  const businessName = settings?.business_name || undefined;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const copyEmail = () => {
+    navigator.clipboard.writeText(SUPPORT_EMAIL).then(
+      () => toast.success(t('help.emailCopied') ?? 'Email copied to clipboard'),
+      () => toast.error(t('common.genericError'))
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!FORMSPREE_ENDPOINT) {
-      toast.error('Contact form is not configured. Set VITE_FORMSPREE_HELP_FORM_ID.');
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedMessage = message.trim();
+    if (!trimmedName || !trimmedEmail || !trimmedMessage) {
       return;
     }
     setSubmitting(true);
@@ -33,11 +42,12 @@ export function Help() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          email,
-          subject: subject || 'Pet Hub – Need Help',
-          message,
-          _replyto: email,
+          name: trimmedName,
+          email: trimmedEmail,
+          message: trimmedMessage,
+          subject: subject?.trim() || 'Pet Hub – Need Help',
+          _replyto: trimmedEmail,
+          _subject: subject?.trim() || 'Pet Hub – Need Help',
         }),
       });
       if (res.ok) {
@@ -47,7 +57,12 @@ export function Help() {
         setSubject('');
         setMessage('');
       } else {
-        toast.error(t('common.genericError'));
+        try {
+          const err = await res.json().catch(() => ({}));
+          toast.error((err as { error?: string })?.error || t('common.genericError'));
+        } catch {
+          toast.error(t('common.genericError'));
+        }
       }
     } catch {
       toast.error(t('common.genericError'));
@@ -56,36 +71,49 @@ export function Help() {
     }
   };
 
-  const contactEmail = 'admin@stratumpr.com';
-
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
+    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+      <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight">{t('nav.help')}</h1>
         <p className="text-muted-foreground mt-1">{t('help.description')}</p>
       </div>
 
-      <Card>
+      {/* Contact Email Box – centered */}
+      <Card className="mx-auto shadow-md border-2" style={{ maxWidth: MAX_WIDTH }}>
         <CardHeader>
-          <CardTitle>{businessName || 'Pet Hub'}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            {t('help.contactEmail') ?? 'Contact email'}
+          </CardTitle>
           <CardDescription>{t('help.contactSupportDescription')}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label className="text-muted-foreground">{t('help.contactEmail')}</Label>
-            <p className="mt-1">
-              <a
-                href={`mailto:${contactEmail}`}
-                className="text-primary font-medium hover:underline"
-              >
-                {contactEmail}
-              </a>
-            </p>
-          </div>
+        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="text-primary font-medium hover:underline break-all"
+          >
+            {SUPPORT_EMAIL}
+          </a>
+          <Button variant="outline" size="sm" onClick={copyEmail} className="shrink-0 gap-1">
+            <Copy className="h-4 w-4" />
+            {t('help.copy') ?? 'Copy'}
+          </Button>
+        </CardContent>
+      </Card>
 
-          <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+      {/* Message Form Box – centered */}
+      <Card className="mx-auto shadow-md border-2" style={{ maxWidth: MAX_WIDTH }}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            {t('help.sendMessage') ?? 'Send a message'}
+          </CardTitle>
+          <CardDescription>{t('help.formDescription') ?? 'Submit your question or feedback and we’ll get back to you.'}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="help-name">{t('help.yourName')}</Label>
+              <Label htmlFor="help-name">{t('help.yourName')} <span className="text-destructive">*</span></Label>
               <Input
                 id="help-name"
                 value={name}
@@ -94,7 +122,7 @@ export function Help() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="help-email">{t('help.yourEmail')}</Label>
+              <Label htmlFor="help-email">{t('help.yourEmail')} <span className="text-destructive">*</span></Label>
               <Input
                 id="help-email"
                 type="email"
@@ -113,7 +141,7 @@ export function Help() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="help-message">{t('help.message')}</Label>
+              <Label htmlFor="help-message">{t('help.message')} <span className="text-destructive">*</span></Label>
               <Textarea
                 id="help-message"
                 value={message}
@@ -122,8 +150,9 @@ export function Help() {
                 required
               />
             </div>
-            <Button type="submit" disabled={submitting || !FORMSPREE_ENDPOINT}>
+            <Button type="submit" disabled={submitting} className="w-full gap-2">
               {submitting ? t('common.saving') : t('help.submit')}
+              <Send className="h-4 w-4" />
             </Button>
           </form>
         </CardContent>

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Product } from '@/types/inventory';
 import {
   Dialog,
@@ -5,7 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Package } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Package, Pencil, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 import { format } from 'date-fns';
@@ -24,7 +27,8 @@ interface InventoryProductDetailModalProps {
   onOpenChange: (open: boolean) => void;
   stockMovements: StockMovement[];
   isLowStock: (p: Product) => boolean;
-  onGenerateBarcode?: (product: Product) => void;
+  onUpdateProduct?: (id: string, data: Partial<Product>) => void;
+  onEditProduct?: (product: Product) => void;
 }
 
 export function InventoryProductDetailModal({
@@ -33,12 +37,32 @@ export function InventoryProductDetailModal({
   onOpenChange,
   stockMovements,
   isLowStock,
-  onGenerateBarcode,
+  onUpdateProduct,
+  onEditProduct,
 }: InventoryProductDetailModalProps) {
+  const [barcodeValue, setBarcodeValue] = useState('');
+  const [editingBarcode, setEditingBarcode] = useState(false);
+  const [savingBarcode, setSavingBarcode] = useState(false);
+
+  useEffect(() => {
+    if (product) {
+      setBarcodeValue(product.barcode ?? '');
+      setEditingBarcode(false);
+    }
+  }, [product?.id, product?.barcode]);
+
   if (!product) return null;
 
   const low = isLowStock(product);
   const movements = stockMovements.filter((m) => m.product_id === product.id);
+
+  const handleSaveBarcode = async () => {
+    if (!onUpdateProduct) return;
+    setSavingBarcode(true);
+    onUpdateProduct(product.id, { barcode: barcodeValue.trim() || null });
+    setSavingBarcode(false);
+    setEditingBarcode(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,19 +106,35 @@ export function InventoryProductDetailModal({
 
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-1">{t('inventory.barcode')}</h3>
-            {product.barcode ? (
-              <p className="font-mono text-sm">{product.barcode}</p>
+            <p className="text-xs text-muted-foreground mb-1.5">{t('inventory.barcodeTypeHint') ?? 'Type the number under the barcode lines on the product.'}</p>
+            {editingBarcode ? (
+              <div className="flex gap-2">
+                <Input
+                  value={barcodeValue}
+                  onChange={(e) => setBarcodeValue(e.target.value)}
+                  placeholder={t('inventory.barcodePlaceholder') ?? 'e.g. 012345678905'}
+                  className="font-mono text-sm h-9"
+                  autoFocus
+                />
+                <Button size="sm" variant="default" onClick={handleSaveBarcode} disabled={savingBarcode}>
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setBarcodeValue(product.barcode ?? ''); setEditingBarcode(false); }}>
+                  {t('common.cancel')}
+                </Button>
+              </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{t('inventory.noBarcode')}</span>
-                {onGenerateBarcode && (
-                  <button
-                    type="button"
-                    onClick={() => onGenerateBarcode(product)}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    {t('inventory.generateBarcode')}
-                  </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {product.barcode ? (
+                  <p className="font-mono text-sm">{product.barcode}</p>
+                ) : (
+                  <span className="text-sm text-muted-foreground">{t('inventory.noBarcode')}</span>
+                )}
+                {onUpdateProduct && (
+                  <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => setEditingBarcode(true)}>
+                    <Pencil className="w-3.5 h-3.5" />
+                    {product.barcode ? (t('common.edit') ?? 'Edit') : (t('inventory.enterBarcode') ?? 'Enter barcode')}
+                  </Button>
                 )}
               </div>
             )}

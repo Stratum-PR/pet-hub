@@ -108,7 +108,7 @@ Every run of the pre-commit hook produces a **Commit Security Report**:
 - **Failed (fix before next deploy)** – Warnings; commit is allowed but you should fix these before deploying.
 - **Blocked (must fix to commit)** – Criticals; commit is blocked until fixed.
 
-The report is printed in the terminal and **saved to** `reports/security-commit-report.txt` (or `.last-commit-security-report.txt` if `reports/` cannot be created). The file is overwritten on each run. `reports/` and `.last-commit-security-report.txt` are in `.gitignore` so they are not committed.
+The report is printed in the terminal and **saved to** `reports/security-scan-YYYY-MM-DD_HH-mm-AM|PM.txt` (e.g. `security-scan-2026-02-18_01-38-PM.txt` — date, then hour and minute in 12-hour format; no seconds). One file is created per run. If `reports/` cannot be created, the report is written to `.last-commit-security-report.txt` instead. `reports/` and `.last-commit-security-report.txt` are in `.gitignore` so they are not committed.
 
 **Bypass (use sparingly):** If you must commit despite criticals (e.g. docs-only change), use:
 

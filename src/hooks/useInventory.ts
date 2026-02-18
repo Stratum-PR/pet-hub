@@ -177,6 +177,30 @@ export function useInventory() {
     await Promise.all([fetchProducts(), fetchStockMovements()]);
   };
 
+  /** Adjust stock and log movement (restock, adjustment, etc.). Returns updated product or null. */
+  const adjustStock = async (
+    productId: string,
+    quantityDelta: number,
+    movementType: 'restock' | 'adjustment' | 'purchase' = 'adjustment',
+    notes?: string | null
+  ): Promise<Product | null> => {
+    if (!businessId) return null;
+    const product = products.find((p) => p.id === productId);
+    if (!product) return null;
+    const newQty = Math.max(0, product.quantity + quantityDelta);
+    const updated = await updateProduct(productId, { quantity: newQty });
+    if (!updated) return null;
+    await supabase.from('inventory_stock_movements' as any).insert({
+      business_id: businessId,
+      product_id: productId,
+      quantity: quantityDelta,
+      movement_type: movementType,
+      notes: notes ?? null,
+    });
+    await fetchStockMovements();
+    return updated;
+  };
+
   const uploadProductPhoto = async (productId: string, file: File): Promise<string | null> => {
     if (!businessId) return null;
     const ext = file.name.split('.').pop() || 'jpg';
@@ -199,6 +223,7 @@ export function useInventory() {
     addProduct,
     updateProduct,
     deleteProduct,
+    adjustStock,
     refetch,
   };
 }
