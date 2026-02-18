@@ -41,7 +41,7 @@ const Index = () => {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const { timeEntries, clockIn, clockOut, getActiveEntry, updateTimeEntry, addTimeEntry } = useTimeEntries();
   const { appointments, addAppointment, updateAppointment, deleteAppointment, refetch: refetchAppointments } = useAppointments();
-  const { products, stockMovements, addProduct, updateProduct, deleteProduct, uploadProductPhoto } = useInventory();
+  const { products, stockMovements, addProduct, updateProduct, deleteProduct, adjustStock, uploadProductPhoto } = useInventory();
   const { services, addService, updateService, deleteService } = useServices();
   const { settings, saveAllSettings } = useSettings();
   const { createNotification } = useNotifications();
@@ -164,6 +164,7 @@ const Index = () => {
                   onAddProduct={addProduct}
                   onUpdateProduct={updateProductWithNotification}
                   onDeleteProduct={deleteProduct}
+                  onAdjustStock={adjustStock}
                   onUploadProductPhoto={uploadProductPhoto}
                 />
               }

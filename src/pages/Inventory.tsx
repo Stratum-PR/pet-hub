@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -31,8 +32,20 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { SearchFilter } from '@/components/SearchFilter';
 import { InventoryProductForm } from '@/components/InventoryProductForm';
 import { InventoryProductDetailModal } from '@/components/InventoryProductDetailModal';
+import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
+import { toast } from 'sonner';
 
 type ViewMode = 'tile' | 'list';
 
@@ -43,6 +56,8 @@ interface InventoryProps {
   onAddProduct: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => Promise<Product | null>;
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
+  /** When user scans an existing product and confirms quantity, add to stock and log movement. */
+  onAdjustStock?: (productId: string, quantityDelta: number, movementType?: 'restock' | 'adjustment' | 'purchase', notes?: string | null) => Promise<Product | null>;
   stockMovements?: { product_id: string; quantity: number; movement_type: string; supplier?: string | null; created_at: string }[];
   onUploadProductPhoto?: (productId: string, file: File) => Promise<string | null>;
 }
@@ -53,6 +68,7 @@ export function Inventory({
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
+  onAdjustStock,
   stockMovements = [],
   onUploadProductPhoto,
 }: InventoryProps) {
@@ -64,6 +80,14 @@ export function Inventory({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
+  const [adjustQty, setAdjustQty] = useState('');
+  const [initialBarcodeFromScan, setInitialBarcodeFromScan] = useState<string | null>(null);
+  const [adjusting, setAdjusting] = useState(false);
+  const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
+  const [quickAddQty, setQuickAddQty] = useState('');
+  const [quickAdding, setQuickAdding] = useState(false);
 
   const filteredProducts = useMemo(() => {
     let list = products;
@@ -93,7 +117,47 @@ export function Inventory({
 
   const handleAddProduct = () => {
     setEditingProduct(null);
+    setInitialBarcodeFromScan(null);
     setFormOpen(true);
+  };
+
+  const handleScanResult = (value: string) => {
+    const trimmed = value?.trim();
+    if (!trimmed) return;
+    const found = products.find(
+      (p) =>
+        (p.barcode && p.barcode.trim() === trimmed) ||
+        (p.sku && p.sku.trim().toLowerCase() === trimmed.toLowerCase())
+    );
+    if (found) {
+      setAdjustProduct(found);
+      setAdjustQty('');
+    } else {
+      setInitialBarcodeFromScan(trimmed);
+      setEditingProduct(null);
+      setFormOpen(true);
+      toast.info(t('inventory.addProduct') + ' – ' + (t('inventory.manualBarcodeEntry') ?? 'Enter details'));
+    }
+  };
+
+  const handleAdjustSubmit = async () => {
+    if (!adjustProduct || !onAdjustStock) return;
+    const qty = parseInt(adjustQty, 10) || 0;
+    if (qty <= 0) {
+      toast.error(t('inventory.adjustQuantity') ? 'Enter a positive quantity' : 'Enter a positive quantity');
+      return;
+    }
+    setAdjusting(true);
+    const updated = await onAdjustStock(adjustProduct.id, qty, 'adjustment', 'Barcode scan');
+    setAdjusting(false);
+    if (updated) {
+      onUpdateProduct(adjustProduct.id, { quantity: updated.quantity });
+      setAdjustProduct(null);
+      setAdjustQty('');
+      toast.success(t('inventory.addQuantity') ?? 'Stock updated');
+    } else {
+      toast.error(t('common.genericError'));
+    }
   };
 
   const handleSaveNew = async (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>, photoFile?: File) => {
@@ -103,6 +167,7 @@ export function Inventory({
       if (url) onUpdateProduct(created.id, { photo_url: url });
     }
     setFormOpen(false);
+    setInitialBarcodeFromScan(null);
   };
 
   const handleSaveUpdate = (id: string, data: Partial<Product>, photoFile?: File) => {
@@ -114,6 +179,7 @@ export function Inventory({
     }
     setFormOpen(false);
     setEditingProduct(null);
+    setInitialBarcodeFromScan(null);
   };
 
   const handleDeleteClick = (id: string) => {
@@ -135,9 +201,18 @@ export function Inventory({
   };
   const isLowStock = (p: Product) => p.quantity <= thresholdFor(p);
 
-  const handleGenerateBarcode = (p: Product) => {
-    const code = `PH-${p.id.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
-    onUpdateProduct(p.id, { barcode: code });
+  const handleQuickAdd = async (p: Product) => {
+    const qty = parseInt(quickAddQty, 10) || 0;
+    if (qty <= 0 || !onAdjustStock) return;
+    setQuickAdding(true);
+    const updated = await onAdjustStock(p.id, qty, 'adjustment', 'Quick add');
+    setQuickAdding(false);
+    setQuickAddProduct(null);
+    setQuickAddQty('');
+    if (updated) {
+      onUpdateProduct(p.id, { quantity: updated.quantity });
+      toast.success(t('inventory.addQuantity') ?? 'Stock updated');
+    } else toast.error(t('common.genericError'));
   };
 
   return (
@@ -149,7 +224,7 @@ export function Inventory({
           <p className="text-muted-foreground mt-1">{t('inventory.description')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" title={t('inventory.scanBarcode')}>
+          <Button variant="outline" size="sm" className="gap-2" title={t('inventory.scanBarcode')} onClick={() => setScanOpen(true)}>
             <Scan className="w-4 h-4" />
             <span className="hidden sm:inline">{t('inventory.scanBarcode')}</span>
           </Button>
@@ -257,12 +332,37 @@ export function Inventory({
                           </div>
                         </div>
                         <div className="mt-3 flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={cn('w-2 h-2 rounded-full shrink-0', low ? 'bg-destructive' : 'bg-green-500')} aria-hidden />
                             <span className="text-muted-foreground">{t('inventory.stock')}: </span>
                             <span className={cn('font-medium', low && 'text-destructive')}>
                               {product.quantity}
                             </span>
+                            {onAdjustStock && (
+                              <Popover open={quickAddProduct?.id === product.id} onOpenChange={(open) => { if (!open) { setQuickAddProduct(null); setQuickAddQty(''); } else setQuickAddProduct(product); }}>
+                                <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 ml-1" title={t('inventory.addMoreStock') ?? 'Add more to stock'}>
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-56 p-3" align="start" onClick={(e) => e.stopPropagation()}>
+                                  <p className="text-sm font-medium mb-2">{t('inventory.addHowMany') ?? 'How many to add?'}</p>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      value={quickAddProduct?.id === product.id ? quickAddQty : ''}
+                                      onChange={(e) => setQuickAddQty(e.target.value)}
+                                      placeholder="0"
+                                      className="h-9"
+                                    />
+                                    <Button size="sm" className="shrink-0" disabled={quickAdding || !(parseInt(quickAddQty, 10) > 0)} onClick={() => handleQuickAdd(product)}>
+                                      {quickAdding ? t('common.saving') : (t('inventory.done') ?? 'Done')}
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
                           </div>
                           <div className="text-right">
                             <span className="text-muted-foreground">{t('inventory.costPrice')}: </span>
@@ -325,11 +425,36 @@ export function Inventory({
                           </td>
                           <td className="p-3 text-muted-foreground font-mono text-sm">{product.sku}</td>
                           <td className="p-3">
-                            <span className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1.5 flex-wrap">
                               <span className={cn('w-2 h-2 rounded-full shrink-0', low ? 'bg-destructive' : 'bg-green-500')} aria-hidden />
                               <span className={cn('font-medium', low && 'text-destructive')}>
                                 {product.quantity}
                               </span>
+                              {onAdjustStock && (
+                                <Popover open={quickAddProduct?.id === product.id} onOpenChange={(open) => { if (!open) { setQuickAddProduct(null); setQuickAddQty(''); } else setQuickAddProduct(product); }}>
+                                  <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title={t('inventory.addMoreStock') ?? 'Add more to stock'}>
+                                      <Plus className="w-4 h-4" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-56 p-3" align="start" onClick={(e) => e.stopPropagation()}>
+                                    <p className="text-sm font-medium mb-2">{t('inventory.addHowMany') ?? 'How many to add?'}</p>
+                                    <div className="flex gap-2">
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        value={quickAddProduct?.id === product.id ? quickAddQty : ''}
+                                        onChange={(e) => setQuickAddQty(e.target.value)}
+                                        placeholder="0"
+                                        className="h-9"
+                                      />
+                                      <Button size="sm" className="shrink-0" disabled={quickAdding || !(parseInt(quickAddQty, 10) > 0)} onClick={() => handleQuickAdd(product)}>
+                                        {quickAdding ? t('common.saving') : (t('inventory.done') ?? 'Done')}
+                                      </Button>
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
                             </span>
                           </td>
                           <td className="p-3">${(product.cost ?? 0).toFixed(2)}</td>
@@ -381,13 +506,60 @@ export function Inventory({
         open={formOpen}
         onOpenChange={(open) => {
           setFormOpen(open);
-          if (!open) setEditingProduct(null);
+          if (!open) {
+            setEditingProduct(null);
+            setInitialBarcodeFromScan(null);
+          }
         }}
         product={editingProduct}
         products={products}
         onSave={handleSaveNew}
         onUpdate={handleSaveUpdate}
+        initialBarcodeOrSku={initialBarcodeFromScan ?? undefined}
       />
+
+      <BarcodeScannerModal
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onScan={handleScanResult}
+        title={t('inventory.scanBarcode')}
+        beepOnScan
+      />
+
+      <Dialog open={!!adjustProduct} onOpenChange={(open) => !open && setAdjustProduct(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('inventory.adjustQuantity')}</DialogTitle>
+            <DialogDescription>
+              {adjustProduct && (
+                <>
+                  {adjustProduct.name} · {t('inventory.stock')}: {adjustProduct.quantity}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>{t('inventory.addQuantity')}</Label>
+              <Input
+                type="number"
+                min={1}
+                value={adjustQty}
+                onChange={(e) => setAdjustQty(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustProduct(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleAdjustSubmit} disabled={adjusting || !onAdjustStock}>
+              {adjusting ? t('common.saving') : t('inventory.addQuantity')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <InventoryProductDetailModal
         product={detailProduct}
@@ -395,7 +567,8 @@ export function Inventory({
         onOpenChange={(open) => !open && setDetailProduct(null)}
         stockMovements={stockMovements}
         isLowStock={isLowStock}
-        onGenerateBarcode={handleGenerateBarcode}
+        onUpdateProduct={onUpdateProduct}
+        onEditProduct={handleEdit}
       />
 
       <DeleteConfirmDialog

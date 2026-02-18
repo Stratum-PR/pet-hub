@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,9 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useClients } from '@/hooks/useSupabaseData';
 import { useNotifications } from '@/hooks/useNotifications';
 import { t } from '@/lib/translations';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { getPaymentStatusLabel } from '@/types/transactions';
 
 type TransactionStatus =
   | 'pending'
@@ -22,9 +24,9 @@ type TransactionStatus =
   | 'void';
 
 const STATUS_LABELS: Record<TransactionStatus, string> = {
-  pending: 'Pending',
+  pending: 'Unpaid',
   in_progress: 'In Progress',
-  paid: 'Full',
+  paid: 'Paid',
   partial: 'Partial',
   refunded: 'Refunded',
   partial_refund: 'Partial Refund',
@@ -46,7 +48,7 @@ export function Transactions() {
   const { businessSlug } = useParams();
   const navigate = useNavigate();
   const businessId = useBusinessId();
-  const { transactions: rawTransactions, loading } = useTransactions();
+  const { transactions: rawTransactions, loading, updateTransaction } = useTransactions();
   const { clients } = useClients();
   const { createNotification } = useNotifications();
   const [search, setSearch] = useState('');
@@ -72,6 +74,16 @@ export function Transactions() {
       );
     }
   }, [businessId, createNotification, rawTransactions]);
+
+  const isFullyPaid = (txn: (typeof rawTransactions)[0]) =>
+    (txn.amount_tendered ?? 0) >= txn.total || txn.status === 'paid' || txn.status === 'void' || txn.status === 'refunded' || txn.status === 'partial_refund';
+
+  const handleMarkAsPaid = async (e: React.MouseEvent, txn: (typeof rawTransactions)[0]) => {
+    e.stopPropagation();
+    const ok = await updateTransaction(txn.id, { amount_tendered: txn.total, status: 'paid', change_given: 0 });
+    if (ok) toast.success(t('transactions.markedAsPaid') ?? 'Marked as paid');
+    else toast.error(t('common.genericError'));
+  };
 
   const filtered = rawTransactions.filter((txn) => {
     if (!search.trim()) return true;
@@ -148,8 +160,23 @@ export function Transactions() {
                         className="border-b hover:bg-muted/50 cursor-pointer"
                         onClick={() => navigate(businessSlug ? `/${businessSlug}/transactions/${txn.id}` : `/transactions/${txn.id}`)}
                       >
-                        <td className="py-3 px-2 font-mono">{displayId}</td>
-                        <td className="py-3 px-2">{format(new Date(txn.created_at), 'MMM d, yyyy HH:mm')}</td>
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-2 font-mono">
+                            <span>{displayId}</span>
+                            {!isFullyPaid(txn) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs shrink-0"
+                                onClick={(e) => handleMarkAsPaid(e, txn)}
+                              >
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                Mark as paid
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-2">{format(new Date(txn.created_at), 'PPp')}</td>
                         <td className="py-3 px-2">{name}</td>
                         <td className="py-3 px-2 text-right">${centsToDollars(txn.amount_tendered ?? 0)}</td>
                         <td className="py-3 px-2 text-right font-medium">${centsToDollars(txn.total)}</td>
@@ -158,12 +185,14 @@ export function Transactions() {
                             variant={
                               txn.status === 'refunded' || txn.status === 'partial_refund' || txn.status === 'void'
                                 ? 'destructive'
-                                : txn.status === 'paid'
+                                : (txn.amount_tendered ?? 0) >= txn.total
                                   ? 'default'
                                   : 'secondary'
                             }
                           >
-                            {STATUS_LABELS[txn.status] || txn.status}
+                            {txn.status === 'void' || txn.status === 'refunded' || txn.status === 'partial_refund'
+                              ? (STATUS_LABELS[txn.status] || txn.status)
+                              : getPaymentStatusLabel(txn.amount_tendered ?? 0, txn.total)}
                           </Badge>
                         </td>
                         <td className="py-3 px-2">{PAYMENT_METHOD_LABELS[txn.payment_method] || txn.payment_method}</td>

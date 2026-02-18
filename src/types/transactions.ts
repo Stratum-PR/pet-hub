@@ -80,6 +80,34 @@ export interface ReceiptSettingRow {
   tagline: string | null;
   thank_you_message: string | null;
   return_policy: string | null;
+  receipt_phone: string | null;
+  receipt_location: string | null;
+}
+
+/** One entry in transaction edit history. */
+export interface TransactionHistoryEntry {
+  id: string;
+  transaction_id: string;
+  business_id: string;
+  changed_at: string;
+  changed_by_user_id: string | null;
+  /** Display name for who made the change (from profiles). */
+  changed_by_display?: string | null;
+  change_summary: { field: string; old_value: unknown; new_value: unknown }[];
+}
+
+/** Payment status label from amount paid vs total. Use amount_tendered ?? 0 as amountPaid. */
+export function getPaymentStatusLabel(amountPaid: number, total: number): 'Unpaid' | 'Partial' | 'Paid' {
+  if (amountPaid === 0) return 'Unpaid';
+  if (amountPaid < total) return 'Partial';
+  return 'Paid';
+}
+
+/** DB status value for payment state (pending = Unpaid, partial = Partial, paid = Paid). */
+export function getPaymentStatusFromAmount(amountPaid: number, total: number): 'pending' | 'partial' | 'paid' {
+  if (amountPaid === 0) return 'pending';
+  if (amountPaid < total) return 'partial';
+  return 'paid';
 }
 
 /** Line item for building a new transaction (before save). */

@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Scan, Search, Check, Plus, Upload } from 'lucide-react';
+import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -65,6 +66,8 @@ interface InventoryProductFormProps {
   onSave: (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>, photoFile?: File) => void;
   onUpdate: (id: string, data: Partial<Product>, photoFile?: File) => void;
   onSelectFromRegistry?: (product: Product) => void;
+  /** When opening "add" form after a barcode scan, prefill barcode/SKU. */
+  initialBarcodeOrSku?: string;
 }
 
 export function InventoryProductForm({
@@ -74,6 +77,7 @@ export function InventoryProductForm({
   products,
   onSave,
   onUpdate,
+  initialBarcodeOrSku,
 }: InventoryProductFormProps) {
   const isMobile = useIsMobile();
   const [formData, setFormData] = useState(defaultFormData);
@@ -82,6 +86,7 @@ export function InventoryProductForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [showDuplicateSkuDialog, setShowDuplicateSkuDialog] = useState(false);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
 
   const isEditing = !!product;
 
@@ -107,9 +112,14 @@ export function InventoryProductForm({
         custom_fields: product.custom_fields ?? {},
       });
     } else {
-      setFormData(defaultFormData);
+      const prefilled = initialBarcodeOrSku?.trim();
+      setFormData({
+        ...defaultFormData,
+        sku: prefilled ?? '',
+        barcode: prefilled ?? '',
+      });
     }
-  }, [product, open]);
+  }, [product, open, initialBarcodeOrSku]);
 
   const filteredRegistry = products.filter(
     (p) =>
@@ -244,9 +254,10 @@ export function InventoryProductForm({
             value={formData.sku}
             onChange={(e) => { setFormData({ ...formData, sku: e.target.value }); setErrors((e2) => ({ ...e2, sku: '' })); }}
             required
-            placeholder="DS-001"
+            placeholder="e.g. DS-001"
             className={errors.sku ? 'border-destructive' : ''}
           />
+          <p className="text-xs text-muted-foreground">{t('inventory.skuHelp')}</p>
           {errors.sku && <p className="text-sm text-destructive">{errors.sku}</p>}
           {duplicateSku && formData.sku.trim() && (
             <p className="text-sm text-amber-600 dark:text-amber-500">{t('inventory.duplicateSkuWarning')}</p>
@@ -258,12 +269,13 @@ export function InventoryProductForm({
             <Input
               value={formData.barcode}
               onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              placeholder="Scan or enter barcode"
+              placeholder={t('inventory.manualEntryPlaceholder') ?? 'Barcode or SKU'}
             />
-            <Button type="button" variant="outline" size="icon" title={t('inventory.scanBarcode')}>
+            <Button type="button" variant="outline" size="icon" title={t('inventory.scanBarcode')} onClick={() => setScanModalOpen(true)}>
               <Scan className="w-4 h-4" />
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">{t('inventory.barcodeHelp')}</p>
         </div>
         <div className="space-y-2">
           <Label>{t('inventory.category')}</Label>
@@ -417,27 +429,46 @@ export function InventoryProductForm({
 
   const title = isEditing ? t('inventory.editProduct') : t('inventory.addProduct');
 
+  const scanModal = (
+    <BarcodeScannerModal
+      open={scanModalOpen}
+      onOpenChange={setScanModalOpen}
+      onScan={(value) => {
+        setFormData((prev) => ({ ...prev, barcode: value.trim() }));
+        setScanModalOpen(false);
+      }}
+      title={t('inventory.scanBarcode')}
+      beepOnScan
+    />
+  );
+
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader>
-            <DrawerTitle>{title}</DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4">{content}</div>
-        </DrawerContent>
-      </Drawer>
+      <>
+        <Drawer open={open} onOpenChange={onOpenChange}>
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader>
+              <DrawerTitle>{title}</DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-4">{content}</div>
+          </DrawerContent>
+        </Drawer>
+        {scanModal}
+      </>
     );
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{title}</SheetTitle>
-        </SheetHeader>
-        <div className="mt-6">{content}</div>
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="overflow-y-auto sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{title}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">{content}</div>
+        </SheetContent>
+      </Sheet>
+      {scanModal}
+    </>
   );
 }

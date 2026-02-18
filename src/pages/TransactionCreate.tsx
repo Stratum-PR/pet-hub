@@ -13,8 +13,9 @@ import { useClients, useAppointments, useServices } from '@/hooks/useSupabaseDat
 import { useInventory } from '@/hooks/useInventory';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
-import type { TransactionLineItemInput } from '@/types/transactions';
-import type { PaymentMethod } from '@/types/transactions';
+import type { TransactionLineItemInput, PaymentMethod } from '@/types/transactions';
+import { getPaymentStatusFromAmount } from '@/types/transactions';
+import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
 
 function toCents(d: number): number {
   return Math.round(d * 100);
@@ -102,7 +103,14 @@ export function TransactionCreate() {
 
   const tipCents = toCents(tipAmount);
   const totalCents = taxableCents + taxTotalCents + tipCents;
-  const changeCents = paymentMethod === 'cash' && amountTendered ? Math.max(0, toCents(Number(amountTendered)) - totalCents) : 0;
+  const effectiveAmountTendered = amountTendered === '' ? totalCents / 100 : Number(amountTendered || 0);
+  const changeCents = paymentMethod === 'cash' && (amountTendered !== '' || totalCents > 0) ? Math.max(0, toCents(effectiveAmountTendered) - totalCents) : 0;
+
+  const prevTotalRef = useRef(0);
+  useEffect(() => {
+    if (totalCents > 0 && prevTotalRef.current === 0) setAmountTendered((totalCents / 100).toFixed(2));
+    prevTotalRef.current = totalCents;
+  }, [totalCents]);
 
   const addService = (serviceId: string, name: string, priceDollars: number, qty: number = 1) => {
     const up = Math.round(priceDollars * 100);
@@ -149,9 +157,9 @@ export function TransactionCreate() {
       tip_amount: tipCents,
       payment_method: paymentMethod,
       payment_method_secondary: null,
-      amount_tendered: paymentMethod === 'cash' ? toCents(Number(amountTendered || 0)) : totalCents,
+      amount_tendered: paymentMethod === 'cash' ? toCents(Number(amountTendered || totalCents / 100)) : totalCents,
       change_given: paymentMethod === 'cash' ? changeCents : null,
-      status: (paymentMethod !== 'cash' || totalCents <= toCents(Number(amountTendered || 0))) ? 'paid' : 'partial',
+      status: getPaymentStatusFromAmount(paymentMethod === 'cash' ? toCents(Number(amountTendered || totalCents / 100)) : totalCents, totalCents),
       notes: notes || null,
     });
     setSaving(false);
@@ -357,7 +365,7 @@ export function TransactionCreate() {
           {taxSnapshot.length > 0 ? (
             taxSnapshot.map((tax) => (
               <div key={tax.label} className="flex justify-between">
-                <span>{tax.label} ({tax.rate}%)</span>
+                <span>{normalizeTaxLabelForDisplay(tax.label)} ({tax.rate}%)</span>
                 <span>${fromCents(tax.amount).toFixed(2)}</span>
               </div>
             ))
@@ -408,6 +416,7 @@ export function TransactionCreate() {
                 step={0.01}
                 value={amountTendered}
                 onChange={(e) => setAmountTendered(e.target.value)}
+                placeholder={fromCents(totalCents).toFixed(2)}
               />
               {changeCents > 0 && (
                 <p className="text-sm text-muted-foreground">

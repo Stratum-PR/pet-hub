@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Printer, Mail, DollarSign, XCircle, Pencil } from 'lucide-react';
+import { ArrowLeft, Printer, Mail, DollarSign, XCircle, Pencil, ChevronDown, FileText, Receipt, Eye, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -14,14 +14,24 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useClients } from '@/hooks/useSupabaseData';
 import { useSettings } from '@/hooks/useSupabaseData';
-import { printReceipt } from '@/components/ReceiptPrint';
+import { printReceipt, viewReceipt } from '@/components/ReceiptPrint';
+import { printInvoice, viewInvoice } from '@/components/InvoicePrint';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
+import { getPaymentStatusLabel, getPaymentStatusFromAmount } from '@/types/transactions';
+import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Cash',
@@ -31,9 +41,9 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
+  pending: 'Unpaid',
   in_progress: 'In Progress',
-  paid: 'Full',
+  paid: 'Paid',
   partial: 'Partial',
   refunded: 'Refunded',
   partial_refund: 'Partial Refund',
@@ -44,10 +54,35 @@ function fromCents(c: number): number {
   return c / 100;
 }
 
+/** Format a single change_summary line for display (status labels, dollar amounts). */
+function formatHistoryChangeLine(c: { field: string; old_value: unknown; new_value: unknown }): string {
+  const label = (v: unknown) => (v != null && typeof v === 'string' && STATUS_LABELS[v] ? STATUS_LABELS[v] : String(v ?? '—'));
+  const moneyFields = ['amount_tendered', 'total', 'change_given', 'discount_amount'];
+  if (moneyFields.includes(c.field)) {
+    const toDollars = (v: unknown) => (typeof v === 'number' ? `$${fromCents(v).toFixed(2)}` : (v == null ? '—' : `$${fromCents(Number(v)).toFixed(2)}`));
+    return `${c.field === 'amount_tendered' ? (t('transactions.amountPaid') ?? 'Amount paid') : c.field}: ${toDollars(c.old_value)} → ${toDollars(c.new_value)}`;
+  }
+  if (c.field === 'status') {
+    return `${t('transactions.status') ?? 'Status'}: ${label(c.old_value)} → ${label(c.new_value)}`;
+  }
+  return `${c.field}: ${label(c.old_value)} → ${label(c.new_value)}`;
+}
+
+/** If this entry is a "marked as paid" change, return a single friendly line; otherwise null. */
+function getMarkedAsPaidLine(change_summary: { field: string; old_value: unknown; new_value: unknown }[]): string | null {
+  if (!Array.isArray(change_summary) || change_summary.length === 0) return null;
+  const statusChange = change_summary.find((c) => c.field === 'status' && c.new_value === 'paid');
+  const amountChange = change_summary.find((c) => c.field === 'amount_tendered');
+  if (!statusChange || !amountChange) return null;
+  const amount = typeof amountChange.new_value === 'number' ? amountChange.new_value : Number(amountChange.new_value);
+  const formatted = Number.isFinite(amount) ? `$${fromCents(amount).toFixed(2)}` : '';
+  return formatted ? `${t('transactions.markedAsPaid') ?? 'Marked as paid'} (${formatted})` : (t('transactions.markedAsPaid') ?? 'Marked as paid');
+}
+
 export function TransactionDetail() {
   const { businessSlug, transactionId } = useParams<{ businessSlug: string; transactionId: string }>();
   const location = useLocation();
-  const { fetchTransactionById, updateTransactionStatus, updateTransaction, createRefund, fetchReceiptSettings } = useTransactions();
+  const { fetchTransactionById, fetchTransactionHistory, updateTransactionStatus, updateTransaction, createRefund, fetchReceiptSettings } = useTransactions();
   const { clients } = useClients();
   const { settings } = useSettings();
 
@@ -66,6 +101,14 @@ export function TransactionDetail() {
   const [editTotal, setEditTotal] = useState('');
   const [editAmountTendered, setEditAmountTendered] = useState('');
   const [editNotes, setEditNotes] = useState(transaction?.notes ?? '');
+  const [historyEntries, setHistoryEntries] = useState<import('@/types/transactions').TransactionHistoryEntry[]>([]);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailDialogType, setEmailDialogType] = useState<'receipt' | 'invoice' | null>(null);
+  const [emailTo, setEmailTo] = useState('');
+  const [receiptMenuOpen, setReceiptMenuOpen] = useState(false);
+  const [invoiceMenuOpen, setInvoiceMenuOpen] = useState(false);
+  const receiptLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invoiceLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isWalkIn = !transaction?.customer_id;
   const customerEmail = transaction?.customer_id
     ? clients.find((x) => x.id === transaction.customer_id)?.email
@@ -90,10 +133,15 @@ export function TransactionDetail() {
     if (transaction) {
       setEditPaymentMethod(transaction.payment_method);
       setEditTotal((transaction.total / 100).toFixed(2));
-      setEditAmountTendered(transaction.amount_tendered != null ? (transaction.amount_tendered / 100).toFixed(2) : '');
+      setEditAmountTendered(transaction.amount_tendered != null ? (transaction.amount_tendered / 100).toFixed(2) : (transaction.total / 100).toFixed(2));
       setEditNotes(transaction.notes ?? '');
     }
   }, [transaction]);
+
+  useEffect(() => {
+    if (!transactionId || transaction?.id?.startsWith('local-')) return;
+    fetchTransactionHistory(transactionId).then(setHistoryEntries);
+  }, [transactionId, transaction?.id, fetchTransactionHistory]);
 
   const customerName = transaction?.customer_id
     ? (() => {
@@ -115,10 +163,60 @@ export function TransactionDetail() {
       businessName: settings?.business_name ?? 'Pet Hub',
       headerText: receiptSettings?.header_text ?? undefined,
       footerText: footer ?? undefined,
+      receiptPhone: receiptSettings?.receipt_phone ?? undefined,
+      receiptLocation: receiptSettings?.receipt_location ?? undefined,
       transaction,
       lineItems,
       displayId,
     });
+  };
+
+  const handlePrintInvoice = async () => {
+    if (!transaction || lineItems.length === 0) return;
+    const [receiptRes, bizRes] = await Promise.all([
+      fetchReceiptSettings(),
+      supabase.from('businesses' as any).select('logo_url').eq('id', transaction.business_id).maybeSingle(),
+    ]);
+    const receiptSettings = receiptRes;
+    const biz = bizRes.data as { logo_url?: string | null } | null;
+    printInvoice({
+      businessName: settings?.business_name ?? 'Pet Hub',
+      businessPhone: receiptSettings?.receipt_phone ?? undefined,
+      businessAddress: receiptSettings?.receipt_location ?? undefined,
+      logoUrl: biz?.logo_url ?? undefined,
+      transaction,
+      lineItems,
+      displayId,
+      customerName,
+    });
+  };
+
+  const openEmailDialog = (type: 'receipt' | 'invoice') => {
+    setEmailDialogType(type);
+    setEmailTo(customerEmail || walkInEmail || '');
+    setEmailDialogOpen(true);
+  };
+
+  const handleEmailDialogSend = () => {
+    const trimmed = emailTo?.trim();
+    if (!trimmed) {
+      toast.error(t('transactions.enterEmail'));
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast.error(t('transactions.invalidEmail'));
+      return;
+    }
+    const subject = emailDialogType === 'receipt' ? `Receipt ${displayId}` : `Invoice ${displayId}`;
+    const body = [
+      `${emailDialogType === 'invoice' ? 'Invoice' : 'Receipt'} ${displayId}`,
+      `Date: ${transaction ? format(new Date(transaction.created_at), 'PPpp') : ''}`,
+      `Total: ${transaction ? `$${(transaction.total / 100).toFixed(2)}` : ''}`,
+    ].join('\n');
+    window.location.href = `mailto:${encodeURIComponent(trimmed)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setEmailDialogOpen(false);
+    setEmailDialogType(null);
+    setEmailTo('');
   };
 
   const openEmailReceipt = () => {
@@ -163,15 +261,19 @@ export function TransactionDetail() {
     if (!transactionId || !transaction) return;
     const totalCents = Math.round(parseFloat(editTotal || '0') * 100);
     const amountTendered = editAmountTendered === '' ? null : Math.round(parseFloat(editAmountTendered || '0') * 100);
+    const amountPaid = amountTendered ?? 0;
+    const status = getPaymentStatusFromAmount(amountPaid, totalCents);
     const ok = await updateTransaction(transactionId, {
       payment_method: editPaymentMethod as Transaction['payment_method'],
       total: totalCents,
       amount_tendered: amountTendered,
       notes: editNotes.trim() || null,
+      status,
     });
     if (ok) {
-      setTransaction((t) => t ? { ...t, payment_method: editPaymentMethod as Transaction['payment_method'], total: totalCents, amount_tendered: amountTendered, notes: editNotes.trim() || null } : null);
+      setTransaction((t) => t ? { ...t, payment_method: editPaymentMethod as Transaction['payment_method'], total: totalCents, amount_tendered: amountTendered, notes: editNotes.trim() || null, status } : null);
       setEditOpen(false);
+      if (transactionId) fetchTransactionHistory(transactionId).then(setHistoryEntries);
       toast.success(t('common.saved'));
     } else {
       toast.error(t('common.genericError'));
@@ -183,6 +285,7 @@ export function TransactionDetail() {
     const ok = await updateTransactionStatus(transactionId, 'void');
     if (ok) {
       setTransaction((t) => (t ? { ...t, status: 'void' } : null));
+      if (transactionId) fetchTransactionHistory(transactionId).then(setHistoryEntries);
       toast.success(t('transactions.voided'));
     } else toast.error(t('common.genericError'));
   };
@@ -227,19 +330,74 @@ export function TransactionDetail() {
 
   const canVoid = transaction.status !== 'void' && transaction.status !== 'refunded';
   const canRefund = transaction.status === 'paid' || transaction.status === 'partial' || transaction.status === 'partial_refund';
+  const isFullyPaid =
+    (transaction.amount_tendered ?? 0) >= transaction.total ||
+    transaction.status === 'paid' ||
+    transaction.status === 'void' ||
+    transaction.status === 'refunded' ||
+    transaction.status === 'partial_refund';
+
+  const handleMarkAsPaid = async () => {
+    if (!transactionId || !transaction) return;
+    const ok = await updateTransaction(transactionId, {
+      amount_tendered: transaction.total,
+      status: 'paid',
+      change_given: 0,
+    });
+    if (ok) {
+      setTransaction((t) => (t ? { ...t, amount_tendered: transaction.total, status: 'paid' } : null));
+      // Show "Marked as paid" in history immediately and keep it visible
+      const optimisticEntry: import('@/types/transactions').TransactionHistoryEntry = {
+        id: 'optimistic-mark-paid',
+        transaction_id: transactionId,
+        business_id: transaction.business_id,
+        changed_at: new Date().toISOString(),
+        changed_by_user_id: null,
+        change_summary: [
+          { field: 'status', old_value: transaction.status, new_value: 'paid' },
+          { field: 'amount_tendered', old_value: transaction.amount_tendered ?? null, new_value: transaction.total },
+        ],
+      };
+      setHistoryEntries((prev) => [optimisticEntry, ...prev]);
+      toast.success(t('transactions.markedAsPaid') ?? 'Marked as paid');
+      // Refetch to get server entry with "who"; only replace if server has a matching entry so we never lose the row
+      setTimeout(async () => {
+        const entries = await fetchTransactionHistory(transactionId);
+        const serverHasMarkPaid = entries.some(
+          (e) =>
+            Array.isArray(e.change_summary) &&
+            e.change_summary.some((c: { field: string; new_value: unknown }) => c.field === 'status' && c.new_value === 'paid')
+        );
+        setHistoryEntries((prev) => {
+          const hadOptimistic = prev.some((e) => e.id === 'optimistic-mark-paid');
+          if (hadOptimistic && !serverHasMarkPaid) return prev;
+          if (hadOptimistic && serverHasMarkPaid) return entries;
+          return entries;
+        });
+      }, 600);
+    } else toast.error(t('common.genericError'));
+  };
 
   return (
     <div className="space-y-6 animate-fade-in max-w-3xl">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="ghost" size="icon" asChild>
             <Link to={`/${businessSlug}/transactions`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">{displayId}</h1>
+          {!isFullyPaid && (
+            <Button variant="outline" size="sm" onClick={handleMarkAsPaid} className="gap-1">
+              <CheckCircle className="h-4 w-4" />
+              {t('transactions.markAsPaid') ?? 'Mark as paid'}
+            </Button>
+          )}
           <Badge variant={transaction.status === 'refunded' || transaction.status === 'void' ? 'destructive' : 'default'}>
-            {STATUS_LABELS[transaction.status] ?? transaction.status}
+            {transaction.status === 'void' || transaction.status === 'refunded' || transaction.status === 'partial_refund'
+              ? (STATUS_LABELS[transaction.status] ?? transaction.status)
+              : getPaymentStatusLabel(transaction.amount_tendered ?? 0, transaction.total)}
           </Badge>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -247,14 +405,114 @@ export function TransactionDetail() {
             <Pencil className="h-4 w-4" />
             {t('common.edit') ?? 'Edit'}
           </Button>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1">
-            <Printer className="h-4 w-4" />
-            {t('transactions.printReceipt')}
-          </Button>
-          <Button variant="outline" size="sm" onClick={openEmailReceipt} className="gap-1">
-            <Mail className="h-4 w-4" />
-            {t('transactions.emailReceipt')}
-          </Button>
+          <DropdownMenu open={receiptMenuOpen} onOpenChange={setReceiptMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onMouseEnter={() => {
+                  if (receiptLeaveTimerRef.current) {
+                    clearTimeout(receiptLeaveTimerRef.current);
+                    receiptLeaveTimerRef.current = null;
+                  }
+                  setReceiptMenuOpen(true);
+                }}
+                onMouseLeave={() => {
+                  receiptLeaveTimerRef.current = setTimeout(() => setReceiptMenuOpen(false), 600);
+                }}
+              >
+                <Receipt className="h-4 w-4" />
+                {t('transactions.receipt') ?? 'Receipt'}
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              onMouseEnter={() => {
+                if (receiptLeaveTimerRef.current) {
+                  clearTimeout(receiptLeaveTimerRef.current);
+                  receiptLeaveTimerRef.current = null;
+                }
+                setReceiptMenuOpen(true);
+              }}
+              onMouseLeave={() => {
+                receiptLeaveTimerRef.current = setTimeout(() => setReceiptMenuOpen(false), 600);
+              }}
+            >
+              <DropdownMenuItem onClick={async () => {
+                setReceiptMenuOpen(false);
+                const receiptSettings = await fetchReceiptSettings();
+                const footer = receiptSettings?.footer_text ?? receiptSettings?.thank_you_message ?? undefined;
+                viewReceipt({ businessName: settings?.business_name ?? 'Pet Hub', headerText: receiptSettings?.header_text ?? undefined, footerText: footer ?? undefined, receiptPhone: receiptSettings?.receipt_phone ?? undefined, receiptLocation: receiptSettings?.receipt_location ?? undefined, transaction, lineItems, displayId });
+              }}>
+                <Eye className="h-4 w-4 mr-2" />
+                {t('transactions.view') ?? 'View'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setReceiptMenuOpen(false); handlePrint(); }}>
+                <Printer className="h-4 w-4 mr-2" />
+                {t('transactions.print') ?? 'Print'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setReceiptMenuOpen(false); openEmailDialog('receipt'); }}>
+                <Mail className="h-4 w-4 mr-2" />
+                {t('transactions.email') ?? 'Email'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu open={invoiceMenuOpen} onOpenChange={setInvoiceMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                onMouseEnter={() => {
+                  if (invoiceLeaveTimerRef.current) {
+                    clearTimeout(invoiceLeaveTimerRef.current);
+                    invoiceLeaveTimerRef.current = null;
+                  }
+                  setInvoiceMenuOpen(true);
+                }}
+                onMouseLeave={() => {
+                  invoiceLeaveTimerRef.current = setTimeout(() => setInvoiceMenuOpen(false), 600);
+                }}
+              >
+                <FileText className="h-4 w-4" />
+                {t('transactions.invoice') ?? 'Invoice'}
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              onMouseEnter={() => {
+                if (invoiceLeaveTimerRef.current) {
+                  clearTimeout(invoiceLeaveTimerRef.current);
+                  invoiceLeaveTimerRef.current = null;
+                }
+                setInvoiceMenuOpen(true);
+              }}
+              onMouseLeave={() => {
+                invoiceLeaveTimerRef.current = setTimeout(() => setInvoiceMenuOpen(false), 600);
+              }}
+            >
+              <DropdownMenuItem onClick={async () => {
+                setInvoiceMenuOpen(false);
+                const [receiptRes, bizRes] = await Promise.all([fetchReceiptSettings(), supabase.from('businesses' as any).select('logo_url').eq('id', transaction.business_id).maybeSingle()]);
+                const biz = bizRes.data as { logo_url?: string | null } | null;
+                viewInvoice({ businessName: settings?.business_name ?? 'Pet Hub', businessPhone: receiptRes?.receipt_phone ?? undefined, businessAddress: receiptRes?.receipt_location ?? undefined, logoUrl: biz?.logo_url ?? undefined, transaction, lineItems, displayId, customerName });
+              }}>
+                <Eye className="h-4 w-4 mr-2" />
+                {t('transactions.view') ?? 'View'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setInvoiceMenuOpen(false); handlePrintInvoice(); }}>
+                <Printer className="h-4 w-4 mr-2" />
+                {t('transactions.print') ?? 'Print'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setInvoiceMenuOpen(false); openEmailDialog('invoice'); }}>
+                <Mail className="h-4 w-4 mr-2" />
+                {t('transactions.email') ?? 'Email'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canRefund && (
             <Button variant="outline" size="sm" onClick={() => setRefundOpen(true)} className="gap-1">
               <DollarSign className="h-4 w-4" />
@@ -278,7 +536,7 @@ export function TransactionDetail() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-muted-foreground">{t('transactions.date')}</span>
-              <p>{format(new Date(transaction.created_at), 'PPpp')}</p>
+              <p>{format(new Date(transaction.created_at), 'PPp')}</p>
             </div>
             <div>
               <span className="text-muted-foreground">{t('transactions.customer')}</span>
@@ -334,7 +592,7 @@ export function TransactionDetail() {
             )}
             {transaction.tax_snapshot?.map((tax) => (
               <div key={tax.label} className="flex justify-between">
-                <span className="text-muted-foreground">{tax.label}</span>
+                <span className="text-muted-foreground">{normalizeTaxLabelForDisplay(tax.label)}</span>
                 <span>${fromCents(tax.amount).toFixed(2)}</span>
               </div>
             ))}
@@ -361,6 +619,64 @@ export function TransactionDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Transaction history: created + status/amount changes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('transactions.history') ?? 'Transaction history'}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-3 text-sm">
+            {[
+              ...(transaction ? [{ id: '__created__', changed_at: transaction.created_at, change_summary: [{ field: t('transactions.historyCreated') ?? 'Created', old_value: null, new_value: null }], changed_by_user_id: null, changed_by_display: null }] : []),
+              ...historyEntries,
+            ]
+              .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime())
+              .map((entry) => (
+                <li key={entry.id} className="border-b pb-2 last:border-0">
+                  <span className="text-muted-foreground">{format(new Date(entry.changed_at), 'PPp')}</span>
+                  {entry.changed_by_display && <span className="ml-2 text-muted-foreground">· {entry.changed_by_display}</span>}
+                  <ul className="mt-1 list-disc list-inside">
+                    {entry.id === '__created__' ? (
+                      <li>{t('transactions.historyCreated') ?? 'Transaction created'}</li>
+                    ) : (() => {
+                      const markedPaidLine = getMarkedAsPaidLine(entry.change_summary ?? []);
+                      if (markedPaidLine) return <li>{markedPaidLine}</li>;
+                      return Array.isArray(entry.change_summary) && entry.change_summary.map((c: { field: string; old_value: unknown; new_value: unknown }, i: number) => (
+                        <li key={i}>{formatHistoryChangeLine(c)}</li>
+                      ));
+                    })()}
+                  </ul>
+                </li>
+              ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Dialog open={emailDialogOpen} onOpenChange={(open) => { if (!open) { setEmailDialogType(null); setEmailTo(''); } setEmailDialogOpen(open); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('transactions.email')} {emailDialogType === 'invoice' ? t('transactions.invoice') : t('transactions.receipt')}</DialogTitle>
+            <DialogDescription>{t('transactions.sendTo')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email-to">{t('transactions.sendTo')}</Label>
+              <Input
+                id="email-to"
+                type="email"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEmailDialogOpen(false); setEmailDialogType(null); setEmailTo(''); }}>{t('common.cancel')}</Button>
+            <Button onClick={handleEmailDialogSend}>{t('transactions.email')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
         <DialogContent>
@@ -479,7 +795,7 @@ export function TransactionDetail() {
                 step={0.01}
                 value={editAmountTendered}
                 onChange={(e) => setEditAmountTendered(e.target.value)}
-                placeholder="0.00"
+                placeholder={transaction ? (transaction.total / 100).toFixed(2) : '0.00'}
               />
             </div>
             <div className="space-y-2">

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, LayoutGrid, List, Eye, Dog, Cat, ArrowLeft, Edit } from 'lucide-react';
+import { Plus, X, LayoutGrid, List, Eye, Dog, Cat, ArrowLeft, Edit, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
@@ -40,7 +40,9 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
   const [searchTerm, setSearchTerm] = useState('');
   const [speciesFilter, setSpeciesFilter] = useState('all');
   const [lastAppointmentFilter, setLastAppointmentFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('lastAppointment'); // 'lastAppointment' | 'name'
+  type SortKey = 'name' | 'owner' | 'breed' | 'lastAppointment' | 'upcoming';
+  const [sortKey, setSortKey] = useState<SortKey>('lastAppointment');
+  const [sortAsc, setSortAsc] = useState<boolean>(false); // false = descending (newest first for dates)
   const PET_VIEW_KEY = 'pet-hub-pets-view';
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
     if (typeof window === 'undefined') return 'cards';
@@ -73,6 +75,8 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     };
   }, [location.search, viewMode]);
 
+  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+
   const lastAppointmentByPet = useMemo(() => {
     const map: Record<string, string> = {};
     const safe = Array.isArray(appointments) ? appointments : [];
@@ -81,13 +85,31 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
       .forEach((a: any) => {
         const dateStr = a.appointment_date || a.scheduled_date;
         if (!dateStr) return;
+        const normalized = typeof dateStr === 'string' && dateStr.includes('T') ? dateStr.slice(0, 10) : dateStr;
         const existing = map[a.pet_id];
-        if (!existing || new Date(dateStr) > new Date(existing)) {
-          map[a.pet_id] = typeof dateStr === 'string' && dateStr.includes('T') ? dateStr.slice(0, 10) : dateStr;
+        if (!existing || new Date(normalized) > new Date(existing)) {
+          map[a.pet_id] = normalized;
         }
       });
     return map;
   }, [appointments]);
+
+  const upcomingAppointmentsByPet = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    const safe = Array.isArray(appointments) ? appointments : [];
+    safe
+      .filter((a: any) => a.pet_id)
+      .forEach((a: any) => {
+        const dateStr = a.appointment_date || a.scheduled_date;
+        if (!dateStr) return;
+        const normalized = typeof dateStr === 'string' && dateStr.includes('T') ? dateStr.slice(0, 10) : dateStr;
+        if (normalized < today) return;
+        if (!map[a.pet_id]) map[a.pet_id] = [];
+        if (!map[a.pet_id].includes(normalized)) map[a.pet_id].push(normalized);
+      });
+    Object.keys(map).forEach((id) => map[id].sort());
+    return map;
+  }, [appointments, today]);
 
   const filteredPets = useMemo(() => {
     let filtered = pets;
@@ -129,23 +151,48 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
       }
     }
 
-    if (sortBy === 'lastAppointment') {
-      filtered = [...filtered].sort((a, b) => {
+    const ownerName = (pet: Pet) => {
+      const owner = clients.find(c => c.id === pet.client_id);
+      return owner ? `${(owner as any).first_name || ''} ${(owner as any).last_name || ''}`.trim() : '';
+    };
+    const breedName = (pet: Pet) => (pet as any).breeds?.name ?? (pet as any).breed ?? '';
+    const nextUpcoming = (petId: string) => {
+      const arr = upcomingAppointmentsByPet[petId];
+      return arr && arr[0] ? arr[0] : null;
+    };
+
+    filtered = [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'name') {
+        cmp = a.name.localeCompare(b.name);
+      } else if (sortKey === 'owner') {
+        cmp = ownerName(a).localeCompare(ownerName(b));
+      } else if (sortKey === 'breed') {
+        cmp = breedName(a).localeCompare(breedName(b));
+      } else if (sortKey === 'lastAppointment') {
         const lastA = lastAppointmentByPet[a.id];
         const lastB = lastAppointmentByPet[b.id];
-        if (!lastA && !lastB) return 0;
-        if (!lastA) return 1;
-        if (!lastB) return -1;
-        const dA = lastA.includes('T') ? parseISO(lastA) : parseISO(lastA + 'T00:00:00');
-        const dB = lastB.includes('T') ? parseISO(lastB) : parseISO(lastB + 'T00:00:00');
-        return dB.getTime() - dA.getTime();
-      });
-    } else {
-      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-    }
+        if (!lastA && !lastB) cmp = 0;
+        else if (!lastA) cmp = 1;
+        else if (!lastB) cmp = -1;
+        else {
+          const dA = lastA.includes('T') ? parseISO(lastA) : parseISO(lastA + 'T00:00:00');
+          const dB = lastB.includes('T') ? parseISO(lastB) : parseISO(lastB + 'T00:00:00');
+          cmp = dA.getTime() - dB.getTime();
+        }
+      } else {
+        const uA = nextUpcoming(a.id);
+        const uB = nextUpcoming(b.id);
+        if (!uA && !uB) cmp = 0;
+        else if (!uA) cmp = 1;
+        else if (!uB) cmp = -1;
+        else cmp = uA.localeCompare(uB);
+      }
+      return sortAsc ? cmp : -cmp;
+    });
 
     return filtered;
-  }, [pets, clients, searchTerm, speciesFilter, lastAppointmentFilter, lastAppointmentByPet, sortBy]);
+  }, [pets, clients, searchTerm, speciesFilter, lastAppointmentFilter, lastAppointmentByPet, upcomingAppointmentsByPet, sortKey, sortAsc]);
 
   const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
     if (editingPet) {
@@ -305,17 +352,6 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
             <option value="none">No appointment</option>
           </select>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Sort by:</span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
-          >
-            <option value="lastAppointment">Last appointment (newest first)</option>
-            <option value="name">Name</option>
-          </select>
-        </div>
       </div>
 
       {viewMode === 'cards' ? (
@@ -334,12 +370,51 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
               <tr>
                 <th className="text-left px-3 py-2 font-medium w-10"></th>
                 <th className="text-left px-3 py-2 font-medium w-14">{t('pets.listPhoto')}</th>
-                <th className="text-left px-3 py-2 font-medium">{t('pets.listName')}</th>
-                <th className="text-left px-3 py-2 font-medium">{t('pets.listOwner')}</th>
-                <th className="text-left px-3 py-2 font-medium">{t('pets.species')}</th>
-                <th className="text-left px-3 py-2 font-medium">{t('pets.listBreed')}</th>
-                <th className="text-left px-3 py-2 font-medium">{t('pets.listWeight')}</th>
-                <th className="text-left px-3 py-2 font-medium">{t('pets.listLastAppointment')}</th>
+                <th
+                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => { setSortKey('name'); setSortAsc((prev) => (sortKey === 'name' ? !prev : true)); }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {t('pets.listName')}
+                    {sortKey === 'name' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
+                  </span>
+                </th>
+                <th
+                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => { setSortKey('owner'); setSortAsc((prev) => (sortKey === 'owner' ? !prev : true)); }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {t('pets.listOwner')}
+                    {sortKey === 'owner' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
+                  </span>
+                </th>
+                <th
+                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => { setSortKey('breed'); setSortAsc((prev) => (sortKey === 'breed' ? !prev : true)); }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {t('pets.listBreed')}
+                    {sortKey === 'breed' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
+                  </span>
+                </th>
+                <th
+                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => { setSortKey('lastAppointment'); setSortAsc((prev) => (sortKey === 'lastAppointment' ? !prev : false)); }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {t('pets.listLastAppointment')}
+                    {sortKey === 'lastAppointment' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
+                  </span>
+                </th>
+                <th
+                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => { setSortKey('upcoming'); setSortAsc((prev) => (sortKey === 'upcoming' ? !prev : true)); }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {t('pets.listNextAppointment')}
+                    {sortKey === 'upcoming' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -362,6 +437,10 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                     lastApptFormatted = lastAppt;
                   }
                 }
+                const upcoming = upcomingAppointmentsByPet[pet.id];
+                const nextAppointmentDisplay = upcoming && upcoming.length
+                  ? format(parseISO(upcoming[0] + 'T00:00:00'), 'MMM d, yyyy')
+                  : '—';
                 return (
                   <tr
                     key={pet.id}
@@ -409,15 +488,14 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                         <span className="text-muted-foreground">{ownerName}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{pet.species || '—'}</td>
                     <td className="px-3 py-2 text-muted-foreground">{breedName}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{pet.weight ?? '—'} {t('pets.lbs')}</td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {lastApptFormatted}
                       {daysAgo !== null && (
                         <span className="text-muted-foreground/80"> ({daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`})</span>
                       )}
                     </td>
+                    <td className="px-3 py-2 text-muted-foreground">{nextAppointmentDisplay}</td>
                   </tr>
                 );
               })}

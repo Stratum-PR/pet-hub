@@ -450,7 +450,14 @@ export const translations: Translations = {
   'transactions.saveTransaction': { en: 'Save transaction', es: 'Guardar transacción' },
   'transactions.created': { en: 'Transaction created', es: 'Transacción creada' },
   'transactions.addAtLeastOneItem': { en: 'Add at least one line item', es: 'Agrega al menos un ítem' },
+  'transactions.receipt': { en: 'Receipt', es: 'Recibo' },
+  'transactions.invoice': { en: 'Invoice', es: 'Factura' },
+  'transactions.view': { en: 'View', es: 'Ver' },
+  'transactions.print': { en: 'Print', es: 'Imprimir' },
+  'transactions.email': { en: 'Email', es: 'Enviar por correo' },
+  'transactions.sendTo': { en: 'Send to', es: 'Enviar a' },
   'transactions.printReceipt': { en: 'Print receipt', es: 'Imprimir recibo' },
+  'transactions.printInvoice': { en: 'Print invoice', es: 'Imprimir factura' },
   'transactions.emailReceipt': { en: 'Email receipt', es: 'Enviar recibo por correo' },
   'transactions.issueRefund': { en: 'Issue refund', es: 'Emitir reembolso' },
   'transactions.void': { en: 'Void', es: 'Anular' },
@@ -466,6 +473,8 @@ export const translations: Translations = {
   'transactions.lineTotal': { en: 'Total', es: 'Total' },
   'transactions.voided': { en: 'Transaction voided', es: 'Transacción anulada' },
   'transactions.refundIssued': { en: 'Refund issued', es: 'Reembolso emitido' },
+  'transactions.markAsPaid': { en: 'Mark as paid', es: 'Marcar como pagado' },
+  'transactions.markedAsPaid': { en: 'Marked as paid', es: 'Marcado como pagado' },
   'transactions.refundAmountRequired': { en: 'Enter refund amount', es: 'Ingresa el monto a reembolsar' },
   'transactions.refundExceedsTotal': { en: 'Refund cannot exceed transaction total', es: 'El reembolso no puede superar el total' },
   'transactions.noEmailForCustomer': { en: 'No email on file for this customer', es: 'No hay correo registrado para este cliente' },
@@ -474,6 +483,9 @@ export const translations: Translations = {
   'transactions.sendReceipt': { en: 'Send receipt', es: 'Enviar recibo' },
   'transactions.enterEmail': { en: 'Please enter an email address', es: 'Ingresa una dirección de correo' },
   'transactions.invalidEmail': { en: 'Please enter a valid email address', es: 'Ingresa una dirección de correo válida' },
+  'transactions.history': { en: 'Transaction history', es: 'Historial de la transacción' },
+  'transactions.historyDescription': { en: 'When the transaction was created, amount changed to paid, etc.', es: 'Cuándo se creó la transacción, monto cambiado a pagado, etc.' },
+  'transactions.historyCreated': { en: 'Transaction created', es: 'Transacción creada' },
 
   'accountSettings.description': { en: 'Manage your account and preferences', es: 'Administra tu cuenta y preferencias' },
   'accountSettings.language': { en: 'Language', es: 'Idioma' },
@@ -507,6 +519,8 @@ export const translations: Translations = {
   'businessSettings.description': { en: 'Tax, receipts, payment, and business data', es: 'Impuestos, recibos, pago y datos del negocio' },
   'businessSettings.businessName': { en: 'Business name', es: 'Nombre del negocio' },
   'businessSettings.businessHours': { en: 'Business hours', es: 'Horario' },
+  'businessSettings.phone': { en: 'Phone', es: 'Teléfono' },
+  'businessSettings.address': { en: 'Address', es: 'Dirección' },
   'businessSettings.businessInfoSaved': { en: 'Business info saved', es: 'Información guardada' },
   'businessSettings.taxConfiguration': { en: 'Tax configuration', es: 'Configuración de impuestos' },
   'businessSettings.taxConfigurationDescription': { en: 'Choose a region or custom taxes. They will appear on receipts as specified.', es: 'Elige una región o impuestos personalizados. Aparecerán en los recibos como se indique.' },
@@ -515,7 +529,7 @@ export const translations: Translations = {
   'businessSettings.taxModeCustom': { en: 'Custom', es: 'Personalizado' },
   'businessSettings.taxRegion': { en: 'Region', es: 'Región' },
   'businessSettings.taxRegionPuertoRico': { en: 'Puerto Rico', es: 'Puerto Rico' },
-  'businessSettings.taxNamePlaceholder': { en: 'e.g. State Tax, Municipal Tax', es: 'ej. Impuesto estatal, Municipal' },
+  'businessSettings.taxNamePlaceholder': { en: 'e.g. State Tax, Municipal Tax', es: 'ej. Impuesto estatal, Impuesto municipal' },
   'businessSettings.taxAppliesBoth': { en: 'Services & products', es: 'Servicios y productos' },
   'businessSettings.taxAppliesService': { en: 'Services only', es: 'Solo servicios' },
   'businessSettings.taxAppliesProduct': { en: 'Products only', es: 'Solo productos' },
@@ -529,6 +543,28 @@ export const translations: Translations = {
   'businessSettings.receiptHeaderPlaceholder': { en: 'Business name, tagline...', es: 'Nombre del negocio, eslogan...' },
   'businessSettings.receiptFooter': { en: 'Footer text', es: 'Texto del pie' },
   'businessSettings.receiptFooterPlaceholder': { en: 'Thank you message, return policy...', es: 'Mensaje de agradecimiento, política de devolución...' },
+  'businessSettings.companyLogo': { en: 'Company logo', es: 'Logo de la empresa' },
+  'businessSettings.logoNoImage': { en: 'No logo', es: 'Sin logo' },
+  'businessSettings.logoUpload': { en: 'Upload logo', es: 'Subir logo' },
+  'businessSettings.logoReplace': { en: 'Replace', es: 'Reemplazar' },
+  'businessSettings.logoDelete': { en: 'Delete', es: 'Eliminar' },
+  'businessSettings.logoZoomIn': { en: 'Zoom in', es: 'Acercar' },
+  'businessSettings.logoZoomOut': { en: 'Zoom out', es: 'Alejar' },
+  'businessSettings.logoMax5MB': { en: 'Image, max 5 MB', es: 'Imagen, máx. 5 MB' },
+  'businessSettings.logoImageOnly': { en: 'Please choose an image file (JPEG, PNG, WebP, GIF).', es: 'Elige un archivo de imagen (JPEG, PNG, WebP, GIF).' },
+  'businessSettings.logoMax5MBError': { en: 'Image must be 5 MB or smaller.', es: 'La imagen debe ser de 5 MB o menos.' },
+  'businessSettings.logoUploaded': { en: 'Logo updated', es: 'Logo actualizado' },
+  'businessSettings.logoDeleted': { en: 'Logo removed', es: 'Logo eliminado' },
+  'businessSettings.logoAdjustPreview': { en: 'Adjust logo (zoom to reduce margins)', es: 'Ajustar logo (zoom para reducir márgenes)' },
+  'businessSettings.logoUseThis': { en: 'Use this', es: 'Usar esta' },
+  'businessSettings.closed': { en: 'Closed', es: 'Cerrado' },
+  'businessSettings.day.monday': { en: 'Monday', es: 'Lunes' },
+  'businessSettings.day.tuesday': { en: 'Tuesday', es: 'Martes' },
+  'businessSettings.day.wednesday': { en: 'Wednesday', es: 'Miércoles' },
+  'businessSettings.day.thursday': { en: 'Thursday', es: 'Jueves' },
+  'businessSettings.day.friday': { en: 'Friday', es: 'Viernes' },
+  'businessSettings.day.saturday': { en: 'Saturday', es: 'Sábado' },
+  'businessSettings.day.sunday': { en: 'Sunday', es: 'Domingo' },
   'businessSettings.receiptSaved': { en: 'Receipt settings saved', es: 'Configuración de recibo guardada' },
   'businessSettings.paymentSetup': { en: 'Payment setup', es: 'Configuración de pago' },
   'businessSettings.paymentSetupDescription': { en: 'Stripe and ATH Móvil', es: 'Stripe y ATH Móvil' },
@@ -584,6 +620,10 @@ export const translations: Translations = {
   'help.submit': { en: 'Submit', es: 'Enviar' },
   'help.messageSent': { en: 'Message sent. We will get back to you.', es: 'Mensaje enviado. Te responderemos.' },
   'help.contactEmail': { en: 'Contact email', es: 'Correo de contacto' },
+  'help.emailCopied': { en: 'Email copied to clipboard', es: 'Correo copiado al portapapeles' },
+  'help.copy': { en: 'Copy', es: 'Copiar' },
+  'help.sendMessage': { en: 'Send a message', es: 'Enviar un mensaje' },
+  'help.formDescription': { en: 'Submit your question or feedback and we\'ll get back to you.', es: 'Envía tu pregunta o comentario y te responderemos.' },
 
   // Personalization page
   'personalization.title': {
@@ -1323,6 +1363,78 @@ export const translations: Translations = {
   'inventory.scanBarcode': {
     en: 'Scan Barcode',
     es: 'Escanear Código de Barras'
+  },
+  'inventory.scanBarcodeDescription': {
+    en: 'Use your camera to scan a barcode, or enter SKU/barcode manually below.',
+    es: 'Usa la cámara para escanear un código de barras, o ingresa el SKU/código manualmente.'
+  },
+  'inventory.cameraStarting': {
+    en: 'Starting camera…',
+    es: 'Iniciando cámara…'
+  },
+  'inventory.manualBarcodeEntry': {
+    en: 'Or enter barcode / SKU',
+    es: 'O ingresa código de barras / SKU'
+  },
+  'inventory.manualEntryLabel': {
+    en: 'Or enter barcode / SKU manually',
+    es: 'O ingresa código de barras / SKU manualmente'
+  },
+  'inventory.manualEntryHint': {
+    en: 'Barcode: the number under the lines on the product (e.g. UPC). SKU: your own internal code (e.g. DS-001).',
+    es: 'Código de barras: el número bajo las líneas del producto. SKU: tu código interno (ej. DS-001).'
+  },
+  'inventory.manualEntryPlaceholder': {
+    en: 'Barcode or SKU',
+    es: 'Código de barras o SKU'
+  },
+  'inventory.skuHelp': {
+    en: 'Your internal code for this product (e.g. DS-001). Required; unique per product.',
+    es: 'Tu código interno para este producto (ej. DS-001). Obligatorio; único por producto.'
+  },
+  'inventory.barcodeHelp': {
+    en: 'The number on the product package (under the barcode lines). Scan with camera or type. Optional.',
+    es: 'El número en el paquete del producto (bajo las líneas del código). Escanea o escribe. Opcional.'
+  },
+  'inventory.adjustQuantity': {
+    en: 'Adjust quantity',
+    es: 'Ajustar cantidad'
+  },
+  'inventory.addQuantity': {
+    en: 'Add to stock',
+    es: 'Agregar al inventario'
+  },
+  'inventory.addStockShort': {
+    en: 'Add',
+    es: 'Sumar'
+  },
+  'inventory.addMoreStock': {
+    en: 'Add more to stock',
+    es: 'Agregar más al inventario'
+  },
+  'inventory.addHowMany': {
+    en: 'How many to add?',
+    es: '¿Cuántos agregar?'
+  },
+  'inventory.done': {
+    en: 'Done',
+    es: 'Listo'
+  },
+  'inventory.barcodeTypeHint': {
+    en: 'Type the number under the barcode lines on the product.',
+    es: 'Escribe el número bajo las líneas del código de barras del producto.'
+  },
+  'inventory.barcodePlaceholder': {
+    en: 'e.g. 012345678905',
+    es: 'ej. 012345678905'
+  },
+  'inventory.enterBarcode': {
+    en: 'Enter barcode',
+    es: 'Ingresar código'
+  },
+  'inventory.scanHistory': {
+    en: 'Scan history',
+    es: 'Historial de escaneos'
   },
   'inventory.editProduct': {
     en: 'Edit Product',

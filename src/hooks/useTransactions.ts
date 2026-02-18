@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
+import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import type {
   Transaction,
   TransactionLineItem,
@@ -11,6 +12,7 @@ import type {
   PaymentMethod,
   TaxSettingRow,
   TaxSnapshotItem,
+  TransactionHistoryEntry,
 } from '@/types/transactions';
 
 function mapRowToTransaction(row: any): Transaction {
@@ -118,17 +120,13 @@ export function useTransactions() {
       const entry = localDemoEntriesRef.current.find((e) => e.transaction.id === id);
       return entry ? { transaction: entry.transaction, lineItems: entry.lineItems } : null;
     }
-    const { data: txn, error: txnError } = await supabase
-      .from('transactions' as any)
-      .select('*')
-      .eq('id', id)
-      .eq('business_id', businessId!)
-      .single();
+    const [txnResult, itemsResult] = await Promise.all([
+      supabase.from('transactions' as any).select('*').eq('id', id).eq('business_id', businessId!).single(),
+      supabase.from('transaction_line_items' as any).select('*').eq('transaction_id', id),
+    ]);
+    const { data: txn, error: txnError } = txnResult;
+    const { data: items, error: itemsError } = itemsResult;
     if (txnError || !txn) return null;
-    const { data: items, error: itemsError } = await supabase
-      .from('transaction_line_items' as any)
-      .select('*')
-      .eq('transaction_id', id);
     const lineItems = !itemsError && items ? (items as any[]).map(mapRowToLineItem) : [];
     return { transaction: mapRowToTransaction(txn), lineItems };
   };
@@ -149,7 +147,7 @@ export function useTransactions() {
     if (!businessId) return null;
     const { data, error } = await supabase
       .from('receipt_settings' as any)
-      .select('header_text, footer_text, logo_url, tagline, thank_you_message, return_policy')
+      .select('header_text, footer_text, logo_url, tagline, thank_you_message, return_policy, receipt_phone, receipt_location')
       .eq('business_id', businessId)
       .maybeSingle();
     if (error || !data) return null;
@@ -159,7 +157,7 @@ export function useTransactions() {
   /**
    * Compute tax snapshot from service and product taxable amounts (cents).
    * Each tax row can apply to: both, service only, or product only.
-   * Uses PR defaults (State IVU 10.5%, Municipal 1%) when no tax_settings exist.
+   * Uses Puerto Rico defaults (State Tax 10.5%, Municipal Tax 1%) when no tax_settings exist.
    */
   const computeTax = async (
     serviceTaxableCents: number,
@@ -181,7 +179,7 @@ export function useTransactions() {
       else if (appliesTo(row) === 'service') taxable = serviceTaxableCents;
       else taxable = productTaxableCents;
       const amount = Math.round((taxable * rate) / 100);
-      taxSnapshot.push({ label: row.label, rate, amount });
+      taxSnapshot.push({ label: normalizeTaxLabelForStorage(row.label), rate, amount });
       totalTaxCents += amount;
     }
     return { taxSnapshot, totalTaxCents };
@@ -328,13 +326,22 @@ export function useTransactions() {
 
   const updateTransactionStatus = async (id: string, status: TransactionStatus): Promise<boolean> => {
     if (!businessId) return false;
+    if (id.startsWith('local-')) {
+      setLocalDemoEntries((prev) => prev.map((e) => (e.transaction.id === id ? { ...e, transaction: { ...e.transaction, status } } : e)));
+      return true;
+    }
+    const { data: current } = await supabase.from('transactions' as any).select('status').eq('id', id).eq('business_id', businessId).single();
     const { error } = await supabase.from('transactions' as any).update({ status, updated_at: new Date().toISOString() }).eq('id', id).eq('business_id', businessId);
     if (!error) {
       setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
-      return true;
-    }
-    if (id.startsWith('local-')) {
-      setLocalDemoEntries((prev) => prev.map((e) => (e.transaction.id === id ? { ...e, transaction: { ...e.transaction, status } } : e)));
+      if (user?.id && current?.status !== status) {
+        await supabase.from('transaction_history' as any).insert({
+          transaction_id: id,
+          business_id: businessId,
+          changed_by_user_id: user.id,
+          change_summary: [{ field: 'status', old_value: current?.status, new_value: status }],
+        });
+      }
       return true;
     }
     return false;
@@ -352,10 +359,28 @@ export function useTransactions() {
       );
       return true;
     }
+    const { data: current } = await supabase.from('transactions' as any).select('payment_method, payment_method_secondary, total, amount_tendered, change_given, notes, status').eq('id', id).eq('business_id', businessId).single();
     const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
     const { error } = await supabase.from('transactions' as any).update(payload).eq('id', id).eq('business_id', businessId);
     if (!error) {
       setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+      if (current) {
+        const summary: { field: string; old_value: unknown; new_value: unknown }[] = [];
+        const keys = ['payment_method', 'payment_method_secondary', 'total', 'amount_tendered', 'change_given', 'notes', 'status'] as const;
+        for (const k of keys) {
+          if (k in patch && (current as any)[k] !== (patch as any)[k]) {
+            summary.push({ field: k, old_value: (current as any)[k], new_value: (patch as any)[k] });
+          }
+        }
+        if (summary.length > 0) {
+          await supabase.from('transaction_history' as any).insert({
+            transaction_id: id,
+            business_id: businessId,
+            changed_by_user_id: user?.id ?? null,
+            change_summary: summary,
+          });
+        }
+      }
       return true;
     }
     return false;
@@ -418,11 +443,33 @@ export function useTransactions() {
     return refund as TransactionRefund;
   };
 
+  const fetchTransactionHistory = async (transactionId: string): Promise<TransactionHistoryEntry[]> => {
+    if (!businessId) return [];
+    if (transactionId.startsWith('local-')) return [];
+    const { data, error } = await supabase
+      .from('transaction_history' as any)
+      .select('id, transaction_id, business_id, changed_at, changed_by_user_id, change_summary')
+      .eq('transaction_id', transactionId)
+      .eq('business_id', businessId)
+      .order('changed_at', { ascending: false });
+    if (error) return [];
+    const entries = (data ?? []) as TransactionHistoryEntry[];
+    const userIds = [...new Set(entries.map((e) => e.changed_by_user_id).filter(Boolean))] as string[];
+    if (userIds.length === 0) return entries;
+    const { data: profiles } = await supabase.from('profiles' as any).select('id, full_name, email').in('id', userIds);
+    const byId = new Map((profiles ?? []).map((p: { id: string; full_name: string | null; email: string | null }) => [p.id, (p.full_name || p.email || null) as string]));
+    return entries.map((e) => ({
+      ...e,
+      changed_by_display: e.changed_by_user_id ? (byId.get(e.changed_by_user_id) ?? null) : null,
+    }));
+  };
+
   return {
     transactions,
     loading,
     refetch: fetchTransactions,
     fetchTransactionById,
+    fetchTransactionHistory,
     fetchTaxSettings,
     fetchReceiptSettings,
     computeTax,
