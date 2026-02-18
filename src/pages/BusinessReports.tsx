@@ -1,23 +1,53 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useTransactions } from '@/hooks/useTransactions';
 import { supabase } from '@/integrations/supabase/client';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfDay } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { t } from '@/lib/translations';
 
+const SALE_STATUSES = ['paid', 'partial'];
+const REVENUE_PERIOD_DAYS = 30;
+
 export function BusinessReports() {
   const businessId = useBusinessId();
+  const { transactions } = useTransactions();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalRevenue: 0,
     totalAppointments: 0,
     totalClients: 0,
     totalPets: 0,
   });
-  const [revenueData, setRevenueData] = useState<any[]>([]);
   const [petDistribution, setPetDistribution] = useState<any[]>([]);
   const [weeklyRegistrations, setWeeklyRegistrations] = useState<any[]>([]);
+
+  const sales = useMemo(
+    () => transactions.filter((t) => SALE_STATUSES.includes(t.status)),
+    [transactions]
+  );
+
+  const totalRevenue = useMemo(() => {
+    const periodStart = subDays(new Date(), REVENUE_PERIOD_DAYS);
+    const cents = sales
+      .filter((t) => new Date(t.created_at) >= periodStart)
+      .reduce((sum, t) => sum + t.total, 0);
+    return cents / 100;
+  }, [sales]);
+
+  const revenueData = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = subDays(new Date(), 6 - i);
+      const dayStart = startOfDay(day);
+      const dayRevenueCents = sales
+        .filter((t) => startOfDay(new Date(t.created_at)).getTime() === dayStart.getTime())
+        .reduce((sum, t) => sum + t.total, 0);
+      return {
+        date: format(day, 'MMM d'),
+        revenue: dayRevenueCents / 100,
+      };
+    });
+  }, [sales]);
 
   useEffect(() => {
     if (!businessId) {
@@ -33,58 +63,21 @@ export function BusinessReports() {
     if (!businessId) return;
 
     try {
-      // Fetch completed appointments for revenue
-      const { data: appointments } = await supabase
-        .from('appointments')
-        .select('total_price, appointment_date, status')
-        .eq('business_id', businessId)
-        .eq('status', 'completed');
-
-      // Fetch all appointments count
       const { count: appointmentsCount } = await supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
         .eq('business_id', businessId);
 
-      // Fetch clients count
       const { count: clientsCount } = await supabase
         .from('clients')
         .select('*', { count: 'exact', head: true })
         .eq('business_id', businessId);
 
-      // Fetch pets count and distribution
       const { data: pets } = await supabase
         .from('pets')
         .select('species, created_at')
         .eq('business_id', businessId);
 
-      // Calculate revenue
-      const totalRevenue = appointments?.reduce((sum, apt) => sum + (apt.total_price || 0), 0) || 0;
-
-      // Calculate revenue by day (last 7 days)
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = subDays(new Date(), 6 - i);
-        return {
-          date: format(date, 'MMM d'),
-          revenue: 0,
-        };
-      });
-
-      appointments?.forEach(apt => {
-        if (apt.appointment_date) {
-          const aptDate = new Date(apt.appointment_date);
-          const dayIndex = last7Days.findIndex(d => {
-            const dDate = new Date();
-            dDate.setDate(dDate.getDate() - (6 - last7Days.indexOf(d)));
-            return format(aptDate, 'MMM d') === format(dDate, 'MMM d');
-          });
-          if (dayIndex >= 0) {
-            last7Days[dayIndex].revenue += apt.total_price || 0;
-          }
-        }
-      });
-
-      // Calculate pet distribution
       const petSpeciesCount: Record<string, number> = {};
       pets?.forEach(pet => {
         petSpeciesCount[pet.species] = (petSpeciesCount[pet.species] || 0) + 1;
@@ -94,7 +87,6 @@ export function BusinessReports() {
         value: count,
       }));
 
-      // Calculate weekly registrations (last 4 weeks)
       const weeklyRegs = Array.from({ length: 4 }, (_, i) => {
         const weekStart = subDays(new Date(), (3 - i) * 7);
         const weekEnd = subDays(new Date(), (3 - i) * 7 - 6);
@@ -105,7 +97,6 @@ export function BusinessReports() {
         };
       });
 
-      // Count clients by week
       const { data: clientsByWeek } = await supabase
         .from('clients')
         .select('created_at')
@@ -122,7 +113,6 @@ export function BusinessReports() {
         });
       });
 
-      // Count pets by week
       pets?.forEach(pet => {
         const created = new Date(pet.created_at);
         weeklyRegs.forEach((week, index) => {
@@ -135,12 +125,10 @@ export function BusinessReports() {
       });
 
       setStats({
-        totalRevenue,
         totalAppointments: appointmentsCount || 0,
         totalClients: clientsCount || 0,
         totalPets: pets?.length || 0,
       });
-      setRevenueData(last7Days);
       setPetDistribution(petDist);
       setWeeklyRegistrations(weeklyRegs);
     } catch (error) {
@@ -174,11 +162,12 @@ export function BusinessReports() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t('reports.totalRevenue')}
+              {t('reports.totalRevenueLast30Days')}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground mt-1">{t('reports.revenueFromTransactions')}</p>
           </CardContent>
         </Card>
         <Card>

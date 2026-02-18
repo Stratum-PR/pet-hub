@@ -1,25 +1,36 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Users, Dog, Clock, DollarSign, TrendingUp } from 'lucide-react';
+import { Calendar, Users, Dog, DollarSign } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useTransactions } from '@/hooks/useTransactions';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect } from 'react';
-import { format, startOfDay, isSameDay } from 'date-fns';
+import { useState, useEffect, useMemo } from 'react';
+import { format, startOfDay, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { t } from '@/lib/translations';
 
 export function BusinessDashboard() {
   const navigate = useNavigate();
   const businessId = useBusinessId();
+  const { transactions } = useTransactions();
   const [stats, setStats] = useState({
     totalClients: 0,
     totalPets: 0,
     todayAppointments: 0,
-    totalRevenue: 0,
   });
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const REVENUE_PERIOD_DAYS = 30;
+  const totalRevenue = useMemo(() => {
+    const saleStatuses = ['paid', 'partial'];
+    const periodStart = subDays(new Date(), REVENUE_PERIOD_DAYS);
+    const cents = transactions
+      .filter((t) => saleStatuses.includes(t.status) && new Date(t.created_at) >= periodStart)
+      .reduce((sum, t) => sum + t.total, 0);
+    return cents / 100;
+  }, [transactions]);
 
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -39,7 +50,6 @@ export function BusinessDashboard() {
         const today = startOfDay(new Date());
         console.log('[BusinessDashboard] Fetching dashboard data for business:', businessId);
 
-        // CRITICAL: Fetch clients count - ALWAYS filter by business_id for multi-tenancy
         const { count: clientsCount, error: clientsError } = await supabase
           .from('clients')
           .select('*', { count: 'exact', head: true })
@@ -74,22 +84,10 @@ export function BusinessDashboard() {
           console.error('[BusinessDashboard] Appointments query error:', appointmentsError.code, appointmentsError.message);
         }
 
-        const { data: completedAppointments } = await supabase
-          .from('appointments')
-          .select('total_price')
-          .eq('business_id', businessId)
-          .eq('status', 'completed');
-
-        const revenue = completedAppointments?.reduce(
-          (sum, apt) => sum + (apt.total_price || 0),
-          0
-        ) || 0;
-
         setStats({
           totalClients: clientsCount || 0,
           totalPets: petsCount || 0,
           todayAppointments: appointments?.length || 0,
-          totalRevenue: revenue,
         });
 
         setTodayAppointments(appointments || []);
@@ -151,10 +149,10 @@ export function BusinessDashboard() {
         />
         <div onClick={() => navigate('/app/reports')} className="cursor-pointer">
           <StatCard
-            title={t('dashboard.revenue')}
-            value={`$${stats.totalRevenue.toLocaleString()}`}
+            title={t('dashboard.revenueLast30Days')}
+            value={`$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             icon={DollarSign}
-            description={t('dashboard.totalEarned')}
+            description={t('dashboard.revenueFromTransactions')}
           />
         </div>
       </div>

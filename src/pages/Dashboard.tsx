@@ -4,9 +4,11 @@ import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Client, Pet, Employee, Appointment } from '@/types';
-import { format } from 'date-fns';
+import { format, startOfDay, startOfMonth, endOfMonth, subMonths, subDays, isWithinInterval } from 'date-fns';
 import { t } from '@/lib/translations';
 import { DataDiagnostics } from '@/components/DataDiagnostics';
+import { useTransactions } from '@/hooks/useTransactions';
+import { useMemo } from 'react';
 
 interface DashboardProps {
   clients: Client[];
@@ -16,9 +18,59 @@ interface DashboardProps {
   onSelectClient?: (clientId: string) => void;
 }
 
+const SALE_STATUSES = ['paid', 'partial'] as const;
+
+const REVENUE_PERIOD_DAYS = 30;
+
+function useTransactionStats(transactions: { status: string; total: number; created_at: string }[]) {
+  return useMemo(() => {
+    const sales = transactions.filter((t) => SALE_STATUSES.includes(t.status as any));
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const periodStart = subDays(now, REVENUE_PERIOD_DAYS);
+    const thisMonthStart = startOfMonth(now);
+    const thisMonthEnd = endOfMonth(now);
+    const lastMonthStart = startOfMonth(subMonths(now, 1));
+    const lastMonthEnd = endOfMonth(subMonths(now, 1));
+
+    const revenueLast30DaysCents = sales.reduce((sum, t) => {
+      const d = new Date(t.created_at);
+      return d >= periodStart ? sum + t.total : sum;
+    }, 0);
+    const todayRevenueCents = sales.reduce((sum, t) => {
+      const d = new Date(t.created_at);
+      return startOfDay(d).getTime() === todayStart.getTime() ? sum + t.total : sum;
+    }, 0);
+    const thisMonthCents = sales.reduce((sum, t) => {
+      const d = new Date(t.created_at);
+      return isWithinInterval(d, { start: thisMonthStart, end: thisMonthEnd }) ? sum + t.total : sum;
+    }, 0);
+    const lastMonthCents = sales.reduce((sum, t) => {
+      const d = new Date(t.created_at);
+      return isWithinInterval(d, { start: lastMonthStart, end: lastMonthEnd }) ? sum + t.total : sum;
+    }, 0);
+
+    const growthPct =
+      lastMonthCents > 0
+        ? Math.round(((thisMonthCents - lastMonthCents) / lastMonthCents) * 100)
+        : null;
+
+    return {
+      revenueLast30Days: revenueLast30DaysCents / 100,
+      todayRevenue: todayRevenueCents / 100,
+      growthPct,
+      transactionCount: sales.length,
+      todayTransactionCount: sales.filter((t) => startOfDay(new Date(t.created_at)).getTime() === todayStart.getTime()).length,
+    };
+  }, [transactions]);
+}
+
 export function Dashboard({ clients, pets, employees, appointments, onSelectClient }: DashboardProps) {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
+  const { transactions } = useTransactions();
+  const { revenueLast30Days, todayRevenue, growthPct, todayTransactionCount } = useTransactionStats(transactions);
+
   const recentClients = clients.slice(0, 5);
   const recentPets = pets.slice(0, 5);
   
@@ -31,13 +83,24 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
     return new Date(a.scheduled_date).toDateString() === today;
   }).length;
 
-  const completedAppointments = appointments.filter(a => a.status === 'completed');
-  const totalRevenue = completedAppointments.reduce((sum, a) => sum + (a.price || 0), 0);
-
   const todaysAppointmentsList = appointments.filter(a => {
     const today = new Date().toDateString();
     return new Date(a.scheduled_date).toDateString() === today;
   }).sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+
+  // Revenue and growth are always from transactions (no hardcoded values)
+  const revenueDisplay = (() => {
+    const n = Number(revenueLast30Days);
+    return Number.isFinite(n) ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
+  })();
+  const revenueDescription =
+    todayTransactionCount > 0
+      ? t('dashboard.revenueFromTransactions') + ` • ${t('dashboard.todaySales')}: $${todayRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : t('dashboard.revenueFromTransactions');
+  const growthDisplay = (() => {
+    if (growthPct === null || !Number.isFinite(growthPct)) return '—';
+    return growthPct >= 0 ? `+${growthPct}%` : `${growthPct}%`;
+  })();
 
   const handleClientClick = (clientId: string) => {
     if (onSelectClient) {
@@ -128,16 +191,16 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
           className="cursor-pointer h-full"
         >
           <StatCard
-            title={t('dashboard.revenue')}
-            value={`$${totalRevenue.toLocaleString()}`}
+            title={t('dashboard.revenueLast30Days')}
+            value={revenueDisplay}
             icon={DollarSign}
-            description={t('dashboard.totalEarned')}
+            description={revenueDescription}
           />
         </div>
         <div className="h-full">
           <StatCard
             title={t('dashboard.growth')}
-            value="+12%"
+            value={growthDisplay}
             icon={TrendingUp}
             description={t('dashboard.vsLastMonth')}
           />

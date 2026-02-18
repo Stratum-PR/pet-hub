@@ -1270,9 +1270,21 @@ export const translations: Translations = {
     en: 'Revenue',
     es: 'Ingresos'
   },
+  'dashboard.revenueLast30Days': {
+    en: 'Revenue (last 30 days)',
+    es: 'Ingresos (últimos 30 días)'
+  },
+  'dashboard.revenueFromTransactions': {
+    en: 'From transactions',
+    es: 'De transacciones'
+  },
   'dashboard.totalEarned': {
     en: 'Total earned',
     es: 'Total ganado'
+  },
+  'dashboard.todaySales': {
+    en: "Today's sales",
+    es: 'Ventas de hoy'
   },
   'dashboard.welcome': {
     en: 'Welcome to your Hub',
@@ -1939,6 +1951,18 @@ export const translations: Translations = {
   'reports.totalRevenue': {
     en: 'Total Revenue',
     es: 'Ingresos Totales'
+  },
+  'reports.totalRevenueLast30Days': {
+    en: 'Total Revenue (Last 30 Days)',
+    es: 'Ingresos Totales (Últimos 30 Días)'
+  },
+  'reports.revenueFromTransactions': {
+    en: 'From transactions',
+    es: 'De transacciones'
+  },
+  'reports.revenueDescription': {
+    en: 'Daily revenue from transactions (last 7 days)',
+    es: 'Ingresos diarios de transacciones (últimos 7 días)'
   },
   'reports.hoursWorked': {
     en: 'Hours Worked',
