@@ -63,6 +63,8 @@ export interface Employee {
   status: 'active' | 'inactive';
   hire_date?: string;
   last_date?: string;
+  pin_set_at?: string;
+  pin_required?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -70,10 +72,35 @@ export interface Employee {
 export interface TimeEntry {
   id: string;
   employee_id: string;
+  business_id?: string;
   clock_in: string;
   clock_out?: string;
   notes?: string;
+  location_latitude?: number;
+  location_longitude?: number;
+  location_name?: string;
+  is_off_schedule?: boolean;
+  rounded_clock_in?: string;
+  rounded_clock_out?: string;
+  status?: 'active' | 'pending_edit' | 'approved' | 'rejected';
+  edit_request_id?: string;
   created_at: string;
+}
+
+export interface TimeEntryEditRequest {
+  id: string;
+  time_entry_id: string;
+  employee_id: string;
+  business_id: string;
+  requested_by?: string;
+  requested_changes: Record<string, any>;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: string;
+  reviewed_at?: string;
+  review_notes?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface EmployeeShift {

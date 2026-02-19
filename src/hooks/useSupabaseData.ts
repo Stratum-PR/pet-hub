@@ -610,7 +610,7 @@ export function useEmployees() {
 
   const updateEmployee = async (id: string, employeeData: Partial<Employee>) => {
     // Only send known columns
-    const safeFields = ['name', 'email', 'phone', 'pin', 'hourly_rate', 'role', 'status', 'hire_date', 'last_date'];
+    const safeFields = ['name', 'email', 'phone', 'pin', 'hourly_rate', 'role', 'status', 'hire_date', 'last_date', 'pin_set_at', 'pin_required'];
     const payload: Record<string, unknown> = {};
     for (const key of safeFields) {
       if (key in employeeData) payload[key] = (employeeData as any)[key];
