@@ -10,9 +10,11 @@ import { t } from '@/lib/translations';
 import { useToast } from '@/hooks/use-toast';
 
 export function BusinessPets() {
-  const { pets, addPet, updatePet, deletePet } = usePets();
-  const { clients } = useClients();
-  const { appointments } = useAppointments();
+  const { pets, loading: petsLoading, error: petsError, refetch: refetchPets, addPet, updatePet, deletePet } = usePets();
+  const { clients, error: clientsError, refetch: refetchClients } = useClients();
+  const { appointments, error: appointmentsError, refetch: refetchAppointments } = useAppointments();
+  const error = petsError ?? clientsError ?? appointmentsError;
+  const refetchAll = () => { refetchPets(); refetchClients(); refetchAppointments(); };
   const location = useLocation();
   const { toast } = useToast();
   const formRef = useRef<HTMLDivElement>(null);
@@ -124,6 +126,28 @@ export function BusinessPets() {
     setShowForm(false);
     setEditingPet(null);
   };
+
+  if (petsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-destructive">Failed to load data.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{error}</p>
+          </div>
+          <Button variant="outline" onClick={() => refetchAll()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

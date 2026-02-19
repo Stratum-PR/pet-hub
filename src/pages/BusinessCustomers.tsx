@@ -12,7 +12,7 @@ import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 
 export function BusinessCustomers() {
-  const { clients, loading, addClient, updateClient, deleteClient } = useClients();
+  const { clients, loading, error, refetch, addClient, updateClient, deleteClient } = useClients();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
   const [showForm, setShowForm] = useState(false);
@@ -114,6 +114,20 @@ export function BusinessCustomers() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-destructive">Failed to load clients.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{error}</p>
+          </div>
+          <Button variant="outline" onClick={() => refetch()}>Retry</Button>
+        </div>
       </div>
     );
   }

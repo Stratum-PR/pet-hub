@@ -18,10 +18,12 @@ import { t } from '@/lib/translations';
 
 export function BusinessAppointments() {
   const navigate = useNavigate();
-  const { appointments, addAppointment, updateAppointment, deleteAppointment, refetch: refetchAppointments, pushAppointment } = useAppointments();
-  const { pets } = usePets();
-  const { clients } = useClients();
-  const { services } = useServices();
+  const { appointments, loading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments, addAppointment, updateAppointment, deleteAppointment, pushAppointment } = useAppointments();
+  const { pets, error: petsError, refetch: refetchPets } = usePets();
+  const { clients, error: clientsError, refetch: refetchClients } = useClients();
+  const { services, error: servicesError, refetch: refetchServices } = useServices();
+  const error = appointmentsError ?? petsError ?? clientsError ?? servicesError;
+  const refetchAll = () => { refetchAppointments(); refetchPets(); refetchClients(); refetchServices(); };
   
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -159,6 +161,28 @@ export function BusinessAppointments() {
     const hour12 = hour % 12 || 12;
     return `${hour12}:${minutes} ${ampm}`;
   };
+
+  if (appointmentsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-destructive">Failed to load appointments.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{error}</p>
+          </div>
+          <Button variant="outline" onClick={() => refetchAll()}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

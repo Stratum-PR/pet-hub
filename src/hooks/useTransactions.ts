@@ -223,32 +223,36 @@ export function useTransactions() {
    * Compute tax snapshot from service and product taxable amounts (cents).
    * Each tax row can apply to: both, service only, or product only.
    * Uses Puerto Rico defaults (State Tax 10.5%, Municipal Tax 1%) when no tax_settings exist.
+   * Memoized so TransactionCreate's useEffect doesn't re-run every render (infinite loop).
    */
-  const computeTax = async (
-    serviceTaxableCents: number,
-    productTaxableCents: number
-  ): Promise<{ taxSnapshot: TaxSnapshotItem[]; totalTaxCents: number }> => {
-    const rows = await fetchTaxSettings();
-    const taxSnapshot: TaxSnapshotItem[] = [];
-    let totalTaxCents = 0;
-    const defaultPR: TaxSettingRow[] = [
-      { label: 'State Tax', rate: 10.5, enabled: true, sort_order: 0, applies_to: 'both' } as TaxSettingRow,
-      { label: 'Municipal Tax', rate: 1, enabled: true, sort_order: 1, applies_to: 'both' } as TaxSettingRow,
-    ];
-    const effectiveRows = rows.length > 0 ? rows : defaultPR;
-    const appliesTo = (row: TaxSettingRow) => row.applies_to ?? 'both';
-    for (const row of effectiveRows) {
-      const rate = Number(row.rate);
-      let taxable = 0;
-      if (appliesTo(row) === 'both') taxable = serviceTaxableCents + productTaxableCents;
-      else if (appliesTo(row) === 'service') taxable = serviceTaxableCents;
-      else taxable = productTaxableCents;
-      const amount = Math.round((taxable * rate) / 100);
-      taxSnapshot.push({ label: normalizeTaxLabelForStorage(row.label), rate, amount });
-      totalTaxCents += amount;
-    }
-    return { taxSnapshot, totalTaxCents };
-  };
+  const computeTax = useCallback(
+    async (
+      serviceTaxableCents: number,
+      productTaxableCents: number
+    ): Promise<{ taxSnapshot: TaxSnapshotItem[]; totalTaxCents: number }> => {
+      const rows = await fetchTaxSettings();
+      const taxSnapshot: TaxSnapshotItem[] = [];
+      let totalTaxCents = 0;
+      const defaultPR: TaxSettingRow[] = [
+        { label: 'State Tax', rate: 10.5, enabled: true, sort_order: 0, applies_to: 'both' } as TaxSettingRow,
+        { label: 'Municipal Tax', rate: 1, enabled: true, sort_order: 1, applies_to: 'both' } as TaxSettingRow,
+      ];
+      const effectiveRows = rows.length > 0 ? rows : defaultPR;
+      const appliesTo = (row: TaxSettingRow) => row.applies_to ?? 'both';
+      for (const row of effectiveRows) {
+        const rate = Number(row.rate);
+        let taxable = 0;
+        if (appliesTo(row) === 'both') taxable = serviceTaxableCents + productTaxableCents;
+        else if (appliesTo(row) === 'service') taxable = serviceTaxableCents;
+        else taxable = productTaxableCents;
+        const amount = Math.round((taxable * rate) / 100);
+        taxSnapshot.push({ label: normalizeTaxLabelForStorage(row.label), rate, amount });
+        totalTaxCents += amount;
+      }
+      return { taxSnapshot, totalTaxCents };
+    },
+    [businessId]
+  );
 
   interface CreateTransactionPayload {
     customer_id: string | null;
