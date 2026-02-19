@@ -22,43 +22,13 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import type { TaxAppliesTo } from '@/types/transactions';
-
-const DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
-type DayKey = (typeof DAYS_OF_WEEK)[number];
-export interface DayHours {
-  closed?: boolean;
-  open: string;
-  close: string;
-}
-const DEFAULT_DAY_HOURS: DayHours = { open: '09:00', close: '18:00' };
-function parseBusinessHours(value: string | undefined): Record<DayKey, DayHours> {
-  if (!value || typeof value !== 'string') {
-    return DAYS_OF_WEEK.reduce((acc, day) => ({ ...acc, [day]: { ...DEFAULT_DAY_HOURS } }), {} as Record<DayKey, DayHours>);
-  }
-  const trimmed = value.trim();
-  if (trimmed.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(trimmed) as Record<string, { closed?: boolean; open?: string; close?: string }>;
-      return DAYS_OF_WEEK.reduce(
-        (acc, day) => ({
-          ...acc,
-          [day]: {
-            closed: parsed[day]?.closed ?? false,
-            open: parsed[day]?.open ?? DEFAULT_DAY_HOURS.open,
-            close: parsed[day]?.close ?? DEFAULT_DAY_HOURS.close,
-          },
-        }),
-        {} as Record<DayKey, DayHours>
-      );
-    } catch {
-      return DAYS_OF_WEEK.reduce((acc, day) => ({ ...acc, [day]: { ...DEFAULT_DAY_HOURS } }), {} as Record<DayKey, DayHours>);
-    }
-  }
-  return DAYS_OF_WEEK.reduce((acc, day) => ({ ...acc, [day]: { ...DEFAULT_DAY_HOURS } }), {} as Record<DayKey, DayHours>);
-}
-function serializeBusinessHours(hours: Record<DayKey, DayHours>): string {
-  return JSON.stringify(hours);
-}
+import {
+  DAYS_OF_WEEK,
+  type DayKey,
+  type DayHours,
+  parseBusinessHours,
+  serializeBusinessHours,
+} from '@/lib/businessHours';
 
 interface TaxRow {
   id: string | null;

@@ -76,6 +76,17 @@ export interface TimeEntry {
   created_at: string;
 }
 
+export interface EmployeeShift {
+  id: string;
+  business_id: string;
+  employee_id: string;
+  start_time: string;
+  end_time: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Appointment {
   id: string;
   pet_id: string;
