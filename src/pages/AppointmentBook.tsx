@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { t } from '@/lib/translations';
 import { useAppointments, usePets, useServices, useClients } from '@/hooks/useBusinessData';
 import { useEmployees } from '@/hooks/useSupabaseData';
+import { Button } from '@/components/ui/button';
 import { convertAppointmentsToCalendar, convertEmployeesToCalendar } from '@/lib/calendarHelpers';
 import { BookingFormDialog } from '@/components/BookingFormDialog';
 
@@ -24,14 +25,16 @@ export function AppointmentBook() {
   const [waitlistCollapsed, setWaitlistCollapsed] = useState(false);
 
   // Fetch real data
-  const { appointments, loading: appointmentsLoading, addAppointment, refetch: refetchAppointments } = useAppointments();
-  const { pets, loading: petsLoading } = usePets();
-  const { employees, loading: employeesLoading } = useEmployees();
-  const { services, loading: servicesLoading } = useServices();
-  const { clients } = useClients();
+  const { appointments, loading: appointmentsLoading, error: appointmentsError, addAppointment, refetch: refetchAppointments } = useAppointments();
+  const { pets, loading: petsLoading, error: petsError, refetch: refetchPets } = usePets();
+  const { employees, loading: employeesLoading, error: employeesError, refetch: refetchEmployees } = useEmployees();
+  const { services, loading: servicesLoading, error: servicesError, refetch: refetchServices } = useServices();
+  const { clients, error: clientsError, refetch: refetchClients } = useClients();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const loading = appointmentsLoading || petsLoading || employeesLoading || servicesLoading;
+  const fetchError = appointmentsError ?? petsError ?? employeesError ?? servicesError ?? clientsError;
+  const refetchAll = () => { refetchAppointments(); refetchPets(); refetchEmployees(); refetchServices(); refetchClients(); };
 
   // Convert employees to calendar format
   const calendarEmployees = useMemo(() => {
@@ -134,6 +137,12 @@ export function AppointmentBook() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {fetchError && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 mx-4 mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <p className="text-sm font-medium text-destructive">Failed to load data. {fetchError}</p>
+            <Button variant="outline" size="sm" onClick={() => refetchAll()}>Retry</Button>
+          </div>
+        )}
         {/* Top Navigation Tabs */}
         <div className="bg-card border-b border-border px-6 py-3">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>

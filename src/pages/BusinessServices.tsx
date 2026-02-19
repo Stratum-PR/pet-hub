@@ -12,7 +12,7 @@ import { t } from '@/lib/translations';
 import { APPOINTMENT_COLORS } from '@/types/calendar';
 
 export function BusinessServices() {
-  const { services, loading, addService, updateService, deleteService } = useServices();
+  const { services, loading, error, refetch, addService, updateService, deleteService } = useServices();
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -140,6 +140,20 @@ export function BusinessServices() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-destructive">Failed to load services.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{error}</p>
+          </div>
+          <Button variant="outline" onClick={() => refetch()}>Retry</Button>
+        </div>
       </div>
     );
   }
