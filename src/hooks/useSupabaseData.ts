@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Client, Pet, Employee, TimeEntry, Appointment, Service } from '@/types';
+import { Client, Pet, Employee, TimeEntry, EmployeeShift, Appointment, Service } from '@/types';
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -779,6 +779,103 @@ export function useTimeEntries() {
   };
 
   return { timeEntries, loading, error, refetch, clockIn, clockOut, getActiveEntry, updateTimeEntry, addTimeEntry };
+}
+
+/** Fetch and mutate employee_shifts (scheduled shifts). Pass dateRange to scope calendar; optional employeeId for "My schedule". */
+export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: { start: Date; end: Date } }) {
+  const businessId = useBusinessId();
+  const [shifts, setShifts] = useState<EmployeeShift[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchShifts = async () => {
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    let query = supabase
+      .from('employee_shifts')
+      .select('*')
+      .eq('business_id', businessId)
+      .order('start_time', { ascending: true });
+    if (options?.employeeId) {
+      query = query.eq('employee_id', options.employeeId);
+    }
+    if (options?.dateRange) {
+      const { start, end } = options.dateRange;
+      query = query
+        .lt('start_time', end.toISOString())
+        .gt('end_time', start.toISOString());
+    }
+    const { data, err } = await query;
+    if (err) {
+      setError(err.message ?? 'Failed to load shifts');
+    } else if (data) {
+      setError(null);
+      setShifts((data as EmployeeShift[]) ?? []);
+    }
+    setLoading(false);
+  };
+
+  const refetch = async () => {
+    setError(null);
+    setLoading(true);
+    await fetchShifts();
+  };
+
+  useEffect(() => {
+    fetchShifts();
+  }, [businessId, options?.employeeId, options?.dateRange?.start?.toISOString(), options?.dateRange?.end?.toISOString()]);
+
+  const addShift = async (payload: { employee_id: string; start_time: string; end_time: string; notes?: string }) => {
+    if (!businessId) return null;
+    const { data, error: err } = await supabase
+      .from('employee_shifts')
+      .insert({
+        id: uuidv4(),
+        business_id: businessId,
+        employee_id: payload.employee_id,
+        start_time: payload.start_time,
+        end_time: payload.end_time,
+        notes: payload.notes ?? '',
+      })
+      .select()
+      .single();
+    if (!err && data) {
+      setShifts((prev) => [...prev, data as EmployeeShift].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
+      return data as EmployeeShift;
+    }
+    if (import.meta.env.DEV) console.error('[useEmployeeShifts] addShift error:', err?.message);
+    return null;
+  };
+
+  const updateShift = async (id: string, payload: Partial<Pick<EmployeeShift, 'start_time' | 'end_time' | 'notes'>>): Promise<EmployeeShift | null> => {
+    const { data, error: err } = await supabase
+      .from('employee_shifts')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .single();
+    if (!err && data) {
+      setShifts((prev) => prev.map((s) => (s.id === id ? (data as EmployeeShift) : s)).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
+      return data as EmployeeShift;
+    }
+    if (import.meta.env.DEV) console.error('[useEmployeeShifts] updateShift error:', err?.message);
+    throw new Error(err?.message ?? 'Failed to update shift');
+  };
+
+  const deleteShift = async (id: string) => {
+    const { error: err } = await supabase.from('employee_shifts').delete().eq('id', id);
+    if (!err) {
+      setShifts((prev) => prev.filter((s) => s.id !== id));
+      return true;
+    }
+    if (import.meta.env.DEV) console.error('[useEmployeeShifts] deleteShift error:', err?.message);
+    return false;
+  };
+
+  return { shifts, loading, error, refetch, addShift, updateShift, deleteShift };
 }
 
 export function useAppointments() {

@@ -11,6 +11,10 @@ interface AuthContextType {
   business: Business | null;
   loading: boolean;
   isAdmin: boolean;
+  /** Profile role: super_admin | manager | employee | client (for schedule: manager/super_admin = full calendar, employee = My schedule) */
+  role: Profile['role'];
+  /** When role is employee, links to employees.id for "My schedule" and clock in/out */
+  employeeId: string | null;
   isImpersonating: boolean;
   impersonatingBusinessName: string | null;
   /** Re-hydrate auth state, optionally from a known Supabase user */
@@ -77,6 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const profile = profileQuery.data ?? null;
   const business = businessQuery.data ?? null;
   const isAdmin = profile?.is_super_admin ?? false;
+  const role = profile?.role ?? undefined;
+  const employeeId = profile?.employee_id ?? null;
 
   // Loading is only "blocking" until we know if a session exists.
   // Profile/business hydrate stale-while-revalidate (keep previous data on refetch failures).
@@ -231,6 +237,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         business,
         loading,
         isAdmin,
+        role,
+        employeeId,
         isImpersonating,
         impersonatingBusinessName,
         refreshAuth,

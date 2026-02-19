@@ -9,6 +9,8 @@ export interface Profile {
   is_super_admin: boolean;
   business_id: string | null;
   role?: 'super_admin' | 'manager' | 'employee' | 'client';
+  /** When set, links this profile to an employees row for "My schedule" and clock in/out */
+  employee_id?: string | null;
   created_at: string;
   updated_at: string;
 }

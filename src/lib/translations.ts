@@ -331,6 +331,10 @@ export const translations: Translations = {
     en: 'Schedule',
     es: 'Horario'
   },
+  'nav.mySchedule': {
+    en: 'My Schedule',
+    es: 'Mi Horario'
+  },
   'nav.reports': {
     en: 'Reports',
     es: 'Reportes'
@@ -1880,7 +1884,95 @@ export const translations: Translations = {
     en: 'No active employees found.',
     es: 'No se encontraron empleados activos.'
   },
-  
+  'schedule.managerTitle': {
+    en: 'Employee Schedule',
+    es: 'Horario de Empleados'
+  },
+  'schedule.managerDescription': {
+    en: 'Drag employees onto the calendar to assign shifts. Click a shift to edit or remove.',
+    es: 'Arrastre empleados al calendario para asignar turnos. Haga clic en un turno para editar o eliminar.'
+  },
+  'schedule.today': {
+    en: 'Today',
+    es: 'Hoy'
+  },
+  'schedule.dragEmployees': {
+    en: 'Drag to schedule',
+    es: 'Arrastrar para programar'
+  },
+  'schedule.editShift': {
+    en: 'Edit Shift',
+    es: 'Editar Turno'
+  },
+  'schedule.startTime': {
+    en: 'Start time',
+    es: 'Hora de inicio'
+  },
+  'schedule.endTime': {
+    en: 'End time',
+    es: 'Hora de fin'
+  },
+  'schedule.notes': {
+    en: 'Notes',
+    es: 'Notas'
+  },
+  'schedule.notesPlaceholder': {
+    en: 'Optional notes',
+    es: 'Notas opcionales'
+  },
+  'schedule.deleteShift': {
+    en: 'Delete shift',
+    es: 'Eliminar turno'
+  },
+  'schedule.confirmDeleteShift': {
+    en: 'Delete this shift?',
+    es: '¿Eliminar este turno?'
+  },
+  'schedule.weeklySummary': {
+    en: 'Weekly hours (scheduled)',
+    es: 'Horas semanales (programadas)'
+  },
+  'schedule.myScheduleTitle': {
+    en: 'My Schedule',
+    es: 'Mi Horario'
+  },
+  'schedule.myScheduleDescription': {
+    en: 'Your assigned shifts for the week',
+    es: 'Tus turnos asignados para la semana'
+  },
+  'schedule.yourShifts': {
+    en: 'Your shifts',
+    es: 'Tus turnos'
+  },
+  'schedule.noShiftsScheduled': {
+    en: 'No shifts scheduled for this week.',
+    es: 'No hay turnos programados para esta semana.'
+  },
+  'schedule.invalidTimeFormat': {
+    en: 'Please enter valid start and end times (e.g. 09:00, 14:00).',
+    es: 'Ingrese horas de inicio y fin válidas (ej. 09:00, 14:00).'
+  },
+  'schedule.endMustBeAfterStart': {
+    en: 'End time must be after start time.',
+    es: 'La hora de fin debe ser posterior a la hora de inicio.'
+  },
+  'schedule.outsideBusinessHours': {
+    en: 'This shift is outside business hours. Adjust the times or update business hours in Settings.',
+    es: 'Este turno está fuera del horario comercial. Ajuste las horas o actualice el horario en Configuración.'
+  },
+  'schedule.resizeEndTime': {
+    en: 'Drag to change end time',
+    es: 'Arrastrar para cambiar hora de fin'
+  },
+  'schedule.sameEmployeeOverlap': {
+    en: 'This employee already has a shift at this time. Choose a different time or day.',
+    es: 'Este empleado ya tiene un turno en este horario. Elija otro horario o día.'
+  },
+  'schedule.copyFromLastWeek': {
+    en: 'Copy schedule from last week',
+    es: 'Copiar horario de la semana pasada'
+  },
+
   // Payroll page
   'payroll.title': {
     en: 'Payroll',

@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/contexts/AuthContext';
 import { t } from '@/lib/translations';
 import { cn } from '@/lib/utils';
 
@@ -90,9 +91,12 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
   const { businessSlug } = useParams();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
+  const { role } = useAuth();
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const scheduleLabelKey = role === 'employee' ? 'nav.mySchedule' : 'nav.schedule';
 
   const basePath = businessSlug ? `/${businessSlug}` : '';
   const isActive = (path: string) => location.pathname === `${basePath}/${path}` || (path !== 'dashboard' && location.pathname.startsWith(`${basePath}/${path}`));
@@ -172,7 +176,7 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
                 <DropdownMenuContent side="right" align="start" className="w-48">
                   {employeeItems.map((item) => (
                     <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`}>{t(item.labelKey)}</Link>
+                      <Link to={`${basePath}/${item.path}`}>{t(item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey)}</Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -232,7 +236,7 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
             <CollapsibleContent>
               <div className="ml-2 mt-1 space-y-0.5 border-l border-sidebar-border pl-3">
                 {employeeItems.map((item) => (
-                  <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
+                  <NavLink key={item.path} path={item.path} labelKey={item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey} icon={item.icon} />
                 ))}
               </div>
             </CollapsibleContent>
