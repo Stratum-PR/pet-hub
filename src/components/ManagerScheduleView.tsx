@@ -7,31 +7,17 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 import type { Employee, EmployeeShift } from '@/types';
-import { EditShiftDialog } from '@/components/EditShiftDialog';
+import { EditShiftDialog, type AddShiftContext } from '@/components/EditShiftDialog';
 import { ScheduleSummary } from '@/components/ScheduleSummary';
+import { ScheduleTable } from '@/components/ScheduleTable';
 import type { WeekTimeRange } from '@/lib/businessHours';
+import { getShiftColor } from '@/lib/scheduleColors';
 import { hasSameEmployeeOverlap } from '@/lib/scheduleUtils';
 
 const DEFAULT_START_MINUTES = 7 * 60;
 const DEFAULT_END_MINUTES = 21 * 60;
 const SLOT_HEIGHT_PX = 48;
 const MINUTES_PER_SLOT = 30;
-
-const SHIFT_COLORS = [
-  { block: 'bg-blue-200/80 border-blue-400 dark:bg-blue-900/40 dark:border-blue-600', handle: 'bg-blue-300 hover:bg-blue-400 dark:bg-blue-700 dark:hover:bg-blue-600', hover: 'hover:bg-blue-300/80 dark:hover:bg-blue-800/50' },
-  { block: 'bg-emerald-200/80 border-emerald-400 dark:bg-emerald-900/40 dark:border-emerald-600', handle: 'bg-emerald-300 hover:bg-emerald-400 dark:bg-emerald-700 dark:hover:bg-emerald-600', hover: 'hover:bg-emerald-300/80 dark:hover:bg-emerald-800/50' },
-  { block: 'bg-amber-200/80 border-amber-400 dark:bg-amber-900/40 dark:border-amber-600', handle: 'bg-amber-300 hover:bg-amber-400 dark:bg-amber-700 dark:hover:bg-amber-600', hover: 'hover:bg-amber-300/80 dark:hover:bg-amber-800/50' },
-  { block: 'bg-violet-200/80 border-violet-400 dark:bg-violet-900/40 dark:border-violet-600', handle: 'bg-violet-300 hover:bg-violet-400 dark:bg-violet-700 dark:hover:bg-violet-600', hover: 'hover:bg-violet-300/80 dark:hover:bg-violet-800/50' },
-  { block: 'bg-rose-200/80 border-rose-400 dark:bg-rose-900/40 dark:border-rose-600', handle: 'bg-rose-300 hover:bg-rose-400 dark:bg-rose-700 dark:hover:bg-rose-600', hover: 'hover:bg-rose-300/80 dark:hover:bg-rose-800/50' },
-  { block: 'bg-cyan-200/80 border-cyan-400 dark:bg-cyan-900/40 dark:border-cyan-600', handle: 'bg-cyan-300 hover:bg-cyan-400 dark:bg-cyan-700 dark:hover:bg-cyan-600', hover: 'hover:bg-cyan-300/80 dark:hover:bg-cyan-800/50' },
-  { block: 'bg-orange-200/80 border-orange-400 dark:bg-orange-900/40 dark:border-orange-600', handle: 'bg-orange-300 hover:bg-orange-400 dark:bg-orange-700 dark:hover:bg-orange-600', hover: 'hover:bg-orange-300/80 dark:hover:bg-orange-800/50' },
-  { block: 'bg-teal-200/80 border-teal-400 dark:bg-teal-900/40 dark:border-teal-600', handle: 'bg-teal-300 hover:bg-teal-400 dark:bg-teal-700 dark:hover:bg-teal-600', hover: 'hover:bg-teal-300/80 dark:hover:bg-teal-800/50' },
-] as const;
-
-function getShiftColor(employeeId: string, activeEmployees: Employee[]) {
-  const idx = activeEmployees.findIndex((e) => e.id === employeeId);
-  return SHIFT_COLORS[idx < 0 ? 0 : idx % SHIFT_COLORS.length];
-}
 
 function generateTimeSlots(startMinutes: number, endMinutes: number) {
   const slots: { hour: number; minute: number; label: string }[] = [];
@@ -101,6 +87,7 @@ export function ManagerScheduleView({
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   const [editingShift, setEditingShift] = useState<EmployeeShift | null>(null);
+  const [addShiftContext, setAddShiftContext] = useState<AddShiftContext | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [resizePreview, setResizePreview] = useState<{ shiftId: string; endTime: string } | null>(null);
   const [movePreview, setMovePreview] = useState<{ shiftId: string; startTime: string; endTime: string } | null>(null);
@@ -599,19 +586,41 @@ export function ManagerScheduleView({
         weekDays={weekDays}
         onOpenShift={(shift) => {
           setEditingShift(shift);
+          setAddShiftContext(null);
+          setEditOpen(true);
+        }}
+      />
+
+      <ScheduleTable
+        shifts={shifts}
+        employees={employees}
+        weekDays={weekDays}
+        onEditShift={(shift) => {
+          setEditingShift(shift);
+          setAddShiftContext(null);
+          setEditOpen(true);
+        }}
+        onAddShift={(employeeId, date) => {
+          setEditingShift(null);
+          setAddShiftContext({ employeeId, date });
           setEditOpen(true);
         }}
       />
 
       <EditShiftDialog
         open={editOpen}
-        onOpenChange={setEditOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) setAddShiftContext(null);
+        }}
         shift={editingShift ? (shifts.find((s) => s.id === editingShift.id) ?? editingShift) : null}
         employees={employees}
         onSave={async (id, payload) => updateShift(id, payload)}
         onDelete={deleteShift}
         businessTimeRange={timeRange ?? undefined}
         allShifts={shifts}
+        addContext={addShiftContext}
+        onAdd={addShift}
       />
     </div>
   );

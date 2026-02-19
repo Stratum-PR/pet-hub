@@ -1904,6 +1904,22 @@ export const translations: Translations = {
     en: 'Edit Shift',
     es: 'Editar Turno'
   },
+  'schedule.addShift': {
+    en: 'Add Shift',
+    es: 'Agregar Turno'
+  },
+  'schedule.tableTitle': {
+    en: 'Schedule by employee',
+    es: 'Horario por empleado'
+  },
+  'schedule.tableDescription': {
+    en: 'Click a cell to add or edit the shift for that day.',
+    es: 'Haga clic en una celda para agregar o editar el turno de ese día.'
+  },
+  'schedule.clickToAdd': {
+    en: 'Click to add shift',
+    es: 'Clic para agregar turno'
+  },
   'schedule.startTime': {
     en: 'Start time',
     es: 'Hora de inicio'

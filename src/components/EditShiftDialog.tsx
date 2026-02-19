@@ -16,8 +16,15 @@ import { format, setHours, setMinutes } from 'date-fns';
 import type { EmployeeShift } from '@/types';
 import type { Employee } from '@/types';
 import { t } from '@/lib/translations';
+import { cn } from '@/lib/utils';
 import type { WeekTimeRange } from '@/lib/businessHours';
 import { hasSameEmployeeOverlapByTime } from '@/lib/scheduleUtils';
+
+/** When set with shift=null, dialog is in "add" mode for this employee and date (YYYY-MM-DD). */
+export interface AddShiftContext {
+  employeeId: string;
+  date: string;
+}
 
 interface EditShiftDialogProps {
   open: boolean;
@@ -30,6 +37,9 @@ interface EditShiftDialogProps {
   businessTimeRange?: WeekTimeRange | null;
   /** When set, save is blocked if the new times overlap another shift for the same employee. */
   allShifts?: EmployeeShift[];
+  /** When set with shift=null, dialog adds a new shift for this employee/date. onAdd is called on save. */
+  addContext?: AddShiftContext | null;
+  onAdd?: (payload: { employee_id: string; start_time: string; end_time: string; notes?: string }) => Promise<EmployeeShift | null>;
 }
 
 function toTimeInputValue(iso: string): string {
@@ -63,6 +73,9 @@ function isoFromDateAndTime(date: Date, time: string): string {
   return d.toISOString();
 }
 
+const DEFAULT_ADD_START = '09:00';
+const DEFAULT_ADD_END = '17:00';
+
 export function EditShiftDialog({
   open,
   onOpenChange,
@@ -72,6 +85,8 @@ export function EditShiftDialog({
   onDelete,
   businessTimeRange,
   allShifts,
+  addContext,
+  onAdd,
 }: EditShiftDialogProps) {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -81,6 +96,8 @@ export function EditShiftDialog({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  const isAddMode = !shift && addContext && onAdd;
+
   useEffect(() => {
     if (shift) {
       setStartTime(toTimeInputValue(shift.start_time));
@@ -88,13 +105,74 @@ export function EditShiftDialog({
       setNotes(shift.notes ?? '');
       setSaveError(null);
       setValidationError(null);
+    } else if (addContext) {
+      setStartTime(DEFAULT_ADD_START);
+      setEndTime(DEFAULT_ADD_END);
+      setNotes('');
+      setSaveError(null);
+      setValidationError(null);
     }
-  }, [shift]);
+  }, [shift, addContext]);
 
-  const employeeName = shift ? employees.find((e) => e.id === shift.employee_id)?.name ?? '' : '';
-  const shiftDate = shift ? new Date(shift.start_time) : new Date();
+  const employeeName = shift
+    ? employees.find((e) => e.id === shift.employee_id)?.name ?? ''
+    : addContext
+      ? employees.find((e) => e.id === addContext.employeeId)?.name ?? ''
+      : '';
+  const shiftDate = shift ? new Date(shift.start_time) : addContext ? new Date(addContext.date + 'T12:00:00') : new Date();
 
   const handleSave = async () => {
+    if (isAddMode && addContext) {
+      setSaveError(null);
+      setValidationError(null);
+      const startParsed = parseTimeHHMM(startTime);
+      const endParsed = parseTimeHHMM(endTime);
+      if (!startParsed || !endParsed) {
+        setValidationError(t('schedule.invalidTimeFormat'));
+        return;
+      }
+      const [y, mo, d] = addContext.date.split('-').map(Number);
+      const startDate = new Date(y, mo - 1, d, startParsed.h, startParsed.m, 0, 0);
+      const startMinutesOfDay = startParsed.h * 60 + startParsed.m;
+      const endMinutesOfDay = endParsed.h * 60 + endParsed.m;
+      const useNextDayForEnd = endMinutesOfDay <= startMinutesOfDay;
+      const endDate = useNextDayForEnd
+        ? new Date(y, mo - 1, d + 1, endParsed.h, endParsed.m, 0, 0)
+        : new Date(y, mo - 1, d, endParsed.h, endParsed.m, 0, 0);
+      const start_time = startDate.toISOString();
+      const end_time = endDate.toISOString();
+      if (new Date(end_time).getTime() <= new Date(start_time).getTime()) {
+        setValidationError(t('schedule.endMustBeAfterStart'));
+        return;
+      }
+      if (businessTimeRange != null) {
+        const startM = startDate.getHours() * 60 + startDate.getMinutes();
+        const endM = endDate.getHours() * 60 + endDate.getMinutes();
+        if (startM < businessTimeRange.startMinutes || endM > businessTimeRange.endMinutes) {
+          setValidationError(t('schedule.outsideBusinessHours'));
+          return;
+        }
+      }
+      if (allShifts?.length && hasSameEmployeeOverlapByTime(allShifts, addContext.employeeId, start_time, end_time)) {
+        setValidationError(t('schedule.sameEmployeeOverlap'));
+        return;
+      }
+      setSaving(true);
+      try {
+        await onAdd({
+          employee_id: addContext.employeeId,
+          start_time,
+          end_time,
+          notes: notes.trim() || undefined,
+        });
+        onOpenChange(false);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     if (!shift) return;
     setSaveError(null);
     setValidationError(null);
@@ -161,7 +239,7 @@ export function EditShiftDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('schedule.editShift')}</DialogTitle>
+          <DialogTitle>{isAddMode ? t('schedule.addShift') : t('schedule.editShift')}</DialogTitle>
           <DialogDescription>
             {employeeName} – {format(shiftDate, 'EEEE, MMM d')}
           </DialogDescription>
@@ -208,17 +286,19 @@ export function EditShiftDialog({
             />
           </div>
         </div>
-        <DialogFooter className="flex-row justify-between sm:justify-between">
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={deleting || saving}
-          >
-            <Trash2 className="w-4 h-4 mr-1" />
-            {t('schedule.deleteShift')}
-          </Button>
-          <div className="flex gap-2">
+        <DialogFooter className={cn('flex-row justify-between sm:justify-between', isAddMode && 'justify-end')}>
+          {!isAddMode && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting || saving}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              {t('schedule.deleteShift')}
+            </Button>
+          )}
+          <div className="flex gap-2 ml-auto">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
