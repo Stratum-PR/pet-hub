@@ -89,6 +89,7 @@ export function TransactionDetail() {
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [lineItems, setLineItems] = useState<TransactionLineItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<'not_found' | 'fetch_failed' | null>(null);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
@@ -116,18 +117,29 @@ export function TransactionDetail() {
 
   useEffect(() => {
     if (!transactionId) return;
+    setLoadError(null);
     const state = location.state as { transaction?: Transaction; lineItems?: TransactionLineItem[] } | null;
-    fetchTransactionById(transactionId).then((data) => {
-      if (data) {
-        setTransaction(data.transaction);
-        setLineItems(data.lineItems);
-      } else if (state?.transaction && state?.lineItems && state.transaction.id === transactionId) {
-        setTransaction(state.transaction);
-        setLineItems(state.lineItems);
+    fetchTransactionById(transactionId).then((result) => {
+      if (result.ok) {
+        setTransaction(result.transaction);
+        setLineItems(result.lineItems);
+        setLoadError(null);
+      } else if ('notFound' in result && result.notFound) {
+        if (state?.transaction && state?.lineItems && state.transaction.id === transactionId) {
+          setTransaction(state.transaction);
+          setLineItems(state.lineItems);
+          setLoadError(null);
+        } else {
+          setTransaction(null);
+          setLineItems([]);
+          setLoadError('not_found');
+        }
+      } else {
+        setLoadError('fetch_failed');
       }
       setLoading(false);
     });
-  }, [transactionId, fetchTransactionById]);
+  }, [transactionId, fetchTransactionById, location.state]);
 
   useEffect(() => {
     if (transaction) {
@@ -302,19 +314,25 @@ export function TransactionDetail() {
       return;
     }
     setSubmitting(true);
-    const productIds = restockProducts ? lineItems.filter((li) => li.type === 'product').map((li) => li.reference_id) : [];
-    const refund = await createRefund(transactionId, amount, refundReason || null, productIds);
+    const productIds = restockProducts ? lineItems.filter((li) => li.type === 'product').map((li) => li.reference_id).filter(Boolean) : [];
+    const result = await createRefund(transactionId, amount, refundReason || null, productIds);
     setSubmitting(false);
     setRefundOpen(false);
     setRefundAmount('');
     setRefundReason('');
-    if (refund) {
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    if (result.data) {
       setTransaction((t) => (t ? { ...t, status: amount >= t.total ? 'refunded' : 'partial_refund' } : null));
       toast.success(t('transactions.refundIssued'));
-    } else toast.error(t('common.genericError'));
+    } else {
+      toast.error(t('common.genericError'));
+    }
   };
 
-  if (loading || !transaction) {
+  if (loading && !transaction) {
     return (
       <div className="space-y-6">
         <Button variant="ghost" asChild>
@@ -323,7 +341,40 @@ export function TransactionDetail() {
             {t('transactions.backToList')}
           </Link>
         </Button>
-        <p className="text-muted-foreground">{loading ? 'Loading…' : 'Transaction not found.'}</p>
+        <p className="text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (loadError === 'fetch_failed') {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" asChild>
+          <Link to={`/${businessSlug}/transactions`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t('transactions.backToList')}
+          </Link>
+        </Button>
+        <div className="space-y-2">
+          <p className="text-destructive font-medium">Failed to load transaction.</p>
+          <Button variant="outline" onClick={() => { setLoading(true); setLoadError(null); fetchTransactionById(transactionId!).then((res) => { if (res.ok) { setTransaction(res.transaction); setLineItems(res.lineItems); setLoadError(null); } else if ('error' in res) setLoadError('fetch_failed'); else setLoadError('not_found'); setLoading(false); }); }}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!transaction || loadError === 'not_found') {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" asChild>
+          <Link to={`/${businessSlug}/transactions`}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t('transactions.backToList')}
+          </Link>
+        </Button>
+        <p className="text-muted-foreground">Transaction not found.</p>
       </div>
     );
   }

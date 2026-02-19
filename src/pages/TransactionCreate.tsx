@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import type { TransactionLineItemInput, PaymentMethod } from '@/types/transactions';
 import { getPaymentStatusFromAmount } from '@/types/transactions';
 import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
+import { validateCreatePayload } from '@/lib/transactionValidation';
 
 function toCents(d: number): number {
   return Math.round(d * 100);
@@ -143,12 +144,7 @@ export function TransactionCreate() {
   };
 
   const handleSave = async () => {
-    if (lineItems.length === 0) {
-      toast.error(t('transactions.addAtLeastOneItem'));
-      return;
-    }
-    setSaving(true);
-    const result = await createTransaction({
+    const payload = {
       customer_id: customerId,
       appointment_id: appointmentId,
       line_items: lineItems,
@@ -161,7 +157,14 @@ export function TransactionCreate() {
       change_given: paymentMethod === 'cash' ? changeCents : null,
       status: getPaymentStatusFromAmount(paymentMethod === 'cash' ? toCents(Number(amountTendered || totalCents / 100)) : totalCents, totalCents),
       notes: notes || null,
-    });
+    };
+    const validation = validateCreatePayload(payload as any);
+    if (!validation.valid) {
+      toast.error(validation.error);
+      return;
+    }
+    setSaving(true);
+    const result = await createTransaction(payload as any);
     setSaving(false);
     if (result.error) {
       toast.error(result.error);
