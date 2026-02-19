@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import {
   Dialog,
@@ -10,10 +10,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Scan, Keyboard } from 'lucide-react';
+import { Scan, Keyboard, SwitchCamera } from 'lucide-react';
 import { t } from '@/lib/translations';
 
 const SCANNER_DIV_ID = 'barcode-scanner-viewfinder';
+
+const scannerConfig = {
+  fps: 15,
+  qrbox: { width: 300, height: 150 },
+  videoConstraints: {
+    width: { min: 640, ideal: 1280 },
+    height: { min: 480, ideal: 720 },
+  },
+} as const;
 
 export interface BarcodeScannerModalProps {
   open: boolean;
@@ -52,15 +61,21 @@ export function BarcodeScannerModal({
   const [manualValue, setManualValue] = useState('');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraStarting, setCameraStarting] = useState(false);
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
+  const [switchingCamera, setSwitchingCamera] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
 
-  const handleDecode = (decodedText: string) => {
-    const trimmed = decodedText?.trim();
-    if (!trimmed) return;
-    if (beepOnScan) playBeep();
-    onScan(trimmed);
-    onOpenChange(false);
-  };
+  const handleDecode = useCallback(
+    (decodedText: string) => {
+      const trimmed = decodedText?.trim();
+      if (!trimmed) return;
+      if (beepOnScan) playBeep();
+      onScan(trimmed);
+      onOpenChange(false);
+    },
+    [beepOnScan, onScan, onOpenChange]
+  );
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,72 +86,141 @@ export function BarcodeScannerModal({
     }
   };
 
+  const startScannerWithCamera = useCallback(
+    async (cameraId: string, mounted: { current: boolean }) => {
+      if (!mounted.current) return;
+      const scanner = new Html5Qrcode(SCANNER_DIV_ID, {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.ITF,
+        ],
+        useBarCodeDetectorIfSupported: false,
+      });
+      scannerRef.current = scanner;
+      await scanner.start(
+        cameraId,
+        scannerConfig,
+        (decodedText) => {
+          if (mounted.current) handleDecode(decodedText);
+        },
+        () => {}
+      );
+      if (mounted.current) setCameraStarting(false);
+    },
+    [handleDecode]
+  );
+
   useEffect(() => {
     if (!open) return;
     setCameraError(null);
     setCameraStarting(true);
-    let mounted = true;
-    const start = async () => {
+    setCameras([]);
+    setCurrentCameraIndex(0);
+    const mounted = { current: true };
+
+    const run = async () => {
       try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (!mounted || !cameras?.length) {
-          setCameraError('No camera found.');
+        // 1. Request permission first
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach((t) => t.stop());
+        if (!mounted.current) return;
+
+        const list = await Html5Qrcode.getCameras();
+        if (!mounted.current) return;
+        if (!list?.length) {
+          setCameraError(t('inventory.noCameraAvailable') ?? 'No camera found.');
           setCameraStarting(false);
           return;
         }
-        const back = cameras.find((c) => c.label.toLowerCase().includes('back')) ?? cameras[0];
-        const scanner = new Html5Qrcode(SCANNER_DIV_ID, {
-          verbose: false,
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.QR_CODE,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.CODE_93,
-            Html5QrcodeSupportedFormats.CODABAR,
-            Html5QrcodeSupportedFormats.ITF,
-          ],
-          useBarCodeDetectorIfSupported: false,
-        });
-        scannerRef.current = scanner;
-        await scanner.start(
-          back.id,
-          {
-            fps: 15,
-            qrbox: { width: 300, height: 150 },
-            videoConstraints: {
-              width: { min: 640, ideal: 1280 },
-              height: { min: 480, ideal: 720 },
-            },
-          },
-          (decodedText) => {
-            if (mounted) handleDecode(decodedText);
-          },
-          () => {}
-        );
-        if (mounted) setCameraStarting(false);
+
+        setCameras(list);
+        const backIndex = list.findIndex((c) => c.label.toLowerCase().includes('back'));
+        const initialIndex = backIndex >= 0 ? backIndex : 0;
+        setCurrentCameraIndex(initialIndex);
+
+        await startScannerWithCamera(list[initialIndex].id, mounted);
       } catch (err: unknown) {
-        if (mounted) {
-          setCameraError(err instanceof Error ? err.message : 'Camera access failed.');
-          setCameraStarting(false);
-        }
+        if (!mounted.current) return;
+        const message =
+          err instanceof Error ? err.message : 'Camera access failed.';
+        const isPermissionDenied =
+          message.toLowerCase().includes('permission') ||
+          message.toLowerCase().includes('denied') ||
+          message.toLowerCase().includes('not allowed');
+        setCameraError(
+          isPermissionDenied
+            ? (t('inventory.cameraPermissionDenied') ?? 'Camera access denied.')
+            : (t('inventory.noCameraAvailable') ?? message)
+        );
+        setCameraStarting(false);
       }
     };
-    const timer = setTimeout(() => {
-      start();
-    }, 400);
+
+    const timer = setTimeout(run, 400);
     return () => {
       clearTimeout(timer);
-      mounted = false;
-      scannerRef.current?.stop().then(() => {
-        scannerRef.current?.clear();
-        scannerRef.current = null;
-      }).catch(() => {});
+      mounted.current = false;
+      scannerRef.current
+        ?.stop()
+        .then(() => {
+          scannerRef.current?.clear();
+          scannerRef.current = null;
+        })
+        .catch(() => {});
     };
-  }, [open]);
+  }, [open, startScannerWithCamera]);
+
+  const handleSwitchCamera = useCallback(async () => {
+    if (cameras.length <= 1 || !scannerRef.current || switchingCamera) return;
+    const nextIndex = (currentCameraIndex + 1) % cameras.length;
+    setSwitchingCamera(true);
+    try {
+      await scannerRef.current.stop();
+      scannerRef.current.clear();
+      scannerRef.current = null;
+      const scanner = new Html5Qrcode(SCANNER_DIV_ID, {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.ITF,
+        ],
+        useBarCodeDetectorIfSupported: false,
+      });
+      scannerRef.current = scanner;
+      await scanner.start(
+        cameras[nextIndex].id,
+        scannerConfig,
+        (decodedText) => handleDecode(decodedText),
+        () => {}
+      );
+      setCurrentCameraIndex(nextIndex);
+    } finally {
+      setSwitchingCamera(false);
+    }
+  }, [cameras, currentCameraIndex, handleDecode, switchingCamera]);
+
+  const isBackCamera =
+    cameras[currentCameraIndex]?.label.toLowerCase().includes('back');
+  const switchButtonLabel = isBackCamera
+    ? (t('inventory.switchToFrontCamera') ?? 'Front camera')
+    : (t('inventory.switchToBackCamera') ?? 'Back camera');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,7 +228,8 @@ export function BarcodeScannerModal({
         <DialogHeader>
           <DialogTitle>{title ?? t('inventory.scanBarcode')}</DialogTitle>
           <DialogDescription>
-            {t('inventory.scanBarcodeDescription') ?? 'Use your camera to scan a barcode, or enter SKU/barcode manually below.'}
+            {t('inventory.scanBarcodeDescription') ??
+              'Use your camera to scan a barcode, or enter SKU/barcode manually below.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -159,6 +244,19 @@ export function BarcodeScannerModal({
                 {cameraError}
               </div>
             )}
+            {cameras.length > 1 && !cameraError && !cameraStarting && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="absolute bottom-2 right-2 z-10 gap-1.5"
+                onClick={handleSwitchCamera}
+                disabled={switchingCamera}
+              >
+                <SwitchCamera className="h-4 w-4" />
+                {switchingCamera ? '…' : switchButtonLabel}
+              </Button>
+            )}
             <div
               id={SCANNER_DIV_ID}
               className="w-full max-h-[320px] [&>div]:!max-h-[320px] [& video]:!max-h-[320px]"
@@ -170,7 +268,10 @@ export function BarcodeScannerModal({
               <Keyboard className="h-4 w-4" />
               {t('inventory.manualEntryLabel') ?? 'Or enter barcode / SKU manually'}
             </Label>
-            <p className="text-xs text-muted-foreground">{t('inventory.manualEntryHint') ?? 'Barcode: the number under the lines on the product (e.g. UPC). SKU: your own internal code (e.g. DS-001).'}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('inventory.manualEntryHint') ??
+                'Barcode: the number under the lines on the product (e.g. UPC). SKU: your own internal code (e.g. DS-001).'}
+            </p>
             <div className="flex gap-2">
               <Input
                 id="manual-barcode"

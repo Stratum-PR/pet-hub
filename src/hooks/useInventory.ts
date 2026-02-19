@@ -177,11 +177,11 @@ export function useInventory() {
     await Promise.all([fetchProducts(), fetchStockMovements()]);
   };
 
-  /** Adjust stock and log movement (restock, adjustment, etc.). Returns updated product or null. */
+  /** Adjust stock and log movement (restock, adjustment, purchase, sale). Returns updated product or null. */
   const adjustStock = async (
     productId: string,
     quantityDelta: number,
-    movementType: 'restock' | 'adjustment' | 'purchase' = 'adjustment',
+    movementType: 'restock' | 'adjustment' | 'purchase' | 'sale' = 'adjustment',
     notes?: string | null
   ): Promise<Product | null> => {
     if (!businessId) return null;

@@ -1384,6 +1384,22 @@ export const translations: Translations = {
     en: 'Starting camera…',
     es: 'Iniciando cámara…'
   },
+  'inventory.cameraPermissionDenied': {
+    en: 'Camera access denied. Please allow camera access to scan barcodes.',
+    es: 'Acceso a la cámara denegado. Permite el acceso para escanear códigos.'
+  },
+  'inventory.noCameraAvailable': {
+    en: 'No camera found.',
+    es: 'No se encontró cámara.'
+  },
+  'inventory.switchToFrontCamera': {
+    en: 'Front camera',
+    es: 'Cámara frontal'
+  },
+  'inventory.switchToBackCamera': {
+    en: 'Back camera',
+    es: 'Cámara trasera'
+  },
   'inventory.manualBarcodeEntry': {
     en: 'Or enter barcode / SKU',
     es: 'O ingresa código de barras / SKU'
@@ -1401,12 +1417,12 @@ export const translations: Translations = {
     es: 'Código de barras o SKU'
   },
   'inventory.skuHelp': {
-    en: 'Your internal code for this product (e.g. DS-001). Required; unique per product.',
-    es: 'Tu código interno para este producto (ej. DS-001). Obligatorio; único por producto.'
+    en: 'Your internal code (e.g. DS-001 or PET-001). Required and unique. Use any format; leave barcode blank for items without a barcode.',
+    es: 'Tu código interno (ej. DS-001 o PET-001). Obligatorio y único. Cualquier formato; deja el código de barras en blanco si no tiene.'
   },
   'inventory.barcodeHelp': {
-    en: 'The number on the product package (under the barcode lines). Scan with camera or type. Optional.',
-    es: 'El número en el paquete del producto (bajo las líneas del código). Escanea o escribe. Opcional.'
+    en: 'UPC/EAN (number under the barcode). Optional—leave blank for custom items and use your own SKU above.',
+    es: 'UPC/EAN (número bajo el código de barras). Opcional—deja en blanco para productos sin código.'
   },
   'inventory.adjustQuantity': {
     en: 'Adjust quantity',
@@ -1415,6 +1431,30 @@ export const translations: Translations = {
   'inventory.addQuantity': {
     en: 'Add to stock',
     es: 'Agregar al inventario'
+  },
+  'inventory.productAddedFromBarcode': {
+    en: 'Product added from barcode',
+    es: 'Producto agregado desde código de barras'
+  },
+  'inventory.lookingUpBarcode': {
+    en: 'Looking up product…',
+    es: 'Buscando producto…'
+  },
+  'inventory.barcodeLookupNotConfigured': {
+    en: 'Barcode lookup is not set up. Add BARCODE_LOOKUP_API_KEY in Supabase secrets (see docs).',
+    es: 'La búsqueda por código no está configurada. Añade BARCODE_LOOKUP_API_KEY en secretos de Supabase.'
+  },
+  'inventory.barcodeNotFoundInDatabase': {
+    en: 'Product not found in barcode database. Enter details manually.',
+    es: 'Producto no encontrado en la base de códigos. Ingresa los datos manualmente.'
+  },
+  'inventory.barcodeFoundPrefill': {
+    en: 'Product found. Confirm details and save.',
+    es: 'Producto encontrado. Confirma los datos y guarda.'
+  },
+  'inventory.barcodeLookupFailed': {
+    en: 'Lookup failed. Enter product details manually.',
+    es: 'La búsqueda falló. Ingresa los datos del producto manualmente.'
   },
   'inventory.addStockShort': {
     en: 'Add',
@@ -1427,6 +1467,22 @@ export const translations: Translations = {
   'inventory.addHowMany': {
     en: 'How many to add?',
     es: '¿Cuántos agregar?'
+  },
+  'inventory.setQuantityTo': {
+    en: 'Set quantity to',
+    es: 'Establecer cantidad a'
+  },
+  'inventory.inventoryCount': {
+    en: 'Inventory count',
+    es: 'Conteo de inventario'
+  },
+  'inventory.quantityToAddOrRemove': {
+    en: 'Quantity to add or remove (negative = sale)',
+    es: 'Cantidad a sumar o restar (negativo = venta)'
+  },
+  'inventory.addOrRemove': {
+    en: 'Add or remove',
+    es: 'Sumar o restar'
   },
   'inventory.done': {
     en: 'Done',

@@ -156,7 +156,7 @@ export function InventoryProductDetailModal({
                 {movements.map((m) => (
                   <li key={m.created_at + m.quantity} className="flex justify-between text-sm border-b border-border pb-1">
                     <span>
-                      {format(new Date(m.created_at), 'MMM d, yyyy')} · {m.movement_type} +{m.quantity}
+                      {format(new Date(m.created_at), 'MMM d, yyyy')} · {m.movement_type} {m.quantity >= 0 ? `+${m.quantity}` : m.quantity}
                       {m.supplier ? ` (${m.supplier})` : ''}
                     </span>
                   </li>

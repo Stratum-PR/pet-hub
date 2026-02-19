@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Plus,
   Edit,
@@ -46,6 +46,23 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { generateSkuForBarcode } from '@/lib/skuFromBarcode';
+import { normalizeBarcodeForMatch } from '@/lib/barcodeValidation';
+
+/** Get user-facing message from supabase.functions.invoke error (e.g. 503 body). */
+async function getInvokeErrorMessage(err: unknown): Promise<string | null> {
+  const e = err as { context?: { json?: () => Promise<{ error?: string; message?: string }> }; message?: string };
+  if (e?.context?.json) {
+    try {
+      const body = await e.context.json();
+      return body?.error ?? body?.message ?? null;
+    } catch {
+      // ignore
+    }
+  }
+  return e?.message ?? null;
+}
 
 type ViewMode = 'tile' | 'list';
 
@@ -57,7 +74,7 @@ interface InventoryProps {
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
   /** When user scans an existing product and confirms quantity, add to stock and log movement. */
-  onAdjustStock?: (productId: string, quantityDelta: number, movementType?: 'restock' | 'adjustment' | 'purchase', notes?: string | null) => Promise<Product | null>;
+  onAdjustStock?: (productId: string, quantityDelta: number, movementType?: 'restock' | 'adjustment' | 'purchase' | 'sale', notes?: string | null) => Promise<Product | null>;
   stockMovements?: { product_id: string; quantity: number; movement_type: string; supplier?: string | null; created_at: string }[];
   onUploadProductPhoto?: (productId: string, file: File) => Promise<string | null>;
 }
@@ -83,11 +100,24 @@ export function Inventory({
   const [scanOpen, setScanOpen] = useState(false);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [adjustQty, setAdjustQty] = useState('');
+  const [adjustMode, setAdjustMode] = useState<'delta' | 'count'>('delta');
   const [initialBarcodeFromScan, setInitialBarcodeFromScan] = useState<string | null>(null);
+  /** Prefilled data from barcode lookup (open add form instead of auto-adding). */
+  const [initialPrefilledFromLookup, setInitialPrefilledFromLookup] = useState<{
+    name: string;
+    barcode: string;
+    brand?: string;
+    category?: string;
+    description?: string;
+    imageUrl?: string;
+  } | null>(null);
   const [adjusting, setAdjusting] = useState(false);
   const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
   const [quickAddQty, setQuickAddQty] = useState('');
   const [quickAdding, setQuickAdding] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const lastScanTimeRef = useRef<number>(0);
+  const SCAN_COOLDOWN_MS = 1500;
 
   const filteredProducts = useMemo(() => {
     let list = products;
@@ -121,40 +151,132 @@ export function Inventory({
     setFormOpen(true);
   };
 
-  const handleScanResult = (value: string) => {
+  const handleScanResult = async (value: string) => {
     const trimmed = value?.trim();
     if (!trimmed) return;
-    const found = products.find(
-      (p) =>
-        (p.barcode && p.barcode.trim() === trimmed) ||
-        (p.sku && p.sku.trim().toLowerCase() === trimmed.toLowerCase())
-    );
+    const now = Date.now();
+    if (now - lastScanTimeRef.current < SCAN_COOLDOWN_MS) return;
+    lastScanTimeRef.current = now;
+
+    // Match by barcode (UPC/EAN) first, then by SKU. Normalize so 12-digit UPC and 13-digit EAN match.
+    const normalizedScan = normalizeBarcodeForMatch(trimmed);
+    const found =
+      products.find((p) => p.barcode && normalizeBarcodeForMatch(p.barcode) === normalizedScan) ??
+      products.find((p) => p.sku && p.sku.trim().toLowerCase() === trimmed.toLowerCase());
     if (found) {
-      setAdjustProduct(found);
-      setAdjustQty('');
-    } else {
-      setInitialBarcodeFromScan(trimmed);
-      setEditingProduct(null);
-      setFormOpen(true);
-      toast.info(t('inventory.addProduct') + ' – ' + (t('inventory.manualBarcodeEntry') ?? 'Enter details'));
+      if (onAdjustStock) {
+        const updated = await onAdjustStock(found.id, 1, 'adjustment', 'Barcode scan');
+        if (updated) {
+          onUpdateProduct(found.id, { quantity: updated.quantity });
+          setScanOpen(false);
+          toast.success(t('inventory.addQuantity') ?? 'Stock updated');
+        } else {
+          toast.error(t('common.genericError'));
+        }
+      } else {
+        setAdjustProduct(found);
+        setAdjustMode('delta');
+        setAdjustQty('1');
+      }
+      return;
+    }
+
+    setLookupLoading(true);
+    const loadingToastId = toast.loading(t('inventory.lookingUpBarcode') ?? 'Looking up product…');
+    try {
+      const { data, error } = await supabase.functions.invoke('barcode-lookup', {
+        body: { barcode: trimmed },
+      });
+      if (import.meta.env.DEV && (error || !data?.found)) {
+        console.debug('[barcode-lookup]', { barcode: trimmed, data, error });
+      }
+      const payload = data as { found?: boolean; product?: { name: string; brand?: string; category?: string; description?: string; imageUrl?: string; barcode: string }; error?: string } | null;
+      if (error) {
+        const errMsg = await getInvokeErrorMessage(error);
+        if (errMsg?.includes('not configured')) {
+          toast.warning(t('inventory.barcodeLookupNotConfigured'));
+        } else {
+          toast.warning(errMsg || t('inventory.barcodeLookupFailed'));
+        }
+        openFormWithBarcode(trimmed);
+        return;
+      }
+      if (payload?.error) {
+        if (payload.error.includes('not configured')) {
+          toast.warning(t('inventory.barcodeLookupNotConfigured'));
+        } else {
+          toast.warning(payload.error);
+        }
+        openFormWithBarcode(trimmed);
+        return;
+      }
+      if (payload?.found && payload?.product) {
+        setScanOpen(false);
+        setInitialPrefilledFromLookup({
+          name: payload.product.name,
+          barcode: payload.product.barcode,
+          brand: payload.product.brand,
+          category: payload.product.category,
+          description: payload.product.description,
+          imageUrl: payload.product.imageUrl,
+        });
+        setInitialBarcodeFromScan(null);
+        setFormOpen(true);
+        toast.success(t('inventory.barcodeFoundPrefill') ?? 'Product found. Confirm details and save.');
+      } else {
+        toast.info(t('inventory.barcodeNotFoundInDatabase'));
+        openFormWithBarcode(trimmed);
+      }
+    } catch {
+      toast.warning(t('inventory.barcodeLookupFailed'));
+      openFormWithBarcode(trimmed);
+    } finally {
+      setLookupLoading(false);
+      toast.dismiss(loadingToastId);
     }
   };
 
+  function openFormWithBarcode(barcode: string) {
+    setInitialBarcodeFromScan(barcode);
+    setEditingProduct(null);
+    setFormOpen(true);
+    toast.info(t('inventory.addProduct') + ' – ' + (t('inventory.manualBarcodeEntry') ?? 'Enter details'));
+  }
+
   const handleAdjustSubmit = async () => {
     if (!adjustProduct || !onAdjustStock) return;
-    const qty = parseInt(adjustQty, 10) || 0;
-    if (qty <= 0) {
-      toast.error(t('inventory.adjustQuantity') ? 'Enter a positive quantity' : 'Enter a positive quantity');
-      return;
+    let delta: number;
+    let movementType: 'restock' | 'adjustment' | 'purchase' | 'sale' = 'adjustment';
+    let notes: string | null = 'Barcode scan';
+
+    if (adjustMode === 'count') {
+      const newTotal = parseInt(adjustQty, 10);
+      if (Number.isNaN(newTotal) || newTotal < 0) {
+        toast.error(t('inventory.setQuantityTo') ? 'Enter a valid quantity (0 or more)' : 'Enter a valid quantity (0 or more)');
+        return;
+      }
+      delta = newTotal - adjustProduct.quantity;
+      movementType = 'adjustment';
+      notes = 'Inventory count';
+    } else {
+      const qty = parseInt(adjustQty, 10);
+      if (Number.isNaN(qty) || qty === 0) {
+        toast.error(t('inventory.quantityToAddOrRemove') ? 'Enter a non-zero quantity (negative for sale)' : 'Enter a non-zero quantity');
+        return;
+      }
+      delta = qty;
+      movementType = delta < 0 ? 'sale' : 'adjustment';
+      notes = delta < 0 ? 'Sale' : 'Barcode scan';
     }
+
     setAdjusting(true);
-    const updated = await onAdjustStock(adjustProduct.id, qty, 'adjustment', 'Barcode scan');
+    const updated = await onAdjustStock(adjustProduct.id, delta, movementType, notes);
     setAdjusting(false);
     if (updated) {
       onUpdateProduct(adjustProduct.id, { quantity: updated.quantity });
       setAdjustProduct(null);
       setAdjustQty('');
-      toast.success(t('inventory.addQuantity') ?? 'Stock updated');
+      toast.success(adjustMode === 'count' ? (t('inventory.inventoryCount') ?? 'Count saved') : (t('inventory.addQuantity') ?? 'Stock updated'));
     } else {
       toast.error(t('common.genericError'));
     }
@@ -509,6 +631,7 @@ export function Inventory({
           if (!open) {
             setEditingProduct(null);
             setInitialBarcodeFromScan(null);
+            setInitialPrefilledFromLookup(null);
           }
         }}
         product={editingProduct}
@@ -516,6 +639,7 @@ export function Inventory({
         onSave={handleSaveNew}
         onUpdate={handleSaveUpdate}
         initialBarcodeOrSku={initialBarcodeFromScan ?? undefined}
+        initialPrefilledFromLookup={initialPrefilledFromLookup ?? undefined}
       />
 
       <BarcodeScannerModal
@@ -539,15 +663,47 @@ export function Inventory({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="flex gap-2 border-b pb-2">
+              <Button
+                type="button"
+                variant={adjustMode === 'delta' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => { setAdjustMode('delta'); setAdjustQty('1'); }}
+              >
+                {t('inventory.addOrRemove')}
+              </Button>
+              <Button
+                type="button"
+                variant={adjustMode === 'count' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => { setAdjustMode('count'); if (adjustProduct) setAdjustQty(String(adjustProduct.quantity)); }}
+              >
+                {t('inventory.setQuantityTo')}
+              </Button>
+            </div>
             <div className="space-y-2">
-              <Label>{t('inventory.addQuantity')}</Label>
-              <Input
-                type="number"
-                min={1}
-                value={adjustQty}
-                onChange={(e) => setAdjustQty(e.target.value)}
-                placeholder="0"
-              />
+              {adjustMode === 'delta' ? (
+                <>
+                  <Label>{t('inventory.quantityToAddOrRemove')}</Label>
+                  <Input
+                    type="number"
+                    value={adjustQty}
+                    onChange={(e) => setAdjustQty(e.target.value)}
+                    placeholder="+5 or -2"
+                  />
+                </>
+              ) : (
+                <>
+                  <Label>{t('inventory.setQuantityTo')}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={adjustQty}
+                    onChange={(e) => setAdjustQty(e.target.value)}
+                    placeholder={adjustProduct ? String(adjustProduct.quantity) : '0'}
+                  />
+                </>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -555,7 +711,7 @@ export function Inventory({
               {t('common.cancel')}
             </Button>
             <Button onClick={handleAdjustSubmit} disabled={adjusting || !onAdjustStock}>
-              {adjusting ? t('common.saving') : t('inventory.addQuantity')}
+              {adjusting ? t('common.saving') : adjustMode === 'count' ? t('inventory.inventoryCount') : t('inventory.addQuantity')}
             </Button>
           </DialogFooter>
         </DialogContent>
