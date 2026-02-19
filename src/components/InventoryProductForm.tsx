@@ -41,6 +41,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { generateSkuForBarcode } from '@/lib/skuFromBarcode';
 
 const defaultFormData = {
   name: '',
@@ -68,6 +69,15 @@ interface InventoryProductFormProps {
   onSelectFromRegistry?: (product: Product) => void;
   /** When opening "add" form after a barcode scan, prefill barcode/SKU. */
   initialBarcodeOrSku?: string;
+  /** When opening "add" form after barcode lookup, prefill name, barcode, brand, category, etc. */
+  initialPrefilledFromLookup?: {
+    name: string;
+    barcode: string;
+    brand?: string;
+    category?: string;
+    description?: string;
+    imageUrl?: string;
+  };
 }
 
 export function InventoryProductForm({
@@ -78,6 +88,7 @@ export function InventoryProductForm({
   onSave,
   onUpdate,
   initialBarcodeOrSku,
+  initialPrefilledFromLookup,
 }: InventoryProductFormProps) {
   const isMobile = useIsMobile();
   const [formData, setFormData] = useState(defaultFormData);
@@ -111,6 +122,18 @@ export function InventoryProductForm({
         photo_url: product.photo_url ?? null,
         custom_fields: product.custom_fields ?? {},
       });
+    } else if (initialPrefilledFromLookup) {
+      const sku = generateSkuForBarcode(initialPrefilledFromLookup.barcode, products);
+      setFormData({
+        ...defaultFormData,
+        name: initialPrefilledFromLookup.name,
+        sku,
+        barcode: initialPrefilledFromLookup.barcode,
+        quantity: 1,
+        supplier: initialPrefilledFromLookup.brand ?? '',
+        category: initialPrefilledFromLookup.category ?? '',
+        description: initialPrefilledFromLookup.description ?? '',
+      });
     } else {
       const prefilled = initialBarcodeOrSku?.trim();
       setFormData({
@@ -119,7 +142,7 @@ export function InventoryProductForm({
         barcode: prefilled ?? '',
       });
     }
-  }, [product, open, initialBarcodeOrSku]);
+  }, [product, open, initialBarcodeOrSku, initialPrefilledFromLookup, products]);
 
   const filteredRegistry = products.filter(
     (p) =>
