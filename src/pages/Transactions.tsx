@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useClients } from '@/hooks/useSupabaseData';
+import { useClientNames } from '@/hooks/useSupabaseData';
 import { useNotifications } from '@/hooks/useNotifications';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
@@ -48,8 +48,8 @@ export function Transactions() {
   const { businessSlug } = useParams();
   const navigate = useNavigate();
   const businessId = useBusinessId();
-  const { transactions: rawTransactions, loading, updateTransaction } = useTransactions();
-  const { clients } = useClients();
+  const { transactions: rawTransactions, loading, loadingMore, hasMore, loadMore, updateTransaction, error: fetchError, refetch } = useTransactions();
+  const { clients } = useClientNames();
   const { createNotification } = useNotifications();
   const [search, setSearch] = useState('');
 
@@ -129,6 +129,14 @@ export function Transactions() {
         <CardContent>
           {loading ? (
             <p className="text-muted-foreground py-8 text-center">Loading…</p>
+          ) : fetchError ? (
+            <div className="py-8 text-center space-y-2">
+              <p className="text-destructive font-medium">Failed to load transactions.</p>
+              <p className="text-muted-foreground text-sm">{fetchError}</p>
+              <Button variant="outline" onClick={() => refetch()}>
+                Retry
+              </Button>
+            </div>
           ) : filtered.length === 0 ? (
             <p className="text-muted-foreground py-8 text-center">
               No transactions yet. Create one with &quot;New Transaction&quot; (full flow coming soon).
@@ -201,6 +209,13 @@ export function Transactions() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          {!loading && hasMore && (
+            <div className="flex justify-center pt-4 pb-2">
+              <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? 'Loading…' : 'Load more'}
+              </Button>
             </div>
           )}
         </CardContent>

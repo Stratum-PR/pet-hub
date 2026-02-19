@@ -4,6 +4,18 @@ import { Client, Pet, Employee, TimeEntry, Appointment, Service } from '@/types'
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 
+/** When true, data hooks cap rows to avoid loading thousands of rows on demo (e.g. seed appointments until March 2026). */
+function isDemoRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith('/demo');
+}
+
+const DEMO_CAP_APPOINTMENTS = 300;
+const DEMO_CAP_CLIENTS = 200;
+const DEMO_CAP_PETS = 200;
+const DEMO_CAP_EMPLOYEES = 100;
+const DEMO_CAP_TIME_ENTRIES = 500;
+
 function uuidv4(): string {
   // Prefer native when available
   if (typeof crypto !== 'undefined') {
@@ -66,6 +78,69 @@ export function useBreeds() {
   return { breeds, loading, refetch: fetchBreeds };
 }
 
+/** Minimal client shape for display names (e.g. Transactions list). */
+export interface ClientName {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
+/**
+ * Lightweight client list (id, first_name, last_name, email only) for pages that only need display names.
+ * Use useClients() when full client data is needed.
+ */
+export function useClientNames() {
+  const [clients, setClients] = useState<ClientName[]>([]);
+  const [loading, setLoading] = useState(true);
+  const businessId = useBusinessId();
+  const { profile } = useAuth();
+
+  const fetchClientNames = async () => {
+    if (!businessId) {
+      setLoading(false);
+      setClients([]);
+      return;
+    }
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (import.meta.env.DEV && (sessionError || (!session && !sessionError))) {
+      if (sessionError) console.error('[useClientNames] Session error:', sessionError);
+    }
+    try {
+      let query = supabase
+        .from('clients')
+        .select('id, first_name, last_name, email')
+        .eq('business_id', businessId)
+        .neq('email', 'orphaned-pets@system.local')
+        .order('created_at', { ascending: false });
+      if (isDemoRoute()) query = query.range(0, DEMO_CAP_CLIENTS - 1);
+      const { data, error } = await query;
+      if (error) {
+        if (import.meta.env.DEV) console.error('[useClientNames] Error:', error);
+        setClients([]);
+      } else {
+        setClients((data || []).map((c: any) => ({
+          id: c.id,
+          first_name: c.first_name || '',
+          last_name: c.last_name || '',
+          email: c.email || '',
+        })));
+      }
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[useClientNames] Exception:', err);
+      setClients([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClientNames();
+  }, [businessId, profile?.business_id]);
+
+  return { clients, loading, refetch: fetchClientNames };
+}
+
 export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,10 +149,12 @@ export function useClients() {
 
   const fetchClients = async () => {
     if (!businessId) {
-      console.warn('[useClients] No businessId, skipping fetch.', {
-        profile: profile ? { email: profile.email, business_id: profile.business_id } : null,
-        location: window.location.pathname,
-      });
+      if (import.meta.env.DEV) {
+        console.warn('[useClients] No businessId, skipping fetch.', {
+          profile: profile ? { email: profile.email, business_id: profile.business_id } : null,
+          location: window.location.pathname,
+        });
+      }
       setLoading(false);
       setClients([]);
       return;
@@ -85,42 +162,45 @@ export function useClients() {
 
     // CRITICAL: Verify session exists before querying (RLS requires auth.uid())
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      console.error('[useClients] Session error:', sessionError);
-    }
-    if (!session && !sessionError) {
-      console.warn('[useClients] No active session - RLS may block query. This is OK for demo mode.');
+    if (import.meta.env.DEV) {
+      if (sessionError) console.error('[useClients] Session error:', sessionError);
+      if (!session && !sessionError) console.warn('[useClients] No active session - RLS may block query. This is OK for demo mode.');
+      console.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId, 'Has session:', !!session);
     }
 
-    console.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId, 'Has session:', !!session);
-    
     try {
       // Query clients table
       // Supabase client automatically includes session token in headers
-      const { data, error, count } = await supabase
+      let clientQuery = supabase
         .from('clients')
         .select('*', { count: 'exact' })
         .eq('business_id', businessId)
         .neq('email', 'orphaned-pets@system.local') // Exclude orphaned pets placeholder
         .order('created_at', { ascending: false });
-      
+      if (isDemoRoute()) clientQuery = clientQuery.range(0, DEMO_CAP_CLIENTS - 1);
+      const { data, error, count } = await clientQuery;
+
       if (error) {
-        console.error('[useClients] Error fetching clients:', error);
-        console.error('[useClients] Error details:', JSON.stringify(error, null, 2));
+        if (import.meta.env.DEV) {
+          console.error('[useClients] Error fetching clients:', error);
+          console.error('[useClients] Error details:', JSON.stringify(error, null, 2));
+        }
         setClients([]);
       } else {
-        console.log('[useClients] Query successful.', {
-          count,
-          dataLength: data?.length || 0,
-          businessId,
-          sampleClient: data?.[0] ? {
-            id: data[0].id,
-            first_name: data[0].first_name,
-            last_name: data[0].last_name,
-            email: data[0].email,
-            business_id: data[0].business_id,
-          } : null,
-        });
+        if (import.meta.env.DEV) {
+          console.log('[useClients] Query successful.', {
+            count,
+            dataLength: data?.length || 0,
+            businessId,
+            sampleClient: data?.[0] ? {
+              id: data[0].id,
+              first_name: data[0].first_name,
+              last_name: data[0].last_name,
+              email: data[0].email,
+              business_id: data[0].business_id,
+            } : null,
+          });
+        }
         const mappedClients = (data || []).map((c: any) => ({
           id: c.id,
           first_name: c.first_name || '',
@@ -133,11 +213,11 @@ export function useClients() {
           created_at: c.created_at,
           updated_at: c.updated_at,
         }));
-        console.log('[useClients] Fetched clients:', mappedClients.length);
+        if (import.meta.env.DEV) console.log('[useClients] Fetched clients:', mappedClients.length);
         setClients(mappedClients);
       }
     } catch (err: any) {
-      console.error('[useClients] Exception:', err);
+      if (import.meta.env.DEV) console.error('[useClients] Exception:', err);
       setClients([]);
     } finally {
       setLoading(false);
@@ -284,7 +364,7 @@ export function usePets() {
     // Supabase PostgREST syntax: 
     // - clients:client_id(...) means join clients table via client_id foreign key
     // - breeds:breed_id(...) means join breeds table via breed_id foreign key
-    const { data, error } = await supabase
+    let petsQuery = supabase
       .from('pets')
       .select(`
         *,
@@ -303,6 +383,8 @@ export function usePets() {
       `)
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
+    if (isDemoRoute()) petsQuery = petsQuery.range(0, DEMO_CAP_PETS - 1);
+    const { data, error } = await petsQuery;
     
     if (error) {
       console.error('[usePets] Error fetching pets:', error);
@@ -435,11 +517,13 @@ export function useEmployees() {
       return;
     }
 
-    const { data, error } = await supabase
+    let empQuery = supabase
       .from('employees')
       .select('*')
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
+    if (isDemoRoute()) empQuery = empQuery.range(0, DEMO_CAP_EMPLOYEES - 1);
+    const { data, error } = await empQuery;
     
     if (!error && data) {
       setEmployees(data as Employee[]);
@@ -560,11 +644,13 @@ export function useTimeEntries() {
     }
 
     const employeeIds = employees.map(e => e.id);
-    const { data, error } = await supabase
+    let timeQuery = supabase
       .from('time_entries')
       .select('*')
       .in('employee_id', employeeIds)
       .order('clock_in', { ascending: false });
+    if (isDemoRoute()) timeQuery = timeQuery.range(0, DEMO_CAP_TIME_ENTRIES - 1);
+    const { data, error } = await timeQuery;
     
     if (!error && data) {
       setTimeEntries(data as TimeEntry[]);
@@ -674,20 +760,24 @@ export function useAppointments() {
       console.warn('[useAppointments] business_id filter failed, trying without it');
     }
     
-    const { data, error } = await query
+    query = query
       .order('appointment_date', { ascending: true, nullsFirst: false })
       .order('start_time', { ascending: true, nullsFirst: false });
+    if (isDemoRoute()) query = query.range(0, DEMO_CAP_APPOINTMENTS - 1);
+    const { data, error } = await query;
     
     if (error) {
       console.error('[useAppointments] Error fetching appointments:', error);
       // If business_id column doesn't exist, try without it (fallback for schema drift)
       if (error.code === '42703' || error.message?.includes('business_id')) {
         console.warn('[useAppointments] business_id column not found, trying without filter');
-        const { data: fallbackData, error: fallbackError } = await supabase
+        let fallbackQuery = supabase
           .from('appointments')
           .select('*')
           .order('appointment_date', { ascending: true, nullsFirst: false })
           .order('start_time', { ascending: true, nullsFirst: false });
+        if (isDemoRoute()) fallbackQuery = fallbackQuery.range(0, DEMO_CAP_APPOINTMENTS - 1);
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
         
         if (!fallbackError && fallbackData) {
           const convertedAppointments = fallbackData.map((apt: any) => ({

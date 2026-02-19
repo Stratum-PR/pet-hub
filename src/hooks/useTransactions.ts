@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
+import { validateCreatePayload, validateRefundPayload, validateUpdatePayload } from '@/lib/transactionValidation';
 import type {
   Transaction,
   TransactionLineItem,
@@ -14,6 +15,11 @@ import type {
   TaxSnapshotItem,
   TransactionHistoryEntry,
 } from '@/types/transactions';
+
+export type FetchTransactionByIdResult =
+  | { ok: true; transaction: Transaction; lineItems: TransactionLineItem[] }
+  | { ok: false; notFound: true }
+  | { ok: false; error: string };
 
 function mapRowToTransaction(row: any): Transaction {
   return {
@@ -58,6 +64,11 @@ function isDemoLocalMode(): boolean {
 }
 
 const DEMO_TX_STORAGE_KEY = 'pet-hub-demo-transactions';
+const TRANSACTIONS_PAGE_SIZE = 50;
+
+/** Columns needed for list view (excludes tax_snapshot, notes to reduce payload). */
+const TRANSACTIONS_LIST_COLUMNS =
+  'id,business_id,customer_id,appointment_id,staff_id,created_at,status,payment_method,payment_method_secondary,subtotal,discount_amount,discount_label,tip_amount,total,amount_tendered,change_given,transaction_number';
 
 function getDemoStorageKey(businessId: string): string {
   return `${DEMO_TX_STORAGE_KEY}-${businessId}`;
@@ -78,10 +89,21 @@ export function useTransactions() {
   const businessId = useBusinessId();
   const { user } = useAuth();
   const [serverTransactions, setServerTransactions] = useState<Transaction[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [localDemoEntries, setLocalDemoEntries] = useState<{ transaction: Transaction; lineItems: TransactionLineItem[] }[]>([]);
   const localDemoEntriesRef = useRef(localDemoEntries);
   localDemoEntriesRef.current = localDemoEntries;
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const taxSettingsCacheRef = useRef<{ businessId: string; rows: TaxSettingRow[] } | null>(null);
+  const receiptSettingsCacheRef = useRef<{ businessId: string; data: any } | null>(null);
+
+  // Invalidate caches when business changes
+  useEffect(() => {
+    taxSettingsCacheRef.current = null;
+    receiptSettingsCacheRef.current = null;
+  }, [businessId]);
 
   // Sync demo transactions from sessionStorage when on demo route so list and detail see them
   useEffect(() => {
@@ -98,14 +120,45 @@ export function useTransactions() {
 
   const fetchTransactions = useCallback(async () => {
     if (!businessId) return;
-    const { data, error } = await supabase
+    setFetchError(null);
+    const { data, error, count } = await supabase
       .from('transactions' as any)
-      .select('*')
+      .select(TRANSACTIONS_LIST_COLUMNS, { count: 'exact' })
       .eq('business_id', businessId)
-      .order('created_at', { ascending: false });
-    if (!error && data) setServerTransactions((data as any[]).map(mapRowToTransaction));
+      .order('created_at', { ascending: false })
+      .range(0, TRANSACTIONS_PAGE_SIZE - 1);
+    if (error) {
+      setFetchError(error.message ?? 'Failed to load transactions');
+      // Do not overwrite serverTransactions so existing data stays visible
+    } else if (data) {
+      setServerTransactions((data as any[]).map(mapRowToTransaction));
+      setTotalCount(count ?? 0);
+    }
     setLoading(false);
   }, [businessId]);
+
+  const refetch = useCallback(async () => {
+    setFetchError(null);
+    setLoading(true);
+    await fetchTransactions();
+  }, [fetchTransactions]);
+
+  const loadMoreTransactions = useCallback(async () => {
+    if (!businessId || loadingMore || serverTransactions.length >= totalCount) return;
+    setLoadingMore(true);
+    const from = serverTransactions.length;
+    const to = from + TRANSACTIONS_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('transactions' as any)
+      .select(TRANSACTIONS_LIST_COLUMNS)
+      .eq('business_id', businessId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    setLoadingMore(false);
+    if (!error && data && data.length > 0) {
+      setServerTransactions((prev) => [...prev, ...(data as any[]).map(mapRowToTransaction)]);
+    }
+  }, [businessId, loadingMore, serverTransactions.length, totalCount]);
 
   useEffect(() => {
     if (!businessId) {
@@ -115,24 +168,31 @@ export function useTransactions() {
     fetchTransactions();
   }, [businessId, fetchTransactions]);
 
-  const fetchTransactionById = async (id: string): Promise<{ transaction: Transaction; lineItems: TransactionLineItem[] } | null> => {
+  const fetchTransactionById = useCallback(async (id: string): Promise<FetchTransactionByIdResult> => {
     if (id.startsWith('local-')) {
       const entry = localDemoEntriesRef.current.find((e) => e.transaction.id === id);
-      return entry ? { transaction: entry.transaction, lineItems: entry.lineItems } : null;
+      return entry ? { ok: true, transaction: entry.transaction, lineItems: entry.lineItems } : { ok: false, notFound: true };
     }
+    if (!businessId) return { ok: false, error: 'No business selected.' };
     const [txnResult, itemsResult] = await Promise.all([
-      supabase.from('transactions' as any).select('*').eq('id', id).eq('business_id', businessId!).single(),
+      supabase.from('transactions' as any).select('*').eq('id', id).eq('business_id', businessId).single(),
       supabase.from('transaction_line_items' as any).select('*').eq('transaction_id', id),
     ]);
     const { data: txn, error: txnError } = txnResult;
     const { data: items, error: itemsError } = itemsResult;
-    if (txnError || !txn) return null;
+    if (txnError) {
+      if (txnError.code === 'PGRST116') return { ok: false, notFound: true };
+      return { ok: false, error: txnError.message ?? 'Failed to load transaction' };
+    }
+    if (!txn) return { ok: false, notFound: true };
     const lineItems = !itemsError && items ? (items as any[]).map(mapRowToLineItem) : [];
-    return { transaction: mapRowToTransaction(txn), lineItems };
-  };
+    return { ok: true, transaction: mapRowToTransaction(txn), lineItems };
+  }, [businessId]);
 
   const fetchTaxSettings = async (): Promise<TaxSettingRow[]> => {
     if (!businessId) return [];
+    const cached = taxSettingsCacheRef.current;
+    if (cached && cached.businessId === businessId) return cached.rows;
     const { data, error } = await supabase
       .from('tax_settings' as any)
       .select('*')
@@ -140,17 +200,22 @@ export function useTransactions() {
       .eq('enabled', true)
       .order('sort_order', { ascending: true });
     if (error || !data) return [];
-    return (data as any[]).map((r) => ({ ...r, applies_to: r.applies_to ?? 'both' }));
+    const rows = (data as any[]).map((r) => ({ ...r, applies_to: r.applies_to ?? 'both' }));
+    taxSettingsCacheRef.current = { businessId, rows };
+    return rows;
   };
 
   const fetchReceiptSettings = async () => {
     if (!businessId) return null;
+    const cached = receiptSettingsCacheRef.current;
+    if (cached && cached.businessId === businessId) return cached.data;
     const { data, error } = await supabase
       .from('receipt_settings' as any)
       .select('header_text, footer_text, logo_url, tagline, thank_you_message, return_policy, receipt_phone, receipt_location')
       .eq('business_id', businessId)
       .maybeSingle();
     if (error || !data) return null;
+    receiptSettingsCacheRef.current = { businessId, data };
     return data as any;
   };
 
@@ -202,6 +267,8 @@ export function useTransactions() {
 
   const createTransaction = async (payload: CreateTransactionPayload): Promise<{ data: Transaction | null; error: string | null }> => {
     if (!businessId) return { data: null, error: 'No business selected.' };
+    const validation = validateCreatePayload(payload as any);
+    if (!validation.valid) return { data: null, error: validation.error };
     const subtotalCents = payload.line_items.reduce((sum, li) => sum + li.line_total, 0);
     const serviceSubtotalCents = payload.line_items.filter((li) => li.type === 'service').reduce((sum, li) => sum + li.line_total, 0);
     const productSubtotalCents = payload.line_items.filter((li) => li.type === 'product').reduce((sum, li) => sum + li.line_total, 0);
@@ -287,30 +354,45 @@ export function useTransactions() {
     if (!txn) return { data: null, error: 'Failed to create transaction.' };
 
     const txnId = (txn as any).id;
-    for (const li of payload.line_items) {
-      await supabase.from('transaction_line_items' as any).insert({
-        transaction_id: txnId,
-        type: li.type,
-        reference_id: li.reference_id,
-        name: li.name,
-        quantity: li.quantity,
-        unit_price: li.unit_price,
-        line_total: li.line_total,
-      });
+    const txnNum = (txn as any).transaction_number ?? txnId;
+    const lineRows = payload.line_items.map((li) => ({
+      transaction_id: txnId,
+      type: li.type,
+      reference_id: li.reference_id,
+      name: li.name,
+      quantity: li.quantity,
+      unit_price: li.unit_price,
+      line_total: li.line_total,
+    }));
+    const { error: lineError } = await supabase.from('transaction_line_items' as any).insert(lineRows);
+    if (lineError) {
+      if (import.meta.env.DEV) console.error('[useTransactions] line items insert error', lineError);
+      return { data: null, error: lineError.message || 'Failed to save line items.' };
     }
 
-    for (const li of payload.line_items) {
-      if (li.type === 'product') {
-        const { data: product } = await supabase.from('inventory' as any).select('quantity_on_hand').eq('id', li.reference_id).eq('business_id', businessId).single();
-        const qty = product?.quantity_on_hand ?? 0;
-        const newQty = Math.max(0, qty - li.quantity);
-        await supabase.from('inventory' as any).update({ quantity_on_hand: newQty, updated_at: new Date().toISOString() }).eq('id', li.reference_id).eq('business_id', businessId);
+    const productLineItems = payload.line_items.filter((li) => li.type === 'product');
+    if (productLineItems.length > 0) {
+      const quantityByProduct = new Map<string, number>();
+      for (const li of productLineItems) {
+        quantityByProduct.set(li.reference_id, (quantityByProduct.get(li.reference_id) ?? 0) + li.quantity);
+      }
+      const productIds = [...quantityByProduct.keys()];
+      const { data: products } = await supabase
+        .from('inventory' as any)
+        .select('id, quantity_on_hand')
+        .in('id', productIds)
+        .eq('business_id', businessId);
+      const qtyByProduct = new Map((products ?? []).map((p: any) => [p.id, Number(p.quantity_on_hand ?? 0)]));
+      for (const [productId, deductQty] of quantityByProduct) {
+        const current = qtyByProduct.get(productId) ?? 0;
+        const newQty = Math.max(0, current - deductQty);
+        await supabase.from('inventory' as any).update({ quantity_on_hand: newQty, updated_at: new Date().toISOString() }).eq('id', productId).eq('business_id', businessId);
         await supabase.from('inventory_stock_movements' as any).insert({
           business_id: businessId,
-          product_id: li.reference_id,
-          quantity: -li.quantity,
+          product_id: productId,
+          quantity: -deductQty,
           movement_type: 'sale',
-          notes: `Transaction ${(txn as any).transaction_number ?? txnId}`,
+          notes: `Transaction ${txnNum}`,
         });
       }
     }
@@ -351,6 +433,8 @@ export function useTransactions() {
 
   const updateTransaction = async (id: string, patch: TransactionUpdatePatch): Promise<boolean> => {
     if (!businessId) return false;
+    const validation = validateUpdatePayload(patch as any);
+    if (!validation.valid) return false;
     if (id.startsWith('local-') && isDemoLocalMode()) {
       setLocalDemoEntries((prev) =>
         prev.map((e) =>
@@ -391,18 +475,24 @@ export function useTransactions() {
     amountCents: number,
     reason: string | null,
     restockProductIds: string[]
-  ): Promise<TransactionRefund | null> => {
-    if (!businessId) return null;
+  ): Promise<{ data: TransactionRefund | null; error: string | null }> => {
+    if (!businessId) return { data: null, error: 'No business selected.' };
     if (transactionId.startsWith('local-') && isDemoLocalMode()) {
       const entry = localDemoEntriesRef.current.find((e) => e.transaction.id === transactionId);
-      if (!entry) return null;
+      if (!entry) return { data: null, error: 'Transaction not found.' };
       const newStatus = amountCents >= entry.transaction.total ? 'refunded' : 'partial_refund';
       setLocalDemoEntries((prev) => prev.map((e) => (e.transaction.id === transactionId ? { ...e, transaction: { ...e.transaction, status: newStatus } } : e)));
-      return { id: 'local-refund-' + crypto.randomUUID(), transaction_id: transactionId, amount: amountCents, reason, created_at: new Date().toISOString(), staff_id: null, restock_applied: false };
+      return { data: { id: 'local-refund-' + crypto.randomUUID(), transaction_id: transactionId, amount: amountCents, reason, created_at: new Date().toISOString(), staff_id: null, restock_applied: false }, error: null };
     }
-    if (!user?.id) return null;
+    if (!user?.id) return { data: null, error: 'You must be signed in to issue a refund.' };
     const { data: txn, error: txnErr } = await supabase.from('transactions' as any).select('*').eq('id', transactionId).eq('business_id', businessId).single();
-    if (txnErr || !txn) return null;
+    if (txnErr || !txn) return { data: null, error: txnErr?.message ?? 'Transaction not found.' };
+
+    const { data: productItems } = await supabase.from('transaction_line_items' as any).select('*').eq('transaction_id', transactionId).eq('type', 'product');
+    const items = (productItems ?? []) as any[];
+    const productRefIds = items.map((i) => i.reference_id).filter(Boolean);
+    const refundValidation = validateRefundPayload(amountCents, (txn as any).total, restockProductIds, productRefIds);
+    if (!refundValidation.valid) return { data: null, error: refundValidation.error };
 
     const { data: refund, error: refundErr } = await supabase
       .from('transaction_refunds' as any)
@@ -415,16 +505,20 @@ export function useTransactions() {
       })
       .select()
       .single();
-    if (refundErr || !refund) return null;
+    if (refundErr || !refund) return { data: null, error: refundErr?.message ?? 'Failed to create refund.' };
 
     if (restockProductIds.length > 0) {
-      const { data: items } = await supabase.from('transaction_line_items' as any).select('*').eq('transaction_id', transactionId).eq('type', 'product');
-      for (const item of items || []) {
+      const { data: inventoryRows } = await supabase
+        .from('inventory' as any)
+        .select('id, quantity_on_hand')
+        .in('id', restockProductIds)
+        .eq('business_id', businessId);
+      const currentByProduct = new Map((inventoryRows ?? []).map((p: any) => [p.id, Number(p.quantity_on_hand ?? 0)]));
+      for (const item of items) {
         if (!restockProductIds.includes((item as any).reference_id)) continue;
         const qty = (item as any).quantity;
         const refId = (item as any).reference_id;
-        const { data: product } = await supabase.from('inventory' as any).select('quantity_on_hand').eq('id', refId).eq('business_id', businessId).single();
-        const current = (product as any)?.quantity_on_hand ?? 0;
+        const current = currentByProduct.get(refId) ?? 0;
         await supabase.from('inventory' as any).update({ quantity_on_hand: current + qty, updated_at: new Date().toISOString() }).eq('id', refId).eq('business_id', businessId);
         await supabase.from('inventory_stock_movements' as any).insert({
           business_id: businessId,
@@ -433,6 +527,7 @@ export function useTransactions() {
           movement_type: 'adjustment',
           notes: 'Refund restock',
         });
+        currentByProduct.set(refId, current + qty);
       }
     }
 
@@ -440,10 +535,10 @@ export function useTransactions() {
     await supabase.from('transactions' as any).update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', transactionId).eq('business_id', businessId);
     setServerTransactions((prev) => prev.map((t) => (t.id === transactionId ? { ...t, status: newStatus } : t)));
 
-    return refund as TransactionRefund;
+    return { data: refund as TransactionRefund, error: null };
   };
 
-  const fetchTransactionHistory = async (transactionId: string): Promise<TransactionHistoryEntry[]> => {
+  const fetchTransactionHistory = useCallback(async (transactionId: string): Promise<TransactionHistoryEntry[]> => {
     if (!businessId) return [];
     if (transactionId.startsWith('local-')) return [];
     const { data, error } = await supabase
@@ -462,12 +557,19 @@ export function useTransactions() {
       ...e,
       changed_by_display: e.changed_by_user_id ? (byId.get(e.changed_by_user_id) ?? null) : null,
     }));
-  };
+  }, [businessId]);
+
+  const hasMore = serverTransactions.length < totalCount;
 
   return {
     transactions,
     loading,
-    refetch: fetchTransactions,
+    loadingMore,
+    totalCount,
+    hasMore,
+    error: fetchError,
+    refetch,
+    loadMore: loadMoreTransactions,
     fetchTransactionById,
     fetchTransactionHistory,
     fetchTaxSettings,
