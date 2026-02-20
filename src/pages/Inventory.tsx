@@ -339,12 +339,7 @@ export function Inventory({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('inventory.title')}</h1>
-          <p className="text-muted-foreground mt-1">{t('inventory.description')}</p>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="gap-2" title={t('inventory.scanBarcode')} onClick={() => setScanOpen(true)}>
             <Scan className="w-4 h-4" />
@@ -611,7 +606,7 @@ export function Inventory({
           )}
 
           {filteredProducts.length === 0 && (
-            <Card className="border-dashed">
+            <Card>
               <CardContent className="p-12 text-center">
                 <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">

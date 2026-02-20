@@ -191,8 +191,7 @@ export function TransactionCreate() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t('transactions.newTransaction')}</h1>
+      <div className="flex items-center justify-end">
         <Button variant="outline" onClick={() => navigate(`/${businessSlug}/transactions`)}>
           {t('common.cancel')}
         </Button>

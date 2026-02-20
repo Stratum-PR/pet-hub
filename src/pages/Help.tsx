@@ -73,13 +73,8 @@ export function Help() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">{t('nav.help')}</h1>
-        <p className="text-muted-foreground mt-1">{t('help.description')}</p>
-      </div>
-
       {/* Contact Email Box – centered */}
-      <Card className="mx-auto shadow-md border-2" style={{ maxWidth: MAX_WIDTH }}>
+      <Card className="mx-auto shadow-md" style={{ maxWidth: MAX_WIDTH }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
@@ -102,7 +97,7 @@ export function Help() {
       </Card>
 
       {/* Message Form Box – centered */}
-      <Card className="mx-auto shadow-md border-2" style={{ maxWidth: MAX_WIDTH }}>
+      <Card className="mx-auto shadow-md" style={{ maxWidth: MAX_WIDTH }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Send className="h-5 w-5" />

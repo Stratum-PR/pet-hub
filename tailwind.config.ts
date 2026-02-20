@@ -101,12 +101,129 @@ export default {
             opacity: '1',
             transform: 'translateY(0)'
           }
+        },
+        'hero-film-drift': {
+          '0%': { transform: 'translate(0, 0)' },
+          '50%': { transform: 'translate(0.15%, 0.08%)' },
+          '100%': { transform: 'translate(0, 0)' }
+        },
+        'word-appear': {
+          from: {
+            opacity: '0',
+            transform: 'translateY(20px)'
+          },
+          to: {
+            opacity: '1',
+            transform: 'translateY(0)'
+          }
+        },
+        'backdrop-blur-in': {
+          '0%': { backdropFilter: 'blur(0px)' },
+          '100%': { backdropFilter: 'blur(24px)' }
+        },
+        'modal-appear': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(28%) scale(1.08)'
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0) scale(1)'
+          }
+        },
+        'dialog-content-appear': {
+          '0%': {
+            opacity: '0',
+            transform: 'translate(-50%, 28%) scale(1.08)'
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translate(-50%, -50%) scale(1)'
+          }
+        },
+        'logo-appear': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(28%) scale(1.08)'
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0) scale(1)'
+          }
+        },
+        'cta-bounce-in': {
+          from: {
+            opacity: '0',
+            transform: 'scale(0.85)'
+          },
+          to: {
+            opacity: '1',
+            transform: 'scale(1)'
+          }
+        },
+        'letter-appear': {
+          from: {
+            opacity: '0'
+          },
+          to: {
+            opacity: '1'
+          }
+        },
+        'subtitle-fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' }
+        },
+        'cta-reveal': {
+          from: {
+            opacity: '0',
+            transform: 'scale(0.2)'
+          },
+          to: {
+            opacity: '1',
+            transform: 'scale(1)'
+          }
+        },
+        'page-cover-down': {
+          '0%': { height: '0' },
+          '100%': { height: '100%' }
+        },
+        'page-title-reveal': {
+          '0%': { opacity: '0', clipPath: 'inset(100% 0 0 0)' },
+          '100%': { opacity: '1', clipPath: 'inset(0 0 0 0)' }
+        },
+        /* Header bar page title: bottom to top */
+        'header-title-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
+        },
+        'page-object-appear': {
+          '0%': { opacity: '0', transform: 'scale(0.85)' },
+          '100%': { opacity: '1', transform: 'scale(1)' }
+        },
+        'page-card-content-up': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' }
         }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'fade-in': 'fade-in 0.3s ease-out'
+        'fade-in': 'fade-in 0.3s ease-out',
+        'hero-film-drift': 'hero-film-drift 18s ease-in-out infinite',
+        'word-appear': 'word-appear 0.4s ease-out forwards',
+        'backdrop-blur-in': 'backdrop-blur-in 0.4s ease-out forwards',
+        'modal-appear': 'modal-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'dialog-content-appear': 'dialog-content-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'logo-appear': 'logo-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'cta-bounce-in': 'cta-bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'letter-appear': 'letter-appear var(--letter-duration, 0.03s) ease-out forwards',
+        'subtitle-fade-in': 'subtitle-fade-in 0.5s ease-out 1.5s forwards',
+        'cta-reveal': 'cta-reveal 0.5s ease-out 1.5s forwards',
+        'page-cover-down': 'page-cover-down 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'page-title-reveal': 'page-title-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'header-title-in': 'header-title-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'page-object-appear': 'page-object-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'page-card-content-up': 'page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards'
       },
       fontFamily: {
         sans: [

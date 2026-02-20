@@ -187,12 +187,6 @@ export function BusinessAppointments() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('appointments.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('appointments.description')}
-          </p>
-        </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -213,7 +207,7 @@ export function BusinessAppointments() {
       </div>
 
       {showBookingLink && (
-        <Card className="border-primary/50">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex-1">

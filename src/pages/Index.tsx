@@ -1,5 +1,7 @@
-import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useMemo } from 'react';
 import { Layout } from '@/components/Layout';
+import { PageTransitionProvider, usePageTransition } from '@/contexts/PageTransitionContext';
 import { SettingsLayout } from '@/components/SettingsLayout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Clients } from '@/pages/Clients';
@@ -31,6 +33,18 @@ import { Help } from '@/pages/Help';
 import { Transactions } from '@/pages/Transactions';
 import { TransactionCreate } from '@/pages/TransactionCreate';
 import { TransactionDetail } from '@/pages/TransactionDetail';
+
+/** Renders Routes with displayPathname so old page stays visible while cover rolls down. */
+function TransitionRoutes({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const ctx = usePageTransition();
+  const displayPathname = ctx?.displayPathname ?? location.pathname;
+  const displayLocation = useMemo(
+    () => ({ ...location, pathname: displayPathname }),
+    [location.pathname, location.search, location.hash, displayPathname],
+  );
+  return <Routes location={displayLocation}>{children}</Routes>;
+}
 
 const Index = () => {
   const businessId = useBusinessId();
@@ -90,13 +104,14 @@ const Index = () => {
       <Route
         path="*"
         element={
-        <Layout settings={settings}>
-          <Routes>
-            {/* Default dashboard */}
-            <Route
-              path=""
-              element={<Navigate to="dashboard" replace />}
-            />
+        <PageTransitionProvider>
+          <Layout settings={settings}>
+            <TransitionRoutes>
+              {/* Default dashboard */}
+              <Route
+                path=""
+                element={<Navigate to="dashboard" replace />}
+              />
             <Route
               path="dashboard"
               element={
@@ -292,8 +307,9 @@ const Index = () => {
               <Route path="billing" element={<Billing />} />
             </Route>
             <Route path="help" element={<Help />} />
-          </Routes>
-        </Layout>
+            </TransitionRoutes>
+          </Layout>
+        </PageTransitionProvider>
       } />
       {/* Public booking page - no layout, kept global (not tied to a business slug) */}
       <Route path="/book-appointment" element={<BookAppointment />} />

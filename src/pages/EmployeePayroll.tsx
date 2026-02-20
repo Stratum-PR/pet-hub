@@ -83,15 +83,6 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
           Back to Payroll
         </Button>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <User className="w-8 h-8 text-primary" />
-              {employee.name}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Detailed payroll and timekeeping records
-            </p>
-          </div>
           <Button
             variant="outline"
             onClick={() => navigate(`/reports/payroll/employee/${employee.id}/timesheet`, {

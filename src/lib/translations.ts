@@ -73,6 +73,62 @@ export const translations: Translations = {
     en: 'View Pricing Plans',
     es: 'Planes de Subscripción'
   },
+  // Splash hero (premium landing) — two lines, fixed break for all screen sizes
+  'landing.splashHeadline': {
+    en: 'Transform How You Run Your Pet Business',
+    es: 'Transforma Cómo Gestionas Tu Negocio de Mascotas'
+  },
+  'landing.splashHeadlineLine1': {
+    en: 'Transform How You Run',
+    es: 'Transforma cómo gestionas'
+  },
+  'landing.splashHeadlineLine2': {
+    en: 'Your Pet Business',
+    es: 'tu negocio de mascotas'
+  },
+  'landing.splashHeadline.1': { en: 'Transform', es: 'Transforma' },
+  'landing.splashHeadline.2': { en: 'How', es: 'Cómo' },
+  'landing.splashHeadline.3': { en: 'You', es: 'Gestionas' },
+  'landing.splashHeadline.4': { en: 'Run', es: 'Tu' },
+  'landing.splashHeadline.5': { en: 'Your', es: 'Negocio' },
+  'landing.splashHeadline.6': { en: 'Pet', es: 'de' },
+  'landing.splashHeadline.7': { en: 'Business', es: 'Mascotas' },
+  'landing.splashSubheadline': {
+    en: 'Save hours every week with software built specifically for your industry.',
+    es: 'Ahorra horas cada semana con software hecho específicamente para tu industria.'
+  },
+  'landing.navFeatures': {
+    en: 'Features',
+    es: 'Características'
+  },
+  'landing.navWhyPetHub': {
+    en: 'Why Pet Hub',
+    es: 'Por Qué Pet Hub'
+  },
+  'landing.navPricing': {
+    en: 'Pricing',
+    es: 'Precios'
+  },
+  'landing.navFaq': {
+    en: 'FAQ',
+    es: 'Preguntas Frecuentes'
+  },
+  'landing.navAbout': {
+    en: 'About',
+    es: 'Nosotros'
+  },
+  'landing.modalClose': {
+    en: 'Close modal',
+    es: 'Cerrar'
+  },
+  'landing.modalWelcomeBack': {
+    en: 'Welcome Back',
+    es: 'Bienvenido de Nuevo'
+  },
+  'landing.modalSignUp': {
+    en: 'Start Free Trial',
+    es: 'Comenzar Prueba Gratis'
+  },
 
   // Login page
   'login.title': {
@@ -1270,13 +1326,113 @@ export const translations: Translations = {
     en: 'Appointments',
     es: 'Citas'
   },
+  'dashboard.todayAppointments': {
+    en: "Today's Appointments",
+    es: 'Citas de hoy'
+  },
+  'dashboard.viewAll': {
+    en: 'View all',
+    es: 'Ver todo'
+  },
+  'dashboard.noAppointmentsToday': {
+    en: 'No appointments today',
+    es: 'No hay citas hoy'
+  },
+  'dashboard.noData': {
+    en: 'No data',
+    es: 'Sin datos'
+  },
+  'dashboard.appointmentsCount': {
+    en: 'appointments',
+    es: 'citas'
+  },
   'dashboard.revenue': {
     en: 'Revenue',
     es: 'Ingresos'
   },
+  'dashboard.chartWeekly': {
+    en: 'Weekly',
+    es: 'Semanal'
+  },
+  'dashboard.chartMonthly': {
+    en: 'Monthly',
+    es: 'Mensual'
+  },
+  'dashboard.chartQuarterly': {
+    en: 'Quarterly',
+    es: 'Trimestral'
+  },
+  'dashboard.chartYearly': {
+    en: 'Yearly',
+    es: 'Anual'
+  },
+  'dashboard.chartCustom': {
+    en: 'Custom',
+    es: 'Personalizado'
+  },
+  'dashboard.customStart': {
+    en: 'Start date',
+    es: 'Fecha inicio'
+  },
+  'dashboard.customEnd': {
+    en: 'End date',
+    es: 'Fecha fin'
+  },
+  'dashboard.from': {
+    en: 'From',
+    es: 'Desde'
+  },
+  'dashboard.to': {
+    en: 'To',
+    es: 'Hasta'
+  },
+  'dashboard.apply': {
+    en: 'Apply',
+    es: 'Aplicar'
+  },
+  'dashboard.period': {
+    en: 'Period',
+    es: 'Período'
+  },
+  'dashboard.topSellingServices': {
+    en: 'Top selling services',
+    es: 'Servicios más vendidos'
+  },
+  'dashboard.clientType': {
+    en: 'Client type',
+    es: 'Tipo de cliente'
+  },
+  'dashboard.newVsRepeatClients': {
+    en: 'New vs repeat clients',
+    es: 'Clientes nuevos vs recurrentes'
+  },
+  'dashboard.newClients': {
+    en: 'New',
+    es: 'Nuevos'
+  },
+  'dashboard.repeatClients': {
+    en: 'Repeat',
+    es: 'Recurrentes'
+  },
+  'dashboard.tooltipNewCount': {
+    en: 'new',
+    es: 'nuevos'
+  },
+  'dashboard.tooltipRepeatCount': {
+    en: 'repeats',
+    es: 'recurrentes'
+  },
+  'dashboard.servicesCompleted': {
+    en: 'Services completed',
+    es: 'Servicios completados'
+  },
+  'dashboard.quantity': {
+    en: 'Quantity',
+    es: 'Cantidad'
+  },
   'dashboard.revenueLast30Days': {
-    en: 'Revenue (last 30 days)',
-    es: 'Ingresos (últimos 30 días)'
+    en: 'Revenue (30 d)',
+    es: 'Ingresos (30 d)'
   },
   'dashboard.revenueFromTransactions': {
     en: 'From transactions',

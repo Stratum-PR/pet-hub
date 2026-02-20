@@ -1,0 +1,203 @@
+/* Page transition: hero title first (opacity), then containers left→right top→bottom (next at 80% of previous) */
+
+@keyframes page-title-opacity {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes page-object-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes page-card-content-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-list-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 1) First title (hero): opacity only — skip when page uses its own staggered sequence */
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:first-child,
+.page-transition-inner[data-active] [data-hero-title] {
+  opacity: 0;
+  animation: page-title-opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0.06s forwards;
+}
+
+/* 2) Containers: top-to-bottom, left-to-right order with quick stagger */
+.page-transition-inner[data-active] [data-transition-containers] > * {
+  opacity: 0;
+  animation: page-object-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.1s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.16s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(3) { animation-delay: 0.22s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(4) { animation-delay: 0.28s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(5) { animation-delay: 0.34s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(6) { animation-delay: 0.4s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(7) { animation-delay: 0.46s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(8) { animation-delay: 0.52s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(9) { animation-delay: 0.58s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(10) { animation-delay: 0.64s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(n+11) { animation-delay: 0.7s; }
+
+/* 2b) Second row (dashboard: Citas then Ingresos) — after first row finishes */
+.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.5s; }
+.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.62s; }
+
+/* 3) Other blocks — skip when page uses data-page-visible staggered sequence */
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(2) { animation: none; opacity: 1; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(3),
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(4),
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(n+5) {
+  opacity: 0;
+  animation: page-object-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(3) { animation-delay: 0.7s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(4) { animation-delay: 0.82s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(n+5) { animation-delay: 0.94s; }
+
+/* 4) List items: one by one quickly, top to bottom (delay = --list-start on parent [data-list]) */
+.page-transition-inner[data-active] [data-list] [data-list-item] {
+  opacity: 0;
+  animation: page-list-item-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(1) { animation-delay: calc(var(--list-start, 0s) + 0s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(2) { animation-delay: calc(var(--list-start, 0s) + 0.05s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(3) { animation-delay: calc(var(--list-start, 0s) + 0.1s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(4) { animation-delay: calc(var(--list-start, 0s) + 0.15s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(5) { animation-delay: calc(var(--list-start, 0s) + 0.2s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(6) { animation-delay: calc(var(--list-start, 0s) + 0.25s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(7) { animation-delay: calc(var(--list-start, 0s) + 0.3s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(8) { animation-delay: calc(var(--list-start, 0s) + 0.35s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(9) { animation-delay: calc(var(--list-start, 0s) + 0.4s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(10) { animation-delay: calc(var(--list-start, 0s) + 0.45s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(n+11) { animation-delay: calc(var(--list-start, 0s) + 0.5s); }
+
+
+/* Card content: from below + transparent to position + opaque (blocks 3 and 4 = cards) */
+.page-transition-inner[data-active] [data-card-title] {
+  opacity: 0;
+  animation: page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.page-transition-inner[data-active] [data-card-subtitle] {
+  opacity: 0;
+  animation: page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.page-transition-inner[data-active] [data-card-row] {
+  opacity: 0;
+  animation: page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-title] { animation-delay: 0.82s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-subtitle] { animation-delay: 0.88s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-row] { animation-delay: 0.94s; }
+
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-title] { animation-delay: 0.94s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-subtitle] { animation-delay: 1s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-row] { animation-delay: 1.06s; }
+
+/* ========== Page load sequence (every page): title → subtitle → toolbar → search → table shell → columns L→R → rows T→B, quick sequential ========== */
+[data-page-visible] [data-page-title] {
+  opacity: 0;
+  animation: page-title-opacity 0.1s ease-out forwards;
+  animation-delay: 0s;
+}
+[data-page-visible] [data-page-subtitle] {
+  opacity: 0;
+  animation: page-title-opacity 0.1s ease-out forwards;
+  animation-delay: 0.08s;
+}
+[data-page-visible] [data-page-toolbar] {
+  opacity: 0;
+  animation: page-title-opacity 0.1s ease-out forwards;
+  animation-delay: 0.16s;
+}
+[data-page-visible] [data-page-search] {
+  opacity: 0;
+  animation: page-title-opacity 0.1s ease-out forwards;
+  animation-delay: 0.24s;
+}
+[data-page-visible] [data-page-content] {
+  opacity: 0;
+  animation: page-title-opacity 0.1s ease-out forwards;
+  animation-delay: 0.32s;
+}
+
+/* Table: shell appears, then column names L→R, then rows T→B */
+[data-page-visible] [data-table-load] {
+  opacity: 0;
+  animation: page-title-opacity 0.1s ease-out forwards;
+  animation-delay: 0.32s;
+}
+[data-page-visible] [data-table-load] thead th {
+  opacity: 0;
+  animation: page-title-opacity 0.08s ease-out forwards;
+}
+[data-page-visible] [data-table-load] thead th:nth-child(1) { animation-delay: 0.4s; }
+[data-page-visible] [data-table-load] thead th:nth-child(2) { animation-delay: 0.43s; }
+[data-page-visible] [data-table-load] thead th:nth-child(3) { animation-delay: 0.46s; }
+[data-page-visible] [data-table-load] thead th:nth-child(4) { animation-delay: 0.49s; }
+[data-page-visible] [data-table-load] thead th:nth-child(5) { animation-delay: 0.52s; }
+[data-page-visible] [data-table-load] thead th:nth-child(6) { animation-delay: 0.55s; }
+[data-page-visible] [data-table-load] thead th:nth-child(7) { animation-delay: 0.58s; }
+[data-page-visible] [data-table-load] thead th:nth-child(8) { animation-delay: 0.61s; }
+[data-page-visible] [data-table-load] thead th:nth-child(n+9) { animation-delay: 0.64s; }
+
+[data-page-visible] [data-table-load] tbody tr {
+  opacity: 0;
+  animation: page-title-opacity 0.08s ease-out forwards;
+}
+[data-page-visible] [data-table-load] tbody tr:nth-child(1) { animation-delay: 0.68s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(2) { animation-delay: 0.72s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(3) { animation-delay: 0.76s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(4) { animation-delay: 0.8s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(5) { animation-delay: 0.84s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(6) { animation-delay: 0.88s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(7) { animation-delay: 0.92s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(8) { animation-delay: 0.96s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(9) { animation-delay: 1s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(10) { animation-delay: 1.04s; }
+[data-page-visible] [data-table-load] tbody tr:nth-child(n+11) { animation-delay: 1.08s; }
+
+/* Card grids (Clients/Pets card view): load left→right, top→bottom like dashboard */
+[data-page-visible] [data-page-cards-grid] > * {
+  opacity: 0;
+  animation: page-object-appear 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+[data-page-visible] [data-page-cards-grid] > *:nth-child(1) { animation-delay: 0.4s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(2) { animation-delay: 0.46s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(3) { animation-delay: 0.52s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(4) { animation-delay: 0.58s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(5) { animation-delay: 0.64s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(6) { animation-delay: 0.7s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(7) { animation-delay: 0.76s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(8) { animation-delay: 0.82s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(9) { animation-delay: 0.88s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(10) { animation-delay: 0.94s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(11) { animation-delay: 1s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(12) { animation-delay: 1.06s; }
+[data-page-visible] [data-page-cards-grid] > *:nth-child(n+13) { animation-delay: 1.12s; }

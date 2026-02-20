@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingUp, DollarSign, Clock, Users, Dog, Calendar } from 'lucide-react';
 import { Client, Pet, Employee, TimeEntry, Appointment } from '@/types';
@@ -125,13 +125,6 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('reports.title')}</h1>
-        <p className="text-muted-foreground mt-1">
-          {t('reports.description')}
-        </p>
-      </div>
-
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="shadow-sm">
@@ -202,10 +195,17 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={revenueData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="day" className="text-xs" />
-                <YAxis className="text-xs" />
+              <AreaChart data={revenueData} margin={{ top: 12, right: 12, bottom: 12, left: 12 }}>
+                <defs>
+                  <linearGradient id="reportsRevenueStroke" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                  </linearGradient>
+                  <linearGradient id="reportsRevenueFill" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.22} />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <Tooltip 
                   formatter={(value) => [`$${value}`, 'Revenue']}
                   contentStyle={{ 
@@ -214,14 +214,8 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
                     borderRadius: '8px'
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="hsl(168, 60%, 45%)" 
-                  strokeWidth={2}
-                  dot={{ fill: 'hsl(168, 60%, 45%)' }}
-                />
-              </LineChart>
+                <Area type="monotone" dataKey="revenue" stroke="url(#reportsRevenueStroke)" strokeWidth={2} fill="url(#reportsRevenueFill)" dot={false} />
+              </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

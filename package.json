@@ -17,7 +17,8 @@
     "supabase:stop": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-supabase.ps1",
     "supabase:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-supabase.ps1",
     "supabase:status": "supabase status",
-    "setup-env": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-env.ps1"
+    "setup-env": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-env.ps1",
+    "move-hero-fallback": "powershell -ExecutionPolicy Bypass -File ./scripts/move-hero-background.ps1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

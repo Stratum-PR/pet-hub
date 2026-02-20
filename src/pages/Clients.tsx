@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useSearchParams, useParams, useNavigate } from 'react-router-dom';
-import { Plus, X, LayoutGrid, List, Eye, Dog, Edit, Trash2 } from 'lucide-react';
+import { Plus, X, LayoutGrid, List, Dog, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientForm } from '@/components/ClientForm';
 import { ClientList } from '@/components/ClientList';
@@ -16,6 +16,9 @@ import {
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
+import { usePageLoadRef } from '@/hooks/usePageLoad';
+import { useTransactions } from '@/hooks/useTransactions';
+import { format } from 'date-fns';
 
 interface ClientsProps {
   clients: Client[];
@@ -49,6 +52,8 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
   const [clientDetailOpen, setClientDetailOpen] = useState<Client | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
+  const pageLoadRef = usePageLoadRef();
+  const { transactions } = useTransactions();
 
   const handleDeleteClick = (id: string) => {
     setClientToDelete(id);
@@ -156,51 +161,45 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('clients.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('clients.description')}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-muted-foreground">View:</span>
-          <div className="inline-flex rounded-md border bg-muted p-0.5">
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
-                viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              }`}
-              onClick={() => setViewMode('cards')}
-              aria-label="Card view"
-            >
-              <LayoutGrid className="w-4 h-4 shrink-0" />
-              <span>Cards</span>
-            </button>
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
-                viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              }`}
-              onClick={() => setViewMode('list')}
-              aria-label="List view"
-            >
-              <List className="w-4 h-4 shrink-0" />
-              <span>List</span>
-            </button>
-          </div>
-          <Button
-            onClick={() => {
-              setEditingClient(null);
-              setShowForm(!showForm);
-            }}
-            className="shadow-sm flex items-center gap-2"
+    <div ref={pageLoadRef} className="space-y-6 animate-fade-in" data-transition-root>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap" data-page-toolbar data-page-search>
+        <SearchFilter
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          placeholder={t('clients.searchPlaceholder')}
+        />
+        <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5">
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+              viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            }`}
+            onClick={() => setViewMode('cards')}
+            aria-label="Card view"
           >
-            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showForm ? t('common.cancel') : t('clients.addClient')}
-          </Button>
+            <LayoutGrid className="w-4 h-4 shrink-0" />
+          </button>
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+              viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            }`}
+            onClick={() => setViewMode('list')}
+            aria-label="List view"
+          >
+            <List className="w-4 h-4 shrink-0" />
+          </button>
         </div>
+        <Button
+          onClick={() => {
+            setEditingClient(null);
+            setShowForm(!showForm);
+          }}
+          className="shadow-sm flex items-center gap-2 shrink-0"
+        >
+          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {showForm ? t('common.cancel') : t('clients.addClient')}
+        </Button>
       </div>
 
       {showForm && (
@@ -214,36 +213,33 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
         />
       )}
 
-      <SearchFilter
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        placeholder={t('clients.searchPlaceholder')}
-      />
-
       {filteredClients.length === 0 ? (
-        <ClientList
-          clients={[]}
-          pets={pets}
-          onDelete={onDeleteClient}
-          onEdit={handleEdit}
-          selectedClientId={selectedClientId}
-        />
+        <div data-page-content>
+          <ClientList
+            clients={[]}
+            pets={pets}
+            onDelete={onDeleteClient}
+            onEdit={handleEdit}
+            selectedClientId={selectedClientId}
+          />
+        </div>
       ) : viewMode === 'cards' ? (
-        <ClientList
-          clients={filteredClients}
-          pets={pets}
-          onViewClient={setClientDetailOpen}
-          onDelete={onDeleteClient}
-          onEdit={handleEdit}
-          selectedClientId={selectedClientId}
-        />
+        <div data-page-content>
+          <ClientList
+            clients={filteredClients}
+            pets={pets}
+            onViewClient={setClientDetailOpen}
+            onDelete={onDeleteClient}
+            onEdit={handleEdit}
+            selectedClientId={selectedClientId}
+          />
+        </div>
       ) : (
-        <>
-          <div className="overflow-x-auto rounded-lg border bg-card">
+        <div data-page-content>
+          <div className="overflow-x-auto rounded-lg border-0 bg-card" data-table-load>
             <table className="w-full text-sm">
               <thead className="bg-muted/60">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium w-10"></th>
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listName')}</th>
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listEmail')}</th>
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listPhone')}</th>
@@ -263,17 +259,6 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                       onClick={() => setClientDetailOpen(client)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setClientDetailOpen(client); } }}
                     >
-                      <td className="px-3 py-2 w-10" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setClientDetailOpen(client)}
-                          aria-label="View client details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </td>
                       <td className="px-3 py-2">
                         <button
                           type="button"
@@ -310,12 +295,12 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
 
       {/* Client detail popup (shared for list and cards) */}
       <Dialog open={!!clientDetailOpen} onOpenChange={(open) => !open && setClientDetailOpen(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           {clientDetailOpen && (
             <>
               <DialogHeader>
@@ -357,6 +342,45 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                       ))
                     )}
                   </div>
+                </div>
+                {/* Transaction history for this client */}
+                <div className="pt-3 border-t border-border">
+                  <h4 className="font-medium text-foreground mb-2">Transaction history</h4>
+                  {(() => {
+                    const clientTxns = (transactions ?? []).filter(
+                      (txn: any) => txn.customer_id === clientDetailOpen.id
+                    ).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    if (clientTxns.length === 0) {
+                      return <p className="text-muted-foreground">No transactions yet.</p>;
+                    }
+                    return (
+                      <ul className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {clientTxns.map((txn: any) => {
+                          const totalDollars = (Number(txn.total) / 100).toFixed(2);
+                          const displayId = txn.transaction_number != null
+                            ? `TXN-${String(txn.transaction_number).padStart(5, '0')}`
+                            : txn.id.slice(0, 8);
+                          return (
+                            <li key={txn.id}>
+                              <button
+                                type="button"
+                                className="flex justify-between items-center w-full text-left py-1 px-2 rounded hover:bg-muted/60"
+                                onClick={() => {
+                                  setClientDetailOpen(null);
+                                  if (businessSlug) navigate(`/${businessSlug}/transactions/${txn.id}`);
+                                  else navigate(`/transactions/${txn.id}`);
+                                }}
+                              >
+                                <span className="font-mono text-xs">{displayId}</span>
+                                <span>{format(new Date(txn.created_at), 'MMM d, yyyy')}</span>
+                                <span className="font-medium">${totalDollars}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    );
+                  })()}
                 </div>
               </div>
               <DialogFooter>

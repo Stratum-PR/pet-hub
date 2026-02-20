@@ -173,13 +173,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('payroll.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('payroll.description')}
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

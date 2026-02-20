@@ -146,13 +146,6 @@ export function Checkout({ appointments, clients, pets, services, onUpdateAppoin
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Checkout</h1>
-        <p className="text-muted-foreground mt-1">
-          Review and finalize appointment details
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">

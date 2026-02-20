@@ -243,11 +243,6 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('nav.accountSettings')}</h1>
-        <p className="text-muted-foreground mt-1">{t('accountSettings.description')}</p>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>{t('accountSettings.language')}</CardTitle>
