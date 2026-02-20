@@ -14,6 +14,8 @@ import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { isDemoMode } from '@/lib/authRouting';
 import { Download, Plus, Trash2, Upload, ZoomIn, ZoomOut, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { GeofencingSettings } from '@/components/GeofencingSettings';
+import { KioskManagerPinSettings } from '@/components/KioskManagerPinSettings';
 import {
   Dialog,
   DialogContent,
@@ -676,6 +678,12 @@ export function BusinessSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Time Kiosk Settings */}
+      <div className="space-y-6">
+        <KioskManagerPinSettings />
+        <GeofencingSettings />
+      </div>
 
       {/* Low stock and Data export side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
