@@ -105,8 +105,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
   const isPill = !mobile;
   const linkClass = (active: boolean, isCollapsedNav = false) =>
     cn(
-      'flex items-center gap-3 rounded-full text-sm font-medium transition-all duration-200',
+      'flex items-center gap-3 rounded-full text-sm font-medium transition-all duration-200 min-w-0',
       isCollapsedNav ? 'justify-center w-10 h-10 flex-shrink-0' : 'rounded-full w-10 h-10 flex-shrink-0 justify-center sm:justify-start sm:w-full sm:px-3 sm:py-2 sm:h-auto',
+      mobile && !isCollapsedNav && 'justify-start w-full px-3 py-2 h-auto',
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
@@ -249,9 +250,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
             onMouseEnter={() => setEmployeesOpen(true)}
             onMouseLeave={() => setEmployeesOpen(false)}
           >
-            <CollapsibleTrigger className={cn('w-full', linkClass(location.pathname.includes('employee') || location.pathname.includes('time-tracking')))}>
+            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('employee') || location.pathname.includes('time-tracking')))}>
               <UserCog className="h-5 w-5 shrink-0" />
-              {(!collapsed || mobile) && <span className="flex-1 text-left">{t('nav.employees')}</span>}
+              {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.employees')}</span>}
               {(!collapsed || mobile) && (employeesOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -269,9 +270,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
             onMouseEnter={() => setReportsOpen(true)}
             onMouseLeave={() => setReportsOpen(false)}
           >
-            <CollapsibleTrigger className={cn('w-full', linkClass(location.pathname.includes('reports')))}>
+            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('reports')))}>
               <BarChart3 className="h-5 w-5 shrink-0" />
-              {(!collapsed || mobile) && <span className="flex-1 text-left">{t('nav.reports')}</span>}
+              {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.reports')}</span>}
               {(!collapsed || mobile) && (reportsOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
             </CollapsibleTrigger>
             <CollapsibleContent>
@@ -289,9 +290,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
             onMouseEnter={() => setSettingsOpen(true)}
             onMouseLeave={() => setSettingsOpen(false)}
           >
-            <CollapsibleTrigger className={cn('w-full', linkClass(location.pathname.includes('/settings')))}>
+            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('/settings')))}>
               <Settings className="h-5 w-5 shrink-0" />
-              {(!collapsed || mobile) && <span className="flex-1 text-left">{t('nav.settings')}</span>}
+              {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.settings')}</span>}
               {(!collapsed || mobile) && (settingsOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
             </CollapsibleTrigger>
             <CollapsibleContent>
