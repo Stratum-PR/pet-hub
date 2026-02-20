@@ -120,15 +120,6 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
           {t('timesheet.backToPayroll')}
         </Button>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <Clock className="w-8 h-8 text-primary" />
-              {employee.name} - {t('timesheet.title')}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {t('timesheet.detailedRecords')}
-            </p>
-          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Plus, Search, CheckCircle } from 'lucide-react';
+import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useBusinessId } from '@/hooks/useBusinessId';
@@ -52,6 +53,7 @@ export function Transactions() {
   const { clients } = useClientNames();
   const { createNotification } = useNotifications();
   const [search, setSearch] = useState('');
+  const pageLoadRef = usePageLoadRef();
 
   const getCustomerName = (customerId: string | null) => {
     if (!customerId) return 'Walk-in';
@@ -94,15 +96,18 @@ export function Transactions() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('nav.transactions')}</h1>
-          <p className="text-muted-foreground mt-1">
-            View and manage sales transactions. Full create, detail, refunds, and receipts coming in the next phase.
-          </p>
+    <div ref={pageLoadRef} className="space-y-6 animate-fade-in" data-transition-root>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap min-w-0" data-page-toolbar data-page-search>
+        <div className="relative w-full sm:max-w-sm flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by transaction ID or customer name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
-        <Button asChild className="gap-2 shadow-sm">
+        <Button asChild className="gap-2 shadow-sm shrink-0">
           <Link to={businessSlug ? `/${businessSlug}/transactions/new` : '/transactions/new'}>
             <Plus className="w-4 h-4" />
             New Transaction
@@ -110,23 +115,9 @@ export function Transactions() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All transactions</CardTitle>
-          <CardDescription>Newest first. Click a row for full detail (coming soon).</CardDescription>
-          <div className="pt-2">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by transaction ID or customer name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+      <div data-page-content>
+        <Card>
+          <CardContent className="p-0">
           {loading ? (
             <p className="text-muted-foreground py-8 text-center">Loading…</p>
           ) : fetchError ? (
@@ -142,7 +133,7 @@ export function Transactions() {
               No transactions yet. Create one with &quot;New Transaction&quot; (full flow coming soon).
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border-0 bg-card" data-table-load>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
@@ -219,7 +210,8 @@ export function Transactions() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

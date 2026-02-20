@@ -23,6 +23,9 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
 import { AppSidebar, getSidebarCollapsed, setSidebarCollapsed } from '@/components/AppSidebar';
+import { PageTransition } from '@/components/PageTransition';
+import { usePageTransition } from '@/contexts/PageTransitionContext';
+import { cn } from '@/lib/utils';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -67,11 +70,13 @@ export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
   const { businessSlug } = useParams();
   const { isAdmin, profile } = useAuth();
-  const { setTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
   const { notifications, markRead, markAllRead } = useNotifications();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(getSidebarCollapsed);
+  const pageTransition = usePageTransition();
+  const isRevealing = pageTransition?.isRevealing ?? false;
 
   const setCollapsed = (value: boolean) => {
     setSidebarCollapsedState(value);
@@ -121,13 +126,30 @@ export function Layout({ children, settings }: LayoutProps) {
   const pageTitle = getPageTitle(location.pathname, businessSlug);
   const settingsBase = businessSlug ? `/${businessSlug}/settings` : '/settings';
 
+  const [displayTitle, setDisplayTitle] = useState(pageTitle);
+  const [prevTitle, setPrevTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pageTitle === displayTitle && !prevTitle) return;
+    if (pageTitle !== displayTitle) {
+      setPrevTitle(displayTitle);
+      setDisplayTitle(pageTitle);
+    }
+  }, [pageTitle]);
+
+  useEffect(() => {
+    if (!prevTitle) return;
+    const t = setTimeout(() => setPrevTitle(null), 220);
+    return () => clearTimeout(t);
+  }, [prevTitle]);
+
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-background">
       {showAdminHeader && <AdminImpersonationHeader />}
 
       <div className="flex flex-1 min-h-0 overflow-hidden" style={{ paddingTop: showAdminHeader ? 48 : 0 }}>
-        {/* Desktop sidebar: no scroll on column; only the nav list scrolls when user scrolls inside it */}
-        <div className="hidden lg:flex flex-col shrink-0 border-r border-border bg-card h-full overflow-hidden">
+        {/* Desktop sidebar: floating pill, detached from edge */}
+        <div className="hidden lg:flex flex-col shrink-0 h-full pt-4 pb-4 pl-5">
           <AppSidebar
             collapsed={sidebarCollapsed}
             onCollapsedChange={setCollapsed}
@@ -138,9 +160,9 @@ export function Layout({ children, settings }: LayoutProps) {
 
         {/* Main area: only this content scrolls when page is long */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-          {/* Slim top bar */}
+          {/* Transparent header — blends with page background */}
           <header
-            className="border-b border-border bg-card shadow-sm shrink-0 flex items-center justify-between gap-4 px-4 py-2 lg:px-6"
+            className="shrink-0 flex items-center justify-between gap-4 px-4 py-2 lg:px-6 bg-transparent"
             style={{ minHeight: '52px' }}
           >
             <div className="flex items-center gap-3 min-w-0">
@@ -152,7 +174,21 @@ export function Layout({ children, settings }: LayoutProps) {
               >
                 <Menu className="w-5 h-5" />
               </Button>
-              <h1 className="text-lg font-semibold truncate">{pageTitle}</h1>
+              <div className="relative h-8 min-w-[120px] overflow-hidden flex items-center">
+                {prevTitle && (
+                  <div
+                    className="absolute inset-0 flex items-center animate-fade-out-up text-lg font-semibold truncate"
+                    aria-hidden
+                  >
+                    {prevTitle}
+                  </div>
+                )}
+                <h1
+                  className={`absolute inset-0 flex items-center text-lg font-semibold truncate ${prevTitle ? 'opacity-0 animate-fade-in-up' : ''}`}
+                >
+                  {displayTitle}
+                </h1>
+              </div>
               <span
                 className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
                 title="Gracias por ayudarnos a perfeccionar este programa!"
@@ -161,7 +197,10 @@ export function Layout({ children, settings }: LayoutProps) {
               </span>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="hidden sm:inline text-sm text-muted-foreground truncate max-w-[160px]" title={profile?.full_name || profile?.email || ''}>
+                {profile?.full_name?.trim() || profile?.email || ''}
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
@@ -229,8 +268,10 @@ export function Layout({ children, settings }: LayoutProps) {
 
           {!showAdminHeader && <ImpersonationBanner />}
 
-          <main className="flex-1 min-h-0 overflow-auto container mx-auto px-4 py-6">
-            {children}
+          <main className="flex-1 min-h-0 overflow-auto container mx-auto px-4 py-6 flex flex-col">
+            <PageTransition>
+              {children}
+            </PageTransition>
           </main>
 
           <footer className="border-t shrink-0 bg-muted/30">
@@ -238,7 +279,7 @@ export function Layout({ children, settings }: LayoutProps) {
               <div className="flex items-center justify-center gap-2">
                 <span className="text-xs text-muted-foreground">Powered by</span>
                 <a href="https://stratumpr.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center hover:opacity-90 transition-opacity shrink-0">
-                  <img src="/Logo 4.svg" alt="STRATUM PR LLC" className="object-contain h-6 w-auto max-w-[100px] cursor-pointer" />
+                  <img src={resolvedTheme === 'dark' ? '/Logo 2.svg' : '/Logo 4.svg'} alt="STRATUM PR LLC" className="object-contain h-6 w-auto max-w-[100px] cursor-pointer" />
                 </a>
               </div>
               <div className="text-[10px] text-muted-foreground">© 2025 STRATUM PR LLC</div>
@@ -247,9 +288,9 @@ export function Layout({ children, settings }: LayoutProps) {
         </div>
       </div>
 
-      {/* Mobile: hamburger opens sheet with sidebar content */}
+      {/* Mobile: hamburger opens sheet with full expanded sidebar (same as laptop) */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
+        <SheetContent side="left" className="w-[280px] sm:w-[320px] max-w-[85vw] p-0 overflow-hidden flex flex-col">
           <AppSidebar
             collapsed={false}
             onCollapsedChange={() => {}}

@@ -29,7 +29,7 @@ export function EnvDiagnostics() {
   };
 
   return (
-    <Card className="m-4 border-2">
+    <Card className="m-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />

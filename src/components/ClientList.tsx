@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Eye, Mail, Phone, MapPin, Dog } from 'lucide-react';
+import { Mail, Phone, MapPin, Dog } from 'lucide-react';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 
@@ -46,7 +46,7 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, sele
 
   if (clients.length === 0) {
     return (
-      <Card className="border-dashed">
+      <Card>
         <CardContent className="p-12 text-center">
           <p className="text-muted-foreground">No clients found. Add your first client above!</p>
         </CardContent>
@@ -56,7 +56,7 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, sele
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-page-cards-grid>
         {clients.map((client) => {
           const clientPets = pets.filter((pet: any) => pet.client_id === client.id);
           const isSelected = selectedClientId === client.id;
@@ -73,17 +73,6 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, sele
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <h3 className="font-semibold text-lg">{client.first_name} {client.last_name}</h3>
-                  {onViewClient && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => { e.stopPropagation(); onViewClient(client); }}
-                      className="h-8 w-8"
-                      aria-label="View client details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  )}
                 </div>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">

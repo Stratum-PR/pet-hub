@@ -377,11 +377,6 @@ export function BusinessSettingsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('nav.businessSettings')}</h1>
-        <p className="text-muted-foreground mt-1">{t('businessSettings.description')}</p>
-      </div>
-
       {/* Business info: column 1 = name, phone, address, logo; column 2 = business hours (same height or less) */}
       <Card>
         <CardContent className="pt-6">

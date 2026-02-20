@@ -101,40 +101,54 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
   const basePath = businessSlug ? `/${businessSlug}` : '';
   const isActive = (path: string) => location.pathname === `${basePath}/${path}` || (path !== 'dashboard' && location.pathname.startsWith(`${basePath}/${path}`));
 
+  const isPill = !mobile;
   const linkClass = (active: boolean, isCollapsedNav = false) =>
     cn(
-      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-      isCollapsedNav && 'justify-center px-2',
-      active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+      'flex items-center gap-3 rounded-full text-sm font-medium transition-all duration-200',
+      isCollapsedNav ? 'justify-center w-10 h-10 flex-shrink-0' : 'rounded-full w-10 h-10 flex-shrink-0 justify-center sm:justify-start sm:w-full sm:px-3 sm:py-2 sm:h-auto',
+      active
+        ? 'bg-primary text-primary-foreground'
+        : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
     );
 
   const NavLink = ({ path, labelKey, label, icon: Icon }: { path: string; labelKey?: string; label?: string; icon: React.ElementType }) => {
     const to = `${basePath}/${path}`;
     const active = isActive(path);
+    const collapsedNav = collapsed && !mobile;
     return (
-      <Link to={to} className={linkClass(active, collapsed && !mobile)}>
-        <Icon className="h-5 w-5 shrink-0" />
-        {(!collapsed || mobile) && <span>{labelKey ? t(labelKey) : label}</span>}
+      <Link to={to} className={linkClass(active, collapsedNav)}>
+        <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+          <Icon className="h-5 w-5 shrink-0" />
+        </span>
+        {(!collapsed || mobile) && <span className="truncate">{labelKey ? t(labelKey) : label}</span>}
       </Link>
     );
   };
 
   return (
-    <div className={cn('flex h-full flex-col bg-sidebar border-r border-sidebar-border overflow-hidden', mobile ? 'w-full' : collapsed ? 'w-[80px]' : 'w-60')}>
-      {/* Logo + collapse: full logo visible when collapsed; minimal gap before collapse button */}
-      <div className={cn('flex h-14 shrink-0 items-center border-b border-sidebar-border min-w-0', collapsed && !mobile ? 'px-2 gap-0' : 'px-3 gap-2')}>
+    <div
+      className={cn(
+        'flex h-full flex-col overflow-hidden transition-all duration-300',
+        mobile
+          ? 'w-full bg-sidebar border-sidebar-border'
+          : 'h-[calc(100%-0px)] rounded-xl w-[72px] min-w-[72px] shadow-sm border-0 flex-shrink-0 bg-sidebar backdrop-blur-md dark:backdrop-blur-none',
+        !mobile && !collapsed && 'w-60 min-w-[240px]'
+      )}
+    >
+      {/* Logo + collapse */}
+      <div className={cn('flex shrink-0 items-center min-w-0', isPill ? (collapsed ? 'h-14 px-0 justify-center' : 'h-14 px-3 gap-2 justify-between') : 'h-14 px-3 gap-2 border-b border-sidebar-border')}>
         <Link
           to={basePath || '/'}
           className={cn(
             'flex items-center gap-2 min-w-0 overflow-hidden',
-            collapsed && !mobile ? 'flex-none overflow-visible' : 'flex-1 justify-center'
+            isPill && collapsed ? 'flex-none justify-center' : 'flex-1 justify-center min-w-0'
           )}
         >
-          <span className="shrink-0 w-8 h-8 flex items-center justify-center overflow-visible">
+          <span className="shrink-0 w-8 h-8 flex items-center justify-center overflow-visible animate-logo-appear">
             <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 object-contain" aria-hidden />
           </span>
           {(!collapsed || mobile) && (
-            <span className="font-semibold truncate text-sidebar-foreground" style={{ fontFamily: 'var(--font-brand)' }}>
+            <span className="font-bold truncate text-sidebar-foreground text-sm mt-1.5 block" style={{ fontFamily: 'var(--font-telegraf)' }}>
               {businessName?.toLowerCase().includes('demo') ? 'Demo' : businessName || 'Pet Hub'}
             </span>
           )}
@@ -143,7 +157,7 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
           <Button
             variant="ghost"
             size="icon"
-            className={cn('h-8 w-8 shrink-0', collapsed ? 'ml-0' : 'ml-auto')}
+            className={cn('h-8 w-8 shrink-0 rounded-full', collapsed ? 'ml-0' : 'ml-auto')}
             onClick={() => {
               const next = !collapsed;
               onCollapsedChange(next);
@@ -156,7 +170,7 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
         )}
       </div>
 
-      <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-1" style={{ overscrollBehavior: 'contain' }}>
+      <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-2 space-y-1', isPill ? (collapsed ? 'px-3 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
         {mainNavItems.map((item) => (
           <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
         ))}
@@ -170,7 +184,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
               >
                 <DropdownMenuTrigger asChild>
                   <button className={cn('w-full', linkClass(location.pathname.includes('employee') || location.pathname.includes('time-tracking'), true))}>
-                    <UserCog className="h-5 w-5 shrink-0" />
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                      <UserCog className="h-5 w-5 shrink-0" />
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start" className="w-48">
@@ -189,7 +205,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
               >
                 <DropdownMenuTrigger asChild>
                   <button className={cn('w-full', linkClass(location.pathname.includes('reports'), true))}>
-                    <BarChart3 className="h-5 w-5 shrink-0" />
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                      <BarChart3 className="h-5 w-5 shrink-0" />
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start" className="w-48">
@@ -208,7 +226,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
               >
                 <DropdownMenuTrigger asChild>
                   <button className={cn('w-full', linkClass(location.pathname.includes('/settings'), true))}>
-                    <Settings className="h-5 w-5 shrink-0" />
+                    <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                      <Settings className="h-5 w-5 shrink-0" />
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="right" align="start" className="w-48">
@@ -288,9 +308,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
         <NavLink path="help" labelKey="nav.help" icon={Mail} />
       </nav>
 
-      {/* Dark mode: sun/moon inside toggle; no outer moon */}
-      <div className="border-t border-sidebar-border p-3">
-        <div className={cn('flex items-center gap-2', (collapsed && !mobile) && 'justify-center')}>
+      {/* Theme toggle */}
+      <div className={cn('border-t p-3', isPill ? 'border-border/50' : 'border-sidebar-border')}>
+        <div className={cn('flex items-center gap-2', isPill && collapsed && 'justify-center')}>
           {(!collapsed || mobile) && (
             <span className="text-sm text-muted-foreground">{t('nav.darkMode')}</span>
           )}
@@ -300,15 +320,15 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
             aria-checked={theme === 'dark'}
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className={cn(
-              'relative inline-flex h-7 w-14 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors',
+              'relative inline-flex h-7 w-14 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
               theme === 'dark' ? 'bg-primary' : 'bg-input'
             )}
           >
             <span
               className={cn(
-                'absolute top-1 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-background shadow ring-0 transition-transform duration-200',
-                theme === 'dark' ? 'translate-x-7 left-0' : 'translate-x-0 left-1'
+                'absolute top-1 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full shadow ring-0 transition-transform duration-200',
+                theme === 'dark' ? 'translate-x-7 left-0 bg-background' : 'translate-x-0 left-1 bg-background'
               )}
             >
               {theme === 'dark' ? (

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, LayoutGrid, List, Eye, Dog, Cat, ArrowLeft, Edit, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, X, LayoutGrid, List, Dog, Cat, ArrowLeft, Edit, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
@@ -16,6 +16,7 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
+import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { format, parseISO, isWithinInterval, subDays, differenceInDays } from 'date-fns';
 
 interface PetsProps {
@@ -38,7 +39,6 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
   const [petDetailOpen, setPetDetailOpen] = useState<Pet | null>(null);
   const [petDeleteConfirmOpen, setPetDeleteConfirmOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [speciesFilter, setSpeciesFilter] = useState('all');
   const [lastAppointmentFilter, setLastAppointmentFilter] = useState<string>('all');
   type SortKey = 'name' | 'owner' | 'breed' | 'lastAppointment' | 'upcoming';
   const [sortKey, setSortKey] = useState<SortKey>('lastAppointment');
@@ -48,6 +48,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     if (typeof window === 'undefined') return 'cards';
     return window.localStorage.getItem(PET_VIEW_KEY) === 'list' ? 'list' : 'cards';
   });
+  const pageLoadRef = usePageLoadRef();
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(PET_VIEW_KEY, viewMode);
@@ -127,10 +128,6 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
       });
     }
 
-    if (speciesFilter !== 'all') {
-      filtered = filtered.filter(pet => pet.species === speciesFilter);
-    }
-
     if (lastAppointmentFilter !== 'all') {
       const now = new Date();
       if (lastAppointmentFilter === 'none') {
@@ -192,7 +189,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     });
 
     return filtered;
-  }, [pets, clients, searchTerm, speciesFilter, lastAppointmentFilter, lastAppointmentByPet, upcomingAppointmentsByPet, sortKey, sortAsc]);
+  }, [pets, clients, searchTerm, lastAppointmentFilter, lastAppointmentByPet, upcomingAppointmentsByPet, sortKey, sortAsc]);
 
   const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
     if (editingPet) {
@@ -243,52 +240,60 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('pets.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('pets.description')}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-muted-foreground">View:</span>
-          <div className="inline-flex rounded-md border bg-muted p-0.5">
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
-                viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              }`}
-              onClick={() => setViewMode('cards')}
-              aria-label="Card view"
-            >
-              <LayoutGrid className="w-4 h-4 shrink-0" />
-              <span>Cards</span>
-            </button>
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
-                viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              }`}
-              onClick={() => setViewMode('list')}
-              aria-label="List view"
-            >
-              <List className="w-4 h-4 shrink-0" />
-              <span>List</span>
-            </button>
-          </div>
-          <Button
-            onClick={() => {
-              setEditingPet(null);
-              setShowForm(!showForm);
-            }}
-            className="shadow-sm flex items-center gap-2"
-            disabled={clients.length === 0}
+    <div ref={pageLoadRef} className="space-y-6 animate-fade-in" data-transition-root>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap" data-page-toolbar data-page-search>
+        <SearchFilter
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          placeholder={t('pets.searchPlaceholder')}
+        />
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Last appointment:</span>
+          <select
+            value={lastAppointmentFilter}
+            onChange={(e) => setLastAppointmentFilter(e.target.value)}
+            className="h-10 rounded-xl border border-input bg-background/80 backdrop-blur-sm px-3 py-2 text-sm"
           >
-            {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showForm ? t('common.cancel') : t('pets.addPet')}
-          </Button>
+            <option value="all">All</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="none">No appointment</option>
+          </select>
         </div>
+        <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5">
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+              viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            }`}
+            onClick={() => setViewMode('cards')}
+            aria-label="Card view"
+          >
+            <LayoutGrid className="w-4 h-4 shrink-0" />
+          </button>
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+              viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            }`}
+            onClick={() => setViewMode('list')}
+            aria-label="List view"
+          >
+            <List className="w-4 h-4 shrink-0" />
+          </button>
+        </div>
+        <Button
+          onClick={() => {
+            setEditingPet(null);
+            setShowForm(!showForm);
+          }}
+          className="shadow-sm flex items-center gap-2 shrink-0"
+          disabled={clients.length === 0}
+        >
+          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {showForm ? t('common.cancel') : t('pets.addPet')}
+        </Button>
       </div>
 
       {clients.length === 0 && (
@@ -323,52 +328,23 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <SearchFilter
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          placeholder={t('pets.searchPlaceholder')}
-          filterValue={speciesFilter}
-          onFilterChange={setSpeciesFilter}
-          filterOptions={[
-            { value: 'all', label: 'All species' },
-            { value: 'dog', label: t('pets.dogs') },
-            { value: 'cat', label: t('pets.cats') },
-            { value: 'other', label: t('pets.other') },
-          ]}
-          filterLabel={t('pets.species')}
-        />
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Last appointment:</span>
-          <select
-            value={lastAppointmentFilter}
-            onChange={(e) => setLastAppointmentFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
-          >
-            <option value="all">All</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="none">No appointment</option>
-          </select>
-        </div>
-      </div>
-
       {viewMode === 'cards' ? (
-        <PetList
-          pets={filteredPets as any}
-          clients={clients as any}
-          appointments={appointments}
-          onViewPet={setPetDetailOpen}
-          onDelete={onDeletePet}
-          onEdit={handleEdit}
-        />
+        <div data-page-content>
+          <PetList
+            pets={filteredPets as any}
+            clients={clients as any}
+            appointments={appointments}
+            onViewPet={setPetDetailOpen}
+            onDelete={onDeletePet}
+            onEdit={handleEdit}
+          />
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <div data-page-content>
+          <div className="overflow-x-auto rounded-lg border-0 bg-card" data-table-load>
           <table className="w-full text-sm">
             <thead className="bg-muted/60">
               <tr>
-                <th className="text-left px-3 py-2 font-medium w-10"></th>
                 <th className="text-left px-3 py-2 font-medium w-14">{t('pets.listPhoto')}</th>
                 <th
                   className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
@@ -451,17 +427,6 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                     onClick={() => setPetDetailOpen(pet)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPetDetailOpen(pet); } }}
                   >
-                    <td className="px-3 py-2 w-10" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setPetDetailOpen(pet)}
-                        aria-label="View pet details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </td>
                     <td className="px-3 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
                       {photoUrl ? (
                         <img src={photoUrl} alt={pet.name} className="w-10 h-10 rounded object-cover border border-border" />
@@ -476,7 +441,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                       {owner ? (
                         <button
                           type="button"
-                          className="text-primary hover:underline text-left"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20"
                           onClick={() => {
                             if (businessSlug) navigate(`/${businessSlug}/clients?highlight=${owner.id}`);
                             else navigate(`/clients?highlight=${owner.id}`);
@@ -501,17 +466,18 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       <Dialog open={!!petDetailOpen} onOpenChange={(open) => !open && setPetDetailOpen(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           {petDetailOpen && (
             <>
               <DialogHeader>
                 <DialogTitle>{petDetailOpen.name}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-3 text-sm">
                 <p><span className="text-muted-foreground">Species:</span> {petDetailOpen.species || '—'}</p>
                 <p><span className="text-muted-foreground">Breed:</span> {(petDetailOpen as any).breeds?.name ?? (petDetailOpen as any).breed ?? '—'}</p>
                 <p><span className="text-muted-foreground">Weight:</span> {petDetailOpen.weight ?? '—'} {t('pets.lbs')}</p>
@@ -520,26 +486,56 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                   return owner ? (
                     <p>
                       <span className="text-muted-foreground">Owner:</span>{' '}
-                      {owner.first_name} {owner.last_name}
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary font-medium hover:bg-primary/20"
+                        onClick={() => {
+                          setPetDetailOpen(null);
+                          if (businessSlug) navigate(`/${businessSlug}/clients?highlight=${owner.id}`);
+                          else navigate(`/clients?highlight=${owner.id}`);
+                        }}
+                      >
+                        {owner.first_name} {owner.last_name}
+                      </button>
                     </p>
                   ) : null;
                 })()}
-                {lastAppointmentByPet[petDetailOpen.id] && (
-                  <p>
-                    <span className="text-muted-foreground">Last appointment:</span>{' '}
-                    {(() => {
-                      const last = lastAppointmentByPet[petDetailOpen.id];
-                      try {
-                        return format(parseISO(last.includes('T') ? last : last + 'T00:00:00'), 'MMM d, yyyy');
-                      } catch {
-                        return last;
-                      }
-                    })()}
-                  </p>
-                )}
                 {(petDetailOpen as any).notes && (
                   <p><span className="text-muted-foreground">Notes:</span> {(petDetailOpen as any).notes}</p>
                 )}
+                {/* Appointment history for this pet */}
+                <div className="pt-2 border-t border-border">
+                  <h4 className="font-medium text-foreground mb-2">Appointment history</h4>
+                  {(() => {
+                    const petAppointments = (appointments as any[])
+                      .filter((a: any) => a.pet_id === petDetailOpen.id)
+                      .map((a: any) => ({
+                        ...a,
+                        dateStr: a.appointment_date || a.scheduled_date,
+                      }))
+                      .filter((a: any) => a.dateStr)
+                      .sort((a: any, b: any) => new Date(b.dateStr).getTime() - new Date(a.dateStr).getTime());
+                    if (petAppointments.length === 0) {
+                      return <p className="text-muted-foreground">No appointments yet.</p>;
+                    }
+                    return (
+                      <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {petAppointments.map((apt: any) => {
+                          const d = apt.dateStr.includes('T') ? apt.dateStr : apt.dateStr + 'T00:00:00';
+                          const service = apt.service_type || apt.service_name || 'Appointment';
+                          const status = apt.status || '—';
+                          return (
+                            <li key={apt.id} className="flex justify-between items-baseline gap-2 text-muted-foreground">
+                              <span>{format(parseISO(d), 'MMM d, yyyy')}</span>
+                              <span className="truncate">{service}</span>
+                              <span className="text-xs capitalize">{status}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    );
+                  })()}
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => { setPetDetailOpen(null); handleEdit(petDetailOpen); }}>

@@ -7,11 +7,6 @@ import { t } from '@/lib/translations';
 export function BookingSettings() {
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('nav.bookingSettings')}</h1>
-        <p className="text-muted-foreground mt-1">{t('bookingSettings.description')}</p>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>{t('bookingSettings.availability')}</CardTitle>

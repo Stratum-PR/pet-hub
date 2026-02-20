@@ -143,12 +143,6 @@ export function EmployeeManagement({
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('employeeManagement.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('employeeManagement.description')}
-          </p>
-        </div>
         <Button 
           onClick={() => {
             setEditingEmployee(null);
@@ -370,7 +364,7 @@ export function EmployeeManagement({
       </div>
 
       {employees.length === 0 && (
-        <Card className="border-dashed">
+        <Card>
           <CardContent className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">{t('employeeManagement.noEmployeesYet')}</p>

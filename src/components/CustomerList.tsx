@@ -53,7 +53,7 @@ export function BusinessClientList({ clients, pets, onDelete, onEdit, selectedBu
 
   if (clients.length === 0) {
     return (
-      <Card className="border-dashed">
+      <Card>
         <CardContent className="p-12 text-center">
           <p className="text-muted-foreground">{t('clients.noBusinessClients')}</p>
         </CardContent>

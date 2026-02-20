@@ -21,7 +21,6 @@ export function BusinessPets() {
   const [showForm, setShowForm] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [speciesFilter, setSpeciesFilter] = useState('all');
   const PET_VIEW_KEY = 'pet-hub-pets-view';
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
     if (typeof window === 'undefined') return 'cards';
@@ -64,12 +63,8 @@ export function BusinessPets() {
       });
     }
     
-    if (speciesFilter !== 'all') {
-      filtered = filtered.filter(pet => pet.species === speciesFilter);
-    }
-    
     return filtered;
-  }, [pets, clients, searchTerm, speciesFilter]);
+  }, [pets, clients, searchTerm]);
 
   const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
     try {
@@ -152,36 +147,27 @@ export function BusinessPets() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('pets.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('pets.description')}
-          </p>
-        </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-muted-foreground sr-only sm:not-sr-only">View:</span>
           <div className="inline-flex rounded-md border bg-muted p-0.5">
             <button
               type="button"
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
+              className={`inline-flex items-center justify-center h-8 w-8 rounded-sm ${
                 viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
               }`}
               onClick={() => setViewMode('cards')}
               aria-label="Card view"
             >
               <LayoutGrid className="w-4 h-4 shrink-0" />
-              <span>Cards</span>
             </button>
             <button
               type="button"
-              className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-sm text-xs font-medium ${
+              className={`inline-flex items-center justify-center h-8 w-8 rounded-sm ${
                 viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
               }`}
               onClick={() => setViewMode('list')}
               aria-label="List view"
             >
               <List className="w-4 h-4 shrink-0" />
-              <span>List</span>
             </button>
           </div>
           <Button
@@ -220,15 +206,6 @@ export function BusinessPets() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         placeholder={t('pets.searchPlaceholder')}
-        filterValue={speciesFilter}
-        onFilterChange={setSpeciesFilter}
-        filterOptions={[
-          { value: 'all', label: t('pets.all') },
-          { value: 'dog', label: t('pets.dogs') },
-          { value: 'cat', label: t('pets.cats') },
-          { value: 'other', label: t('pets.other') },
-        ]}
-        filterLabel={t('pets.species')}
       />
 
       {viewMode === 'cards' ? (
@@ -240,7 +217,7 @@ export function BusinessPets() {
           onEdit={handleEdit}
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-lg border-0 bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/60">
               <tr>

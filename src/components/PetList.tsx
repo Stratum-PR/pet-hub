@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Eye, Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield } from 'lucide-react';
+import { Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield } from 'lucide-react';
 import { Pet, BusinessClient, Appointment } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { t } from '@/lib/translations';
@@ -177,7 +177,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
 
   if (safePets.length === 0) {
     return (
-      <Card className="border-dashed">
+      <Card>
         <CardContent className="p-12 text-center">
           <p className="text-muted-foreground">{t('pets.noPetsFound')}</p>
         </CardContent>
@@ -187,7 +187,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-page-cards-grid>
         {safePets.map((pet) => {
           // CRITICAL: Get owner data from Supabase JOIN
           // The usePets hook now returns pets with clients:client_id(...) join
@@ -261,17 +261,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                       </p>
                     </div>
                   </div>
-                  {onViewPet ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => { e.stopPropagation(); onViewPet(pet); }}
-                      className="h-8 w-8"
-                      aria-label="View pet details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  ) : (
+                  {!onViewPet && (
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onEdit(pet); }}>
                         <Edit className="w-4 h-4" />

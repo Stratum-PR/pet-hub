@@ -68,13 +68,6 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('timeTracking.title')}</h1>
-        <p className="text-muted-foreground mt-1">
-          {t('timeTracking.description')}
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Clock In/Out Section */}
         <Card className="shadow-sm">

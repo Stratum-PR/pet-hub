@@ -107,12 +107,6 @@ export function Services({ services, onAddService, onUpdateService, onDeleteServ
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('services.title')}</h1>
-          <p className="text-muted-foreground mt-1">
-            {t('services.description')}
-          </p>
-        </div>
         <Button
           onClick={() => {
             setEditingService(null);
@@ -224,7 +218,7 @@ export function Services({ services, onAddService, onUpdateService, onDeleteServ
 
       <div className="space-y-6">
         {services.length === 0 ? (
-          <Card className="border-dashed">
+          <Card>
             <CardContent className="p-12 text-center">
               <Scissors className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No services yet. Add your first service above!</p>

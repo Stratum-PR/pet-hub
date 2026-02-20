@@ -5,12 +5,7 @@ import { t } from '@/lib/translations';
 export function Billing() {
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">{t('billing.title')}</h1>
-        <p className="text-muted-foreground mt-1">{t('billing.description')}</p>
-      </div>
-
-      <Card className="overflow-hidden border-2 border-primary/20 bg-gradient-to-b from-primary/5 to-background">
+      <Card className="overflow-hidden bg-gradient-to-b from-primary/5 to-background">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">{t('billing.currentPlan')}</CardTitle>
         </CardHeader>
