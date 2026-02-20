@@ -12,10 +12,12 @@ import { BookAppointment } from '@/pages/BookAppointment';
 import { Employees } from '@/pages/Employees';
 import { EmployeeManagement } from '@/pages/EmployeeManagement';
 import { EmployeeSchedule } from '@/pages/EmployeeSchedule';
+import { TimeKiosk } from '@/pages/TimeKiosk';
 import { Reports } from '@/pages/Reports';
 import { Payroll } from '@/pages/Payroll';
 import { EmployeePayroll } from '@/pages/EmployeePayroll';
 import { EmployeeTimesheet } from '@/pages/EmployeeTimesheet';
+import { TimeEditApproval } from '@/components/TimeEditApproval';
 import { Services } from '@/pages/Services';
 import { Checkout } from '@/pages/Checkout';
 import { Payment } from '@/pages/Payment';
@@ -258,6 +260,10 @@ const Index = () => {
               }
             />
             <Route
+              path="reports/payroll/edit-requests"
+              element={<TimeEditApproval />}
+            />
+            <Route
               path="reports"
               element={
                 <Reports
@@ -268,6 +274,10 @@ const Index = () => {
                   appointments={appointments}
                 />
               }
+            />
+            <Route
+              path="time-kiosk"
+              element={<TimeKiosk />}
             />
             <Route
               path="services"

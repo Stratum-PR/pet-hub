@@ -65,6 +65,7 @@ const employeeItems = [
   { path: 'employee-management', labelKey: 'nav.employeeInfo', icon: UserCog },
   { path: 'employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
   { path: 'time-tracking', labelKey: 'nav.timeTracking', icon: Clock },
+  { path: 'time-kiosk', labelKey: 'nav.timeKiosk', icon: Clock },
 ];
 
 const reportsItems = [

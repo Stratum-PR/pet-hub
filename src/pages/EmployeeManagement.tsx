@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock, Lock, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { Employee } from '@/types';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { EmployeePinSetupDialog } from '@/components/EmployeePinSetupDialog';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
+import { supabase } from '@/integrations/supabase/client';
+import { useBusinessId } from '@/hooks/useBusinessId';
 import { t } from '@/lib/translations';
 
 interface EmployeeManagementProps {
@@ -26,11 +30,14 @@ export function EmployeeManagement({
 }: EmployeeManagementProps) {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
+  const businessId = useBusinessId();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
+  const [pinSetupDialogOpen, setPinSetupDialogOpen] = useState(false);
+  const [employeeForPinSetup, setEmployeeForPinSetup] = useState<Employee | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -77,10 +84,26 @@ export function EmployeeManagement({
     } else {
       submitData.last_date = null;
     }
+
+    // If PIN is being set/changed by manager, set pin_set_at timestamp
+    // This marks the PIN as set (whether by manager or employee)
+    if (submitData.pin && submitData.pin.length === 4) {
+      const isNewPin = !editingEmployee || editingEmployee.pin !== submitData.pin;
+      if (isNewPin) {
+        submitData.pin_set_at = new Date().toISOString();
+        submitData.pin_required = false; // PIN is now set, no longer required
+      }
+    }
+
     if (editingEmployee) {
       onUpdateEmployee(editingEmployee.id, submitData);
       setEditingEmployee(null);
     } else {
+      // For new employees, if PIN is provided, set pin_set_at
+      if (submitData.pin && submitData.pin.length === 4) {
+        submitData.pin_set_at = new Date().toISOString();
+        submitData.pin_required = false;
+      }
       onAddEmployee(submitData);
     }
     resetForm();
@@ -138,6 +161,50 @@ export function EmployeeManagement({
       setEmployeeToDelete(null);
     }
     setDeleteDialogOpen(false);
+  };
+
+  const handlePinSetup = (employee: Employee) => {
+    setEmployeeForPinSetup(employee);
+    setPinSetupDialogOpen(true);
+  };
+
+  const handlePinReset = async (employeeId: string) => {
+    if (!businessId) return;
+
+    if (!confirm('Are you sure you want to reset this employee\'s PIN? They will need to set a new PIN before clocking in.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          pin: '',
+          pin_set_at: null,
+          pin_required: true,
+        })
+        .eq('id', employeeId);
+
+      if (error) {
+        alert('Failed to reset PIN. Please try again.');
+      } else {
+        // Refresh employee data - pass the updated fields explicitly
+        await onUpdateEmployee(employeeId, {
+          pin: '',
+          pin_set_at: undefined,
+          pin_required: true,
+        } as any);
+      }
+    } catch (err) {
+      alert('Failed to reset PIN. Please try again.');
+    }
+  };
+
+  const handlePinSetupSuccess = () => {
+    if (employeeForPinSetup) {
+      onUpdateEmployee(employeeForPinSetup.id, {});
+    }
+    setEmployeeForPinSetup(null);
   };
 
   return (
@@ -335,16 +402,46 @@ export function EmployeeManagement({
                 {employee.last_date && (
                   <p>Last Date: {new Date(employee.last_date).toLocaleDateString()}</p>
                 )}
-                <div className="flex items-center gap-2">
-                  <span>PIN: {showPin[employee.id] ? employee.pin : '••••'}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => togglePinVisibility(employee.id)}
-                  >
-                    {showPin[employee.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span>PIN: {showPin[employee.id] ? employee.pin : '••••'}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => togglePinVisibility(employee.id)}
+                    >
+                      {showPin[employee.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    </Button>
+                  </div>
+                  {(employee as any).pin_set_at ? (
+                    <Badge variant="outline" className="text-xs">
+                      PIN set {new Date((employee as any).pin_set_at).toLocaleDateString()}
+                    </Badge>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePinSetup(employee)}
+                        className="text-xs"
+                      >
+                        <Lock className="w-3 h-3 mr-1" />
+                        Set PIN
+                      </Button>
+                    </div>
+                  )}
+                  {(employee as any).pin_set_at && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handlePinReset(employee.id)}
+                      className="text-xs text-muted-foreground"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      Reset PIN
+                    </Button>
+                  )}
                 </div>
                 <div className="pt-2">
                   <Button
@@ -379,6 +476,16 @@ export function EmployeeManagement({
         title={t('employeeManagement.deleteEmployee')}
         description={t('employeeManagement.deleteConfirm')}
       />
+
+      {employeeForPinSetup && (
+        <EmployeePinSetupDialog
+          open={pinSetupDialogOpen}
+          onOpenChange={setPinSetupDialogOpen}
+          employeeId={employeeForPinSetup.id}
+          employeeName={employeeForPinSetup.name}
+          onSuccess={handlePinSetupSuccess}
+        />
+      )}
     </div>
   );
 }

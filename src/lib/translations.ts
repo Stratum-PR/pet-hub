@@ -1284,6 +1284,10 @@ export const translations: Translations = {
     en: '{name} clocked out successfully!',
     es: '¡{name} salió exitosamente!'
   },
+  'nav.timeKiosk': {
+    en: 'Time Kiosk',
+    es: 'Quiosco de Tiempo'
+  },
   'timeTracking.todaysEntries': {
     en: "Today's Entries",
     es: 'Entradas de Hoy'
