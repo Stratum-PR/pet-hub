@@ -19,6 +19,7 @@ export function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [signupModalOpen, setSignupModalOpen] = useState(false);
+  const [heroFallbackImageError, setHeroFallbackImageError] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
   // Two-line headline: 0.5s delay, then 0.8s total with decremental timing (first letters faster, last slower)
@@ -194,23 +195,26 @@ export function Landing() {
         </nav>
       </header>
 
-      {/* Video background + hero */}
+      {/* Hero: prefer video; if video doesn't load/play, fall back to static image */}
       <section ref={heroRef} className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0 overflow-hidden bg-gradient-to-br from-emerald-900/90 via-teal-900/80 to-slate-900/90">
-          {/* Fallback image when video is loading or fails */}
-          <img
-            src="/hero_background.png"
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover object-right md:object-center"
-            aria-hidden
-          />
+          {/* Static image fallback when video is loading or fails; hidden if image errors so we only show gradient */}
+          {!heroFallbackImageError && (
+            <img
+              src="/hero_background.png"
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover object-right md:object-center"
+              aria-hidden
+              onError={() => setHeroFallbackImageError(true)}
+            />
+          )}
           <div className="absolute inset-0 w-full h-full motion-reduce:!animate-none animate-hero-film-drift">
             <video
               autoPlay
               muted
               loop
               playsInline
-              poster="/hero_background.png"
+              poster={heroFallbackImageError ? undefined : '/hero_background.png'}
               className="absolute inset-0 w-full h-full object-cover object-right md:object-center"
               aria-hidden
             >
