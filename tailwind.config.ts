@@ -131,10 +131,21 @@ export default {
             transform: 'translateY(0) scale(1)'
           }
         },
+        /* Zoom out + up: start smaller and slightly below, animate to full size */
+        'zoom-out-up': {
+          '0%': {
+            opacity: '0',
+            transform: 'translateY(20px) scale(0.96)'
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'translateY(0) scale(1)'
+          }
+        },
         'dialog-content-appear': {
           '0%': {
             opacity: '0',
-            transform: 'translate(-50%, 28%) scale(1.08)'
+            transform: 'translate(-50%, 20px) scale(0.96)'
           },
           '100%': {
             opacity: '1',
@@ -213,7 +224,8 @@ export default {
         'word-appear': 'word-appear 0.4s ease-out forwards',
         'backdrop-blur-in': 'backdrop-blur-in 0.4s ease-out forwards',
         'modal-appear': 'modal-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'dialog-content-appear': 'dialog-content-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'zoom-out-up': 'zoom-out-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'dialog-content-appear': 'dialog-content-appear 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'logo-appear': 'logo-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'cta-bounce-in': 'cta-bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         'letter-appear': 'letter-appear var(--letter-duration, 0.03s) ease-out forwards',

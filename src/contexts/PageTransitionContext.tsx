@@ -2,6 +2,7 @@ import { createContext, useContext, useRef, useEffect, useLayoutEffect, useState
 import { useLocation } from 'react-router-dom';
 
 const COVER_DURATION_MS = 1200;
+const REVEAL_DURATION_MS = 3600;
 
 type PageTransitionContextValue = {
   /** Real pathname from router (updates immediately on navigation) */
@@ -29,10 +30,23 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
   const [isCovering, setIsCovering] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const prevPathRef = useRef(pathname);
+  const initialMountRef = useRef(true);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useLayoutEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      setIsRevealing(true);
+      revealTimeoutRef.current = setTimeout(() => {
+        revealTimeoutRef.current = null;
+        setIsRevealing(false);
+      }, REVEAL_DURATION_MS);
+      return () => {
+        if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+      };
+    }
+
     if (prevPathRef.current === pathname) return;
     prevPathRef.current = pathname;
 
@@ -50,7 +64,7 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
       revealTimeoutRef.current = setTimeout(() => {
         revealTimeoutRef.current = null;
         setIsRevealing(false);
-      }, 3600);
+      }, REVEAL_DURATION_MS);
     }, COVER_DURATION_MS);
 
     return () => {
