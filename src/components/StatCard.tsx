@@ -22,7 +22,7 @@ export function StatCard({ title, value, icon: Icon, description, animate, curre
   const sparklineData = trendData?.map((v, i) => ({ v, i })) ?? [];
 
   return (
-    <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col cursor-default">
+    <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col">
       <CardContent className="p-6 flex-1 flex flex-col">
         <div className="flex items-start justify-between flex-1">
           <div className="flex-1 min-w-0">

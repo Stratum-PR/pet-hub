@@ -1423,8 +1423,8 @@ export const translations: Translations = {
     es: 'nuevos'
   },
   'dashboard.tooltipRepeatCount': {
-    en: 'repeats',
-    es: 'recurrentes'
+    en: 'repeat clients',
+    es: 'clientes recurrentes'
   },
   'dashboard.servicesCompleted': {
     en: 'Services completed',

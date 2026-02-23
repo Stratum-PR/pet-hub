@@ -1,5 +1,5 @@
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dog, Calendar, TrendingUp, Clock, ChevronDown } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LabelList } from 'recharts';
 import { StatCard } from '@/components/StatCard';
@@ -117,12 +117,73 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
   })();
 
   type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
-  const [dashboardPeriod, setDashboardPeriod] = useState<PeriodType>('monthly');
+  const DASHBOARD_PERIOD_KEY = 'pet-hub-dashboard-period';
+  const DASHBOARD_CUSTOM_RANGE_KEY = 'pet-hub-dashboard-custom-range';
+
+  const loadSavedPeriod = (): PeriodType => {
+    if (typeof window === 'undefined') return 'monthly';
+    try {
+      const saved = localStorage.getItem(DASHBOARD_PERIOD_KEY);
+      if (saved === 'weekly' || saved === 'monthly' || saved === 'quarterly' || saved === 'yearly' || saved === 'custom') return saved;
+    } catch (_) { /* ignore */ }
+    return 'monthly';
+  };
+
+  const loadSavedCustomRange = (): { start: Date; end: Date } | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(DASHBOARD_CUSTOM_RANGE_KEY);
+      if (!raw) return null;
+      const { start, end } = JSON.parse(raw);
+      if (start && end) return { start: new Date(start), end: new Date(end) };
+    } catch (_) { /* ignore */ }
+    return null;
+  };
+
+  const [dashboardPeriod, setDashboardPeriodState] = useState<PeriodType>('monthly');
   const [customRangeStart, setCustomRangeStart] = useState<Date | null>(null);
   const [customRangeEnd, setCustomRangeEnd] = useState<Date | null>(null);
   const [showCustomPicker, setShowCustomPicker] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [rangeSelect, setRangeSelect] = useState<{ from?: Date; to?: Date }>({});
+
+  useEffect(() => {
+    const saved = loadSavedPeriod();
+    setDashboardPeriodState(saved);
+    if (saved === 'custom') {
+      const range = loadSavedCustomRange();
+      if (range) {
+        setCustomRangeStart(range.start);
+        setCustomRangeEnd(range.end);
+      }
+    }
+  }, []);
+
+  const setDashboardPeriod = (period: PeriodType) => {
+    setDashboardPeriodState(period);
+    try {
+      localStorage.setItem(DASHBOARD_PERIOD_KEY, period);
+    } catch (_) { /* ignore */ }
+  };
+
+  const persistCustomRange = (start: Date, end: Date) => {
+    try {
+      localStorage.setItem(DASHBOARD_CUSTOM_RANGE_KEY, JSON.stringify({ start: start.toISOString(), end: end.toISOString() }));
+    } catch (_) { /* ignore */ }
+  };
+  const pieContainerRef = useRef<HTMLDivElement>(null);
+  const [pieSize, setPieSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    const el = pieContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0]?.contentRect ?? { width: 0, height: 0 };
+      setPieSize({ w: width, h: height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const today = useMemo(() => startOfDay(new Date()), []);
   const periodDaysMap = { weekly: 7, monthly: 30, quarterly: 90, yearly: 365 } as const;
@@ -394,9 +455,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                     size="sm"
                     onClick={() => {
                       if (rangeSelect.from) {
-                        setCustomRangeStart(startOfDay(rangeSelect.from));
-                        setCustomRangeEnd(rangeSelect.to ? startOfDay(rangeSelect.to) : startOfDay(rangeSelect.from));
+                        const start = startOfDay(rangeSelect.from);
+                        const end = startOfDay(rangeSelect.to ?? rangeSelect.from);
+                        setCustomRangeStart(start);
+                        setCustomRangeEnd(end);
                         setDashboardPeriod('custom');
+                        persistCustomRange(start, end);
                         setShowCustomPicker(false);
                         setDropdownOpen(false);
                         setRangeSelect({});
@@ -417,86 +481,104 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
       <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" data-transition-containers>
           {/* Card 1: New vs Repeat clients (pie) */}
-          <div
-            onClick={() => navigate(businessSlug ? `/${businessSlug}/clients` : '/clients')}
-            className="cursor-pointer h-full"
+          <Link
+            to={businessSlug ? `/${businessSlug}/clients` : '/clients'}
+            className="block cursor-pointer h-full"
           >
             <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col overflow-hidden">
-              <CardContent className="p-4 flex-1 flex flex-col min-h-0">
+              <CardContent className="p-2.5 flex-1 flex flex-col min-h-0">
                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{t('dashboard.clientType')}</p>
-                <div className="flex-1 min-h-[100px] flex items-center justify-center mt-1">
+                <div
+                  ref={pieContainerRef}
+                  className="flex-1 min-h-[64px] max-h-[200px] flex items-center justify-center mt-0.5 w-full min-w-0"
+                  style={{ minHeight: 64 }}
+                >
                   {newVsRepeatData.every((d) => d.value === 0) ? (
                     <p className="text-xs text-muted-foreground">{t('dashboard.noData')}</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={110} className="text-[10px]">
-                      <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-                        <Pie
-                          data={newVsRepeatData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="45%"
-                          innerRadius={26}
-                          outerRadius={36}
-                          paddingAngle={0}
-                          stroke="none"
-                          isAnimationActive
-                          animationDuration={400}
-                          animationEasing="ease-out"
-                          label={({ name, percent, cx, cy, midAngle, innerRadius, outerRadius }) => {
-                            if (percent <= 0) return null;
-                            const RADIAN = Math.PI / 180;
-                            const lineLength = 5;
-                            const gapFromLine = 18;
-                            const r = outerRadius + lineLength + gapFromLine;
-                            const x = cx + r * Math.cos(-midAngle * RADIAN);
-                            const y = cy + r * Math.sin(-midAngle * RADIAN);
-                            const anchor = x >= cx ? 'start' : 'end';
-                            return (
-                              <g transform={`translate(${x},${y})`} textAnchor={anchor}>
-                                <text fill="hsl(var(--foreground))" fontSize={11} fontWeight={500} x={0} y={0} dy={-4}>{name}</text>
-                                <text fill="hsl(var(--muted-foreground))" fontSize={12} fontWeight={600} x={0} y={0} dy={10}>{(percent * 100).toFixed(0)}%</text>
-                              </g>
-                            );
-                          }}
-                          labelLine={(props: { points?: [ { x: number; y: number }, { x: number; y: number } ]; stroke?: string }) => {
-                            const points = props.points;
-                            if (!points || points.length < 2 || !points[0] || !points[1]) return null;
-                            const [p0, p1] = points;
-                            const frac = 5 / (Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1);
-                            const t = Math.min(frac, 0.35);
-                            const x = p0.x + (p1.x - p0.x) * t;
-                            const y = p0.y + (p1.y - p0.y) * t;
-                            return <path d={`M${p0.x},${p0.y} L${x},${y}`} stroke={props.stroke ?? 'hsl(var(--muted-foreground) / 0.4)'} strokeWidth={1} fill="none" />;
-                          }}
-                        >
-                          {newVsRepeatData.map((entry, i) => (
-                            <Cell key={i} fill={entry.color} stroke="none" />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value: number, name: string) => {
-                            const isNew = name === t('dashboard.newClients');
-                            const key = isNew ? 'dashboard.tooltipNewCount' : 'dashboard.tooltipRepeatCount';
-                            return [`${value} ${t(key)}`, ''];
-                          }}
-                          contentStyle={{ borderRadius: '6px', border: '1px solid hsl(var(--border))', padding: '6px 10px', fontSize: '12px', background: 'hsl(var(--card))' }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    (() => {
+                      const w = pieSize.w || 200;
+                      const h = pieSize.h || 120;
+                      const legendHeight = 22;
+                      const gap = 2;
+                      const chartHeight = Math.max(64, Math.min(160, h - legendHeight - gap));
+                      const totalSize = Math.min(w, chartHeight) || 100;
+                      const margin = 3;
+                      const outerRadius = Math.max(20, Math.min(44, totalSize * 0.36));
+                      const innerRadius = Math.max(12, Math.min(outerRadius - 5, outerRadius * 0.55));
+                      const total = newVsRepeatData.reduce((s, d) => s + d.value, 0);
+                      return (
+                        <div className="flex flex-col items-center w-full min-h-0 shrink">
+                          <div className="w-full shrink-0 animate-pie-rotate-in" style={{ height: chartHeight }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart margin={{ top: margin, right: margin, bottom: margin, left: margin }}>
+                              <Pie
+                                data={newVsRepeatData}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={innerRadius}
+                                outerRadius={outerRadius}
+                                paddingAngle={0}
+                                stroke="none"
+                                isAnimationActive
+                                animationBegin={100}
+                                animationDuration={600}
+                                animationEasing="ease-out"
+                                startAngle={90}
+                                endAngle={-270}
+                                label={false}
+                                labelLine={false}
+                              >
+                                {newVsRepeatData.map((entry, i) => (
+                                  <Cell key={i} fill={entry.color} stroke="none" animationBegin={i * 280} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (!active || !payload?.length) return null;
+                                  const item = payload[0];
+                                  const value = typeof item?.value === 'number' ? item.value : 0;
+                                  const name = (item?.name as string) ?? '';
+                                  const isNew = name === t('dashboard.newClients');
+                                  const key = isNew ? 'dashboard.tooltipNewCount' : 'dashboard.tooltipRepeatCount';
+                                  const text = `${value} ${t(key)}`;
+                                  return (
+                                    <div
+                                      className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm"
+                                      style={{ borderColor: 'hsl(var(--border))' }}
+                                    >
+                                      {text}
+                                    </div>
+                                  );
+                                }}
+                              />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div className="flex flex-nowrap justify-center items-center gap-x-2.5 gap-y-0 mt-1 shrink-0 text-xs text-muted-foreground">
+                            {newVsRepeatData.filter((d) => d.value > 0).map((entry, i) => (
+                              <span key={i} className="flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                                <span className="text-foreground font-normal">{entry.name}</span>
+                                <span className="tabular-nums font-normal">{total ? ((entry.value / total) * 100).toFixed(0) : 0}%</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()
                   )}
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </Link>
 
           {/* Card 2: Services completed */}
-          <div
-            className="cursor-pointer h-full"
-            onClick={() => navigate(businessSlug ? `/${businessSlug}/appointments` : '/appointments')}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && navigate(businessSlug ? `/${businessSlug}/appointments` : '/appointments')}
+          <Link
+            to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
+            className="block cursor-pointer h-full"
           >
             <StatCard
               title={t('dashboard.servicesCompleted')}
@@ -504,12 +586,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               icon={Calendar}
               animate
             />
-          </div>
+          </Link>
 
           {/* Card 3: Active staff */}
-          <div
-            onClick={() => navigate(businessSlug ? `/${businessSlug}/employee-management` : '/employee-management')}
-            className="cursor-pointer h-full"
+          <Link
+            to={businessSlug ? `/${businessSlug}/employee-management` : '/employee-management'}
+            className="block cursor-pointer h-full"
           >
             <StatCard
               title={t('dashboard.activeStaff')}
@@ -518,15 +600,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               description={t('dashboard.teamMembers')}
               animate
             />
-          </div>
+          </Link>
 
           {/* Card 4: Today appointments */}
-          <div
-            className="cursor-pointer h-full"
-            onClick={() => navigate(businessSlug ? `/${businessSlug}/appointments` : '/appointments')}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && navigate(businessSlug ? `/${businessSlug}/appointments` : '/appointments')}
+          <Link
+            to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
+            className="block cursor-pointer h-full"
           >
             <StatCard
               title={t('dashboard.today')}
@@ -535,12 +614,12 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               description={t('dashboard.appointments')}
               animate
             />
-          </div>
+          </Link>
 
           {/* Card 5: Top selling services (bar chart) */}
-          <div
-            onClick={() => navigate(businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics')}
-            className="cursor-pointer h-full"
+          <Link
+            to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
+            className="block cursor-pointer h-full"
           >
             <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col overflow-hidden">
               <CardContent className="p-4 flex-1 flex flex-col min-h-0">
@@ -580,25 +659,32 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </Link>
 
           {/* Card 6: Growth */}
-          <div className="h-full">
+          <Link
+            to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
+            className="block cursor-pointer h-full"
+          >
             <StatCard
               title={t('dashboard.growth')}
               value={growthDisplay}
               icon={TrendingUp}
               description={t('dashboard.vsLastMonth')}
             />
-          </div>
+          </Link>
         </div>
       </div>
 
       {/* Left: Today's Appointments — Right: Revenue + Recent Pets */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" data-transition-row="2" data-transition-containers>
         {/* Appointments: long list on the left */}
+        <Link
+          to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
+          className="block cursor-pointer lg:col-span-1"
+        >
         <Card
-          className="shadow-sm hover:shadow-md transition-shadow lg:col-span-1 flex flex-col max-h-[420px]"
+          className="shadow-sm hover:shadow-md transition-shadow h-full flex flex-col max-h-[420px]"
           role="article"
         >
           <CardHeader className="shrink-0 flex flex-row items-center justify-between gap-2">
@@ -638,26 +724,24 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                   })}
                 </div>
                 <div className="mt-3 pt-2 border-t border-border">
-                  <Link
-                    to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
-                    className="text-sm font-medium text-primary hover:underline"
-                  >
+                  <span className="text-sm font-medium text-primary hover:underline">
                     {t('dashboard.viewAll')}
-                  </Link>
+                  </span>
                 </div>
               </>
             )}
           </CardContent>
         </Card>
+        </Link>
 
         {/* Right: Revenue graph (links to reports) + Recent Pets */}
         <div className="lg:col-span-2 space-y-6">
+          <Link
+            to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
+            className="block cursor-pointer"
+          >
           <Card
             className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => navigate(businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics')}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && navigate(businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics')}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-base" data-card-title>
@@ -711,12 +795,18 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               </ResponsiveContainer>
             </CardContent>
           </Card>
+          </Link>
 
           <Card className="shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base" data-card-title>
-                <Dog className="w-5 h-5 text-primary" />
-                {t('dashboard.recentPets')}
+                <Link
+                  to={businessSlug ? `/${businessSlug}/pets` : '/pets'}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <Dog className="w-5 h-5 text-primary" />
+                  {t('dashboard.recentPets')}
+                </Link>
               </CardTitle>
             </CardHeader>
             <CardContent>

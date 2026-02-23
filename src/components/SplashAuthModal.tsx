@@ -55,7 +55,7 @@ export function SplashAuthModal({ isOpen, onClose, title, titleId, children }: S
       onClick={handleOverlayClick}
     >
       <div
-        className="relative z-[1000] w-[90vw] max-w-[920px] max-h-[85vh] overflow-y-auto rounded-3xl bg-white shadow-2xl animate-modal-appear"
+        className="relative z-[1000] w-[90vw] max-w-[920px] max-h-[85vh] overflow-y-auto rounded-3xl bg-white shadow-2xl animate-zoom-out-up"
         style={{
           boxShadow: '0 32px 64px rgba(0,0,0,0.24), 0 0 1px rgba(0,0,0,0.1)',
         }}
