@@ -51,7 +51,10 @@ export function Register() {
   const addLog = (msg: string) => {
     const time = new Date().toISOString().slice(11, 23);
     setSignupLogs((prev) => [...prev, `${time} ${msg}`]);
-    console.log('[Register]', msg);
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('[Register]', msg);
+    }
   };
 
   const handleCompleteManagerSignup = async (name: string, tier: SubscriptionTier) => {

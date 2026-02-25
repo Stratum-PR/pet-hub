@@ -123,7 +123,7 @@ export function getPublicBaseUrl(): string {
   return 'https://pet-hub.example.com';
 }
 
-/** Default OG image URL (used when no page-specific image) */
-export const DEFAULT_OG_IMAGE = 'https://lovable.dev/opengraph-image-p98pqg.png';
+/** Default OG image path (resolved to absolute URL in PageMeta using getPublicBaseUrl) */
+export const DEFAULT_OG_IMAGE = '/pet-hub-icon.svg';
 
 export type { DiscoverableRoute as SitemapEntry };
