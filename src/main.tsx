@@ -17,27 +17,35 @@ function isAbortError(err: unknown): boolean {
 function renderFatalError(err: unknown) {
   // Ignore AbortErrors - these are harmless and occur during normal operation
   if (isAbortError(err)) {
-    // eslint-disable-next-line no-console
-    console.warn("[bootstrap] Ignoring harmless AbortError:", err);
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn("[bootstrap] Ignoring harmless AbortError:", err);
+    }
     return;
   }
 
-  // eslint-disable-next-line no-console
-  console.error("[bootstrap] fatal error", err);
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.error("[bootstrap] fatal error", err);
+  }
   const msg =
     err instanceof Error ? (err.stack || err.message) : JSON.stringify(err, null, 2);
 
-  // Render a minimal fallback even if React can't mount.
-  document.body.innerHTML = `
-    <div style="padding:16px;font-family:ui-sans-serif,system-ui">
-      <h2 style="font-size:18px;font-weight:700;margin-bottom:8px">App failed to start</h2>
-      <p style="margin-bottom:12px">Copy the error below and paste it here.</p>
-      <pre style="background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto;max-height:360px;font-size:12px;line-height:1.4">${msg
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")}</pre>
-    </div>
-  `;
+  // Render a minimal fallback even if React can't mount. Use textContent for error
+  // message and createElement for structure so no innerHTML with dynamic content (XSS-safe).
+  const root = document.createElement("div");
+  root.setAttribute("style", "padding:16px;font-family:ui-sans-serif,system-ui");
+  const h2 = document.createElement("h2");
+  h2.setAttribute("style", "font-size:18px;font-weight:700;margin-bottom:8px");
+  h2.textContent = "App failed to start";
+  const p = document.createElement("p");
+  p.setAttribute("style", "margin-bottom:12px");
+  p.textContent = "Copy the error below and paste it here.";
+  const pre = document.createElement("pre");
+  pre.setAttribute("style", "background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto;max-height:360px;font-size:12px;line-height:1.4");
+  pre.textContent = msg;
+  root.append(h2, p, pre);
+  document.body.replaceChildren(root);
 }
 
 // Capture early runtime errors before React mounts.

@@ -118,6 +118,8 @@ git commit --no-verify -m "your message"
 
 **Never use `--no-verify` to skip secret/credential checks.** Rotate any key that was ever committed.
 
+**After "fix before next deploy" warnings:** Address code issues (console, innerHTML) first. Then: run `npm audit` / `npm audit fix` (see Section 3); optionally pin or document dependency versions; rotate API keys per schedule; confirm RLS and Storage policies and protected-route checks; verify new dependencies on npm before adding.
+
 ---
 
 ## 8. Rate limiting – CI check (4b)
