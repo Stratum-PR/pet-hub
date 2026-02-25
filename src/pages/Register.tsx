@@ -12,6 +12,10 @@ import { getDefaultRoute, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRoutin
 import { Footer } from '@/components/Footer';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Building2, User } from 'lucide-react';
+import { PageMeta } from '@/components/PageMeta';
+import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
+
+const REGISTER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/registrarse')!;
 
 const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
 const PENDING_MANAGER_TIER = 'pending_manager_tier';
@@ -240,6 +244,7 @@ export function Register() {
   if (emailConfirmSent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+        <PageMeta route={REGISTER_ROUTE} />
         <div className="absolute top-4 right-4">
           <LanguageSwitcher />
         </div>
@@ -263,6 +268,7 @@ export function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+      <PageMeta route={REGISTER_ROUTE} />
       <div className="absolute top-4 right-4">
         <LanguageSwitcher />
       </div>

@@ -21,6 +21,7 @@ import { AdminBusinessDetail } from "@/pages/AdminBusinessDetail";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
+import { NoIndexForProtectedRoutes } from "@/components/NoIndexForProtectedRoutes";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Toaster />
             <Sonner />
           <BrowserRouter>
+            <NoIndexForProtectedRoutes />
             <ThemeGuard />
             <Routes>
               {/* Public Routes */}

@@ -3,6 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Mail } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { PageMeta } from '@/components/PageMeta';
+import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
+
+const SIGNUP_SUCCESS_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/signup/success')!;
 
 export function SignupSuccess() {
   const [searchParams] = useSearchParams();
@@ -10,6 +14,7 @@ export function SignupSuccess() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4">
+      <PageMeta route={SIGNUP_SUCCESS_ROUTE} />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">

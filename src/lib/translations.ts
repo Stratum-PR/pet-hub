@@ -1334,14 +1334,6 @@ export const translations: Translations = {
     en: "Today's Appointments",
     es: 'Citas de hoy'
   },
-  'dashboard.viewAll': {
-    en: 'View all',
-    es: 'Ver todo'
-  },
-  'dashboard.noAppointmentsToday': {
-    en: 'No appointments today',
-    es: 'No hay citas hoy'
-  },
   'dashboard.noData': {
     en: 'No data',
     es: 'Sin datos'

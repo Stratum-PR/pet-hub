@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
+import { HelmetProvider } from "react-helmet-async";
 
 function isAbortError(err: unknown): boolean {
   if (err instanceof Error) {
@@ -56,9 +57,11 @@ try {
   if (!el) throw new Error("Missing #root element in index.html");
 
   createRoot(el).render(
-    <GlobalErrorBoundary>
-      <App />
-    </GlobalErrorBoundary>
+    <HelmetProvider>
+      <GlobalErrorBoundary>
+        <App />
+      </GlobalErrorBoundary>
+    </HelmetProvider>
   );
 } catch (err) {
   renderFatalError(err);
