@@ -11,6 +11,39 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SplashAuthModal } from '@/components/SplashAuthModal';
 import { LoginForm } from '@/components/LoginForm';
+import { PageMeta } from '@/components/PageMeta';
+import { DISCOVERABLE_ROUTES, getPublicBaseUrl } from '@/config/discoverable-routes';
+import { FAQ_ENTRIES } from '@/content/discoverable-content';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+
+const LANDING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/')!;
+
+function getLandingJsonLd(): string {
+  const base = getPublicBaseUrl();
+  return JSON.stringify([
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: 'Pet Hub',
+      url: base,
+      description: 'Pet grooming business management. Manage appointments, clients, pets, and more.',
+      logo: `${base}/pet-hub-icon.svg`,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'Pet Hub',
+      url: base,
+      description: LANDING_ROUTE.description,
+      publisher: { '@type': 'Organization', name: 'Pet Hub' },
+    },
+  ]);
+}
 
 export function Landing() {
   const navigate = useNavigate();
@@ -80,6 +113,7 @@ export function Landing() {
 
   return (
     <div className="min-h-screen bg-background">
+      <PageMeta route={LANDING_ROUTE} jsonLd={getLandingJsonLd()} />
       {/* Fixed header - stays on screen when scrolling */}
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/20 backdrop-blur-md supports-[backdrop-filter]:bg-black/10">
         <nav className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between gap-4">
@@ -400,7 +434,14 @@ export function Landing() {
       <section id="faq" className="container mx-auto px-4 py-16 sm:py-24 scroll-mt-20 bg-muted/30">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">{t('landing.navFaq')}</h2>
-          <p className="text-muted-foreground">Content coming soon.</p>
+          <Accordion type="single" collapsible className="text-left mt-8">
+            {FAQ_ENTRIES.map((faq, i) => (
+              <AccordionItem key={i} value={`faq-${i}`}>
+                <AccordionTrigger className="text-base">{faq.question}</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">{faq.answer}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
       </section>
 

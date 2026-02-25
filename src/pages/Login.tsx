@@ -5,6 +5,10 @@ import { Footer } from '@/components/Footer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LoginForm } from '@/components/LoginForm';
+import { PageMeta } from '@/components/PageMeta';
+import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
+
+const LOGIN_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/login')!;
 
 export function Login() {
   const navigate = useNavigate();
@@ -12,6 +16,7 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+      <PageMeta route={LOGIN_ROUTE} />
       <div className="absolute top-4 right-4">
         <LanguageSwitcher />
       </div>

@@ -9,55 +9,13 @@ import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { PageMeta } from '@/components/PageMeta';
+import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
+import { PRICING_TIERS } from '@/content/discoverable-content';
 
-const PRICING_PLANS = [
-  {
-    tier: 'basic',
-    name: 'Basic',
-    price: 29,
-    description: 'Perfect for small grooming businesses',
-    features: [
-      'Up to 100 clients',
-      'Unlimited appointments',
-      'Basic reporting',
-      'Email support',
-      'Mobile app access',
-    ],
-    popular: false,
-  },
-  {
-    tier: 'pro',
-    name: 'Pro',
-    price: 79,
-    description: 'Ideal for growing businesses',
-    features: [
-      'Unlimited clients',
-      'Unlimited appointments',
-      'Advanced analytics',
-      'Priority support',
-      'Mobile app access',
-      'Employee management',
-      'Time tracking',
-    ],
-    popular: true,
-  },
-  {
-    tier: 'enterprise',
-    name: 'Enterprise',
-    price: 199,
-    description: 'For large operations',
-    features: [
-      'Everything in Pro',
-      'Custom integrations',
-      'Dedicated account manager',
-      '24/7 phone support',
-      'Custom reporting',
-      'Multi-location support',
-      'API access',
-    ],
-    popular: false,
-  },
-];
+const PRICING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/pricing')!;
+
+const PRICING_PLANS = PRICING_TIERS;
 
 export function Pricing() {
   const [email, setEmail] = useState('');
@@ -126,6 +84,7 @@ export function Pricing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10">
+      <PageMeta route={PRICING_ROUTE} />
       {/* Language - desktop only; mobile gets it in sheet */}
       <div className="fixed top-4 right-4 z-50 hidden md:block">
         <LanguageSwitcher />

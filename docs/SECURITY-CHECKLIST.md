@@ -157,5 +157,6 @@ These are important to address in design, code, or infra; the pre-commit hook ca
 | 32 | **Insufficient logging / monitoring** | Log auth failures, role changes, payment events, and data exports to `audit_log`. Monitor for anomalies; alert on repeated failures or bulk exports. |
 | 33 | **Missing security headers** | In production use: `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `X-Frame-Options` or CSP `frame-ancestors`, and a restrictive `Content-Security-Policy` where feasible. |
 | 34 | **Vendor/third-party risk** | Supabase, Stripe, Vercel, etc. have their own security. Use official SDKs, keep them updated, and follow their security best practices and incident advisories. |
+| 35 | **Secrets or PII in discoverable content** | SEO/LLM files (sitemap, llms.txt, content.json) and meta tags are built from `discoverable-routes.ts` and `discoverable-content.ts`. If you put API keys, internal URLs, or PII there, they are served publicly. | Never put secrets or PII in DISCOVERABLE_ROUTES or PAGE_CONTENT. Base URL and paths are validated (http(s) only; paths start with /) to avoid open redirect or script injection in meta/sitemap. |
 
 Addressing these in architecture and deployment strengthens your app beyond what the pre-commit hook can enforce.
