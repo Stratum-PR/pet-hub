@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingUp, DollarSign, Clock, Users, Dog, Calendar } from 'lucide-react';
 import { Client, Pet, Employee, TimeEntry, Appointment } from '@/types';
-import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInHours, startOfDay } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInMinutes, startOfDay } from 'date-fns';
 import { t } from '@/lib/translations';
 import { useTransactions } from '@/hooks/useTransactions';
 
@@ -88,6 +88,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
   // Employee hours this week
   const employeeHours = useMemo(() => {
     const weekStart = startOfWeek(new Date());
+    const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
     return employees.filter(e => e.status === 'active').map(emp => {
       const empEntries = timeEntries.filter(entry => {
         const entryDate = new Date(entry.clock_in);
@@ -96,7 +97,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
       
       const totalHours = empEntries.reduce((sum, entry) => {
         if (!entry.clock_out) return sum;
-        return sum + differenceInHours(new Date(entry.clock_out), new Date(entry.clock_in));
+        return sum + roundToQuarterHours(differenceInMinutes(new Date(entry.clock_out), new Date(entry.clock_in)) / 60);
       }, 0);
       
       return {

@@ -54,7 +54,6 @@ const mainNavItems = [
   { path: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { path: 'clients', labelKey: 'nav.clients', icon: Users },
   { path: 'pets', labelKey: 'nav.pets', icon: Dog },
-  { path: 'appointments', labelKey: 'nav.appointments', icon: Calendar },
   { path: 'appt-book', labelKey: 'nav.apptBook', icon: Calendar },
   { path: 'inventory', labelKey: 'nav.inventory', icon: Package },
   { path: 'transactions', labelKey: 'nav.transactions', icon: DollarSign },
@@ -64,7 +63,6 @@ const mainNavItems = [
 const employeeItems = [
   { path: 'employee-management', labelKey: 'nav.employeeInfo', icon: UserCog },
   { path: 'employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
-  { path: 'time-tracking', labelKey: 'nav.timeTracking', icon: Clock },
   { path: 'time-kiosk', labelKey: 'nav.timeKiosk', icon: Clock },
 ];
 
@@ -84,11 +82,22 @@ interface AppSidebarProps {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   businessName?: string;
+  businessLogoUrl?: string | null;
+  navbarLogoMode?: 'square' | 'wide';
+  navbarLogoSizePx?: number;
   /** When true, render for mobile sheet (no collapse button, full width) */
   mobile?: boolean;
 }
 
-export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile }: AppSidebarProps) {
+export function AppSidebar({
+  collapsed,
+  onCollapsedChange,
+  businessName,
+  businessLogoUrl,
+  navbarLogoMode = 'square',
+  navbarLogoSizePx = 80,
+  mobile,
+}: AppSidebarProps) {
   const { businessSlug } = useParams();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
@@ -118,7 +127,14 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
     const active = isActive(path);
     const collapsedNav = collapsed && !mobile;
     return (
-      <Link to={to} className={linkClass(active, collapsedNav)}>
+      <Link
+        to={to}
+        className={linkClass(active, collapsedNav)}
+        onClick={() => {
+          // Quick, short pet animation on navigation (feels more intentional).
+          window.dispatchEvent(new Event('pet-quick-trigger'));
+        }}
+      >
         <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
           <Icon className="h-5 w-5 shrink-0" />
         </span>
@@ -138,7 +154,14 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
       )}
     >
       {/* Logo + collapse */}
-      <div className={cn('flex shrink-0 items-center min-w-0', isPill ? (collapsed ? 'h-14 px-0 justify-center' : 'h-14 px-3 gap-2 justify-between') : 'h-14 px-3 gap-2 border-b border-sidebar-border')}>
+      <div
+        className={cn(
+          'flex shrink-0 items-center min-w-0',
+          isPill
+            ? (collapsed ? 'h-20 px-0 justify-center' : 'h-20 px-3 gap-2 justify-between')
+            : 'h-20 px-3 gap-2 border-b border-sidebar-border',
+        )}
+      >
         <Link
           to={basePath || '/'}
           className={cn(
@@ -146,10 +169,26 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
             isPill && collapsed ? 'flex-none justify-center' : 'flex-1 justify-center min-w-0'
           )}
         >
-          <span className="shrink-0 w-8 h-8 flex items-center justify-center overflow-visible animate-logo-appear">
-            <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 object-contain" aria-hidden />
-          </span>
-          {(!collapsed || mobile) && (
+          {businessLogoUrl ? (
+            <span className="shrink-0 flex items-center justify-center overflow-visible animate-logo-appear">
+              <img
+                src={businessLogoUrl}
+                alt=""
+                aria-hidden
+                className="object-contain"
+                style={
+                  navbarLogoMode === 'wide' && !(collapsed && !mobile)
+                    ? { height: navbarLogoSizePx, maxWidth: Math.round(navbarLogoSizePx * 3) }
+                    : { width: navbarLogoSizePx, height: navbarLogoSizePx }
+                }
+              />
+            </span>
+          ) : (
+            <span className="shrink-0 w-8 h-8 flex items-center justify-center overflow-visible animate-logo-appear">
+              <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 object-contain" aria-hidden />
+            </span>
+          )}
+          {(!collapsed || mobile) && !businessLogoUrl && (
             <span className="font-bold truncate text-sidebar-foreground text-sm mt-1.5 block" style={{ fontFamily: 'var(--font-telegraf)' }}>
               {businessName?.toLowerCase().includes('demo') ? 'Demo' : businessName || 'Pet Hub'}
             </span>
@@ -194,7 +233,12 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
                 <DropdownMenuContent side="right" align="start" className="w-48">
                   {employeeItems.map((item) => (
                     <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`}>{t(item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey)}</Link>
+                      <Link
+                        to={`${basePath}/${item.path}`}
+                        onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
+                      >
+                        {t(item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey)}
+                      </Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -215,7 +259,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
                 <DropdownMenuContent side="right" align="start" className="w-48">
                   {reportsItems.map((item) => (
                     <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`}>{t(item.labelKey)}</Link>
+                      <Link to={`${basePath}/${item.path}`} onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}>
+                        {t(item.labelKey)}
+                      </Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -236,7 +282,9 @@ export function AppSidebar({ collapsed, onCollapsedChange, businessName, mobile 
                 <DropdownMenuContent side="right" align="start" className="w-48">
                   {settingsItems.map((item) => (
                     <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`}>{t(item.labelKey)}</Link>
+                      <Link to={`${basePath}/${item.path}`} onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}>
+                        {t(item.labelKey)}
+                      </Link>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>

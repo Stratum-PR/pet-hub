@@ -708,6 +708,16 @@ export function useTimeEntries() {
     fetchTimeEntries();
   }, [businessId]);
 
+  // Allow other parts of the app (e.g. TimeKiosk RPC) to trigger a refetch.
+  useEffect(() => {
+    const handler = () => {
+      // fire and forget; hook manages loading/error
+      refetch();
+    };
+    window.addEventListener('timeentries:refetch', handler);
+    return () => window.removeEventListener('timeentries:refetch', handler);
+  }, [businessId]);
+
   const clockIn = async (employeeId: string) => {
     const { data, error } = await supabase
       .from('time_entries')
@@ -1152,156 +1162,206 @@ export interface Settings {
   business_hours: string;
   primary_color: string;
   secondary_color: string;
+  /** Optional business logo URL (typically Supabase Storage public URL). */
+  business_logo_url: string | null;
+  /** Optional business logo URL for light mode. */
+  business_logo_url_light: string | null;
+  /** Optional business logo URL for dark mode. */
+  business_logo_url_dark: string | null;
+  /** Sidebar header logo mode ('square' | 'wide'). */
+  navbar_logo_mode: string;
+  /** Sidebar header logo size in pixels (bounded in UI). */
+  navbar_logo_size_px: string;
+  /** IANA timezone name (e.g. 'America/Puerto_Rico'). */
+  timezone: string;
   /** Global default low-stock threshold (number). Used when product has no per-product reorder_level. */
   default_low_stock_threshold: string;
+  /** ISO date (YYYY-MM-DD) that anchors the pay-period cadence. */
+  pay_schedule_anchor_date: string;
+  /** Pay cadence in weeks (e.g. '1' for weekly, '2' for bi-weekly). */
+  pay_schedule_cadence_weeks: string;
 }
 
 export function useSettings() {
+  const todayIso = new Date().toISOString().slice(0, 10);
   const [settings, setSettings] = useState<Settings>({
     business_name: 'Pet Hub',
     business_hours: '9:00 AM - 6:00 PM',
     primary_color: '168 60% 45%',
     secondary_color: '200 55% 55%',
+    business_logo_url: null,
+    business_logo_url_light: null,
+    business_logo_url_dark: null,
+    navbar_logo_mode: 'square',
+    navbar_logo_size_px: '80',
+    timezone: '',
     default_low_stock_threshold: '5',
+    pay_schedule_anchor_date: todayIso,
+    pay_schedule_cadence_weeks: '2',
   });
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
 
   const fetchSettings = async () => {
-    if (!businessId) {
-      setLoading(false);
-      return;
-    }
+    if (!businessId) return;
 
-    // Get business info for business_name
-    const { data: business, error: businessError } = await (supabase
-      .from('businesses' as any)
+    setLoading(true);
+    const { data: business } = await supabase
+      .from('businesses')
       .select('name')
       .eq('id', businessId)
-      .maybeSingle() as any);
+      .maybeSingle();
 
-    // Try to get settings filtered by business_id (if column exists)
-    // If that fails, get all settings (for backward compatibility)
-    let settingsData: any[] = [];
-    let settingsError: any = null;
-    
-    try {
-      const result = await supabase
+    // Prefer full settings row, but fall back gracefully if newer columns
+    // (e.g. timezone/logo variants) haven't been migrated in this environment yet.
+    const fullSelect =
+      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
+    const legacySelect =
+      'business_name, business_hours, primary_color, secondary_color, business_logo_url, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
+
+    let row: any = null;
+    let error: any = null;
+    {
+      const res = await supabase
         .from('settings')
-        .select('*')
-        .eq('business_id', businessId);
-      settingsData = result.data || [];
-      settingsError = result.error;
-    } catch (err) {
-      // business_id column might not exist, try without filter
-      const result = await supabase
-        .from('settings')
-        .select('*');
-      settingsData = result.data || [];
-      settingsError = result.error;
+        .select(fullSelect)
+        .eq('business_id', businessId)
+        .maybeSingle();
+      row = res.data as any;
+      error = res.error as any;
     }
-    
-    if (!settingsError && settingsData) {
-      const settingsMap: Record<string, string> = {};
-      settingsData.forEach((item: { key: string; value: string }) => {
-        settingsMap[item.key] = item.value;
-      });
+    if (error) {
+      const msg = (error?.message ?? '').toLowerCase();
+      const isMissingColumn = error?.code === '42703' || msg.includes('column') || msg.includes('schema cache');
+      if (isMissingColumn) {
+        const res2 = await supabase
+          .from('settings')
+          .select(legacySelect)
+          .eq('business_id', businessId)
+          .maybeSingle();
+        row = res2.data as any;
+        error = res2.error as any;
+      }
+    }
+
+    const defaults = {
+      business_name: business?.name ?? 'Pet Hub',
+      business_hours: '9:00 AM - 6:00 PM',
+      primary_color: '168 60% 45%',
+      secondary_color: '200 55% 55%',
+      business_logo_url: null as string | null,
+      business_logo_url_light: null as string | null,
+      business_logo_url_dark: null as string | null,
+      navbar_logo_mode: 'square',
+      navbar_logo_size_px: '80',
+      timezone: '',
+      default_low_stock_threshold: '5',
+      pay_schedule_anchor_date: todayIso,
+      pay_schedule_cadence_weeks: '2',
+    };
+
+    if (!error && row) {
       setSettings({
-        business_name: business?.name || settingsMap.business_name || 'Pet Hub',
-        business_hours: settingsMap.business_hours || '9:00 AM - 6:00 PM',
-        primary_color: settingsMap.primary_color || '168 60% 45%',
-        secondary_color: settingsMap.secondary_color || '200 55% 55%',
-        default_low_stock_threshold: settingsMap.default_low_stock_threshold ?? '5',
+        business_name: row.business_name ?? defaults.business_name,
+        business_hours: row.business_hours ?? defaults.business_hours,
+        primary_color: row.primary_color ?? defaults.primary_color,
+        secondary_color: row.secondary_color ?? defaults.secondary_color,
+        business_logo_url: row.business_logo_url ?? defaults.business_logo_url,
+        business_logo_url_light: row.business_logo_url_light ?? defaults.business_logo_url_light,
+        business_logo_url_dark: row.business_logo_url_dark ?? defaults.business_logo_url_dark,
+        navbar_logo_mode: row.navbar_logo_mode ?? defaults.navbar_logo_mode,
+        navbar_logo_size_px: String(row.navbar_logo_size_px ?? defaults.navbar_logo_size_px),
+        timezone: row.timezone ?? defaults.timezone,
+        default_low_stock_threshold: row.default_low_stock_threshold ?? defaults.default_low_stock_threshold,
+        pay_schedule_anchor_date: row.pay_schedule_anchor_date ?? defaults.pay_schedule_anchor_date,
+        pay_schedule_cadence_weeks: row.pay_schedule_cadence_weeks ?? defaults.pay_schedule_cadence_weeks,
       });
-    } else if (!businessError && business) {
-      // If no settings but business exists, use business name
-      setSettings({
-        business_name: business.name || 'Pet Hub',
-        business_hours: '9:00 AM - 6:00 PM',
-        primary_color: '168 60% 45%',
-        secondary_color: '200 55% 55%',
-        default_low_stock_threshold: '5',
-      });
+    } else {
+      setSettings(defaults);
     }
     setLoading(false);
   };
 
   useEffect(() => {
+    if (!businessId) return; // wait for businessId to resolve
     fetchSettings();
   }, [businessId]);
 
-  const updateSetting = async (key: string, value: string) => {
-    if (!businessId) return false;
-
-    // Try with business_id first, fallback to without if column doesn't exist
-    let existingData: any = null;
-    try {
-      const result = await supabase
-        .from('settings')
-        .select('*')
-        .eq('key', key)
-        .eq('business_id', businessId)
-        .maybeSingle();
-      existingData = result.data;
-    } catch (err) {
-      // business_id column might not exist, try without
-      const result = await supabase
-        .from('settings')
-        .select('*')
-        .eq('key', key)
-        .maybeSingle();
-      existingData = result.data;
-    }
-
-    if (existingData) {
-      // Try update with business_id, fallback to without
-      let error: any = null;
-      try {
-        const result = await supabase
-          .from('settings')
-          .update({ value })
-          .eq('key', key)
-          .eq('business_id', businessId);
-        error = result.error;
-      } catch (err) {
-        const result = await supabase
-          .from('settings')
-          .update({ value })
-          .eq('key', key);
-        error = result.error;
-      }
-      
-      if (error) return false;
-    } else {
-      // Try insert with business_id, fallback to without
-      let error: any = null;
-      try {
-        const result = await supabase
-          .from('settings')
-          .insert({ key, value, business_id: businessId });
-        error = result.error;
-      } catch (err) {
-        const result = await supabase
-          .from('settings')
-          .insert({ key, value });
-        error = result.error;
-      }
-      
-      if (error) return false;
-    }
-
-    setSettings(prev => ({ ...prev, [key]: value }));
-    return true;
+  const settingsKeyToColumn: Record<string, string> = {
+    business_name: 'business_name',
+    business_hours: 'business_hours',
+    primary_color: 'primary_color',
+    secondary_color: 'secondary_color',
+    business_logo_url: 'business_logo_url',
+    business_logo_url_light: 'business_logo_url_light',
+    business_logo_url_dark: 'business_logo_url_dark',
+    navbar_logo_mode: 'navbar_logo_mode',
+    navbar_logo_size_px: 'navbar_logo_size_px',
+    timezone: 'timezone',
+    default_low_stock_threshold: 'default_low_stock_threshold',
+    pay_schedule_anchor_date: 'pay_schedule_anchor_date',
+    pay_schedule_cadence_weeks: 'pay_schedule_cadence_weeks',
   };
 
-  const saveAllSettings = async (newSettings: Partial<Settings>) => {
-    if (!businessId) return false;
+  const updateSetting = async (key: string, value: string | null): Promise<{ ok: boolean; error?: string }> => {
+    if (!businessId) return { ok: false, error: 'No business ID' };
+    const column = settingsKeyToColumn[key];
+    if (!column) return { ok: false, error: `Unknown setting key: ${key}` };
 
-    const keys = (['business_name', 'business_hours', 'primary_color', 'secondary_color', 'default_low_stock_threshold'] as const).filter(
-      (k) => newSettings[k] !== undefined && newSettings[k] !== ''
-    );
-    const results = await Promise.all(keys.map((k) => updateSetting(k, String(newSettings[k]))));
-    return results.every((r) => r);
+    const payload = { business_id: businessId, [column]: value };
+    const { error } = await supabase
+      .from('settings')
+      .upsert(payload, { onConflict: 'business_id' });
+
+    if (error) {
+      if (import.meta.env.DEV) console.error('[useSettings] upsert error:', error);
+      return { ok: false, error: error.message };
+    }
+    setSettings(prev => ({ ...prev, [key]: value }));
+    return { ok: true };
+  };
+
+  const saveAllSettings = async (newSettings: Partial<Settings>): Promise<{ ok: boolean; error?: string }> => {
+    if (!businessId) return { ok: false, error: 'No business ID' };
+
+    const payload: Record<string, unknown> = { business_id: businessId };
+    const keys = [
+      'business_name',
+      'business_hours',
+      'primary_color',
+      'secondary_color',
+      'business_logo_url',
+      'business_logo_url_light',
+      'business_logo_url_dark',
+      'navbar_logo_mode',
+      'navbar_logo_size_px',
+      'timezone',
+      'default_low_stock_threshold',
+      'pay_schedule_anchor_date',
+      'pay_schedule_cadence_weeks',
+    ] as const;
+    for (const k of keys) {
+      const v = newSettings[k];
+      if (v !== undefined) {
+        // Allow explicit null to clear optional fields like `business_logo_url`.
+        if (typeof v === 'string') {
+          if (v !== '') payload[settingsKeyToColumn[k]] = v;
+        } else {
+          payload[settingsKeyToColumn[k]] = v;
+        }
+      }
+    }
+
+    const { error } = await supabase
+      .from('settings')
+      .upsert(payload, { onConflict: 'business_id' });
+
+    if (error) {
+      if (import.meta.env.DEV) console.error('[useSettings] saveAllSettings upsert error:', error);
+      return { ok: false, error: error.message };
+    }
+    setSettings(prev => ({ ...prev, ...newSettings }));
+    return { ok: true };
   };
 
   return { settings, loading, updateSetting, saveAllSettings, refetch: fetchSettings };

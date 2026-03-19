@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 
 interface AdminProps {
   settings: Settings;
-  onSaveSettings: (settings: Settings) => Promise<boolean>;
+  onSaveSettings: (settings: Partial<Settings>) => Promise<{ ok: boolean; error?: string }>;
   services: Service[];
   onAddService: (service: Omit<Service, 'id' | 'created_at'>) => void;
   onUpdateService: (id: string, service: Partial<Service>) => void;
@@ -60,10 +60,10 @@ export function Admin({
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSettings(true);
-    const success = await onSaveSettings(settingsFormData);
+    const result = await onSaveSettings(settingsFormData);
     setSavingSettings(false);
     
-    if (success) {
+    if (result.ok) {
       toast.success('Settings saved successfully!');
       // Apply colors immediately
       const root = document.documentElement;
@@ -72,7 +72,7 @@ export function Admin({
       root.style.setProperty('--primary', primaryValue);
       root.style.setProperty('--secondary', secondaryValue);
     } else {
-      toast.error('Failed to save settings. Please try again.');
+      toast.error(result.error || 'Failed to save settings. Please try again.');
     }
   };
 

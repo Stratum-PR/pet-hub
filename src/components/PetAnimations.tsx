@@ -345,6 +345,134 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
     }
   }, []);
 
+  // Quick navigation-triggered animation (kept intentionally short).
+  const createQuickWalkingDogAnimation = useCallback(() => {
+    if (!animationContainerRef.current) return;
+
+    if (walkingAnimationRef.current !== null) return;
+
+    const container = animationContainerRef.current;
+    const maxPawprints = 4;
+    let stepCount = 0;
+    let currentX = -100;
+    let currentY = window.innerHeight * 0.35 + (Math.random() * window.innerHeight * 0.25);
+    let isLeftPaw = Math.random() > 0.5;
+
+    const stepInterval = 80 + Math.random() * 70; // fast rhythm for "feels responsive"
+
+    const pathVariation = () => ({
+      x: Math.random() * 30 - 15,
+      y: Math.random() * 20 - 10,
+      rotation: (Math.random() * 18 - 9) * (Math.PI / 180),
+      scale: 0.9 + Math.random() * 0.2,
+    });
+
+    const createPawprint = () => {
+      if (!animationContainerRef.current) return;
+
+      if (walkingPawprintsRef.current.length >= maxPawprints) {
+        const oldest = walkingPawprintsRef.current.shift();
+        if (oldest) {
+          oldest.element.style.transition = 'opacity 0.25s ease-out';
+          oldest.element.style.opacity = '0';
+          setTimeout(() => {
+            if (oldest.element.parentNode) oldest.element.remove();
+          }, 250);
+        }
+      }
+
+      const variation = pathVariation();
+      isLeftPaw = !isLeftPaw;
+
+      const stepX = currentX + 60 + variation.x;
+      const stepY = currentY + variation.y;
+
+      currentX = stepX;
+      currentY += variation.y * 0.25;
+
+      const id = `walking-paw-quick-${Date.now()}-${stepCount++}`;
+      const pawprint = document.createElement('div');
+      pawprint.id = id;
+      pawprint.style.position = 'fixed';
+      pawprint.style.left = `${stepX}px`;
+      pawprint.style.top = `${stepY}px`;
+      pawprint.style.width = `${38 * variation.scale}px`;
+      pawprint.style.height = `${38 * variation.scale}px`;
+      pawprint.style.pointerEvents = 'none';
+      pawprint.style.zIndex = '9999';
+      pawprint.style.opacity = '0.75';
+      pawprint.style.transform = `rotate(${variation.rotation}rad)`;
+      pawprint.style.transition = 'opacity 0.18s ease-in';
+      pawprint.style.transformOrigin = 'center center';
+
+      const img = document.createElement('img');
+      img.src = '/stock-vector-one-single-paw-print.webp';
+      img.alt = 'Paw print';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
+
+      img.addEventListener('error', () => {
+        pawprint.innerHTML = `
+          <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="30" cy="30" r="10" fill="currentColor" opacity="0.6"/>
+            <circle cx="70" cy="30" r="10" fill="currentColor" opacity="0.6"/>
+            <circle cx="30" cy="70" r="10" fill="currentColor" opacity="0.6"/>
+            <circle cx="70" cy="70" r="10" fill="currentColor" opacity="0.6"/>
+            <ellipse cx="50" cy="50" rx="18" ry="22" fill="currentColor" opacity="0.6"/>
+          </svg>
+        `;
+        pawprint.style.color = '#666';
+      });
+
+      pawprint.appendChild(img);
+      container.appendChild(pawprint);
+
+      walkingPawprintsRef.current.push({ id, element: pawprint });
+    };
+
+    const scheduleNextStep = () => {
+      if (walkingAnimationRef.current === null) return;
+
+      createPawprint();
+
+      if (currentX <= window.innerWidth + 80) {
+        const timeoutId = setTimeout(() => scheduleNextStep(), stepInterval);
+        walkingAnimationRef.current = timeoutId as any;
+      } else {
+        walkingPawprintsRef.current.forEach(({ element }) => {
+          element.style.transition = 'opacity 0.25s ease-out';
+          element.style.opacity = '0';
+          setTimeout(() => {
+            if (element.parentNode) element.remove();
+          }, 250);
+        });
+        walkingPawprintsRef.current = [];
+        walkingAnimationRef.current = null;
+      }
+    };
+
+    scheduleNextStep();
+
+    // Hard stop to keep nav feel snappy
+    setTimeout(() => {
+      if (walkingAnimationRef.current !== null) {
+        clearTimeout(walkingAnimationRef.current as any);
+        walkingAnimationRef.current = null;
+
+        walkingPawprintsRef.current.forEach(({ element }) => {
+          element.style.transition = 'opacity 0.25s ease-out';
+          element.style.opacity = '0';
+          setTimeout(() => {
+            if (element.parentNode) element.remove();
+          }, 250);
+        });
+        walkingPawprintsRef.current = [];
+      }
+    }, 3000);
+  }, []);
+
   // Trigger random animation - ensures only one of each type
   const triggerRandomAnimation = useCallback(() => {
     if (!finalConfig.enabled) return;
@@ -355,6 +483,18 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
     // Trigger the selected animation (only one of each type allowed)
     randomAnimation();
   }, [createWalkingDogAnimation, createPawprintAnimation, finalConfig.enabled]);
+
+  // Trigger a short animation when navigation happens.
+  const triggerQuickAnimation = useCallback(() => {
+    if (!finalConfig.enabled) return;
+    createQuickWalkingDogAnimation();
+  }, [createQuickWalkingDogAnimation, finalConfig.enabled]);
+
+  useEffect(() => {
+    const handler = () => triggerQuickAnimation();
+    window.addEventListener('pet-quick-trigger', handler);
+    return () => window.removeEventListener('pet-quick-trigger', handler);
+  }, [triggerQuickAnimation]);
 
   // Set up random interval
   useEffect(() => {

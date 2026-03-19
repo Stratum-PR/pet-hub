@@ -26,7 +26,8 @@ export function PageTransition({ children }: PageTransitionProps) {
       {/* Cover: on TOP of main content so it visibly rolls down over current page; gives time for next page to load */}
       {isCovering && (
         <div
-          className="absolute inset-0 top-0 z-20 h-0 min-h-0 bg-background animate-page-cover-down pointer-events-none"
+          // Use a subtle primary-tinted overlay so the transition feels intentional.
+          className="absolute inset-0 top-0 z-20 h-0 min-h-0 bg-primary/15 animate-page-cover-down pointer-events-none"
           aria-hidden
         />
       )}

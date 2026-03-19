@@ -231,7 +231,7 @@ export default {
         'letter-appear': 'letter-appear var(--letter-duration, 0.03s) ease-out forwards',
         'subtitle-fade-in': 'subtitle-fade-in 0.5s ease-out 1.5s forwards',
         'cta-reveal': 'cta-reveal 0.5s ease-out 1.5s forwards',
-        'page-cover-down': 'page-cover-down 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'page-cover-down': 'page-cover-down 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'page-title-reveal': 'page-title-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'header-title-in': 'header-title-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'page-object-appear': 'page-object-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',

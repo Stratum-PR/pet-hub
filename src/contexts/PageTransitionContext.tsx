@@ -1,8 +1,10 @@
 import { createContext, useContext, useRef, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
-const COVER_DURATION_MS = 1200;
-const REVEAL_DURATION_MS = 3600;
+// Keep transitions fast so users perceive navigation as intentional (not a "glitch").
+// Note: cover animation duration is also defined in tailwind.config.ts (page-cover-down).
+const COVER_DURATION_MS = 500;
+const REVEAL_DURATION_MS = 900;
 
 type PageTransitionContextValue = {
   /** Real pathname from router (updates immediately on navigation) */

@@ -66,103 +66,103 @@ export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: Clien
     <Card id="client-form" className="shadow-sm animate-fade-in">
       <CardHeader>
         <CardTitle>
-          {isEditing ? t('clientForm.editClient') : t('clientForm.addNewClient')}
+          {isEditing ? t('form.editClient') : t('form.addNewClient')}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="first_name">{t('clientForm.firstName')} *</Label>
+              <Label htmlFor="first_name">{t('form.firstName')} *</Label>
               <Input
                 id="first_name"
                 value={formData.first_name}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 required
-                placeholder={t('clientForm.firstNamePlaceholder')}
+                placeholder={t('form.firstName')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="last_name">{t('clientForm.lastName')} *</Label>
+              <Label htmlFor="last_name">{t('form.lastName')} *</Label>
               <Input
                 id="last_name"
                 value={formData.last_name}
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 required
-                placeholder={t('clientForm.lastNamePlaceholder')}
+                placeholder={t('form.lastName')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">{t('clientForm.email')}</Label>
+              <Label htmlFor="email">{t('form.email')}</Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder={t('clientForm.emailPlaceholder')}
+                placeholder={t('form.email')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">{t('clientForm.phone')} *</Label>
+              <Label htmlFor="phone">{t('form.phone')} *</Label>
               <Input
                 id="phone"
                 type="tel"
                 value={formData.phone}
                 onChange={handlePhoneChange}
                 required
-                placeholder="(555) 123-4567"
+                placeholder={t('form.phone')}
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="address">{t('clientForm.address')}</Label>
+              <Label htmlFor="address">{t('form.address')}</Label>
               <Input
                 id="address"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder={t('clientForm.addressPlaceholder')}
+                placeholder={t('form.address')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="city">{t('clientForm.city')}</Label>
+              <Label htmlFor="city">{t('form.city')}</Label>
               <Input
                 id="city"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder={t('clientForm.cityPlaceholder')}
+                placeholder={t('form.city')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="state">{t('clientForm.state')}</Label>
+              <Label htmlFor="state">{t('form.state')}</Label>
               <Input
                 id="state"
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                placeholder={t('clientForm.statePlaceholder')}
+                placeholder={t('form.state')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="zip_code">{t('clientForm.zipCode')}</Label>
+              <Label htmlFor="zip_code">{t('form.zipCode')}</Label>
               <Input
                 id="zip_code"
                 value={formData.zip_code}
                 onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                placeholder={t('clientForm.zipCodePlaceholder')}
+                placeholder={t('form.zipCode')}
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="notes">{t('clientForm.notes')}</Label>
+              <Label htmlFor="notes">{t('form.notes')}</Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder={t('clientForm.notesPlaceholder')}
+                placeholder={t('form.notes')}
                 rows={3}
               />
             </div>
           </div>
           <div className="flex gap-3 pt-4">
             <Button type="submit" className="shadow-sm">
-              {isEditing ? t('clientForm.updateClient') : t('clientForm.addClient')}
+              {isEditing ? t('common.save') : t('clients.addClient')}
             </Button>
             {onCancel && (
               <Button type="button" variant="outline" onClick={onCancel}>

@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { Employee, TimeEntry } from '@/types';
-import { format, startOfWeek, endOfWeek, differenceInHours, parseISO, addWeeks, subWeeks, eachDayOfInterval, isSameWeek, startOfDay } from 'date-fns';
+import { format, differenceInMinutes, parseISO, eachDayOfInterval, startOfDay } from 'date-fns';
 import { t } from '@/lib/translations';
+import { useSettings } from '@/hooks/useSupabaseData';
+import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
 
 interface EmployeeTimesheetProps {
   employees: Employee[];
@@ -16,27 +18,39 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
   const { employeeId } = useParams<{ employeeId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { settings, loading: settingsLoading } = useSettings();
   
   const [currentPayPeriod, setCurrentPayPeriod] = useState(() => {
-    const state = location.state as { weekStart?: string } | null;
-    const startDate = state?.weekStart ? parseISO(state.weekStart) : startOfWeek(new Date());
-    return startOfWeek(startDate);
+    const state = location.state as { payPeriodStart?: string; weekStart?: string } | null;
+    const startDateISO = state?.payPeriodStart || state?.weekStart;
+    return startDateISO ? parseISO(startDateISO) : new Date();
   });
 
   const employee = employees.find(emp => emp.id === employeeId);
-  // Two-week pay period: start of first week to end of second week
-  const payPeriodStart = startOfWeek(currentPayPeriod);
-  const payPeriodEnd = endOfWeek(addWeeks(payPeriodStart, 1));
-  const payPeriodDays = eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
+  const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
+  const anchorDateISO = settings.pay_schedule_anchor_date || new Date().toISOString().slice(0, 10);
+
+  const { periodStart: payPeriodStart, periodEnd: payPeriodEnd } = useMemo(() => {
+    if (settingsLoading) {
+      const d = new Date();
+      return getPayPeriodRangeForDate(d, { anchorDateISO: d.toISOString().slice(0, 10), cadenceWeeks: 2 });
+    }
+    return getPayPeriodRangeForDate(currentPayPeriod, { anchorDateISO, cadenceWeeks });
+  }, [currentPayPeriod, anchorDateISO, cadenceWeeks, settingsLoading]);
+
+  const payPeriodDays = useMemo(() => {
+    return eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
+  }, [payPeriodStart, payPeriodEnd]);
 
   const isCurrentPayPeriod = useMemo(() => {
-    const now = new Date();
-    const currentPeriodStart = startOfWeek(startOfWeek(now));
-    return payPeriodStart.getTime() === currentPeriodStart.getTime();
-  }, [payPeriodStart]);
+    const todayPeriodStart = getPayPeriodStartForDate(new Date(), { anchorDateISO, cadenceWeeks });
+    return payPeriodStart.getTime() === todayPeriodStart.getTime();
+  }, [payPeriodStart, anchorDateISO, cadenceWeeks]);
 
   const timesheetData = useMemo(() => {
     if (!employee) return null;
+
+    const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
 
     const empEntries = timeEntries.filter(entry => {
       const entryDate = startOfDay(new Date(entry.clock_in));
@@ -53,7 +67,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
 
       const dayHours = dayEntries.reduce((sum, entry) => {
         if (!entry.clock_out) return sum;
-        return sum + differenceInHours(new Date(entry.clock_out), new Date(entry.clock_in));
+        return sum + roundToQuarterHours(differenceInMinutes(new Date(entry.clock_out), new Date(entry.clock_in)) / 60);
       }, 0);
 
       const dayPay = dayHours * employee.hourly_rate;
@@ -79,16 +93,24 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
   }, [employee, timeEntries, payPeriodStart, payPeriodEnd, payPeriodDays]);
 
   const handlePreviousPayPeriod = () => {
-    setCurrentPayPeriod(subWeeks(currentPayPeriod, 2));
+    setCurrentPayPeriod(addPayPeriods(payPeriodStart, -1, cadenceWeeks));
   };
 
   const handleNextPayPeriod = () => {
-    setCurrentPayPeriod(addWeeks(currentPayPeriod, 2));
+    setCurrentPayPeriod(addPayPeriods(payPeriodStart, 1, cadenceWeeks));
   };
 
   const handleCurrentPayPeriod = () => {
-    setCurrentPayPeriod(startOfWeek(new Date()));
+    setCurrentPayPeriod(new Date());
   };
+
+  if (settingsLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in flex items-center justify-center min-h-[200px]">
+        <div className="text-muted-foreground">{t('common.loading')}</div>
+      </div>
+    );
+  }
 
   if (!employee || !timesheetData) {
     return (

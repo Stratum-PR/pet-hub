@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import { Download, Plus, Trash2, Upload, ZoomIn, ZoomOut, X } from 'lucide-react
 import { Badge } from '@/components/ui/badge';
 import { GeofencingSettings } from '@/components/GeofencingSettings';
 import { KioskManagerPinSettings } from '@/components/KioskManagerPinSettings';
+import { SidebarLogoPreview } from '@/components/SidebarLogoPreview';
+import { TimeKioskPreview } from '@/components/TimeKioskPreview';
 import {
   Dialog,
   DialogContent,
@@ -61,7 +63,7 @@ function isPuertoRicoTaxSetup(rows: { label: string; rate: number }[]): boolean 
 
 export function BusinessSettingsPage() {
   const businessId = useBusinessId();
-  const { settings, updateSetting } = useSettings();
+  const { settings, updateSetting, refetch } = useSettings();
   const [taxMode, setTaxMode] = useState<'region' | 'custom'>(TAX_MODE_REGION);
   const [taxRegion, setTaxRegion] = useState<string | null>(REGION_PUERTO_RICO);
   const [customTaxRows, setCustomTaxRows] = useState<TaxRow[]>([]);
@@ -71,17 +73,35 @@ export function BusinessSettingsPage() {
   const [receiptFooter, setReceiptFooter] = useState('');
   const [businessPhone, setBusinessPhone] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
-  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(() =>
+  type LogoVariant = 'light' | 'dark';
+  type LogoPreviewTarget = 'crop' | 'navbar' | 'kiosk';
+  const [companyLogoUrlLight, setCompanyLogoUrlLight] = useState<string | null>(() =>
     typeof window !== 'undefined' && isDemoMode() ? '/pet-hub-icon.svg' : null
   );
+  // Dark mode logo is optional; if missing, the app will fall back to the light logo.
+  const [companyLogoUrlDark, setCompanyLogoUrlDark] = useState<string | null>(null);
+  const [logoUploadVariant, setLogoUploadVariant] = useState<LogoVariant>('light');
   const [logoUploading, setLogoUploading] = useState(false);
-  const [logoPreviewZoom, setLogoPreviewZoom] = useState(1);
+  const [logoPreviewTarget, setLogoPreviewTarget] = useState<LogoPreviewTarget>('crop');
+  const [cropZoomByVariant, setCropZoomByVariant] = useState<Record<LogoVariant, number>>({ light: 1, dark: 1 });
+  const [navbarZoomByVariant, setNavbarZoomByVariant] = useState<Record<LogoVariant, number>>({ light: 1, dark: 1 });
+  const [kioskZoomByVariant, setKioskZoomByVariant] = useState<Record<LogoVariant, number>>({ light: 1, dark: 1 });
+  const [navbarSizeByVariant, setNavbarSizeByVariant] = useState<Record<LogoVariant, number>>({ light: 64, dark: 64 });
+  const [kioskLogoHeightByVariant, setKioskLogoHeightByVariant] = useState<Record<LogoVariant, number>>({ light: 48, dark: 48 });
+  const [navbarLogoMode, setNavbarLogoMode] = useState<'square' | 'wide'>(() => (settings.navbar_logo_mode as any) || 'square');
+  const [navbarLogoSizePx, setNavbarLogoSizePx] = useState(() => settings.navbar_logo_size_px || '80');
   const [logoUploadPreview, setLogoUploadPreview] = useState<{ file: File; objectUrl: string } | null>(null);
   const [defaultLowStock, setDefaultLowStock] = useState(settings.default_low_stock_threshold || '5');
   const [exporting, setExporting] = useState(false);
   const [businessName, setBusinessName] = useState(settings.business_name || '');
   const [hoursPerDay, setHoursPerDay] = useState<Record<DayKey, DayHours>>(() => parseBusinessHours(settings.business_hours));
   const [savingBusinessInfo, setSavingBusinessInfo] = useState(false);
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  // Pay schedule settings (pay periods used by payroll reports).
+  const [payScheduleAnchorDate, setPayScheduleAnchorDate] = useState(settings.pay_schedule_anchor_date || todayIso);
+  const [payScheduleCadenceWeeks, setPayScheduleCadenceWeeks] = useState(settings.pay_schedule_cadence_weeks || '2');
+  const [savingPaySchedule, setSavingPaySchedule] = useState(false);
 
   useEffect(() => {
     setDefaultLowStock(settings.default_low_stock_threshold || '5');
@@ -93,27 +113,80 @@ export function BusinessSettingsPage() {
   }, [settings.business_name, settings.business_hours]);
 
   useEffect(() => {
+    setPayScheduleAnchorDate(settings.pay_schedule_anchor_date || todayIso);
+    setPayScheduleCadenceWeeks(settings.pay_schedule_cadence_weeks || '2');
+  }, [settings.pay_schedule_anchor_date, settings.pay_schedule_cadence_weeks, todayIso]);
+
+  useEffect(() => {
     if (!businessId) return;
     Promise.all([
       supabase.from('receipt_settings' as any).select('*').eq('business_id', businessId).maybeSingle(),
+      supabase
+        .from('settings' as any)
+        .select('business_logo_url, business_logo_url_light, business_logo_url_dark')
+        .eq('business_id', businessId)
+        .maybeSingle(),
       supabase.from('businesses').select('phone, logo_url').eq('id', businessId).maybeSingle(),
-    ]).then(([receiptRes, bizRes]) => {
+    ]).then(([receiptRes, settingsRes, bizRes]) => {
       const receipt = receiptRes.data as any;
-      const biz = bizRes.data as any;
+      const biz = (bizRes as any).data as any;
+      const settingsRow = (settingsRes as any).data as any;
       if (receipt) {
         setReceiptHeader(receipt.header_text || '');
         setReceiptFooter(receipt.footer_text || '');
         setBusinessAddress(receipt.receipt_location || '');
       }
       setBusinessPhone(biz?.phone || receipt?.receipt_phone || '');
-      const logoUrl = biz?.logo_url || null;
-      if (isDemoMode() && !logoUrl) {
-        setCompanyLogoUrl('/pet-hub-icon.svg');
+      // NOTE: `public.settings` is our single-row-per-business source of truth,
+      // but we also keep a fallback to `businesses.logo_url` for backward compatibility.
+      const legacyLogoUrl = settingsRow?.business_logo_url ?? biz?.logo_url ?? null;
+      const lightLogoUrl = settingsRow?.business_logo_url_light ?? legacyLogoUrl;
+      const darkLogoUrl = settingsRow?.business_logo_url_dark ?? null;
+
+      if (isDemoMode() && !lightLogoUrl) {
+        setCompanyLogoUrlLight('/pet-hub-icon.svg');
+        setCompanyLogoUrlDark(null);
       } else {
-        setCompanyLogoUrl(logoUrl);
+        setCompanyLogoUrlLight(lightLogoUrl);
+        setCompanyLogoUrlDark(darkLogoUrl);
       }
     });
   }, [businessId]);
+
+  useEffect(() => {
+    setNavbarLogoMode((settings.navbar_logo_mode as any) || 'square');
+    setNavbarLogoSizePx(settings.navbar_logo_size_px || '80');
+  }, [settings.navbar_logo_mode, settings.navbar_logo_size_px]);
+
+  const [businessTimezone, setBusinessTimezone] = useState(settings.timezone || '');
+  useEffect(() => {
+    setBusinessTimezone(settings.timezone || '');
+  }, [settings.timezone]);
+
+  const timezoneOptions = useMemo(() => {
+    const fallback = [
+      'America/Puerto_Rico',
+      'America/New_York',
+      'America/Chicago',
+      'America/Denver',
+      'America/Los_Angeles',
+      'America/Santo_Domingo',
+      'America/Bogota',
+      'America/Mexico_City',
+      'America/Panama',
+      'Europe/London',
+      'Europe/Madrid',
+      'Europe/Paris',
+      'UTC',
+    ];
+
+    const supportedValuesOf = (Intl as any)?.supportedValuesOf as ((key: string) => string[]) | undefined;
+    const list = supportedValuesOf ? supportedValuesOf('timeZone') : fallback;
+    const unique = Array.from(new Set([...(list || []), ...fallback]));
+    // Ensure current value is selectable even if not in supported list.
+    if (businessTimezone) unique.unshift(businessTimezone);
+    return Array.from(new Set(unique)).filter(Boolean);
+  }, [businessTimezone]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -164,8 +237,17 @@ export function BusinessSettingsPage() {
         })
         .eq('id', businessId);
       if (bizError) throw bizError;
-      await updateSetting('business_name', businessName.trim() || '');
-      await updateSetting('business_hours', serializeBusinessHours(hoursPerDay));
+      const nameRes = await updateSetting('business_name', businessName.trim() || '');
+      if (!nameRes.ok) throw new Error(nameRes.error);
+      const hoursRes = await updateSetting('business_hours', serializeBusinessHours(hoursPerDay));
+      if (!hoursRes.ok) throw new Error(hoursRes.error);
+      const modeRes = await updateSetting('navbar_logo_mode', navbarLogoMode);
+      if (!modeRes.ok) throw new Error(modeRes.error);
+      const sizeNum = Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80));
+      const sizeRes = await updateSetting('navbar_logo_size_px', String(sizeNum));
+      if (!sizeRes.ok) throw new Error(sizeRes.error);
+      const tzRes = await updateSetting('timezone', businessTimezone.trim());
+      if (!tzRes.ok) throw new Error(tzRes.error);
       await supabase.from('receipt_settings' as any).upsert(
         {
           business_id: businessId,
@@ -186,9 +268,36 @@ export function BusinessSettingsPage() {
   const handleSaveLowStock = async () => {
     if (!businessId) return;
     const v = String(Math.max(0, parseInt(defaultLowStock, 10) || 5));
-    await updateSetting('default_low_stock_threshold', v);
+    const res = await updateSetting('default_low_stock_threshold', v);
+    if (!res.ok) {
+      toast.error(res.error || t('common.genericError'));
+      return;
+    }
     setDefaultLowStock(v);
     toast.success(t('businessSettings.lowStockSaved'));
+  };
+
+  const handleSavePaySchedule = async () => {
+    if (!businessId) return;
+    setSavingPaySchedule(true);
+    try {
+      const anchorRes = await updateSetting('pay_schedule_anchor_date', payScheduleAnchorDate);
+      if (!anchorRes.ok) {
+        toast.error(anchorRes.error || t('common.genericError'));
+        return;
+      }
+      const cadenceRes = await updateSetting('pay_schedule_cadence_weeks', payScheduleCadenceWeeks);
+      if (!cadenceRes.ok) {
+        toast.error(cadenceRes.error || t('common.genericError'));
+        return;
+      }
+      await refetch();
+      toast.success(t('businessSettings.payScheduleSaved'));
+    } catch (e: any) {
+      toast.error(e?.message || t('common.genericError'));
+    } finally {
+      setSavingPaySchedule(false);
+    }
   };
 
   const handleSaveReceipt = async () => {
@@ -209,7 +318,9 @@ export function BusinessSettingsPage() {
   const MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5MB
   const ACCEPT_IMAGES = 'image/jpeg,image/png,image/webp,image/gif';
 
-  const openLogoUploadPreview = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const openLogoUploadPreview = (variant: LogoVariant) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLogoUploadVariant(variant);
+    setLogoPreviewTarget('crop');
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !businessId) return;
@@ -222,7 +333,6 @@ export function BusinessSettingsPage() {
       return;
     }
     setLogoUploadPreview({ file, objectUrl: URL.createObjectURL(file) });
-    setLogoPreviewZoom(1);
   };
 
   const closeLogoUploadPreview = () => {
@@ -241,7 +351,7 @@ export function BusinessSettingsPage() {
         el.onerror = rej;
         el.src = objectUrl;
       });
-      const scale = logoPreviewZoom;
+      const scale = cropZoomByVariant[logoUploadVariant] ?? 1;
       const w = Math.round(img.naturalWidth * scale);
       const h = Math.round(img.naturalHeight * scale);
       const canvas = document.createElement('canvas');
@@ -253,38 +363,91 @@ export function BusinessSettingsPage() {
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, file.type || 'image/png', 0.92));
       if (!blob) throw new Error('toBlob failed');
       const ext = file.name.split('.').pop() || 'png';
-      const path = `${businessId}/logo.${ext}`;
+      const variant = logoUploadVariant;
+      const path = `${businessId}/logo_${variant}.${ext}`;
       const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, blob, { cacheControl: '3600', upsert: true });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('business-logos').getPublicUrl(path);
-      const { error: updateError } = await supabase.from('businesses' as any).update({ logo_url: publicUrl, updated_at: new Date().toISOString() }).eq('id', businessId);
-      if (updateError) throw updateError;
-      setCompanyLogoUrl(publicUrl);
+      if (variant === 'light') {
+        // Keep legacy fields in sync with the light logo for backward compatibility.
+        const { error: updateError } = await supabase
+          .from('businesses' as any)
+          .update({ logo_url: publicUrl, updated_at: new Date().toISOString() })
+          .eq('id', businessId);
+        if (updateError) throw updateError;
+
+        const legacyRes = await updateSetting('business_logo_url', publicUrl);
+        if (!legacyRes.ok) throw new Error(legacyRes.error || 'Failed saving legacy logo setting');
+      }
+
+      const key = variant === 'light' ? 'business_logo_url_light' : 'business_logo_url_dark';
+      const logoRes = await updateSetting(key, publicUrl);
+      if (!logoRes.ok) throw new Error(logoRes.error || 'Failed saving logo setting');
+
+      if (variant === 'light') setCompanyLogoUrlLight(publicUrl);
+      else setCompanyLogoUrlDark(publicUrl);
+
       toast.success(t('businessSettings.logoUploaded'));
       closeLogoUploadPreview();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : t('common.genericError'));
+      const msg = err instanceof Error ? err.message : t('common.genericError');
+      if (msg.includes('schema cache') && (msg.includes('business_logo_url_dark') || msg.includes('business_logo_url_light'))) {
+        toast.error(
+          "Logo fields aren't available yet. Apply the latest Supabase migrations and reload the schema cache, then try again."
+        );
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLogoUploading(false);
     }
   };
 
-  const handleLogoDelete = async () => {
-    if (!businessId || !companyLogoUrl) return;
+  const handleLogoDelete = async (variant: LogoVariant) => {
+    if (!businessId) return;
+    const companyLogoUrl = variant === 'light' ? companyLogoUrlLight : companyLogoUrlDark;
+    if (!companyLogoUrl) return;
     setLogoUploading(true);
     try {
       const pathMatch = companyLogoUrl.match(/\/storage\/v1\/object\/public\/business-logos\/(.+)$/);
       const path = pathMatch ? pathMatch[1] : null;
       if (path) await supabase.storage.from('business-logos').remove([path]);
-      await supabase.from('businesses').update({ logo_url: null, updated_at: new Date().toISOString() }).eq('id', businessId);
-      setCompanyLogoUrl(null);
-      setLogoPreviewZoom(1);
+
+      if (variant === 'light') {
+        await supabase.from('businesses').update({ logo_url: null, updated_at: new Date().toISOString() }).eq('id', businessId);
+        const legacyRes = await updateSetting('business_logo_url', null);
+        if (!legacyRes.ok) throw new Error(legacyRes.error || 'Failed clearing legacy logo setting');
+      }
+
+      const key = variant === 'light' ? 'business_logo_url_light' : 'business_logo_url_dark';
+      const logoRes = await updateSetting(key, null);
+      if (!logoRes.ok) throw new Error(logoRes.error || 'Failed clearing logo setting');
+
+      if (variant === 'light') setCompanyLogoUrlLight(null);
+      else setCompanyLogoUrlDark(null);
+
+      setCropZoomByVariant((prev) => ({ ...prev, [variant]: 1 }));
       toast.success(t('businessSettings.logoDeleted'));
     } catch (err: unknown) {
       toast.error(t('common.genericError'));
     } finally {
       setLogoUploading(false);
     }
+  };
+
+  const adjustZoom = (dir: -1 | 1) => {
+    const clamp = (v: number) => Math.max(0.5, Math.min(2, v));
+    const step = 0.25 * dir;
+    const variant = logoUploadVariant;
+    if (logoPreviewTarget === 'crop') {
+      setCropZoomByVariant((prev) => ({ ...prev, [variant]: clamp((prev[variant] ?? 1) + step) }));
+      return;
+    }
+    if (logoPreviewTarget === 'navbar') {
+      setNavbarZoomByVariant((prev) => ({ ...prev, [variant]: clamp((prev[variant] ?? 1) + step) }));
+      return;
+    }
+    setKioskZoomByVariant((prev) => ({ ...prev, [variant]: clamp((prev[variant] ?? 1) + step) }));
   };
 
   const handleSaveTaxes = async () => {
@@ -399,31 +562,148 @@ export function BusinessSettingsPage() {
               </div>
               <div className="space-y-3">
                 <Label>{t('businessSettings.companyLogo')}</Label>
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className="relative flex h-24 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/50">
-                    {(companyLogoUrl || (typeof window !== 'undefined' && isDemoMode())) ? (
-                      <img
-                        src={companyLogoUrl || '/pet-hub-icon.svg'}
-                        alt=""
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{t('businessSettings.logoNoImage')}</span>
-                    )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Navbar logo mode</Label>
+                    <Select value={navbarLogoMode} onValueChange={(v: 'square' | 'wide') => setNavbarLogoMode(v)}>
+                      <SelectTrigger className="w-full max-w-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="square">Square</SelectItem>
+                        <SelectItem value="wide">Wide (wordmark)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Navbar logo size</Label>
+                    <Input
+                      type="number"
+                      min={48}
+                      max={120}
+                      value={navbarLogoSizePx}
+                      onChange={(e) => setNavbarLogoSizePx(e.target.value)}
+                      className="w-full max-w-xs"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Business timezone</Label>
+                    <Select value={businessTimezone || ''} onValueChange={setBusinessTimezone}>
+                      <SelectTrigger className="w-full max-w-xs">
+                        <SelectValue placeholder="Select timezone" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[320px]">
+                        {timezoneOptions.map((tz) => (
+                          <SelectItem key={tz} value={tz}>
+                            {tz}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">This should match your business’s local time.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
-                    <input type="file" accept={ACCEPT_IMAGES} className="hidden" id="logo-upload" onChange={openLogoUploadPreview} disabled={logoUploading} />
-                    <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => document.getElementById('logo-upload')?.click()} disabled={logoUploading}>
-                      <Upload className="h-4 w-4" />
-                      {companyLogoUrl ? t('businessSettings.logoReplace') : t('businessSettings.logoUpload')}
-                    </Button>
-                    {companyLogoUrl && (
-                      <Button type="button" variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive" onClick={handleLogoDelete} disabled={logoUploading}>
-                        <X className="h-4 w-4" />
-                        {t('businessSettings.logoDelete')}
+                    <div className="text-sm font-medium">Light mode</div>
+                    <div className="relative flex h-24 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/50">
+                      {(companyLogoUrlLight || (typeof window !== 'undefined' && isDemoMode())) ? (
+                        <img
+                          src={companyLogoUrlLight || '/pet-hub-icon.svg'}
+                          alt=""
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{t('businessSettings.logoNoImage')}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="file"
+                        accept={ACCEPT_IMAGES}
+                        className="hidden"
+                        id="logo-upload-light"
+                        onChange={openLogoUploadPreview('light')}
+                        disabled={logoUploading}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 w-fit"
+                        onClick={() => document.getElementById('logo-upload-light')?.click()}
+                        disabled={logoUploading}
+                      >
+                        <Upload className="h-4 w-4" />
+                        {companyLogoUrlLight ? t('businessSettings.logoReplace') : t('businessSettings.logoUpload')}
                       </Button>
-                    )}
-                    <p className="text-xs text-muted-foreground">{t('businessSettings.logoMax5MB')}</p>
+                      {companyLogoUrlLight && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-destructive hover:text-destructive w-fit"
+                          onClick={() => handleLogoDelete('light')}
+                          disabled={logoUploading}
+                        >
+                          <X className="h-4 w-4" />
+                          {t('businessSettings.logoDelete')}
+                        </Button>
+                      )}
+                      <p className="text-xs text-muted-foreground">{t('businessSettings.logoMax5MB')}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <div className="text-sm font-medium">Dark mode</div>
+                    <div className="relative flex h-24 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/50">
+                      {(companyLogoUrlDark || companyLogoUrlLight || (typeof window !== 'undefined' && isDemoMode())) ? (
+                        <img
+                          src={companyLogoUrlDark || companyLogoUrlLight || '/pet-hub-icon.svg'}
+                          alt=""
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{t('businessSettings.logoNoImage')}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="file"
+                        accept={ACCEPT_IMAGES}
+                        className="hidden"
+                        id="logo-upload-dark"
+                        onChange={openLogoUploadPreview('dark')}
+                        disabled={logoUploading}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 w-fit"
+                        onClick={() => document.getElementById('logo-upload-dark')?.click()}
+                        disabled={logoUploading}
+                      >
+                        <Upload className="h-4 w-4" />
+                        {companyLogoUrlDark ? t('businessSettings.logoReplace') : t('businessSettings.logoUpload')}
+                      </Button>
+                      {companyLogoUrlDark && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-destructive hover:text-destructive w-fit"
+                          onClick={() => handleLogoDelete('dark')}
+                          disabled={logoUploading}
+                        >
+                          <X className="h-4 w-4" />
+                          {t('businessSettings.logoDelete')}
+                        </Button>
+                      )}
+                      <p className="text-xs text-muted-foreground">{t('businessSettings.logoMax5MB')}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -468,28 +748,102 @@ export function BusinessSettingsPage() {
 
           {/* Logo upload preview dialog: zoom to adjust margins, then confirm */}
           <Dialog open={!!logoUploadPreview} onOpenChange={(open) => !open && closeLogoUploadPreview()}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-5xl">
               <DialogHeader>
                 <DialogTitle>{t('businessSettings.logoAdjustPreview')}</DialogTitle>
               </DialogHeader>
               {logoUploadPreview && (
                 <div className="space-y-4">
-                  <div className="flex justify-center rounded-lg border border-border bg-muted/30 p-4">
-                    <img
-                      src={logoUploadPreview.objectUrl}
-                      alt=""
-                      className="max-h-64 w-full object-contain transition-transform"
-                      style={{ transform: `scale(${logoPreviewZoom})` }}
-                    />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border bg-muted/30 p-4 flex items-center justify-center">
+                      <SidebarLogoPreview
+                        logoUrl={logoUploadPreview.objectUrl}
+                        zoom={navbarZoomByVariant[logoUploadVariant] ?? 1}
+                        sizePx={Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80))}
+                        mode={navbarLogoMode}
+                      />
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4 overflow-auto max-h-[520px]">
+                      <TimeKioskPreview
+                        logoUrl={logoUploadPreview.objectUrl}
+                        zoom={kioskZoomByVariant[logoUploadVariant] ?? 1}
+                        logoHeightPx={kioskLogoHeightByVariant[logoUploadVariant] ?? 48}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setLogoPreviewZoom((z) => Math.max(0.5, z - 0.25))}>
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant={logoPreviewTarget === 'crop' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setLogoPreviewTarget('crop')}
+                      >
+                        Crop (saved)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={logoPreviewTarget === 'navbar' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setLogoPreviewTarget('navbar')}
+                      >
+                        Navbar preview
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={logoPreviewTarget === 'kiosk' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setLogoPreviewTarget('kiosk')}
+                      >
+                        Punch clock preview
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustZoom(-1)}>
                       <ZoomOut className="h-4 w-4" />
                     </Button>
-                    <span className="flex-1 text-center text-sm text-muted-foreground">{Math.round(logoPreviewZoom * 100)}%</span>
-                    <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => setLogoPreviewZoom((z) => Math.min(2, z + 0.25))}>
+                    <span className="flex-1 text-center text-sm text-muted-foreground">
+                      {Math.round(
+                        (logoPreviewTarget === 'crop'
+                          ? cropZoomByVariant[logoUploadVariant]
+                          : logoPreviewTarget === 'navbar'
+                            ? navbarZoomByVariant[logoUploadVariant]
+                            : kioskZoomByVariant[logoUploadVariant]) * 100
+                      )}
+                      %
+                    </span>
+                    <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustZoom(1)}>
                       <ZoomIn className="h-4 w-4" />
                     </Button>
+                  </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Navbar logo size</div>
+                        <input
+                          type="range"
+                          min={48}
+                          max={120}
+                          value={Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80))}
+                          onChange={(e) => setNavbarLogoSizePx(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground">Punch clock logo height</div>
+                        <input
+                          type="range"
+                          min={24}
+                          max={96}
+                          value={kioskLogoHeightByVariant[logoUploadVariant] ?? 48}
+                          onChange={(e) =>
+                            setKioskLogoHeightByVariant((prev) => ({ ...prev, [logoUploadVariant]: parseInt(e.target.value, 10) || 48 }))
+                          }
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -676,6 +1030,44 @@ export function BusinessSettingsPage() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Pay Schedule */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('businessSettings.paySchedule')}</CardTitle>
+          <CardDescription>{t('businessSettings.payScheduleDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>{t('businessSettings.payScheduleAnchorDate')}</Label>
+            <Input
+              type="date"
+              value={payScheduleAnchorDate}
+              onChange={(e) => setPayScheduleAnchorDate(e.target.value)}
+              className="w-56"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t('businessSettings.payScheduleCadenceWeeks')}</Label>
+            <Select value={payScheduleCadenceWeeks} onValueChange={setPayScheduleCadenceWeeks}>
+              <SelectTrigger className="w-56">
+                <SelectValue placeholder={t('businessSettings.payScheduleCadenceWeeks')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">{t('businessSettings.cadenceEvery1Week')}</SelectItem>
+                <SelectItem value="2">{t('businessSettings.cadenceEvery2Weeks')}</SelectItem>
+                <SelectItem value="3">{t('businessSettings.cadenceEvery3Weeks')}</SelectItem>
+                <SelectItem value="4">{t('businessSettings.cadenceEvery4Weeks')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button onClick={handleSavePaySchedule} disabled={savingPaySchedule} className="gap-2">
+            {savingPaySchedule ? t('common.saving') : t('businessSettings.payScheduleSave')}
+          </Button>
         </CardContent>
       </Card>
 

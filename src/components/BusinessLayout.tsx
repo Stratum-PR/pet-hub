@@ -15,6 +15,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { signOut } from '@/lib/auth';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
+import { supabase } from '@/integrations/supabase/client';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
 
 interface BusinessLayoutProps {
   children: React.ReactNode;
@@ -24,6 +28,41 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { business } = useAuth();
+  const businessId = useBusinessId();
+  const { resolvedTheme } = useTheme();
+  const [settingsLogoLightUrl, setSettingsLogoLightUrl] = useState<string | null>(null);
+  const [settingsLogoDarkUrl, setSettingsLogoDarkUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!businessId) return;
+
+    let isMounted = true;
+    supabase
+      .from('settings')
+      .select('business_logo_url, business_logo_url_light, business_logo_url_dark')
+      .eq('business_id', businessId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setSettingsLogoLightUrl(data?.business_logo_url_light ?? data?.business_logo_url ?? null);
+        setSettingsLogoDarkUrl(data?.business_logo_url_dark ?? data?.business_logo_url_light ?? data?.business_logo_url ?? null);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setSettingsLogoLightUrl(null);
+        setSettingsLogoDarkUrl(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [businessId]);
+
+  const legacyLogoUrl = business?.logo_url ?? null;
+  const logoLight = settingsLogoLightUrl ?? legacyLogoUrl;
+  const logoDark = settingsLogoDarkUrl ?? settingsLogoLightUrl ?? legacyLogoUrl;
+  const isDark = resolvedTheme === 'dark';
+  const logoToShow = isDark ? logoDark : logoLight;
 
   const handleLogout = async () => {
     try {
@@ -58,10 +97,20 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
             <div className="w-[140px] h-[50px] flex items-center justify-center overflow-hidden bg-transparent -my-2">
               <img src="/pet-hub-logo.svg" alt="Pet Hub" className="w-full h-full object-contain" />
             </div>
-            {business && (
-              <span className="text-xl font-semibold tracking-tight">
-                {business.name && business.name.toLowerCase().includes('demo') ? 'Demo' : business.name}
-              </span>
+
+            {/* Replace business name with logo (when present). */}
+            {logoToShow ? (
+              <img
+                src={logoToShow}
+                alt={business?.name || 'Business logo'}
+                className="h-8 w-auto max-w-[240px] object-contain"
+              />
+            ) : (
+              !!business && (
+                <span className="text-xl font-semibold tracking-tight">
+                  {business.name && business.name.toLowerCase().includes('demo') ? 'Demo' : business.name}
+                </span>
+              )
             )}
           </Link>
 

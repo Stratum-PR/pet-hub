@@ -143,6 +143,11 @@ export function Layout({ children, settings }: LayoutProps) {
     return () => clearTimeout(t);
   }, [prevTitle]);
 
+  const logoLight = settings.business_logo_url_light ?? settings.business_logo_url;
+  const logoDark = settings.business_logo_url_dark ?? settings.business_logo_url_light ?? settings.business_logo_url;
+  const isDark = resolvedTheme === 'dark';
+  const logoToShow = isDark ? logoDark : logoLight;
+
   return (
     <div className="h-screen overflow-hidden flex flex-col bg-background">
       {showAdminHeader && <AdminImpersonationHeader />}
@@ -154,6 +159,9 @@ export function Layout({ children, settings }: LayoutProps) {
             collapsed={sidebarCollapsed}
             onCollapsedChange={setCollapsed}
             businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Pet Hub'}
+            businessLogoUrl={logoToShow}
+            navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
+            navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}
             mobile={false}
           />
         </div>
@@ -165,7 +173,7 @@ export function Layout({ children, settings }: LayoutProps) {
             className="shrink-0 flex items-center justify-between gap-4 px-4 py-2 lg:px-6 bg-transparent"
             style={{ minHeight: '52px' }}
           >
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <Button
                 variant="ghost"
                 size="icon"
@@ -174,19 +182,19 @@ export function Layout({ children, settings }: LayoutProps) {
               >
                 <Menu className="w-5 h-5" />
               </Button>
-              <div className="relative h-8 min-w-[120px] overflow-hidden flex items-center">
+              <div className="relative h-8 min-w-0 flex-1 overflow-hidden flex items-center">
                 {prevTitle && (
                   <div
-                    className="absolute inset-0 flex items-center animate-fade-out-up text-lg font-semibold truncate"
+                    className="absolute inset-0 flex items-center animate-fade-out-up text-lg font-semibold"
                     aria-hidden
                   >
-                    {prevTitle}
+                    <span className="truncate w-full min-w-0">{prevTitle}</span>
                   </div>
                 )}
                 <h1
-                  className={`absolute inset-0 flex items-center text-lg font-semibold truncate ${prevTitle ? 'opacity-0 animate-fade-in-up' : ''}`}
+                  className={`absolute inset-0 flex items-center text-lg font-semibold ${prevTitle ? 'opacity-0 animate-fade-in-up' : ''}`}
                 >
-                  {displayTitle}
+                  <span className="truncate w-full min-w-0">{displayTitle}</span>
                 </h1>
               </div>
               <span
@@ -295,6 +303,9 @@ export function Layout({ children, settings }: LayoutProps) {
             collapsed={false}
             onCollapsedChange={() => {}}
             businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Pet Hub'}
+            businessLogoUrl={logoToShow}
+            navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
+            navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}
             mobile={true}
           />
         </SheetContent>
