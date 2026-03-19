@@ -48,24 +48,25 @@
 /* 2) Containers: top-to-bottom, left-to-right order with quick stagger */
 .page-transition-inner[data-active] [data-transition-containers] > * {
   opacity: 0;
-  animation: page-object-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: page-object-appear 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.1s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.16s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(3) { animation-delay: 0.22s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(4) { animation-delay: 0.28s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(5) { animation-delay: 0.34s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(6) { animation-delay: 0.4s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(7) { animation-delay: 0.46s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(8) { animation-delay: 0.52s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(9) { animation-delay: 0.58s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(10) { animation-delay: 0.64s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(n+11) { animation-delay: 0.7s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.03s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.06s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(3) { animation-delay: 0.09s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(4) { animation-delay: 0.12s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(5) { animation-delay: 0.15s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(6) { animation-delay: 0.18s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(7) { animation-delay: 0.21s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(8) { animation-delay: 0.24s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(9) { animation-delay: 0.27s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(10) { animation-delay: 0.3s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(n+11) { animation-delay: 0.36s; }
 
 /* 2b) Second row (dashboard: Citas then Ingresos) — after first row finishes */
-.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.5s; }
-.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.62s; }
+/* Faster row-2 stagger as well (dashboard second row currently feels laggy). */
+.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.25s; }
+.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.32s; }
 
 /* 3) Other blocks — skip when page uses data-page-visible staggered sequence */
 .page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(2) { animation: none; opacity: 1; }
@@ -82,43 +83,43 @@
 /* 4) List items: one by one quickly, top to bottom (delay = --list-start on parent [data-list]) */
 .page-transition-inner[data-active] [data-list] [data-list-item] {
   opacity: 0;
-  animation: page-list-item-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: page-list-item-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(1) { animation-delay: calc(var(--list-start, 0s) + 0s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(2) { animation-delay: calc(var(--list-start, 0s) + 0.05s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(3) { animation-delay: calc(var(--list-start, 0s) + 0.1s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(4) { animation-delay: calc(var(--list-start, 0s) + 0.15s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(5) { animation-delay: calc(var(--list-start, 0s) + 0.2s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(6) { animation-delay: calc(var(--list-start, 0s) + 0.25s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(7) { animation-delay: calc(var(--list-start, 0s) + 0.3s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(8) { animation-delay: calc(var(--list-start, 0s) + 0.35s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(9) { animation-delay: calc(var(--list-start, 0s) + 0.4s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(10) { animation-delay: calc(var(--list-start, 0s) + 0.45s); }
-.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(n+11) { animation-delay: calc(var(--list-start, 0s) + 0.5s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(2) { animation-delay: calc(var(--list-start, 0s) + 0.035s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(3) { animation-delay: calc(var(--list-start, 0s) + 0.07s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(4) { animation-delay: calc(var(--list-start, 0s) + 0.105s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(5) { animation-delay: calc(var(--list-start, 0s) + 0.14s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(6) { animation-delay: calc(var(--list-start, 0s) + 0.175s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(7) { animation-delay: calc(var(--list-start, 0s) + 0.21s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(8) { animation-delay: calc(var(--list-start, 0s) + 0.245s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(9) { animation-delay: calc(var(--list-start, 0s) + 0.28s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(10) { animation-delay: calc(var(--list-start, 0s) + 0.315s); }
+.page-transition-inner[data-active] [data-list] [data-list-item]:nth-child(n+11) { animation-delay: calc(var(--list-start, 0s) + 0.36s); }
 
 
 /* Card content: from below + transparent to position + opaque (blocks 3 and 4 = cards) */
 .page-transition-inner[data-active] [data-card-title] {
   opacity: 0;
-  animation: page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: page-card-content-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .page-transition-inner[data-active] [data-card-subtitle] {
   opacity: 0;
-  animation: page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: page-card-content-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .page-transition-inner[data-active] [data-card-row] {
   opacity: 0;
-  animation: page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: page-card-content-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-title] { animation-delay: 0.82s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-subtitle] { animation-delay: 0.88s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-row] { animation-delay: 0.94s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-title] { animation-delay: 0.55s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-subtitle] { animation-delay: 0.58s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-row] { animation-delay: 0.62s; }
 
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-title] { animation-delay: 0.94s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-subtitle] { animation-delay: 1s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-row] { animation-delay: 1.06s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-title] { animation-delay: 0.62s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-subtitle] { animation-delay: 0.65s; }
+.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-row] { animation-delay: 0.68s; }
 
 /* ========== Page load sequence (every page): title → subtitle → toolbar → search → table shell → columns L→R → rows T→B, quick sequential ========== */
 [data-page-visible] [data-page-title] {

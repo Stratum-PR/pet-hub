@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { PageTransitionProvider, usePageTransition } from '@/contexts/PageTransitionContext';
 import { SettingsLayout } from '@/components/SettingsLayout';
@@ -35,6 +35,7 @@ import { Help } from '@/pages/Help';
 import { Transactions } from '@/pages/Transactions';
 import { TransactionCreate } from '@/pages/TransactionCreate';
 import { TransactionDetail } from '@/pages/TransactionDetail';
+import { isKioskLocked } from '@/lib/kioskLock';
 
 /** Renders Routes with displayPathname so old page stays visible while cover rolls down. */
 function TransitionRoutes({ children }: { children: React.ReactNode }) {
@@ -52,6 +53,26 @@ const Index = () => {
   const businessId = useBusinessId();
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
+  const location = useLocation();
+
+  // When locked, employees should only see the time kiosk (and any navigation attempt is redirected).
+  const [kioskLocked, setKioskLockedState] = useState(isKioskLocked());
+  const kioskFullPath = businessSlug ? `/${businessSlug}/time-kiosk` : '/time-kiosk';
+
+  useEffect(() => {
+    const sync = () => setKioskLockedState(isKioskLocked());
+    sync();
+    window.addEventListener('kiosklockchange', sync);
+    return () => window.removeEventListener('kiosklockchange', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!kioskLocked) return;
+    if (location.pathname !== kioskFullPath) {
+      navigate(kioskFullPath, { replace: true });
+    }
+  }, [kioskLocked, location.pathname, kioskFullPath, navigate]);
+
   const { clients, addClient, updateClient, deleteClient } = useClients();
   const { pets, addPet, updatePet, deletePet } = usePets();
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
@@ -59,7 +80,7 @@ const Index = () => {
   const { appointments, addAppointment, updateAppointment, deleteAppointment, refetch: refetchAppointments } = useAppointments();
   const { products, stockMovements, addProduct, updateProduct, deleteProduct, adjustStock, uploadProductPhoto } = useInventory();
   const { services, addService, updateService, deleteService } = useServices();
-  const { settings, saveAllSettings } = useSettings();
+  const { settings, saveAllSettings, loading: settingsLoading } = useSettings();
   const { createNotification } = useNotifications();
 
   const defaultLow = parseInt(settings.default_low_stock_threshold || '5', 10) || 5;
@@ -105,10 +126,15 @@ const Index = () => {
       {/* All routes for a business with layout; parent route provides :businessSlug */}
       <Route
         path="*"
-        element={
+        element={kioskLocked ? <TimeKiosk /> : (
         <PageTransitionProvider>
-          <Layout settings={settings}>
-            <TransitionRoutes>
+          {settingsLoading ? (
+            <div className="flex-1 min-h-0 flex items-center justify-center bg-background">
+              <div className="text-muted-foreground">Loading business settings...</div>
+            </div>
+          ) : (
+            <Layout settings={settings}>
+              <TransitionRoutes>
               {/* Default dashboard */}
               <Route
                 path=""
@@ -317,10 +343,11 @@ const Index = () => {
               <Route path="billing" element={<Billing />} />
             </Route>
             <Route path="help" element={<Help />} />
-            </TransitionRoutes>
-          </Layout>
+              </TransitionRoutes>
+            </Layout>
+          )}
         </PageTransitionProvider>
-      } />
+      )} />
       {/* Public booking page - no layout, kept global (not tied to a business slug) */}
       <Route path="/book-appointment" element={<BookAppointment />} />
     </Routes>

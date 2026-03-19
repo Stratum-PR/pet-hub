@@ -109,7 +109,7 @@ const THEME_PRESETS = [
 
 interface AccountSettingsProps {
   settings: Settings;
-  onSaveSettings: (s: Partial<Settings>) => Promise<boolean>;
+  onSaveSettings: (s: Partial<Settings>) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
@@ -188,13 +188,13 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     setPrimaryColor(p);
     setSecondaryColor(s);
     setSavingColor(true);
-    const ok = await onSaveSettings({ primary_color: p, secondary_color: s });
+    const result = await onSaveSettings({ primary_color: p, secondary_color: s });
     setSavingColor(false);
-    if (ok) {
+    if (result.ok) {
       applyPreview(p, s);
       toast.success(t('accountSettings.colorSaved'));
       setSelectedThemeId(null);
-    } else toast.error(t('common.genericError'));
+    } else toast.error(result.error || t('common.genericError'));
   };
 
   const handleThemePreview = (preset: (typeof THEME_PRESETS)[0]) => {
@@ -461,12 +461,12 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                 className="mt-2"
                 onClick={() => {
                   setSavingColor(true);
-                  onSaveSettings({ primary_color: primaryColor, secondary_color: secondaryColor }).then((ok) => {
+                  onSaveSettings({ primary_color: primaryColor, secondary_color: secondaryColor }).then((result) => {
                     setSavingColor(false);
-                    if (ok) {
+                    if (result.ok) {
                       toast.success(t('accountSettings.colorSaved'));
                       setSelectedThemeId(null);
-                    } else toast.error(t('common.genericError'));
+                    } else toast.error(result.error || t('common.genericError'));
                   });
                 }}
                 disabled={savingColor}

@@ -65,6 +65,32 @@ export function Register() {
     if (error) throw error;
   };
 
+  const setDefaultBusinessTimezoneIfMissing = async (userId: string) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (!tz) return;
+
+    // Find newly created business_id for this manager.
+    const { data: profileRow, error: profileErr } = await supabase
+      .from('profiles')
+      .select('business_id')
+      .eq('id', userId)
+      .single();
+    if (profileErr || !profileRow?.business_id) return;
+
+    const businessId = profileRow.business_id as string;
+    // Only set if missing so existing businesses aren't overwritten.
+    const { data: settingsRow } = await supabase
+      .from('settings' as any)
+      .select('timezone')
+      .eq('business_id', businessId)
+      .maybeSingle();
+    if (settingsRow?.timezone) return;
+
+    await supabase
+      .from('settings')
+      .upsert({ business_id: businessId, timezone: tz }, { onConflict: 'business_id' });
+  };
+
   const handleOwnerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -145,6 +171,14 @@ export function Register() {
         addLog('Llamando refreshAuth...');
         await refreshAuth();
         addLog('refreshAuth listo');
+
+        // Default business timezone on creation (business owner flow only).
+        try {
+          await setDefaultBusinessTimezoneIfMissing(data.session.user.id);
+        } catch {
+          // non-blocking
+        }
+
         setAuthContext(AUTH_CONTEXTS.BUSINESS);
         const route = getDefaultRoute({ isAdmin: false, business: null });
         addLog(`Redirigiendo a ${route}`);

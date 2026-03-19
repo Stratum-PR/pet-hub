@@ -4,25 +4,27 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Clock, LogIn, LogOut, User, AlertTriangle, X } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Clock, LogIn, LogOut, User, AlertTriangle, X, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useTimeKiosk } from '@/hooks/useTimeKiosk';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { ScheduleCheckWarning } from '@/components/ScheduleCheckWarning';
-import { KioskManagerAccess } from '@/components/KioskManagerAccess';
 import { format, differenceInSeconds } from 'date-fns';
 import { t } from '@/lib/translations';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import type { TimeEntry } from '@/types';
+import { setKioskLocked } from '@/lib/kioskLock';
+import { useTheme } from 'next-themes';
 
 type KioskState = 'pin_entry' | 'employee_verified' | 'clocking' | 'success' | 'error' | 'off_schedule_warning';
 
 export function TimeKiosk() {
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug?: string }>();
   const businessId = useBusinessId();
   const { clockInOut, getEmployeeByPin, loading, error } = useTimeKiosk();
   const { getCurrentLocation } = useGeolocation();
@@ -30,10 +32,71 @@ export function TimeKiosk() {
   const [state, setState] = useState<KioskState>('pin_entry');
   const [employee, setEmployee] = useState<any>(null);
   const [clockResult, setClockResult] = useState<any>(null);
-  const [showManagerAccess, setShowManagerAccess] = useState(false);
+  const [showManagerChoice, setShowManagerChoice] = useState(false);
+  const [managerChoiceEmployee, setManagerChoiceEmployee] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTimeEntry, setActiveTimeEntry] = useState<TimeEntry | null>(null);
   const [clockedInDuration, setClockedInDuration] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
+  const [businessLogoLightUrl, setBusinessLogoLightUrl] = useState<string | null>(null);
+  const [businessLogoDarkUrl, setBusinessLogoDarkUrl] = useState<string | null>(null);
+  const { resolvedTheme } = useTheme();
+
+  // Lock the entire app into kiosk mode until a manager unlocks it.
+  useEffect(() => {
+    setKioskLocked(true);
+  }, [setKioskLocked]);
+
+  // Fetch the current business logo for display on the punch clock screen.
+  useEffect(() => {
+    if (!businessId) return;
+
+    let isMounted = true;
+    (async () => {
+      // Prefer light/dark logo stored in `public.settings` (single-row-per-business).
+      let light: string | null = null;
+      let dark: string | null = null;
+      let legacy: string | null = null;
+      try {
+        const { data: settingsRow } = await supabase
+          .from('settings')
+          .select('business_logo_url_light, business_logo_url_dark, business_logo_url')
+          .eq('business_id', businessId)
+          .maybeSingle();
+        light = settingsRow?.business_logo_url_light ?? null;
+        dark = settingsRow?.business_logo_url_dark ?? null;
+        legacy = settingsRow?.business_logo_url ?? null;
+      } catch {
+        // ignore, fallback below
+      }
+
+      // Light falls back to legacy if no light was provided.
+      if (!light) light = legacy;
+
+      // If we still have neither light nor dark, fall back to `businesses.logo_url`.
+      if (!light && !dark) {
+        try {
+          const { data: bizRow } = await supabase
+            .from('businesses')
+            .select('logo_url')
+            .eq('id', businessId)
+            .maybeSingle();
+          light = bizRow?.logo_url ?? null;
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!isMounted) return;
+      setBusinessLogoLightUrl(light);
+      setBusinessLogoDarkUrl(dark);
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [businessId]);
+
+  const selectedBusinessLogoUrl = resolvedTheme === 'dark' ? businessLogoDarkUrl || businessLogoLightUrl : businessLogoLightUrl;
 
   // Auto-reset to PIN entry after success
   useEffect(() => {
@@ -95,25 +158,9 @@ export function TimeKiosk() {
     }
   }, [pin]);
 
-  const handleVerifyPin = useCallback(async (pinToVerify?: string) => {
-    const pinToCheck = pinToVerify || pin;
-    if (pinToCheck.length !== 4) return;
-
-    setErrorMessage(null);
-    
-    // Check for manager PIN (special PIN like "9999" or check against business)
-    // For now, we'll use a simple check - can be enhanced
-    if (pinToCheck === '9999') {
-      setShowManagerAccess(true);
-      setPin('');
-      return;
-    }
-
-    const emp = await getEmployeeByPin(pinToCheck);
-    if (emp) {
+  const setEmployeeAndFetchActiveEntry = useCallback(
+    async (emp: any) => {
       setEmployee(emp);
-      
-      // Check if employee has an active time entry (clocked in)
       if (businessId) {
         try {
           const { data: activeEntry } = await supabase
@@ -126,30 +173,64 @@ export function TimeKiosk() {
             .order('clock_in', { ascending: false })
             .limit(1)
             .maybeSingle();
-          
-          if (activeEntry) {
-            setActiveTimeEntry(activeEntry as TimeEntry);
-          } else {
-            setActiveTimeEntry(null);
-          }
+          setActiveTimeEntry(activeEntry ? (activeEntry as TimeEntry) : null);
         } catch (err) {
-          if (import.meta.env.DEV) {
-            console.warn('Failed to fetch active time entry:', err);
-          }
+          if (import.meta.env.DEV) console.warn('Failed to fetch active time entry:', err);
           setActiveTimeEntry(null);
         }
+      } else {
+        setActiveTimeEntry(null);
       }
-      
       setState('employee_verified');
       setPin('');
-    } else {
-      setErrorMessage('Invalid PIN. Please try again.');
-      setState('error');
-      setTimeout(() => {
-        resetToPinEntry();
-      }, 2000);
+    },
+    [businessId]
+  );
+
+  const handleVerifyPin = useCallback(async (pinToVerify?: string) => {
+    const pinToCheck = pinToVerify || pin;
+    if (pinToCheck.length !== 4) return;
+
+    setErrorMessage(null);
+
+    const [emp, managerPin] = await Promise.all([
+      getEmployeeByPin(pinToCheck),
+      businessId
+        ? supabase.from('businesses').select('kiosk_manager_pin').eq('id', businessId).single().then(({ data }) => data?.kiosk_manager_pin ?? null)
+        : Promise.resolve(null),
+    ]);
+
+    const isManagerPin = managerPin != null && pinToCheck === managerPin;
+
+    if (isManagerPin) {
+      setManagerChoiceEmployee(emp);
+      setShowManagerChoice(true);
+      setPin('');
+      return;
     }
-  }, [pin, getEmployeeByPin, resetToPinEntry, businessId]);
+
+    if (emp) {
+      await setEmployeeAndFetchActiveEntry(emp);
+    } else {
+      setErrorMessage(t('timeTracking.invalidPin'));
+      setState('error');
+      setTimeout(() => resetToPinEntry(), 2000);
+    }
+  }, [pin, getEmployeeByPin, businessId, setEmployeeAndFetchActiveEntry, resetToPinEntry, t]);
+
+  const handleManagerChoiceClockInOut = useCallback(async () => {
+    if (!managerChoiceEmployee) return;
+    setShowManagerChoice(false);
+    await setEmployeeAndFetchActiveEntry(managerChoiceEmployee);
+    setManagerChoiceEmployee(null);
+  }, [managerChoiceEmployee, setEmployeeAndFetchActiveEntry]);
+
+  const handleManagerChoiceCloseKiosk = useCallback(() => {
+    setShowManagerChoice(false);
+    setManagerChoiceEmployee(null);
+    setKioskLocked(false);
+    navigate(businessSlug ? `/${businessSlug}/dashboard` : '/');
+  }, [businessSlug, navigate]);
 
   const handleClockAction = useCallback(async () => {
     if (!employee) return;
@@ -173,6 +254,10 @@ export function TimeKiosk() {
       
       if (result?.success) {
         setClockResult(result);
+
+        // Ensure payroll/report screens refresh their cached time entries.
+        // TimeKiosk uses an RPC that bypasses the `useTimeEntries()` local mutations.
+        window.dispatchEvent(new Event('timeentries:refetch'));
         
         // Clear active time entry if clocking out
         if (result.action === 'clock_out') {
@@ -189,9 +274,9 @@ export function TimeKiosk() {
       } else {
         // Handle geofencing errors specifically
         if (result?.error === 'outside_geofence' || result?.error === 'employee_location_required') {
-          setErrorMessage(result?.message || 'You must be at the store location to clock in');
+          setErrorMessage(result?.message || t('timeKiosk.geoLocationRequired'));
         } else {
-          setErrorMessage(result?.message || result?.error || 'Failed to clock in/out');
+          setErrorMessage(result?.message || result?.error || t('timeKiosk.failedClockInOut'));
         }
         setState('error');
         setTimeout(() => {
@@ -199,13 +284,13 @@ export function TimeKiosk() {
         }, 5000); // Longer timeout for geofencing errors
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'An error occurred');
+      setErrorMessage(err instanceof Error ? err.message : t('timeKiosk.errorOccurred'));
       setState('error');
       setTimeout(() => {
         resetToPinEntry();
       }, 3000);
     }
-  }, [employee, clockInOut, getCurrentLocation, resetToPinEntry]);
+  }, [employee, clockInOut, getCurrentLocation, resetToPinEntry, t]);
 
   const handleContinueOffSchedule = useCallback(() => {
     setState('success');
@@ -219,30 +304,116 @@ export function TimeKiosk() {
     setPin('');
   }, []);
 
+  // Keyboard/numpad PIN entry: use e.key and e.code for numpad, capture phase so it works before buttons.
+  useEffect(() => {
+    if (state !== 'pin_entry') return;
+    const getDigit = (e: KeyboardEvent): string | null => {
+      if (e.key >= '0' && e.key <= '9') return e.key;
+      if (e.key.startsWith('Numpad') && e.key.length === 7) {
+        const d = e.key.slice(-1);
+        if (d >= '0' && d <= '9') return d;
+      }
+      if (e.code?.startsWith('Numpad') && e.code.length >= 7) {
+        const d = e.code.slice(-1);
+        if (d >= '0' && d <= '9') return d;
+      }
+      return null;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target?.closest('button') || target?.closest('a') || (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+      const digit = getDigit(e);
+      if (digit !== null) {
+        setPin(prev => {
+          if (prev.length >= 4) return prev;
+          const next = prev + digit;
+          if (next.length === 4) setTimeout(() => handleVerifyPin(next), 0);
+          return next;
+        });
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (e.key === 'Backspace') {
+        setPin(prev => prev.slice(0, -1));
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [state, handleVerifyPin]);
+
   // Render based on state
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
-      {showManagerAccess ? (
-        <KioskManagerAccess
-          onSuccess={() => navigate('/dashboard')}
-          onCancel={() => {
-            setShowManagerAccess(false);
-            resetToPinEntry();
-          }}
-        />
-      ) : (
-        <div className="w-full max-w-4xl">
+      {showManagerChoice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="p-8 space-y-6">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Lock className="w-10 h-10 text-primary" />
+                <h2 className="text-2xl font-bold">{t('timeKiosk.managerChoiceTitle')}</h2>
+              </div>
+              <div className="flex flex-col gap-3">
+                {managerChoiceEmployee && (
+                  <Button
+                    size="lg"
+                    className="h-14 text-lg"
+                    onClick={handleManagerChoiceClockInOut}
+                  >
+                    <LogIn className="w-5 h-5 mr-2" />
+                    {t('timeKiosk.managerChoiceClockInOut')}
+                  </Button>
+                )}
+                <Button
+                  size="lg"
+                  variant={managerChoiceEmployee ? 'outline' : 'default'}
+                  className="h-14 text-lg"
+                  onClick={handleManagerChoiceCloseKiosk}
+                >
+                  <Lock className="w-5 h-5 mr-2" />
+                  {t('timeKiosk.managerChoiceCloseKiosk')}
+                </Button>
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  className="h-12"
+                  onClick={() => {
+                    setShowManagerChoice(false);
+                    setManagerChoiceEmployee(null);
+                  }}
+                >
+                  {t('timeKiosk.managerChoiceCancel')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      <div className="w-full max-w-4xl">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <Clock className="w-12 h-12 text-primary" />
-              <h1 className="text-4xl font-bold">Time Clock</h1>
+              {selectedBusinessLogoUrl ? (
+                <img
+                  src={selectedBusinessLogoUrl}
+                  alt={t('timeTracking.title')}
+                  className="h-12 w-auto max-w-[240px] object-contain"
+                />
+              ) : (
+                <>
+                  <Clock className="w-12 h-12 text-primary" />
+                  <h1 className="text-4xl font-bold">{t('timeTracking.title')}</h1>
+                </>
+              )}
             </div>
             <p className="text-muted-foreground text-lg">
-              {state === 'pin_entry' && 'Enter your PIN to clock in or out'}
-              {state === 'employee_verified' && `Welcome, ${employee?.name}`}
-              {state === 'clocking' && 'Processing...'}
-              {state === 'success' && `${clockResult?.action === 'clock_in' ? 'Clocked In' : 'Clocked Out'} Successfully!`}
+              {state === 'pin_entry' && t('timeTracking.description')}
+              {state === 'employee_verified' && t('timeTracking.welcome', { name: employee?.name ?? '' })}
+              {state === 'clocking' && t('timeKiosk.processing')}
+              {state === 'success' &&
+                (clockResult?.action === 'clock_in'
+                  ? t('timeTracking.clockedIn', { name: employee?.name ?? '' })
+                  : t('timeTracking.clockedOut', { name: employee?.name ?? '' }))}
             </p>
           </div>
 
@@ -296,7 +467,7 @@ export function TimeKiosk() {
                       className="h-20 text-xl"
                       onClick={handleClear}
                     >
-                      Clear
+                      {t('timeKiosk.clear')}
                     </Button>
                     <Button
                       size="lg"
@@ -318,7 +489,7 @@ export function TimeKiosk() {
 
                   {/* Manager Access Hint */}
                   <div className="text-center text-sm text-muted-foreground mt-4">
-                    Managers: Enter manager PIN to access admin
+                    {t('timeKiosk.managersEnterPinHint')}
                   </div>
                 </div>
               )}
@@ -336,7 +507,7 @@ export function TimeKiosk() {
                   {/* Show clocked-in duration if employee is clocked in */}
                   {activeTimeEntry && clockedInDuration && (
                     <div className="bg-primary/10 border-2 border-primary rounded-lg p-6 mb-4">
-                      <p className="text-sm text-muted-foreground mb-2">Currently clocked in since</p>
+                      <p className="text-sm text-muted-foreground mb-2">{t('timeKiosk.currentlyClockedInSince')}</p>
                       <p className="text-lg font-semibold mb-4">
                         {format(new Date(activeTimeEntry.clock_in), 'h:mm a')}
                       </p>
@@ -363,7 +534,7 @@ export function TimeKiosk() {
                       disabled={loading}
                     >
                       {loading ? (
-                        'Processing...'
+                        t('timeKiosk.processing')
                       ) : (
                         <>
                           {activeTimeEntry ? (
@@ -371,7 +542,7 @@ export function TimeKiosk() {
                           ) : (
                             <LogIn className="w-6 h-6 mr-2" />
                           )}
-                          {activeTimeEntry ? 'Clock Out' : 'Clock In'}
+                          {activeTimeEntry ? t('timeTracking.clockOut') : t('timeTracking.clockIn')}
                         </>
                       )}
                     </Button>
@@ -382,7 +553,7 @@ export function TimeKiosk() {
                       onClick={resetToPinEntry}
                     >
                       <X className="w-6 h-6 mr-2" />
-                      Cancel
+                      {t('timeKiosk.cancel')}
                     </Button>
                   </div>
                 </div>
@@ -391,7 +562,7 @@ export function TimeKiosk() {
               {state === 'clocking' && (
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-xl text-muted-foreground">Processing...</p>
+                  <p className="text-xl text-muted-foreground">{t('timeKiosk.processing')}</p>
                 </div>
               )}
 
@@ -413,13 +584,13 @@ export function TimeKiosk() {
                     )}
                   </div>
                   <h2 className="text-3xl font-bold">
-                    {clockResult.action === 'clock_in' ? 'Clocked In' : 'Clocked Out'}
+                    {clockResult.action === 'clock_in' ? t('timeKiosk.clockedInTitle') : t('timeKiosk.clockedOutTitle')}
                   </h2>
                   <p className="text-xl text-muted-foreground">
                     {format(new Date(clockResult.clock_in || clockResult.clock_out), 'h:mm a')}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Returning to PIN entry in 3 seconds...
+                    {t('timeKiosk.returningToPin')}
                   </p>
                 </div>
               )}
@@ -435,7 +606,6 @@ export function TimeKiosk() {
             </CardContent>
           </Card>
         </div>
-      )}
     </div>
   );
 }

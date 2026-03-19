@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { toast } from 'sonner';
+import { t } from '@/lib/translations';
 
 export function KioskManagerPinSettings() {
   const businessId = useBusinessId();
@@ -57,19 +58,19 @@ export function KioskManagerPinSettings() {
 
     // Validate new PIN
     if (newPin.length !== 4) {
-      setError('PIN must be exactly 4 digits');
+      setError(t('kioskManagerPinSettings.errors.pin4Digits'));
       return;
     }
 
     if (newPin !== confirmPin) {
-      setError('New PINs do not match');
+      setError(t('kioskManagerPinSettings.errors.pinsDontMatch'));
       return;
     }
 
     // If there's an existing PIN, require current PIN
     if (hasExistingPin) {
       if (currentPin.length !== 4) {
-        setError('Please enter your current PIN');
+        setError(t('kioskManagerPinSettings.errors.enterCurrentPin'));
         return;
       }
 
@@ -81,13 +82,13 @@ export function KioskManagerPinSettings() {
         .single();
 
       if (bizErr) {
-        setError('Failed to verify current PIN');
+        setError(t('kioskManagerPinSettings.errors.failedVerifyCurrentPin'));
         return;
       }
 
       // Simple comparison (in production, should use hashed PINs)
       if (business?.kiosk_manager_pin !== currentPin) {
-        setError('Current PIN is incorrect');
+        setError(t('kioskManagerPinSettings.errors.currentPinIncorrect'));
         return;
       }
     }
@@ -104,15 +105,15 @@ export function KioskManagerPinSettings() {
 
       if (err) throw err;
 
-      toast.success('Manager PIN updated successfully');
+      toast.success(t('kioskManagerPinSettings.toast.updated'));
       setCurrentPin('');
       setNewPin('');
       setConfirmPin('');
       setHasExistingPin(true);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update PIN');
-      toast.error('Failed to update manager PIN');
+      setError(err instanceof Error ? err.message : t('kioskManagerPinSettings.toast.failedUpdate'));
+      toast.error(t('kioskManagerPinSettings.toast.failedUpdate'));
     } finally {
       setSaving(false);
     }
@@ -123,24 +124,26 @@ export function KioskManagerPinSettings() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lock className="w-5 h-5" />
-          Kiosk Manager PIN
+          {t('kioskManagerPinSettings.title')}
         </CardTitle>
         <CardDescription>
-          Set or change the PIN used to exit kiosk mode and access the main app. This PIN is separate from employee PINs.
+          {t('kioskManagerPinSettings.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {hasExistingPin && (
           <div className="space-y-2">
-            <Label htmlFor="current-pin">Current PIN</Label>
+            <Label htmlFor="current-pin">{t('kioskManagerPinSettings.currentPin')}</Label>
             <div className="relative">
               <Input
                 id="current-pin"
                 type={showCurrentPin ? 'text' : 'password'}
+                inputMode="numeric"
+                pattern="[0-9]*"
                 maxLength={4}
                 value={currentPin}
                 onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
-                placeholder="Enter current PIN"
+                placeholder={t('kioskManagerPinSettings.enterCurrentPin')}
                 className="pr-10"
               />
               <Button
@@ -157,15 +160,17 @@ export function KioskManagerPinSettings() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="new-pin">New PIN (4 digits)</Label>
+          <Label htmlFor="new-pin">{t('kioskManagerPinSettings.newPin')}</Label>
           <div className="relative">
             <Input
               id="new-pin"
               type={showNewPin ? 'text' : 'password'}
+              inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={4}
               value={newPin}
               onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-              placeholder="Enter new PIN"
+              placeholder={t('kioskManagerPinSettings.enterNewPin')}
               className="pr-10"
             />
             <Button
@@ -181,15 +186,17 @@ export function KioskManagerPinSettings() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirm-pin">Confirm New PIN</Label>
+          <Label htmlFor="confirm-pin">{t('kioskManagerPinSettings.confirmNewPin')}</Label>
           <div className="relative">
             <Input
               id="confirm-pin"
               type={showConfirmPin ? 'text' : 'password'}
+              inputMode="numeric"
+              pattern="[0-9]*"
               maxLength={4}
               value={confirmPin}
               onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-              placeholder="Confirm new PIN"
+              placeholder={t('kioskManagerPinSettings.confirmNewPinHint')}
               className="pr-10"
             />
             <Button
@@ -216,12 +223,12 @@ export function KioskManagerPinSettings() {
           disabled={saving || newPin.length !== 4 || confirmPin.length !== 4 || newPin !== confirmPin || (hasExistingPin && currentPin.length !== 4)}
           className="w-full"
         >
-          {saving ? 'Saving...' : hasExistingPin ? 'Change PIN' : 'Set PIN'}
+          {saving ? t('kioskManagerPinSettings.save') : hasExistingPin ? t('kioskManagerPinSettings.changePin') : t('kioskManagerPinSettings.setPin')}
         </Button>
 
         {hasExistingPin && (
           <p className="text-xs text-muted-foreground text-center">
-            If you forget your PIN, you can reset it from the database or contact support.
+            {t('kioskManagerPinSettings.forgetHint')}
           </p>
         )}
       </CardContent>

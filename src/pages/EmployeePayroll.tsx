@@ -1,11 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DollarSign, ChevronLeft, Clock, Calendar, User, FileText } from 'lucide-react';
 import { Employee, TimeEntry } from '@/types';
-import { format, startOfWeek, endOfWeek, differenceInHours, parseISO } from 'date-fns';
+import { format, differenceInMinutes, parseISO } from 'date-fns';
 import { formatPhoneNumber } from '@/lib/phoneFormat';
+import { t } from '@/lib/translations';
+import { useSettings } from '@/hooks/useSupabaseData';
+import { getPayPeriodRangeForDate } from '@/lib/payScheduleUtils';
 
 interface EmployeePayrollProps {
   employees: Employee[];
@@ -16,25 +19,39 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
   const { employeeId } = useParams<{ employeeId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const [weekStart, setWeekStart] = useState(() => {
-    const state = location.state as { weekStart?: string } | null;
-    return state?.weekStart ? parseISO(state.weekStart) : startOfWeek(new Date());
+
+  const { settings, loading: settingsLoading } = useSettings();
+
+  const [currentPayPeriodDate] = useState(() => {
+    const state = location.state as { payPeriodStart?: string; weekStart?: string } | null;
+    const startISO = state?.payPeriodStart || state?.weekStart;
+    return startISO ? parseISO(startISO) : new Date();
   });
 
   const employee = employees.find(emp => emp.id === employeeId);
-  const weekEnd = endOfWeek(weekStart);
+  const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
+  const anchorDateISO = settings.pay_schedule_anchor_date || new Date().toISOString().slice(0, 10);
+
+  const { periodStart: payPeriodStart, periodEnd: payPeriodEnd } = useMemo(() => {
+    if (settingsLoading) {
+      const d = new Date();
+      return getPayPeriodRangeForDate(d, { anchorDateISO: d.toISOString().slice(0, 10), cadenceWeeks: 2 });
+    }
+    return getPayPeriodRangeForDate(currentPayPeriodDate, { anchorDateISO, cadenceWeeks });
+  }, [currentPayPeriodDate, anchorDateISO, cadenceWeeks, settingsLoading]);
 
   const payrollData = useMemo(() => {
     if (!employee) return null;
 
+    const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
+
     const empEntries = timeEntries.filter(entry => {
       const entryDate = new Date(entry.clock_in);
-      return entry.employee_id === employee.id && entryDate >= weekStart && entryDate <= weekEnd && entry.clock_out;
+      return entry.employee_id === employee.id && entryDate >= payPeriodStart && entryDate <= payPeriodEnd && entry.clock_out;
     });
 
     const entriesWithHours = empEntries.map(entry => {
-      const hours = differenceInHours(new Date(entry.clock_out!), new Date(entry.clock_in));
+      const hours = roundToQuarterHours(differenceInMinutes(new Date(entry.clock_out!), new Date(entry.clock_in)) / 60);
       return {
         ...entry,
         hours,
@@ -51,7 +68,15 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
       totalHours,
       grossPay,
     };
-  }, [employee, timeEntries, weekStart, weekEnd]);
+  }, [employee, timeEntries, payPeriodStart, payPeriodEnd]);
+
+  if (settingsLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in flex items-center justify-center min-h-[200px]">
+        <div className="text-muted-foreground">{t('common.loading')}</div>
+      </div>
+    );
+  }
 
   if (!employee || !payrollData) {
     return (
@@ -63,9 +88,9 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
             className="mb-4"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
-            Back to Payroll
+            {t('employeePayroll.backToPayroll')}
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Employee Not Found</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('employeePayroll.employeeNotFound')}</h1>
         </div>
       </div>
     );
@@ -80,21 +105,21 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
           className="mb-4"
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Payroll
+          {t('employeePayroll.backToPayroll')}
         </Button>
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
             onClick={() => navigate(`/reports/payroll/employee/${employee.id}/timesheet`, {
               state: {
-                weekStart: weekStart.toISOString(),
-                weekEnd: weekEnd.toISOString()
+                payPeriodStart: payPeriodStart.toISOString(),
+                payPeriodEnd: payPeriodEnd.toISOString()
               }
             })}
             className="flex items-center gap-2"
           >
             <FileText className="w-4 h-4" />
-            View Timesheet
+            {t('employeePayroll.viewTimesheet')}
           </Button>
         </div>
       </div>
@@ -104,28 +129,28 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-primary" />
-            Payroll Summary
+            {t('employeePayroll.payrollSummary')}
           </CardTitle>
           <CardDescription>
-            Week of {format(weekStart, 'MMMM d')} - {format(weekEnd, 'd, yyyy')}
+            {t('employeePayroll.weekOf')} {format(payPeriodStart, 'MMMM d')} - {format(payPeriodEnd, 'd, yyyy')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Hours</p>
+              <p className="text-sm text-muted-foreground">{t('payroll.hoursWorked')}</p>
               <p className="text-2xl font-bold">{payrollData.totalHours.toFixed(1)}h</p>
             </div>
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Hourly Rate</p>
+              <p className="text-sm text-muted-foreground">{t('payroll.hourlyRate')}</p>
               <p className="text-2xl font-bold">${employee.hourly_rate}/hr</p>
             </div>
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Gross Pay</p>
+              <p className="text-sm text-muted-foreground">{t('payroll.totalPay')}</p>
               <p className="text-2xl font-bold">${payrollData.grossPay.toFixed(2)}</p>
             </div>
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Time Entries</p>
+              <p className="text-sm text-muted-foreground">{t('employeePayroll.timeEntries')}</p>
               <p className="text-2xl font-bold">{payrollData.entries.length}</p>
             </div>
           </div>
@@ -137,25 +162,25 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
-            Timekeeping Records
+            {t('employeePayroll.timekeepingRecords')}
           </CardTitle>
           <CardDescription>
-            Detailed breakdown of clock in/out times and hours worked
+            {t('employeePayroll.timekeepingDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {payrollData.entries.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No time entries for this week</p>
+            <p className="text-center text-muted-foreground py-8">{t('employeePayroll.noTimeEntries')}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-medium">Date</th>
-                    <th className="text-left py-3 px-4 font-medium">Clock In</th>
-                    <th className="text-left py-3 px-4 font-medium">Clock Out</th>
-                    <th className="text-right py-3 px-4 font-medium">Hours</th>
-                    <th className="text-right py-3 px-4 font-medium">Pay</th>
+                    <th className="text-left py-3 px-4 font-medium">{t('employeePayroll.table.date')}</th>
+                    <th className="text-left py-3 px-4 font-medium">{t('payroll.clockIn')}</th>
+                    <th className="text-left py-3 px-4 font-medium">{t('payroll.clockOut')}</th>
+                    <th className="text-right py-3 px-4 font-medium">{t('employeePayroll.table.hours')}</th>
+                    <th className="text-right py-3 px-4 font-medium">{t('employeePayroll.table.pay')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,7 +209,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
                 </tbody>
                 <tfoot>
                   <tr className="bg-secondary/50">
-                    <td colSpan={3} className="py-3 px-4 font-semibold">Total</td>
+                    <td colSpan={3} className="py-3 px-4 font-semibold">{t('employeePayroll.total')}</td>
                     <td className="py-3 px-4 text-right font-semibold">
                       {payrollData.totalHours.toFixed(1)}h
                     </td>
@@ -204,33 +229,33 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-primary" />
-            Employee Information
+            {t('employeePayroll.employeeInformation')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">Name</p>
+              <p className="text-sm text-muted-foreground">{t('employeePayroll.employee.name')}</p>
               <p className="text-lg font-semibold">{employee.name}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Role</p>
+              <p className="text-sm text-muted-foreground">{t('employeePayroll.employee.role')}</p>
               <p className="text-lg font-semibold capitalize">{employee.role}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Email</p>
-              <p className="text-lg">{employee.email || 'N/A'}</p>
+              <p className="text-sm text-muted-foreground">{t('employeePayroll.employee.email')}</p>
+              <p className="text-lg">{employee.email || t('common.na')}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Phone</p>
-              <p className="text-lg">{employee.phone ? formatPhoneNumber(employee.phone) : 'N/A'}</p>
+              <p className="text-sm text-muted-foreground">{t('employeePayroll.employee.phone')}</p>
+              <p className="text-lg">{employee.phone ? formatPhoneNumber(employee.phone) : t('common.na')}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Status</p>
+              <p className="text-sm text-muted-foreground">{t('employeePayroll.employee.status')}</p>
               <p className="text-lg capitalize">{employee.status}</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Hourly Rate</p>
+              <p className="text-sm text-muted-foreground">{t('employeePayroll.employee.hourlyRate')}</p>
               <p className="text-lg font-semibold">${employee.hourly_rate}/hr</p>
             </div>
           </div>

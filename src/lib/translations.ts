@@ -756,6 +756,10 @@ export const translations: Translations = {
     en: 'Cancel',
     es: 'Cancelar'
   },
+  'common.na': {
+    en: 'N/A',
+    es: 'N/D'
+  },
   'common.save': {
     en: 'Save',
     es: 'Guardar'
@@ -1229,8 +1233,8 @@ export const translations: Translations = {
 
   // Employees/Time Tracking page
   'timeTracking.title': {
-    en: 'Time Clock',
-    es: 'Reloj de Tiempo'
+    en: 'Punch Clock',
+    es: 'Ponchador'
   },
   'timeTracking.description': {
     en: 'Enter your PIN to clock in or out',
@@ -1285,8 +1289,8 @@ export const translations: Translations = {
     es: '¡{name} salió exitosamente!'
   },
   'nav.timeKiosk': {
-    en: 'Time Kiosk',
-    es: 'Quiosco de Tiempo'
+    en: 'Punch Clock',
+    es: 'Ponchador'
   },
   'timeTracking.todaysEntries': {
     en: "Today's Entries",
@@ -1731,6 +1735,18 @@ export const translations: Translations = {
   'form.address': {
     en: 'Address',
     es: 'Dirección'
+  },
+  'form.city': {
+    en: 'City',
+    es: 'Ciudad'
+  },
+  'form.state': {
+    en: 'State',
+    es: 'Estado'
+  },
+  'form.zipCode': {
+    en: 'ZIP Code',
+    es: 'Código Postal'
   },
   'form.addressOptional': {
     en: 'Address (Optional)',
@@ -2351,8 +2367,8 @@ export const translations: Translations = {
     es: 'Detalles de Hoja de Tiempo'
   },
   'timesheet.twoWeekBreakdown': {
-    en: 'Two-week pay period breakdown by day',
-    es: 'Desglose del período de pago de dos semanas por día'
+    en: 'Pay period breakdown by day',
+    es: 'Desglose del período de pago por día'
   },
   'timesheet.dateDay': {
     en: 'Date/Day',
@@ -2461,6 +2477,542 @@ export const translations: Translations = {
   'payroll.leaveEmptyIfClockedIn': {
     en: 'Leave empty if employee is still clocked in',
     es: 'Deje vacío si el empleado aún está registrado'
+  },
+
+  // Time Kiosk / Manager UI
+  'timeKiosk.managersEnterPinHint': {
+    en: 'Managers: enter your PIN to clock in/out or close the kiosk',
+    es: 'Gerentes: ingresa tu PIN para fichar o cerrar el kiosk'
+  },
+  'timeKiosk.managerChoiceTitle': {
+    en: 'What would you like to do?',
+    es: '¿Qué deseas hacer?'
+  },
+  'timeKiosk.managerChoiceClockInOut': {
+    en: 'Clock in / out',
+    es: 'Fichar entrada / salida'
+  },
+  'timeKiosk.managerChoiceCloseKiosk': {
+    en: 'Close kiosk',
+    es: 'Cerrar kiosk'
+  },
+  'timeKiosk.managerChoiceCancel': {
+    en: 'Cancel',
+    es: 'Cancelar'
+  },
+  'timeKiosk.clear': {
+    en: 'Clear',
+    es: 'Limpiar'
+  },
+  'timeKiosk.cancel': {
+    en: 'Cancel',
+    es: 'Cancelar'
+  },
+  'timeKiosk.processing': {
+    en: 'Processing...',
+    es: 'Procesando...'
+  },
+  'timeKiosk.geoLocationRequired': {
+    en: 'You must be at the store location to clock in',
+    es: 'Debes estar en la ubicación de la tienda para entrar'
+  },
+  'timeKiosk.failedClockInOut': {
+    en: 'Failed to clock in/out',
+    es: 'No se pudo registrar entrada/salida'
+  },
+  'timeKiosk.errorOccurred': {
+    en: 'An error occurred',
+    es: 'Ocurrió un error'
+  },
+  'timeKiosk.currentlyClockedInSince': {
+    en: 'Currently clocked in since',
+    es: 'Registrado desde'
+  },
+  'timeKiosk.returningToPin': {
+    en: 'Returning to PIN entry in 3 seconds...',
+    es: 'Volviendo a la entrada de PIN en 3 segundos...'
+  },
+  'timeKiosk.clockedInTitle': {
+    en: 'Clocked In',
+    es: 'Entró'
+  },
+  'timeKiosk.clockedOutTitle': {
+    en: 'Clocked Out',
+    es: 'Salió'
+  },
+
+  'kioskManager.accessTitle': {
+    en: 'Manager Access',
+    es: 'Acceso de Gerente'
+  },
+  'kioskManager.accessDescription': {
+    en: 'Enter manager PIN to exit kiosk mode',
+    es: 'Ingresa el PIN de gerente para salir del modo quiosco'
+  },
+  'kioskManager.verify4DigitPin': {
+    en: 'Please enter a 4-digit PIN',
+    es: 'Ingresa un PIN de 4 dígitos'
+  },
+  'kioskManager.businessNotFound': {
+    en: 'Business not found',
+    es: 'Negocio no encontrado'
+  },
+  'kioskManager.invalidPin': {
+    en: 'Invalid manager PIN',
+    es: 'PIN de gerente inválido'
+  },
+  'kioskManager.failedVerifyPin': {
+    en: 'Failed to verify PIN',
+    es: 'No se pudo verificar el PIN'
+  },
+  'kioskManager.cancel': {
+    en: 'Cancel',
+    es: 'Cancelar'
+  },
+  'kioskManager.verify': {
+    en: 'Verify',
+    es: 'Verificar'
+  },
+  'kioskManager.verifying': {
+    en: 'Verifying...',
+    es: 'Verificando...'
+  },
+
+  // Kiosk manager PIN settings page
+  'kioskManagerPinSettings.title': {
+    en: 'Kiosk Manager PIN',
+    es: 'PIN de Gerente del Quiosco'
+  },
+  'kioskManagerPinSettings.description': {
+    en: 'Set or change the PIN used to exit kiosk mode and access the main app. This PIN is separate from employee PINs.',
+    es: 'Configura o cambia el PIN usado para salir del modo quiosco y acceder a la aplicación. Este PIN es diferente al de los empleados.'
+  },
+  'kioskManagerPinSettings.currentPin': {
+    en: 'Current PIN',
+    es: 'PIN actual'
+  },
+  'kioskManagerPinSettings.enterCurrentPin': {
+    en: 'Enter current PIN',
+    es: 'Ingresa el PIN actual'
+  },
+  'kioskManagerPinSettings.newPin': {
+    en: 'New PIN (4 digits)',
+    es: 'PIN nuevo (4 dígitos)'
+  },
+  'kioskManagerPinSettings.enterNewPin': {
+    en: 'Enter new PIN',
+    es: 'Ingresa el PIN nuevo'
+  },
+  'kioskManagerPinSettings.confirmNewPin': {
+    en: 'Confirm New PIN',
+    es: 'Confirma el PIN nuevo'
+  },
+  'kioskManagerPinSettings.confirmNewPinHint': {
+    en: 'Confirm new PIN',
+    es: 'Confirma el PIN nuevo'
+  },
+  'kioskManagerPinSettings.save': {
+    en: 'Saving...',
+    es: 'Guardando...'
+  },
+  'kioskManagerPinSettings.changePin': {
+    en: 'Change PIN',
+    es: 'Cambiar PIN'
+  },
+  'kioskManagerPinSettings.setPin': {
+    en: 'Set PIN',
+    es: 'Configurar PIN'
+  },
+  'kioskManagerPinSettings.forgetHint': {
+    en: 'If you forget your PIN, you can reset it from the database or contact support.',
+    es: 'Si olvidas tu PIN, puedes restablecerlo en la base de datos o contactar soporte.'
+  },
+  'kioskManagerPinSettings.errors.pin4Digits': {
+    en: 'PIN must be exactly 4 digits',
+    es: 'El PIN debe tener exactamente 4 dígitos'
+  },
+  'kioskManagerPinSettings.errors.pinsDontMatch': {
+    en: 'New PINs do not match',
+    es: 'Los PIN nuevos no coinciden'
+  },
+  'kioskManagerPinSettings.errors.enterCurrentPin': {
+    en: 'Please enter your current PIN',
+    es: 'Ingresa tu PIN actual'
+  },
+  'kioskManagerPinSettings.errors.failedVerifyCurrentPin': {
+    en: 'Failed to verify current PIN',
+    es: 'No se pudo verificar el PIN actual'
+  },
+  'kioskManagerPinSettings.errors.currentPinIncorrect': {
+    en: 'Current PIN is incorrect',
+    es: 'El PIN actual es incorrecto'
+  },
+  'kioskManagerPinSettings.toast.updated': {
+    en: 'Manager PIN updated successfully',
+    es: 'PIN de gerente actualizado correctamente'
+  },
+  'kioskManagerPinSettings.toast.failedUpdate': {
+    en: 'Failed to update manager PIN',
+    es: 'No se pudo actualizar el PIN del gerente'
+  },
+
+  // Employee Payroll page (employee report details)
+  'employeePayroll.backToPayroll': {
+    en: 'Back to Payroll',
+    es: 'Volver a Nómina'
+  },
+  'employeePayroll.employeeNotFound': {
+    en: 'Employee Not Found',
+    es: 'Empleado no encontrado'
+  },
+  'employeePayroll.viewTimesheet': {
+    en: 'View Timesheet',
+    es: 'Ver hoja de tiempo'
+  },
+  'employeePayroll.payrollSummary': {
+    en: 'Payroll Summary',
+    es: 'Resumen de Nómina'
+  },
+  'employeePayroll.weekOf': {
+    en: 'Pay period of',
+    es: 'Período de pago de'
+  },
+  'employeePayroll.timeEntries': {
+    en: 'Time Entries',
+    es: 'Entradas de tiempo'
+  },
+  'employeePayroll.timekeepingRecords': {
+    en: 'Timekeeping Records',
+    es: 'Registros de tiempo'
+  },
+  'employeePayroll.timekeepingDescription': {
+    en: 'Detailed breakdown of clock in/out times and hours worked',
+    es: 'Desglose detallado de entradas/salidas y horas trabajadas'
+  },
+  'employeePayroll.noTimeEntries': {
+    en: 'No time entries for this pay period',
+    es: 'No hay entradas de tiempo para este período de pago'
+  },
+  'employeePayroll.table.date': {
+    en: 'Date',
+    es: 'Fecha'
+  },
+  'employeePayroll.table.hours': {
+    en: 'Hours',
+    es: 'Horas'
+  },
+  'employeePayroll.table.pay': {
+    en: 'Pay',
+    es: 'Pago'
+  },
+  'employeePayroll.total': {
+    en: 'Total',
+    es: 'Total'
+  },
+  'employeePayroll.employeeInformation': {
+    en: 'Employee Information',
+    es: 'Información del empleado'
+  },
+  'employeePayroll.employee.name': {
+    en: 'Name',
+    es: 'Nombre'
+  },
+  'employeePayroll.employee.role': {
+    en: 'Role',
+    es: 'Rol'
+  },
+  'employeePayroll.employee.email': {
+    en: 'Email',
+    es: 'Correo'
+  },
+  'employeePayroll.employee.phone': {
+    en: 'Phone',
+    es: 'Teléfono'
+  },
+  'employeePayroll.employee.status': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'employeePayroll.employee.hourlyRate': {
+    en: 'Hourly Rate',
+    es: 'Tarifa por hora'
+  },
+  // Additional UI strings (used across the app)
+  'clients.noBusinessClients': {
+    en: 'No clients yet for this business',
+    es: 'Aún no hay clientes para este negocio'
+  },
+  'clients.noResults': {
+    en: 'No results found',
+    es: 'No se encontraron resultados'
+  },
+  'clients.noCustomers': {
+    en: 'No customers found',
+    es: 'No se encontraron clientes'
+  },
+  'clients.phoneLabel': {
+    en: 'Phone',
+    es: 'Teléfono'
+  },
+  'common.noEmail': {
+    en: 'No email',
+    es: 'Sin correo'
+  },
+  'common.unknownPet': {
+    en: 'Unknown pet',
+    es: 'Mascota desconocida'
+  },
+  'common.unknownClient': {
+    en: 'Unknown client',
+    es: 'Cliente desconocido'
+  },
+  'common.actions': {
+    en: 'Actions',
+    es: 'Acciones'
+  },
+  'pets.noPetsFound': {
+    en: 'No pets found',
+    es: 'No se encontraron mascotas'
+  },
+  'pets.owner': {
+    en: 'Owner',
+    es: 'Dueño/a'
+  },
+  'appointments.linkCopied': {
+    en: 'Link copied',
+    es: 'Enlace copiado'
+  },
+  'appointments.noService': {
+    en: 'No service selected',
+    es: 'No hay servicio seleccionado'
+  },
+  'appointments.copied': {
+    en: 'Copied',
+    es: 'Copiado'
+  },
+  'appointments.copy': {
+    en: 'Copy',
+    es: 'Copiar'
+  },
+
+  'dashboard.petCountDescription': {
+    en: 'Pet count by type',
+    es: 'Cantidad de mascotas por tipo'
+  },
+  'reports.totalAppointments': {
+    en: 'Total Appointments',
+    es: 'Total de citas'
+  },
+  'reports.totalPets': {
+    en: 'Total Pets',
+    es: 'Total de mascotas'
+  },
+  'reports.petDistributionDescription': {
+    en: 'Pet distribution breakdown',
+    es: 'Desglose de distribución de mascotas'
+  },
+  'reports.weeklyRegistrationsDescription': {
+    en: 'Weekly registrations summary',
+    es: 'Resumen de registros semanales'
+  },
+
+  'services.serviceDeleted': {
+    en: 'Service deleted successfully',
+    es: 'Servicio eliminado correctamente'
+  },
+  'services.deleteError': {
+    en: 'Failed to delete service',
+    es: 'No se pudo eliminar el servicio'
+  },
+  'services.noServices': {
+    en: 'No services available',
+    es: 'No hay servicios disponibles'
+  },
+
+  'serviceForm.editService': {
+    en: 'Edit Service',
+    es: 'Editar servicio'
+  },
+  'serviceForm.addNewService': {
+    en: 'Add New Service',
+    es: 'Agregar nuevo servicio'
+  },
+  'serviceForm.name': {
+    en: 'Service name',
+    es: 'Nombre del servicio'
+  },
+  'serviceForm.namePlaceholder': {
+    en: 'e.g., Full Grooming',
+    es: 'p. ej., Aseo completo'
+  },
+  'serviceForm.price': {
+    en: 'Price',
+    es: 'Precio'
+  },
+  'serviceForm.duration': {
+    en: 'Duration',
+    es: 'Duración'
+  },
+  'serviceForm.durationHint': {
+    en: 'Duration in minutes',
+    es: 'Duración en minutos'
+  },
+  'serviceForm.minutes': {
+    en: 'minutes',
+    es: 'minutos'
+  },
+  'serviceForm.status': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'serviceForm.active': {
+    en: 'Active',
+    es: 'Activo'
+  },
+  'serviceForm.inactive': {
+    en: 'Inactive',
+    es: 'Inactivo'
+  },
+  'serviceForm.description': {
+    en: 'Description',
+    es: 'Descripción'
+  },
+  'serviceForm.descriptionPlaceholder': {
+    en: 'Optional description...',
+    es: 'Descripción opcional...'
+  },
+  'serviceForm.updateService': {
+    en: 'Save Service',
+    es: 'Guardar servicio'
+  },
+  'serviceForm.addService': {
+    en: 'Add Service',
+    es: 'Agregar servicio'
+  },
+  'services.deleteServiceTitle': {
+    en: 'Delete Service',
+    es: 'Eliminar servicio'
+  },
+  'services.deleteServiceDescription': {
+    en: 'Are you sure you want to delete this service?',
+    es: '¿Estás seguro de eliminar este servicio?'
+  },
+
+  'personalization.saveError': {
+    en: 'Failed to save settings',
+    es: 'No se pudo guardar la configuración'
+  },
+  'personalization.businessInfo': {
+    en: 'Business Info',
+    es: 'Información del negocio'
+  },
+  'personalization.businessInfoDescription': {
+    en: 'Update your business details used across the app',
+    es: 'Actualiza los datos del negocio usados en la aplicación'
+  },
+  'personalization.email': {
+    en: 'Email',
+    es: 'Correo'
+  },
+  'personalization.phone': {
+    en: 'Phone',
+    es: 'Teléfono'
+  },
+  'personalization.website': {
+    en: 'Website',
+    es: 'Sitio web'
+  },
+  'personalization.address': {
+    en: 'Address',
+    es: 'Dirección'
+  },
+  'personalization.city': {
+    en: 'City',
+    es: 'Ciudad'
+  },
+  'personalization.state': {
+    en: 'State',
+    es: 'Estado'
+  },
+  'personalization.zipCode': {
+    en: 'ZIP Code',
+    es: 'Código Postal'
+  },
+  'personalization.subscription': {
+    en: 'Subscription',
+    es: 'Suscripción'
+  },
+  'personalization.subscriptionDescription': {
+    en: 'Manage your subscription details',
+    es: 'Administra los detalles de tu suscripción'
+  },
+  'personalization.plan': {
+    en: 'Plan',
+    es: 'Plan'
+  },
+  'personalization.status': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'personalization.trialEnds': {
+    en: 'Trial ends on',
+    es: 'La prueba termina el'
+  },
+
+  'timeClock.clockedIn': {
+    en: 'Clocked In',
+    es: 'Entró'
+  },
+
+  'payroll.saveChanges': {
+    en: 'Save Changes',
+    es: 'Guardar cambios'
+  },
+  // Business Pay Schedule
+  'businessSettings.paySchedule': {
+    en: 'Pay Schedule',
+    es: 'Calendario de Nómina'
+  },
+  'businessSettings.payScheduleDescription': {
+    en: 'Configure the anchor date and how often pay periods repeat.',
+    es: 'Configura la fecha ancla y cada cuántas semanas se repiten los períodos de pago.'
+  },
+  'businessSettings.payScheduleAnchorDate': {
+    en: 'Pay schedule anchor date',
+    es: 'Fecha ancla del calendario de nómina'
+  },
+  'businessSettings.payScheduleCadenceWeeks': {
+    en: 'Pay cadence (weeks)',
+    es: 'Cadencia de pago (semanas)'
+  },
+  'businessSettings.cadenceEvery1Week': {
+    en: 'Every 1 week',
+    es: 'Cada 1 semana'
+  },
+  'businessSettings.cadenceEvery2Weeks': {
+    en: 'Every 2 weeks',
+    es: 'Cada 2 semanas'
+  },
+  'businessSettings.cadenceEvery3Weeks': {
+    en: 'Every 3 weeks',
+    es: 'Cada 3 semanas'
+  },
+  'businessSettings.cadenceEvery4Weeks': {
+    en: 'Every 4 weeks',
+    es: 'Cada 4 semanas'
+  },
+  'businessSettings.payScheduleSave': {
+    en: 'Save Pay Schedule',
+    es: 'Guardar calendario de nómina'
+  },
+  'businessSettings.payScheduleSaved': {
+    en: 'Pay schedule saved successfully!',
+    es: '¡Calendario de nómina guardado correctamente!'
+  },
+
+  'transactions.status': {
+    en: 'Status',
+    es: 'Estado'
   },
 };
 

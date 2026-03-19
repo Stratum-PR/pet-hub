@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DollarSign, ChevronLeft, ChevronRight, Clock, Edit, Download } from 'lucide-react';
 import { Employee, TimeEntry } from '@/types';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, differenceInHours, addWeeks, subWeeks, startOfDay } from 'date-fns';
+import { format, eachDayOfInterval, differenceInMinutes, startOfDay } from 'date-fns';
 import { t } from '@/lib/translations';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,7 @@ import { useBusinessId } from '@/hooks/useBusinessId';
 import { supabase } from '@/integrations/supabase/client';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
 
 interface PayrollProps {
   employees: Employee[];
@@ -27,7 +28,7 @@ interface PayrollProps {
 
 export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEntry }: PayrollProps) {
   const navigate = useNavigate();
-  const { settings } = useSettings();
+  const { settings, loading: settingsLoading } = useSettings();
   const { business } = useAuth();
   const businessId = useBusinessId();
   const [businessLogoUrl, setBusinessLogoUrl] = useState<string | null>(null);
@@ -39,6 +40,19 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     clock_in: '',
     clock_out: '',
   });
+
+  const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
+
+  const openEditForEntry = (entry: TimeEntry) => {
+    setSelectedEmployeeId(entry.employee_id);
+    const date = startOfDay(new Date(entry.clock_in));
+    setEditingDay({ date, entry });
+    setEditingEntry(entry);
+    setEditFormData({
+      clock_in: format(new Date(entry.clock_in), "yyyy-MM-dd'T'HH:mm"),
+      clock_out: entry.clock_out ? format(new Date(entry.clock_out), "yyyy-MM-dd'T'HH:mm") : '',
+    });
+  };
 
   // Fetch business logo
   useEffect(() => {
@@ -101,10 +115,21 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     }
   };
 
-  // Two-week pay period: start of first week to end of second week
-  const payPeriodStart = startOfWeek(currentPayPeriod);
-  const payPeriodEnd = endOfWeek(addWeeks(payPeriodStart, 1));
-  const payPeriodDays = eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
+  // Use custom pay schedule only after settings have loaded so saved values are applied.
+  const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
+  const anchorDateISO = settings.pay_schedule_anchor_date || new Date().toISOString().slice(0, 10);
+
+  const { periodStart: payPeriodStart, periodEnd: payPeriodEnd } = useMemo(() => {
+    if (settingsLoading) {
+      const d = new Date();
+      return getPayPeriodRangeForDate(d, { anchorDateISO: d.toISOString().slice(0, 10), cadenceWeeks: 2 });
+    }
+    return getPayPeriodRangeForDate(currentPayPeriod, { anchorDateISO, cadenceWeeks });
+  }, [currentPayPeriod, anchorDateISO, cadenceWeeks, settingsLoading]);
+
+  const payPeriodDays = useMemo(() => {
+    return eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
+  }, [payPeriodStart, payPeriodEnd]);
 
   // Get all time entries for the pay period (with clock_out)
   const allPayPeriodEntries = useMemo(() => {
@@ -115,7 +140,8 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
              entry.clock_out;
     }).map(entry => {
       const employee = employees.find(e => e.id === entry.employee_id);
-      const hours = differenceInHours(new Date(entry.clock_out!), new Date(entry.clock_in));
+      const minutes = differenceInMinutes(new Date(entry.clock_out!), new Date(entry.clock_in));
+      const hours = roundToQuarterHours(minutes / 60);
       return {
         ...entry,
         employee,
@@ -171,22 +197,21 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   }, [allPayPeriodEntries]);
 
   const handlePreviousPayPeriod = () => {
-    setCurrentPayPeriod(subWeeks(currentPayPeriod, 2));
+    setCurrentPayPeriod(addPayPeriods(payPeriodStart, -1, cadenceWeeks));
   };
 
   const handleNextPayPeriod = () => {
-    setCurrentPayPeriod(addWeeks(currentPayPeriod, 2));
+    setCurrentPayPeriod(addPayPeriods(payPeriodStart, 1, cadenceWeeks));
   };
 
   const handleCurrentPayPeriod = () => {
-    setCurrentPayPeriod(startOfWeek(new Date()));
+    setCurrentPayPeriod(new Date());
   };
 
   const isCurrentPayPeriod = useMemo(() => {
-    const now = new Date();
-    const currentPeriodStart = startOfWeek(startOfWeek(now));
-    return payPeriodStart.getTime() === currentPeriodStart.getTime();
-  }, [payPeriodStart]);
+    const todayPeriodStart = getPayPeriodStartForDate(new Date(), { anchorDateISO, cadenceWeeks });
+    return payPeriodStart.getTime() === todayPeriodStart.getTime();
+  }, [payPeriodStart, anchorDateISO, cadenceWeeks]);
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
   
@@ -213,7 +238,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       const dayEntries = entriesByDay[dayStr] || [];
       const totalHours = dayEntries.reduce((sum, entry) => {
         if (!entry.clock_out) return sum;
-        return sum + differenceInHours(new Date(entry.clock_out), new Date(entry.clock_in));
+        return sum + roundToQuarterHours(differenceInMinutes(new Date(entry.clock_out), new Date(entry.clock_in)) / 60);
       }, 0);
 
       return {
@@ -326,7 +351,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       format(new Date(entry.clock_in), 'MM/dd/yyyy'),
       format(new Date(entry.clock_in), 'h:mm a'),
       format(new Date(entry.clock_out!), 'h:mm a'),
-      entry.hours.toFixed(2),
+      (Math.round(entry.hours * 4) / 4).toFixed(2),
       entry.status === 'approved' ? 'Approved' : entry.status === 'pending_edit' ? 'Pending' : 'Active',
       format(payPeriodStart, 'MM/dd/yyyy'),
       format(payPeriodEnd, 'MM/dd/yyyy'),
@@ -361,7 +386,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     const totalHours = allPayPeriodEntries.reduce((sum, entry) => sum + entry.hours, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL: ${totalHours.toFixed(2)} hours`, margin, yPos);
+    doc.text(`TOTAL: ${(Math.round(totalHours * 4) / 4).toFixed(2)} hours`, margin, yPos);
     yPos += 15;
 
     // Section 2: By Employee Summary
@@ -382,7 +407,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
           format(new Date(entry.clock_in), 'MM/dd/yyyy'),
           format(new Date(entry.clock_in), 'h:mm a'),
           format(new Date(entry.clock_out!), 'h:mm a'),
-          entry.hours.toFixed(2),
+          (Math.round(entry.hours * 4) / 4).toFixed(2),
           entry.status === 'approved' ? 'Approved' : entry.status === 'pending_edit' ? 'Pending' : 'Active',
         ]);
       });
@@ -482,6 +507,14 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     doc.save(fileName);
   };
 
+  if (settingsLoading) {
+    return (
+      <div className="space-y-6 animate-fade-in flex items-center justify-center min-h-[200px]">
+        <div className="text-muted-foreground">{t('common.loading')}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-end">
@@ -563,13 +596,21 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                     {allPayPeriodEntries.map((entry) => {
                       const empId = entry.employee_id.slice(-4).toUpperCase();
                       return (
-                        <tr key={entry.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
+                        <tr
+                          key={entry.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openEditForEntry(entry)}
+                          onKeyDown={(e) => e.key === 'Enter' && openEditForEntry(entry)}
+                          className="border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
+                          title="Click to edit"
+                        >
                           <td className="py-3 px-4 font-mono text-sm">{empId}</td>
                           <td className="py-3 px-4 font-medium">{entry.employee?.name || 'Unknown'}</td>
                           <td className="py-3 px-4">{format(new Date(entry.clock_in), 'MM/dd/yyyy')}</td>
                           <td className="py-3 px-4">{format(new Date(entry.clock_in), 'h:mm a')}</td>
                           <td className="py-3 px-4">{format(new Date(entry.clock_out!), 'h:mm a')}</td>
-                          <td className="py-3 px-4 text-right font-semibold">{entry.hours.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right font-semibold">{(Math.round(entry.hours * 4) / 4).toFixed(2)}</td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-1 rounded text-xs ${
                               entry.status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -589,7 +630,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                     <tr className="bg-secondary/50 font-semibold">
                       <td colSpan={5} className="py-3 px-4">TOTAL</td>
                       <td className="py-3 px-4 text-right">
-                        {allPayPeriodEntries.reduce((sum, entry) => sum + entry.hours, 0).toFixed(2)}
+                        {(Math.round(allPayPeriodEntries.reduce((sum, entry) => sum + entry.hours, 0) * 4) / 4).toFixed(2)}
                       </td>
                       <td colSpan={3} className="py-3 px-4"></td>
                     </tr>
@@ -634,11 +675,19 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                         </thead>
                         <tbody>
                           {summary.entries.map((entry) => (
-                            <tr key={entry.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
+                            <tr
+                              key={entry.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => openEditForEntry(entry)}
+                              onKeyDown={(e) => e.key === 'Enter' && openEditForEntry(entry)}
+                              className="border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
+                              title="Click to edit"
+                            >
                               <td className="py-3 px-4">{format(new Date(entry.clock_in), 'MM/dd/yyyy')}</td>
                               <td className="py-3 px-4">{format(new Date(entry.clock_in), 'h:mm a')}</td>
                               <td className="py-3 px-4">{format(new Date(entry.clock_out!), 'h:mm a')}</td>
-                              <td className="py-3 px-4 text-right font-semibold">{entry.hours.toFixed(2)}</td>
+                              <td className="py-3 px-4 text-right font-semibold">{(Math.round(entry.hours * 4) / 4).toFixed(2)}</td>
                               <td className="py-3 px-4">
                                 <span className={`px-2 py-1 rounded text-xs ${
                                   entry.status === 'approved' ? 'bg-green-100 text-green-800' :

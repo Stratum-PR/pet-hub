@@ -3,7 +3,7 @@
  * Manager PIN entry modal to exit kiosk mode
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Lock, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { t } from '@/lib/translations';
 
 interface KioskManagerAccessProps {
   onSuccess: () => void;
@@ -19,9 +20,16 @@ interface KioskManagerAccessProps {
 
 export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessProps) {
   const businessId = useBusinessId();
+  const pinInputRef = useRef<HTMLInputElement>(null);
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Focus hidden input on mount so the first numpad key is never lost (browser delivers it to focused element).
+  useEffect(() => {
+    const t = setTimeout(() => pinInputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const handlePinInput = useCallback((digit: string) => {
     if (pin.length < 4) {
@@ -30,9 +38,10 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
     }
   }, [pin]);
 
-  const handleVerify = useCallback(async () => {
-    if (pin.length !== 4 || !businessId) {
-      setError('Please enter a 4-digit PIN');
+  const handleVerify = useCallback(async (pinToUse?: string) => {
+    const value = pinToUse ?? pin;
+    if (value.length !== 4 || !businessId) {
+      setError(t('kioskManager.verify4DigitPin'));
       return;
     }
 
@@ -40,9 +49,6 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
     setError(null);
 
     try {
-      // Get business and check manager PIN
-      // For now, we'll do a simple comparison
-      // In production, this should use hashed PINs
       const { data: business, error: err } = await supabase
         .from('businesses')
         .select('kiosk_manager_pin')
@@ -50,34 +56,30 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
         .single();
 
       if (err || !business) {
-        setError('Business not found');
+        setError(t('kioskManager.businessNotFound'));
         setLoading(false);
         return;
       }
 
-      // Simple PIN comparison (should be hashed in production)
-      // For now, if kiosk_manager_pin is not set, we'll allow any PIN for setup
       if (business.kiosk_manager_pin) {
-        if (business.kiosk_manager_pin !== pin) {
-          setError('Invalid manager PIN');
+        if (business.kiosk_manager_pin !== value) {
+          setError(t('kioskManager.invalidPin'));
           setLoading(false);
           return;
         }
       } else {
-        // First time setup - set the PIN
         await supabase
           .from('businesses')
-          .update({ kiosk_manager_pin: pin })
+          .update({ kiosk_manager_pin: value })
           .eq('id', businessId);
       }
 
-      // Success - redirect to main app
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify PIN');
+      setError(err instanceof Error ? err.message : t('kioskManager.failedVerifyPin'));
       setLoading(false);
     }
-  }, [pin, businessId, onSuccess]);
+  }, [pin, businessId, onSuccess, t]);
 
   const handleBackspace = useCallback(() => {
     setPin(prev => prev.slice(0, -1));
@@ -96,16 +98,95 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
     }
   }, [pin, handleVerify]);
 
+  const getDigit = useCallback((e: React.KeyboardEvent | KeyboardEvent): string | null => {
+    if (e.key >= '0' && e.key <= '9') return e.key;
+    if (e.key.startsWith('Numpad') && e.key.length === 7) {
+      const d = e.key.slice(-1);
+      if (d >= '0' && d <= '9') return d;
+    }
+    const code = 'code' in e ? e.code : (e as KeyboardEvent).code;
+    if (code?.startsWith('Numpad') && code.length >= 7) {
+      const d = code.slice(-1);
+      if (d >= '0' && d <= '9') return d;
+    }
+    return null;
+  }, []);
+
+  const handlePinKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      const digit = getDigit(e);
+      if (digit !== null) {
+        setPin(prev => {
+          if (prev.length >= 4) return prev;
+          const next = prev + digit;
+          if (next.length === 4) setTimeout(() => handleVerify(next), 0);
+          return next;
+        });
+        setError(null);
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (e.key === 'Backspace') {
+        setPin(prev => prev.slice(0, -1));
+        setError(null);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    [getDigit, handleVerify]
+  );
+
+  // Window listener as fallback when focus leaves the hidden input (e.g. after clicking a button).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target === pinInputRef.current) return;
+      if (target?.closest('button') || target?.closest('a')) return;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+
+      const digit = getDigit(e);
+      if (digit !== null) {
+        setPin(prev => {
+          if (prev.length >= 4) return prev;
+          const next = prev + digit;
+          if (next.length === 4) setTimeout(() => handleVerify(next), 0);
+          return next;
+        });
+        setError(null);
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (e.key === 'Backspace') {
+        setPin(prev => prev.slice(0, -1));
+        setError(null);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [getDigit, handleVerify]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="relative w-full max-w-md">
+        <input
+          ref={pinInputRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          aria-label="Manager PIN"
+          tabIndex={0}
+          className="absolute left-0 top-0 w-px h-px opacity-0 overflow-hidden"
+          onKeyDown={handlePinKeyDown}
+          readOnly
+        />
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Lock className="w-6 h-6 text-primary" />
               <div>
-                <CardTitle>Manager Access</CardTitle>
-                <CardDescription>Enter manager PIN to exit kiosk mode</CardDescription>
+                <CardTitle>{t('kioskManager.accessTitle')}</CardTitle>
+                <CardDescription>{t('kioskManager.accessDescription')}</CardDescription>
               </div>
             </div>
             <Button
@@ -201,18 +282,19 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
               onClick={onCancel}
               disabled={loading}
             >
-              Cancel
+              {t('kioskManager.cancel')}
             </Button>
             <Button
               className="flex-1"
               onClick={handleVerify}
               disabled={loading || pin.length !== 4}
             >
-              {loading ? 'Verifying...' : 'Verify'}
+              {loading ? t('kioskManager.verifying') : t('kioskManager.verify')}
             </Button>
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
