@@ -101,19 +101,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 1) Determine effective user (never hang here; avoid infinite loading on refresh)
     let effectiveUser: User | null = userOverride ?? user ?? null;
+    /** When getSession() succeeds with no session, user is logged out; skip getUser() to avoid AuthSessionMissingError noise. */
+    let emptySessionFromStorage = false;
     if (!effectiveUser) {
       try {
         const { data: { session }, error: sessionError } = await withTimeout(supabase.auth.getSession(), 15000, 'auth.getSession');
         if (sessionError) console.error('[AuthContext] Error getting session:', sessionError);
         effectiveUser = session?.user ?? null;
+        if (!sessionError && !session) emptySessionFromStorage = true;
       } catch (e) {
         console.warn('[AuthContext] getSession timed out/failed:', e);
       }
     }
-    if (!effectiveUser) {
+    if (!effectiveUser && !emptySessionFromStorage) {
       try {
         const { data: { user: apiUser }, error: userError } = await withTimeout(supabase.auth.getUser(), 15000, 'auth.getUser');
-        if (userError) console.error('[AuthContext] Error getting user:', userError);
+        if (userError && userError.name !== 'AuthSessionMissingError') {
+          console.error('[AuthContext] Error getting user:', userError);
+        }
         effectiveUser = apiUser ?? null;
       } catch (e) {
         console.warn('[AuthContext] getUser timed out/failed:', e);

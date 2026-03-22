@@ -40,7 +40,12 @@ function getLandingJsonLd(): string {
       name: 'Pet Hub',
       url: base,
       description: LANDING_ROUTE.description,
-      publisher: { '@type': 'Organization', name: 'Pet Hub' },
+      // Nested nodes must include @context where parsers walk the tree (Safari JSON-LD can call @context.toLowerCase).
+      publisher: {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Pet Hub',
+      },
     },
   ]);
 }
