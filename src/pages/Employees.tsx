@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Employee, TimeEntry } from '@/types';
 import { format } from 'date-fns';
 import { t } from '@/lib/translations';
+import { EMPLOYEE_PIN_LENGTH } from '@/lib/pinLengths';
 
 interface EmployeesProps {
   employees: Employee[];
@@ -85,7 +86,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
               <div className="space-y-4">
                 <Input
                   type="password"
-                  maxLength={4}
+                  maxLength={EMPLOYEE_PIN_LENGTH}
                   placeholder={t('timeTracking.enterPinPlaceholder')}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
@@ -95,7 +96,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
                 {error && (
                   <p className="text-destructive text-sm text-center">{error}</p>
                 )}
-                <Button onClick={handleVerifyPin} className="w-full" disabled={pin.length < 4}>
+                <Button onClick={handleVerifyPin} className="w-full" disabled={pin.length < EMPLOYEE_PIN_LENGTH}>
                   {t('timeTracking.verify')}
                 </Button>
               </div>

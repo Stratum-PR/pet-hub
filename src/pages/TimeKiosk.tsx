@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Clock, LogIn, LogOut, User, AlertTriangle, X, Lock } from 'lucide-react';
+import { Clock, LogIn, LogOut, User, AlertTriangle, X, Lock, Settings, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -20,8 +20,13 @@ import { useBusinessId } from '@/hooks/useBusinessId';
 import type { TimeEntry } from '@/types';
 import { setKioskLocked } from '@/lib/kioskLock';
 import { useTheme } from 'next-themes';
+import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
+import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 type KioskState = 'pin_entry' | 'employee_verified' | 'clocking' | 'success' | 'error' | 'off_schedule_warning';
+
+type ManagerPinGate = 'loading' | 'configured' | 'missing';
 
 export function TimeKiosk() {
   const navigate = useNavigate();
@@ -42,11 +47,73 @@ export function TimeKiosk() {
   const [businessLogoDarkUrl, setBusinessLogoDarkUrl] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
   const pinCaptureInputRef = useRef<HTMLInputElement>(null);
+  const [managerPinGate, setManagerPinGate] = useState<ManagerPinGate>('loading');
+  const [managerPinResetOpen, setManagerPinResetOpen] = useState(false);
+  const canResetKioskManagerPin = useCanResetKioskManagerPin();
+  const { loading: authLoading } = useAuth();
+  const managerPinGateFetchGen = useRef(0);
+  const [businessResolveTimedOut, setBusinessResolveTimedOut] = useState(false);
 
-  // Lock the entire app into kiosk mode until a manager unlocks it.
+  // If we never get a business id (slug/profile), stop spinning forever.
   useEffect(() => {
+    if (businessId) {
+      setBusinessResolveTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setBusinessResolveTimedOut(true), 8000);
+    return () => window.clearTimeout(t);
+  }, [businessId]);
+
+  // Require a valid 6-digit kiosk_manager_pin before locking — legacy 4-digit counts as "missing" (upgrade path).
+  // Uses a generation counter so React Strict Mode effect cleanup does not leave gate stuck on "loading".
+  useEffect(() => {
+    if (!businessId) {
+      managerPinGateFetchGen.current += 1;
+      setManagerPinGate('loading');
+      return;
+    }
+
+    const gen = ++managerPinGateFetchGen.current;
+
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('businesses')
+          .select('kiosk_manager_pin')
+          .eq('id', businessId)
+          .maybeSingle();
+
+        if (gen !== managerPinGateFetchGen.current) return;
+
+        if (error) {
+          if (import.meta.env.DEV) console.warn('TimeKiosk: could not load kiosk_manager_pin', error);
+          setManagerPinGate('missing');
+          return;
+        }
+        const pin = data?.kiosk_manager_pin;
+        setManagerPinGate(
+          typeof pin === 'string' && pin.length === KIOSK_MANAGER_PIN_LENGTH ? 'configured' : 'missing'
+        );
+      } catch {
+        if (gen !== managerPinGateFetchGen.current) return;
+        setManagerPinGate('missing');
+      }
+    })();
+
+    return () => {
+      managerPinGateFetchGen.current += 1;
+    };
+  }, [businessId]);
+
+  useEffect(() => {
+    if (managerPinGate !== 'configured') return;
     setKioskLocked(true);
-  }, [setKioskLocked]);
+  }, [managerPinGate]);
+
+  useEffect(() => {
+    if (managerPinGate !== 'missing') return;
+    setKioskLocked(false);
+  }, [managerPinGate]);
 
   // Fetch the current business logo for display on the punch clock screen.
   useEffect(() => {
@@ -138,7 +205,14 @@ export function TimeKiosk() {
     return () => clearInterval(interval);
   }, [activeTimeEntry, state]);
 
+  const pinVerifyGen = useRef(0);
+
+  const bumpPinVerification = useCallback(() => {
+    pinVerifyGen.current += 1;
+  }, []);
+
   const resetToPinEntry = useCallback(() => {
+    bumpPinVerification();
     setPin('');
     setState('pin_entry');
     setEmployee(null);
@@ -146,19 +220,7 @@ export function TimeKiosk() {
     setErrorMessage(null);
     setActiveTimeEntry(null);
     setClockedInDuration(null);
-  }, []);
-
-  const handlePinInput = useCallback((digit: string) => {
-    if (pin.length < 4) {
-      const newPin = pin + digit;
-      setPin(newPin);
-      
-      // Auto-submit when 4 digits entered
-      if (newPin.length === 4) {
-        handleVerifyPin(newPin);
-      }
-    }
-  }, [pin]);
+  }, [bumpPinVerification]);
 
   const setEmployeeAndFetchActiveEntry = useCallback(
     async (emp: any) => {
@@ -189,36 +251,105 @@ export function TimeKiosk() {
     [businessId]
   );
 
-  const handleVerifyPin = useCallback(async (pinToVerify?: string) => {
-    const pinToCheck = pinToVerify || pin;
-    if (pinToCheck.length !== 4) return;
+  const tryVerifyPin = useCallback(
+    async (pinStr: string) => {
+      const gen = ++pinVerifyGen.current;
+      if (pinStr.length < EMPLOYEE_PIN_LENGTH) return;
 
-    setErrorMessage(null);
+      setErrorMessage(null);
 
-    const [emp, managerPin] = await Promise.all([
-      getEmployeeByPin(pinToCheck),
-      businessId
-        ? supabase.from('businesses').select('kiosk_manager_pin').eq('id', businessId).single().then(({ data }) => data?.kiosk_manager_pin ?? null)
-        : Promise.resolve(null),
-    ]);
+      const managerPin = businessId
+        ? await supabase
+            .from('businesses')
+            .select('kiosk_manager_pin')
+            .eq('id', businessId)
+            .single()
+            .then(({ data }) => data?.kiosk_manager_pin ?? null)
+        : null;
 
-    const isManagerPin = managerPin != null && pinToCheck === managerPin;
+      if (gen !== pinVerifyGen.current) return;
 
-    if (isManagerPin) {
-      setManagerChoiceEmployee(emp);
-      setShowManagerChoice(true);
-      setPin('');
-      return;
-    }
+      const mp = typeof managerPin === 'string' ? managerPin : '';
 
-    if (emp) {
-      await setEmployeeAndFetchActiveEntry(emp);
-    } else {
-      setErrorMessage(t('timeTracking.invalidPin'));
-      setState('error');
-      setTimeout(() => resetToPinEntry(), 2000);
-    }
-  }, [pin, getEmployeeByPin, businessId, setEmployeeAndFetchActiveEntry, resetToPinEntry, t]);
+      if (mp.length !== KIOSK_MANAGER_PIN_LENGTH) {
+        if (pinStr.length === EMPLOYEE_PIN_LENGTH) {
+          const emp = await getEmployeeByPin(pinStr);
+          if (gen !== pinVerifyGen.current) return;
+          if (emp) {
+            await setEmployeeAndFetchActiveEntry(emp);
+            return;
+          }
+          setErrorMessage(t('timeTracking.invalidPin'));
+          setState('error');
+          setTimeout(() => resetToPinEntry(), 2000);
+        } else if (pinStr.length > EMPLOYEE_PIN_LENGTH) {
+          if (gen !== pinVerifyGen.current) return;
+          setErrorMessage(t('timeTracking.invalidPin'));
+          setState('error');
+          setTimeout(() => resetToPinEntry(), 2000);
+        }
+        return;
+      }
+
+      if (pinStr.length === KIOSK_MANAGER_PIN_LENGTH) {
+        if (pinStr === mp) {
+          const emp = await getEmployeeByPin(pinStr);
+          if (gen !== pinVerifyGen.current) return;
+          setManagerChoiceEmployee(emp);
+          setShowManagerChoice(true);
+          setPin('');
+          return;
+        }
+        if (gen !== pinVerifyGen.current) return;
+        setErrorMessage(t('timeTracking.invalidPin'));
+        setState('error');
+        setTimeout(() => resetToPinEntry(), 2000);
+        return;
+      }
+
+      if (pinStr.length === EMPLOYEE_PIN_LENGTH) {
+        const emp = await getEmployeeByPin(pinStr);
+        if (gen !== pinVerifyGen.current) return;
+
+        if (emp) {
+          await setEmployeeAndFetchActiveEntry(emp);
+          return;
+        }
+        if (mp.startsWith(pinStr)) {
+          return;
+        }
+        setErrorMessage(t('timeTracking.invalidPin'));
+        setState('error');
+        setTimeout(() => resetToPinEntry(), 2000);
+        return;
+      }
+
+      if (pinStr.length === 5) {
+        if (mp.startsWith(pinStr)) return;
+        if (gen !== pinVerifyGen.current) return;
+        setErrorMessage(t('timeTracking.invalidPin'));
+        setState('error');
+        setTimeout(() => resetToPinEntry(), 2000);
+      }
+    },
+    [businessId, getEmployeeByPin, setEmployeeAndFetchActiveEntry, resetToPinEntry, t]
+  );
+
+  const handlePinInput = useCallback(
+    (digit: string) => {
+      setPin(prev => {
+        if (prev.length >= KIOSK_MANAGER_PIN_LENGTH) return prev;
+        const next = prev + digit;
+        if (next.length >= EMPLOYEE_PIN_LENGTH) {
+          queueMicrotask(() => {
+            void tryVerifyPin(next);
+          });
+        }
+        return next;
+      });
+    },
+    [tryVerifyPin]
+  );
 
   const handleManagerChoiceClockInOut = useCallback(async () => {
     if (!managerChoiceEmployee) return;
@@ -299,12 +430,14 @@ export function TimeKiosk() {
   }, []);
 
   const handleBackspace = useCallback(() => {
+    bumpPinVerification();
     setPin(prev => prev.slice(0, -1));
-  }, []);
+  }, [bumpPinVerification]);
 
   const handleClear = useCallback(() => {
+    bumpPinVerification();
     setPin('');
-  }, []);
+  }, [bumpPinVerification]);
 
   const getPinDigitFromKeyboard = useCallback((e: KeyboardEvent | ReactKeyboardEvent): string | null => {
     if (e.key >= '0' && e.key <= '9') return e.key;
@@ -325,32 +458,37 @@ export function TimeKiosk() {
       const digit = getPinDigitFromKeyboard(e);
       if (digit !== null) {
         setPin(prev => {
-          if (prev.length >= 4) return prev;
+          if (prev.length >= KIOSK_MANAGER_PIN_LENGTH) return prev;
           const next = prev + digit;
-          if (next.length === 4) setTimeout(() => handleVerifyPin(next), 0);
+          if (next.length >= EMPLOYEE_PIN_LENGTH) {
+            queueMicrotask(() => {
+              void tryVerifyPin(next);
+            });
+          }
           return next;
         });
         e.preventDefault();
         e.stopPropagation();
       } else if (e.key === 'Backspace') {
+        bumpPinVerification();
         setPin(prev => prev.slice(0, -1));
         e.preventDefault();
         e.stopPropagation();
       }
     },
-    [getPinDigitFromKeyboard, handleVerifyPin]
+    [getPinDigitFromKeyboard, tryVerifyPin, bumpPinVerification]
   );
 
   // Focus capture field on PIN screen so the first physical key isn't lost to body/document.
   useEffect(() => {
-    if (state !== 'pin_entry' || showManagerChoice) return;
+    if (managerPinGate !== 'configured' || state !== 'pin_entry' || showManagerChoice) return;
     const t = window.setTimeout(() => pinCaptureInputRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
-  }, [state, showManagerChoice]);
+  }, [managerPinGate, state, showManagerChoice]);
 
   // Keyboard/numpad PIN entry: digits/backspace work even when focus is on keypad buttons (they stay focused after tap).
   useEffect(() => {
-    if (state !== 'pin_entry' || showManagerChoice) return;
+    if (managerPinGate !== 'configured' || state !== 'pin_entry' || showManagerChoice) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target === pinCaptureInputRef.current) return;
 
@@ -373,14 +511,19 @@ export function TimeKiosk() {
 
       if (digit !== null) {
         setPin(prev => {
-          if (prev.length >= 4) return prev;
+          if (prev.length >= KIOSK_MANAGER_PIN_LENGTH) return prev;
           const next = prev + digit;
-          if (next.length === 4) setTimeout(() => handleVerifyPin(next), 0);
+          if (next.length >= EMPLOYEE_PIN_LENGTH) {
+            queueMicrotask(() => {
+              void tryVerifyPin(next);
+            });
+          }
           return next;
         });
         e.preventDefault();
         e.stopPropagation();
       } else if (e.key === 'Backspace') {
+        bumpPinVerification();
         setPin(prev => prev.slice(0, -1));
         e.preventDefault();
         e.stopPropagation();
@@ -388,11 +531,115 @@ export function TimeKiosk() {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [state, showManagerChoice, getPinDigitFromKeyboard, handleVerifyPin]);
+  }, [
+    managerPinGate,
+    state,
+    showManagerChoice,
+    getPinDigitFromKeyboard,
+    tryVerifyPin,
+    bumpPinVerification,
+  ]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4" role="status" aria-busy="true">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-muted-foreground/30 border-t-primary" />
+          <span className="sr-only">{t('common.loading')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!businessId) {
+    if (!businessResolveTimedOut) {
+      return (
+        <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+          <div className="flex flex-col items-center gap-4" role="status" aria-busy="true">
+            <div className="animate-spin rounded-full h-12 w-12 border-2 border-muted-foreground/30 border-t-primary" />
+            <span className="sr-only">{t('common.loading')}</span>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardContent className="p-8 space-y-4 text-center">
+            <h1 className="text-xl font-bold">{t('timeKiosk.businessNotResolvedTitle')}</h1>
+            <p className="text-muted-foreground text-sm">{t('timeKiosk.businessNotResolvedDescription')}</p>
+            {businessSlug ? (
+              <Button className="w-full" onClick={() => navigate(`/${businessSlug}/dashboard`)}>
+                {t('timeKiosk.goToDashboard')}
+              </Button>
+            ) : (
+              <Button className="w-full" onClick={() => navigate('/')}>
+                {t('timeKiosk.goToDashboard')}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (managerPinGate === 'loading') {
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4" role="status" aria-busy="true">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-muted-foreground/30 border-t-primary" />
+          <span className="sr-only">{t('common.loading')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (managerPinGate === 'missing') {
+    const goToKioskPinSettings = () => {
+      if (!businessSlug) return;
+      navigate({
+        pathname: `/${businessSlug}/settings/business`,
+        hash: 'kiosk-manager-pin',
+      });
+    };
+
+    return (
+      <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <CardContent className="p-8 space-y-4">
+            <div className="flex justify-center">
+              <Settings className="w-12 h-12 text-primary" aria-hidden />
+            </div>
+            <h1 className="text-2xl font-bold text-center">{t('timeKiosk.managerPinRequiredTitle')}</h1>
+            <p className="text-muted-foreground text-center">{t('timeKiosk.managerPinRequiredDescription')}</p>
+            <Alert variant="warning" className="text-left">
+              <Info className="h-4 w-4" />
+              <AlertDescription>{t('timeKiosk.managerPinRequiredToast')}</AlertDescription>
+            </Alert>
+            {businessSlug ? (
+              <Button className="w-full" size="lg" onClick={goToKioskPinSettings}>
+                <Settings className="w-5 h-5 mr-2" />
+                {t('timeKiosk.goToBusinessSettings')}
+              </Button>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Render based on state
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
+      <KioskManagerPinResetDialog
+        open={managerPinResetOpen}
+        onOpenChange={setManagerPinResetOpen}
+        businessId={businessId}
+        onSuccess={async () => {
+          setKioskLocked(false);
+          navigate(businessSlug ? `/${businessSlug}/dashboard` : '/');
+        }}
+      />
       {showManagerChoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">
@@ -481,21 +728,25 @@ export function TimeKiosk() {
                     onKeyDown={handlePinCaptureKeyDown}
                     readOnly
                   />
-                  {/* PIN Display */}
+                  {/* PIN display: always 4 boxes; digits 5–6 of a manager PIN keep all four filled (no extra slots) */}
                   <div className="flex justify-center">
-                    <div className="flex gap-2">
-                      {[0, 1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center text-2xl font-bold ${
-                            i < pin.length
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-muted-foreground/30'
-                          }`}
-                        >
-                          {i < pin.length ? '•' : ''}
-                        </div>
-                      ))}
+                    <div className="flex gap-2 justify-center">
+                      {Array.from({ length: EMPLOYEE_PIN_LENGTH }, (_, i) => {
+                        const showFilled =
+                          pin.length > EMPLOYEE_PIN_LENGTH ? i < EMPLOYEE_PIN_LENGTH : i < pin.length;
+                        return (
+                          <div
+                            key={i}
+                            className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center text-2xl font-bold ${
+                              showFilled
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'border-muted-foreground/30'
+                            }`}
+                          >
+                            {showFilled ? '•' : ''}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -549,10 +800,18 @@ export function TimeKiosk() {
                     </Button>
                   </div>
 
-                  {/* Manager Access Hint */}
-                  <div className="text-center text-sm text-muted-foreground mt-4">
-                    {t('timeKiosk.managersEnterPinHint')}
-                  </div>
+                  {canResetKioskManagerPin ? (
+                    <div className="text-center text-sm mt-4">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="text-sm h-auto p-0 text-muted-foreground hover:text-primary"
+                        onClick={() => setManagerPinResetOpen(true)}
+                      >
+                        {t('kioskManagerPinReset.forgotPinLink')}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               )}
 

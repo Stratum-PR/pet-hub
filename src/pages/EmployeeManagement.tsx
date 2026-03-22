@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock, Lock, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock, Lock, RotateCcw, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,8 @@ import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { t } from '@/lib/translations';
+import { EMPLOYEE_PIN_LENGTH } from '@/lib/pinLengths';
+import { generateUniqueEmployeePin } from '@/lib/employeePin';
 
 interface EmployeeManagementProps {
   employees: Employee[];
@@ -51,6 +53,40 @@ export function EmployeeManagement({
   });
   const [showPinInForm, setShowPinInForm] = useState(false);
 
+  useEffect(() => {
+    if (!showAddForm || !businessId) return;
+    if (editingEmployee) {
+      const p = editingEmployee.pin;
+      if (typeof p === 'string' && new RegExp(`^\\d{${EMPLOYEE_PIN_LENGTH}}$`).test(p)) return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await generateUniqueEmployeePin(supabase, businessId, {
+          excludeEmployeeId: editingEmployee?.id,
+        });
+        if (!cancelled) setFormData((fd) => ({ ...fd, pin: next }));
+      } catch {
+        if (!cancelled) setFormData((fd) => ({ ...fd, pin: '' }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAddForm, businessId, editingEmployee?.id, editingEmployee?.pin]);
+
+  const handleGenerateFormPin = useCallback(async () => {
+    if (!businessId) return;
+    try {
+      const next = await generateUniqueEmployeePin(supabase, businessId, {
+        excludeEmployeeId: editingEmployee?.id,
+      });
+      setFormData((fd) => ({ ...fd, pin: next }));
+    } catch {
+      alert(t('employeeManagement.pinMissingError'));
+    }
+  }, [businessId, editingEmployee?.id]);
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -68,6 +104,12 @@ export function EmployeeManagement({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!new RegExp(`^\\d{${EMPLOYEE_PIN_LENGTH}}$`).test(formData.pin)) {
+      alert(t('employeeManagement.pinMissingError'));
+      return;
+    }
+
     // Unformat phone number before saving
     const submitData: any = {
       ...formData,
@@ -87,7 +129,7 @@ export function EmployeeManagement({
 
     // If PIN is being set/changed by manager, set pin_set_at timestamp
     // This marks the PIN as set (whether by manager or employee)
-    if (submitData.pin && submitData.pin.length === 4) {
+    if (submitData.pin && submitData.pin.length === EMPLOYEE_PIN_LENGTH) {
       const isNewPin = !editingEmployee || editingEmployee.pin !== submitData.pin;
       if (isNewPin) {
         submitData.pin_set_at = new Date().toISOString();
@@ -100,7 +142,7 @@ export function EmployeeManagement({
       setEditingEmployee(null);
     } else {
       // For new employees, if PIN is provided, set pin_set_at
-      if (submitData.pin && submitData.pin.length === 4) {
+      if (submitData.pin && submitData.pin.length === EMPLOYEE_PIN_LENGTH) {
         submitData.pin_set_at = new Date().toISOString();
         submitData.pin_required = false;
       }
@@ -260,27 +302,44 @@ export function EmployeeManagement({
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>4-Digit PIN</Label>
-                    {editingEmployee && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowPinInForm(!showPinInForm)}
-                        className="h-6 text-xs"
-                      >
-                        {showPinInForm ? <><EyeOff className="w-3 h-3 mr-1" /> Hide</> : <><Eye className="w-3 h-3 mr-1" /> Show</>}
-                      </Button>
-                    )}
+                    <Label>{t('employeeManagement.pinLabel')}</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowPinInForm(!showPinInForm)}
+                      className="h-6 text-xs"
+                    >
+                      {showPinInForm ? (
+                        <>
+                          <EyeOff className="w-3 h-3 mr-1" /> Hide
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3 h-3 mr-1" /> Show
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <Input
-                    type={showPinInForm || !editingEmployee ? "text" : "password"}
-                    maxLength={4}
-                    value={formData.pin}
-                    onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '') })}
-                    required
-                    placeholder="1234"
-                  />
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      readOnly
+                      className="font-mono tracking-widest sm:flex-1"
+                      value={
+                        !formData.pin
+                          ? ''
+                          : showPinInForm || !editingEmployee
+                            ? formData.pin
+                            : '•'.repeat(EMPLOYEE_PIN_LENGTH)
+                      }
+                      placeholder="…"
+                      aria-label={t('employeeManagement.pinLabel')}
+                    />
+                    <Button type="button" variant="outline" className="shrink-0" onClick={() => void handleGenerateFormPin()}>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      {t('employeeManagement.generatePin')}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Hourly Rate ($)</Label>
@@ -404,7 +463,9 @@ export function EmployeeManagement({
                 )}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span>PIN: {showPin[employee.id] ? employee.pin : '••••'}</span>
+                    <span>
+                      PIN: {showPin[employee.id] ? employee.pin : '•'.repeat(EMPLOYEE_PIN_LENGTH)}
+                    </span>
                     <Button
                       variant="ghost"
                       size="icon"
