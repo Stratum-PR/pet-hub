@@ -37,7 +37,7 @@ export function TimeKioskPreview({ logoUrl, zoom, logoHeightPx = 48 }: TimeKiosk
       <Card className="shadow-lg">
         <CardContent className="p-6 sm:p-8">
           <div className="space-y-6">
-            {/* PIN Display (empty) */}
+            {/* PIN Display (empty) — 4 slots like the live punch clock */}
             <div className="flex justify-center">
               <div className="flex gap-2">
                 {[0, 1, 2, 3].map((i) => (
@@ -68,8 +68,6 @@ export function TimeKioskPreview({ logoUrl, zoom, logoHeightPx = 48 }: TimeKiosk
                 &larr;
               </Button>
             </div>
-
-            <div className="text-center text-sm text-muted-foreground mt-2">{t('timeKiosk.managersEnterPinHint')}</div>
           </div>
         </CardContent>
       </Card>

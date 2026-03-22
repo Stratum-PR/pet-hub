@@ -14,6 +14,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
+import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
+import { KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
+import {
+  fetchEmployeePinsForBusiness,
+  managerPinPrefixCollidesWithEmployeePins,
+} from '@/lib/employeePin';
 
 export function KioskManagerPinSettings() {
   const businessId = useBusinessId();
@@ -27,6 +33,8 @@ export function KioskManagerPinSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasExistingPin, setHasExistingPin] = useState(false);
+  const [pinResetOpen, setPinResetOpen] = useState(false);
+  const canResetWithPassword = useCanResetKioskManagerPin();
 
   useEffect(() => {
     if (!businessId) return;
@@ -43,7 +51,11 @@ export function KioskManagerPinSettings() {
         .single();
 
       if (err) throw err;
-      setHasExistingPin(!!data?.kiosk_manager_pin);
+      const stored = data?.kiosk_manager_pin;
+      // Only a full 6-digit PIN counts as "existing": no PIN or legacy shorter values use first-time flow (no current PIN).
+      setHasExistingPin(
+        typeof stored === 'string' && stored.length === KIOSK_MANAGER_PIN_LENGTH
+      );
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to check existing PIN:', err);
@@ -56,9 +68,9 @@ export function KioskManagerPinSettings() {
 
     setError(null);
 
-    // Validate new PIN
-    if (newPin.length !== 4) {
-      setError(t('kioskManagerPinSettings.errors.pin4Digits'));
+    // Validate new manager PIN (6 digits; employee PINs stay 4 elsewhere)
+    if (newPin.length !== KIOSK_MANAGER_PIN_LENGTH) {
+      setError(t('kioskManagerPinSettings.errors.pin6Digits'));
       return;
     }
 
@@ -67,9 +79,20 @@ export function KioskManagerPinSettings() {
       return;
     }
 
+    try {
+      const employeePins = await fetchEmployeePinsForBusiness(supabase, businessId);
+      if (managerPinPrefixCollidesWithEmployeePins(newPin, employeePins)) {
+        setError(t('kioskManagerPinSettings.errors.prefixMatchesEmployee'));
+        return;
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('kioskManagerPinSettings.toast.failedUpdate'));
+      return;
+    }
+
     // If there's an existing PIN, require current PIN
     if (hasExistingPin) {
-      if (currentPin.length !== 4) {
+      if (!currentPin) {
         setError(t('kioskManagerPinSettings.errors.enterCurrentPin'));
         return;
       }
@@ -140,7 +163,7 @@ export function KioskManagerPinSettings() {
                 type={showCurrentPin ? 'text' : 'password'}
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={4}
+                maxLength={KIOSK_MANAGER_PIN_LENGTH}
                 value={currentPin}
                 onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ''))}
                 placeholder={t('kioskManagerPinSettings.enterCurrentPin')}
@@ -167,7 +190,7 @@ export function KioskManagerPinSettings() {
               type={showNewPin ? 'text' : 'password'}
               inputMode="numeric"
               pattern="[0-9]*"
-              maxLength={4}
+              maxLength={KIOSK_MANAGER_PIN_LENGTH}
               value={newPin}
               onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
               placeholder={t('kioskManagerPinSettings.enterNewPin')}
@@ -193,7 +216,7 @@ export function KioskManagerPinSettings() {
               type={showConfirmPin ? 'text' : 'password'}
               inputMode="numeric"
               pattern="[0-9]*"
-              maxLength={4}
+              maxLength={KIOSK_MANAGER_PIN_LENGTH}
               value={confirmPin}
               onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
               placeholder={t('kioskManagerPinSettings.confirmNewPinHint')}
@@ -220,17 +243,34 @@ export function KioskManagerPinSettings() {
 
         <Button
           onClick={handleSave}
-          disabled={saving || newPin.length !== 4 || confirmPin.length !== 4 || newPin !== confirmPin || (hasExistingPin && currentPin.length !== 4)}
+          disabled={
+            saving ||
+            newPin.length !== KIOSK_MANAGER_PIN_LENGTH ||
+            confirmPin.length !== KIOSK_MANAGER_PIN_LENGTH ||
+            newPin !== confirmPin ||
+            (hasExistingPin && !currentPin)
+          }
           className="w-full"
         >
           {saving ? t('kioskManagerPinSettings.save') : hasExistingPin ? t('kioskManagerPinSettings.changePin') : t('kioskManagerPinSettings.setPin')}
         </Button>
 
-        {hasExistingPin && (
-          <p className="text-xs text-muted-foreground text-center">
-            {t('kioskManagerPinSettings.forgetHint')}
-          </p>
-        )}
+        {hasExistingPin && canResetWithPassword ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground text-center">{t('kioskManagerPinSettings.forgetHint')}</p>
+            <Button type="button" variant="outline" className="w-full" onClick={() => setPinResetOpen(true)}>
+              {t('kioskManagerPinReset.openFromSettings')}
+            </Button>
+            <KioskManagerPinResetDialog
+              open={pinResetOpen}
+              onOpenChange={setPinResetOpen}
+              businessId={businessId}
+              onSuccess={async () => {
+                await checkExistingPin();
+              }}
+            />
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

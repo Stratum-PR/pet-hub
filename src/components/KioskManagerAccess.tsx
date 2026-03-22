@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { t } from '@/lib/translations';
+import { KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
 
 interface KioskManagerAccessProps {
   onSuccess: () => void;
@@ -32,16 +33,17 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
   }, []);
 
   const handlePinInput = useCallback((digit: string) => {
-    if (pin.length < 4) {
-      setPin(prev => prev + digit);
-      setError(null);
-    }
-  }, [pin]);
+    setPin(prev => {
+      if (prev.length >= KIOSK_MANAGER_PIN_LENGTH) return prev;
+      return prev + digit;
+    });
+    setError(null);
+  }, []);
 
   const handleVerify = useCallback(async (pinToUse?: string) => {
     const value = pinToUse ?? pin;
-    if (value.length !== 4 || !businessId) {
-      setError(t('kioskManager.verify4DigitPin'));
+    if (value.length !== KIOSK_MANAGER_PIN_LENGTH || !businessId) {
+      setError(t('kioskManager.verifyManagerPin'));
       return;
     }
 
@@ -68,12 +70,11 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
           return;
         }
       } else {
-        await supabase
-          .from('businesses')
-          .update({ kiosk_manager_pin: value })
-          .eq('id', businessId);
+        await supabase.from('businesses').update({ kiosk_manager_pin: value }).eq('id', businessId);
       }
 
+      setLoading(false);
+      setPin('');
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('kioskManager.failedVerifyPin'));
@@ -91,9 +92,8 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
     setError(null);
   }, []);
 
-  // Auto-submit when 4 digits entered
   const handleAutoSubmit = useCallback(() => {
-    if (pin.length === 4) {
+    if (pin.length === KIOSK_MANAGER_PIN_LENGTH) {
       handleVerify();
     }
   }, [pin, handleVerify]);
@@ -117,9 +117,11 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
       const digit = getDigit(e);
       if (digit !== null) {
         setPin(prev => {
-          if (prev.length >= 4) return prev;
+          if (prev.length >= KIOSK_MANAGER_PIN_LENGTH) return prev;
           const next = prev + digit;
-          if (next.length === 4) setTimeout(() => handleVerify(next), 0);
+          if (next.length === KIOSK_MANAGER_PIN_LENGTH) {
+            setTimeout(() => handleVerify(next), 0);
+          }
           return next;
         });
         setError(null);
@@ -135,20 +137,35 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
     [getDigit, handleVerify]
   );
 
-  // Window listener as fallback when focus leaves the hidden input (e.g. after clicking a button).
+  // Window listener: PIN keys work even when focus is on keypad buttons.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target === pinInputRef.current) return;
+
       const target = e.target as HTMLElement;
-      if (target === pinInputRef.current) return;
-      if (target?.closest('button') || target?.closest('a')) return;
+      const digit = getDigit(e);
+      const isPinKey = digit !== null || e.key === 'Backspace';
+
+      if (!isPinKey) {
+        if (
+          target?.closest('button') ||
+          target?.closest('a') ||
+          (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+        ) {
+          return;
+        }
+        return;
+      }
+
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
 
-      const digit = getDigit(e);
       if (digit !== null) {
         setPin(prev => {
-          if (prev.length >= 4) return prev;
+          if (prev.length >= KIOSK_MANAGER_PIN_LENGTH) return prev;
           const next = prev + digit;
-          if (next.length === 4) setTimeout(() => handleVerify(next), 0);
+          if (next.length === KIOSK_MANAGER_PIN_LENGTH) {
+            setTimeout(() => handleVerify(next), 0);
+          }
           return next;
         });
         setError(null);
@@ -201,11 +218,11 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
         <CardContent className="space-y-6">
           {/* PIN Display */}
           <div className="flex justify-center">
-            <div className="flex gap-2">
-              {[0, 1, 2, 3].map((i) => (
+            <div className="flex gap-1.5 flex-wrap justify-center">
+              {Array.from({ length: KIOSK_MANAGER_PIN_LENGTH }, (_, i) => (
                 <div
                   key={i}
-                  className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center text-xl font-bold ${
+                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-lg border-2 flex items-center justify-center text-lg font-bold ${
                     i < pin.length
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-muted-foreground/30'
@@ -233,6 +250,7 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
                 size="lg"
                 variant="outline"
                 className="h-16 text-xl font-bold"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   handlePinInput(num.toString());
                   setTimeout(handleAutoSubmit, 100);
@@ -246,6 +264,7 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
               size="lg"
               variant="outline"
               className="h-16 text-sm"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleClear}
               disabled={loading}
             >
@@ -255,6 +274,7 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
               size="lg"
               variant="outline"
               className="h-16 text-xl font-bold"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 handlePinInput('0');
                 setTimeout(handleAutoSubmit, 100);
@@ -267,6 +287,7 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
               size="lg"
               variant="outline"
               className="h-16 text-sm"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleBackspace}
               disabled={loading}
             >
@@ -287,7 +308,7 @@ export function KioskManagerAccess({ onSuccess, onCancel }: KioskManagerAccessPr
             <Button
               className="flex-1"
               onClick={handleVerify}
-              disabled={loading || pin.length !== 4}
+              disabled={loading || pin.length !== KIOSK_MANAGER_PIN_LENGTH}
             >
               {loading ? t('kioskManager.verifying') : t('kioskManager.verify')}
             </Button>

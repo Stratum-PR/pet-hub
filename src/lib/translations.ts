@@ -1702,6 +1702,42 @@ export const translations: Translations = {
     en: 'Are you sure you want to delete this employee? This action cannot be undone.',
     es: '¿Estás seguro de que quieres eliminar este empleado? Esta acción no se puede deshacer.'
   },
+  'employeeManagement.pinLabel': {
+    en: '4-digit PIN',
+    es: 'PIN de 4 dígitos'
+  },
+  'employeeManagement.generatePin': {
+    en: 'Generate PIN',
+    es: 'Generar PIN'
+  },
+  'employeeManagement.pinMissingError': {
+    en: 'Could not assign a PIN. Try generating again.',
+    es: 'No se pudo asignar un PIN. Intenta generar de nuevo.'
+  },
+  'employeePinSetup.title': {
+    en: 'Set clock PIN',
+    es: 'Configurar PIN del reloj'
+  },
+  'employeePinSetup.description': {
+    en: '{name}, use the generated PIN below for clocking in and out. You can generate a new code before saving.',
+    es: '{name}, usa el PIN generado abajo para fichar. Puedes generar otro antes de guardar.'
+  },
+  'employeePinSetup.generateAnother': {
+    en: 'Generate new PIN',
+    es: 'Generar otro PIN'
+  },
+  'employeePinSetup.savePin': {
+    en: 'Save PIN',
+    es: 'Guardar PIN'
+  },
+  'employeePinSetup.saving': {
+    en: 'Saving…',
+    es: 'Guardando…'
+  },
+  'employeePinSetup.generateFailed': {
+    en: 'Could not generate a PIN. Try again.',
+    es: 'No se pudo generar un PIN. Intenta de nuevo.'
+  },
   'inventory.addNewProduct': {
     en: 'Add New Product',
     es: 'Agregar Nuevo Producto'
@@ -2480,10 +2516,6 @@ export const translations: Translations = {
   },
 
   // Time Kiosk / Manager UI
-  'timeKiosk.managersEnterPinHint': {
-    en: 'Managers: enter your PIN to clock in/out or close the kiosk',
-    es: 'Gerentes: ingresa tu PIN para fichar o cerrar el kiosk'
-  },
   'timeKiosk.managerChoiceTitle': {
     en: 'What would you like to do?',
     es: '¿Qué deseas hacer?'
@@ -2540,6 +2572,34 @@ export const translations: Translations = {
     en: 'Clocked Out',
     es: 'Salió'
   },
+  'timeKiosk.managerPinRequiredTitle': {
+    en: 'Set up your punch clock password',
+    es: 'Configura la contraseña del reloj de fichaje'
+  },
+  'timeKiosk.managerPinRequiredDescription': {
+    en: 'Punch clock now requires a 6-digit manager PIN. You need it to exit kiosk mode and return to the app.',
+    es: 'El reloj de fichaje ahora requiere un PIN de gerente de 6 dígitos. Lo necesitas para salir del quiosco y volver a la app.'
+  },
+  'timeKiosk.managerPinRequiredToast': {
+    en: 'Set a 6-digit punch clock (manager) PIN in Business settings.',
+    es: 'Configura un PIN de gerente de 6 dígitos en Configuración del negocio.'
+  },
+  'timeKiosk.goToBusinessSettings': {
+    en: 'Open business settings',
+    es: 'Abrir configuración del negocio'
+  },
+  'timeKiosk.businessNotResolvedTitle': {
+    en: 'Could not load your business',
+    es: 'No se pudo cargar tu negocio'
+  },
+  'timeKiosk.businessNotResolvedDescription': {
+    en: 'Try going back to the dashboard, then open Punch clock again. If this keeps happening, sign out and sign back in.',
+    es: 'Vuelve al panel e intenta abrir el reloj de fichaje de nuevo. Si sigue pasando, cierra sesión y vuelve a entrar.'
+  },
+  'timeKiosk.goToDashboard': {
+    en: 'Go to dashboard',
+    es: 'Ir al panel'
+  },
 
   'kioskManager.accessTitle': {
     en: 'Manager Access',
@@ -2549,9 +2609,9 @@ export const translations: Translations = {
     en: 'Enter manager PIN to exit kiosk mode',
     es: 'Ingresa el PIN de gerente para salir del modo quiosco'
   },
-  'kioskManager.verify4DigitPin': {
-    en: 'Please enter a 4-digit PIN',
-    es: 'Ingresa un PIN de 4 dígitos'
+  'kioskManager.verifyManagerPin': {
+    en: 'Please enter your 6-digit manager PIN',
+    es: 'Ingresa tu PIN de gerente de 6 dígitos'
   },
   'kioskManager.businessNotFound': {
     en: 'Business not found',
@@ -2584,8 +2644,8 @@ export const translations: Translations = {
     es: 'PIN de Gerente del Quiosco'
   },
   'kioskManagerPinSettings.description': {
-    en: 'Set or change the PIN used to exit kiosk mode and access the main app. This PIN is separate from employee PINs.',
-    es: 'Configura o cambia el PIN usado para salir del modo quiosco y acceder a la aplicación. Este PIN es diferente al de los empleados.'
+    en: 'Set or change the 6-digit PIN used to exit kiosk mode and access the main app. Employee clock-in PINs stay 4 digits.',
+    es: 'Configura o cambia el PIN de 6 dígitos para salir del modo quiosco y acceder a la app. Los PIN de fichaje de empleados siguen siendo de 4 dígitos.'
   },
   'kioskManagerPinSettings.currentPin': {
     en: 'Current PIN',
@@ -2596,8 +2656,8 @@ export const translations: Translations = {
     es: 'Ingresa el PIN actual'
   },
   'kioskManagerPinSettings.newPin': {
-    en: 'New PIN (4 digits)',
-    es: 'PIN nuevo (4 dígitos)'
+    en: 'New PIN (6 digits)',
+    es: 'PIN nuevo (6 dígitos)'
   },
   'kioskManagerPinSettings.enterNewPin': {
     en: 'Enter new PIN',
@@ -2624,12 +2684,82 @@ export const translations: Translations = {
     es: 'Configurar PIN'
   },
   'kioskManagerPinSettings.forgetHint': {
-    en: 'If you forget your PIN, you can reset it from the database or contact support.',
-    es: 'Si olvidas tu PIN, puedes restablecerlo en la base de datos o contactar soporte.'
+    en: 'Forgot your PIN? Use “Reset with account password” below (managers only).',
+    es: '¿Olvidaste tu PIN? Usa “Restablecer con contraseña de la cuenta” abajo (solo gerentes).'
   },
+
+  'kioskManagerPinReset.title': {
+    en: 'Reset punch clock password',
+    es: 'Restablecer contraseña del reloj de fichaje'
+  },
+  'kioskManagerPinReset.stepPasswordDescription': {
+    en: 'Enter your Pet Hub account password to prove it is you. Then you can set a new manager PIN.',
+    es: 'Ingresa la contraseña de tu cuenta de Pet Hub para verificar tu identidad. Luego podrás configurar un nuevo PIN de gerente.'
+  },
+  'kioskManagerPinReset.stepPinDescription': {
+    en: 'Choose a new 6-digit manager PIN for the punch clock.',
+    es: 'Elige un nuevo PIN de gerente de 6 dígitos para el reloj de fichaje.'
+  },
+  'kioskManagerPinReset.signedInAs': {
+    en: 'Signed in as {email}',
+    es: 'Sesión iniciada como {email}'
+  },
+  'kioskManagerPinReset.accountPassword': {
+    en: 'Account password',
+    es: 'Contraseña de la cuenta'
+  },
+  'kioskManagerPinReset.verifyAccount': {
+    en: 'Verify',
+    es: 'Verificar'
+  },
+  'kioskManagerPinReset.verifyingAccount': {
+    en: 'Verifying…',
+    es: 'Verificando…'
+  },
+  'kioskManagerPinReset.back': {
+    en: 'Back',
+    es: 'Atrás'
+  },
+  'kioskManagerPinReset.saveNewPin': {
+    en: 'Save new PIN',
+    es: 'Guardar nuevo PIN'
+  },
+  'kioskManagerPinReset.successToast': {
+    en: 'Manager PIN updated.',
+    es: 'PIN de gerente actualizado.'
+  },
+  'kioskManagerPinReset.forgotPinLink': {
+    en: 'Forgot manager PIN?',
+    es: '¿Olvidaste el PIN de gerente?'
+  },
+  'kioskManagerPinReset.openFromSettings': {
+    en: 'Reset with account password',
+    es: 'Restablecer con contraseña de la cuenta'
+  },
+  'kioskManagerPinReset.errors.noEmail': {
+    en: 'No email on this session. Sign in with email and password, or contact support.',
+    es: 'No hay correo en esta sesión. Inicia sesión con correo y contraseña, o contacta soporte.'
+  },
+  'kioskManagerPinReset.errors.enterPassword': {
+    en: 'Enter your account password.',
+    es: 'Ingresa la contraseña de tu cuenta.'
+  },
+  'kioskManagerPinReset.errors.invalidPassword': {
+    en: 'That password didn’t match. Try again.',
+    es: 'Esa contraseña no coincide. Inténtalo de nuevo.'
+  },
+  'kioskManagerPinReset.errors.noBusiness': {
+    en: 'Business not loaded. Try again in a moment.',
+    es: 'No se cargó el negocio. Intenta de nuevo en un momento.'
+  },
+
   'kioskManagerPinSettings.errors.pin4Digits': {
     en: 'PIN must be exactly 4 digits',
     es: 'El PIN debe tener exactamente 4 dígitos'
+  },
+  'kioskManagerPinSettings.errors.pin6Digits': {
+    en: 'Manager PIN must be exactly 6 digits',
+    es: 'El PIN de gerente debe tener exactamente 6 dígitos'
   },
   'kioskManagerPinSettings.errors.pinsDontMatch': {
     en: 'New PINs do not match',
@@ -2642,6 +2772,10 @@ export const translations: Translations = {
   'kioskManagerPinSettings.errors.failedVerifyCurrentPin': {
     en: 'Failed to verify current PIN',
     es: 'No se pudo verificar el PIN actual'
+  },
+  'kioskManagerPinSettings.errors.prefixMatchesEmployee': {
+    en: 'This PIN cannot be used. Please use another one.',
+    es: 'Este PIN no se puede usar. Usa otro.'
   },
   'kioskManagerPinSettings.errors.currentPinIncorrect': {
     en: 'Current PIN is incorrect',

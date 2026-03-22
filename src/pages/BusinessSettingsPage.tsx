@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,8 +63,24 @@ function isPuertoRicoTaxSetup(rows: { label: string; rate: number }[]): boolean 
 }
 
 export function BusinessSettingsPage() {
+  const location = useLocation();
   const businessId = useBusinessId();
   const { settings, updateSetting, refetch } = useSettings();
+
+  // Punch clock / deep links: scroll to kiosk manager PIN when navigating with #kiosk-manager-pin
+  useEffect(() => {
+    if (location.hash !== '#kiosk-manager-pin') return;
+    const scrollToKiosk = () => {
+      document.getElementById('kiosk-manager-pin')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    scrollToKiosk();
+    const a = window.setTimeout(scrollToKiosk, 150);
+    const b = window.setTimeout(scrollToKiosk, 500);
+    return () => {
+      window.clearTimeout(a);
+      window.clearTimeout(b);
+    };
+  }, [location.pathname, location.hash]);
   const [taxMode, setTaxMode] = useState<'region' | 'custom'>(TAX_MODE_REGION);
   const [taxRegion, setTaxRegion] = useState<string | null>(REGION_PUERTO_RICO);
   const [customTaxRows, setCustomTaxRows] = useState<TaxRow[]>([]);
@@ -1072,7 +1089,7 @@ export function BusinessSettingsPage() {
       </Card>
 
       {/* Time Kiosk Settings */}
-      <div className="space-y-6">
+      <div id="kiosk-manager-pin" className="space-y-6 scroll-mt-24">
         <KioskManagerPinSettings />
         <GeofencingSettings />
       </div>
