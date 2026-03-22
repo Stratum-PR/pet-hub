@@ -1,7 +1,7 @@
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
-import { Dog, Calendar, TrendingUp, Clock, ChevronDown } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LabelList } from 'recharts';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react';
+import { Dog, Calendar, TrendingUp, Clock, ChevronDown, Receipt } from 'lucide-react';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -14,13 +14,19 @@ import { Calendar as CalendarDateRange } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Client, Pet, Employee, Appointment } from '@/types';
-import { format, startOfDay, startOfMonth, endOfMonth, subMonths, subDays, isWithinInterval, differenceInDays, addDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import { format, startOfDay, startOfMonth, endOfMonth, subMonths, subDays, isWithinInterval, differenceInDays, addDays, addMonths, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { es as dateFnsEs } from 'date-fns/locale';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DataDiagnostics } from '@/components/DataDiagnostics';
-import { useTransactions } from '@/hooks/useTransactions';
-import { useMemo } from 'react';
+import { useTransactions, loadDemoTransactionEntries } from '@/hooks/useTransactions';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { supabase } from '@/integrations/supabase/client';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { cn } from '@/lib/utils';
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { dashboardStaggerDelayMs } from '@/lib/dashboardEnterAnimation';
+import { DashboardRevenueChart } from '@/components/DashboardRevenueChart';
 
 interface DashboardProps {
   clients: Client[];
@@ -28,11 +34,100 @@ interface DashboardProps {
   employees: Employee[];
   appointments: Appointment[];
   onSelectClient?: (clientId: string) => void;
+  /** True while clients / pets / employees / appointments hooks are still fetching */
+  dataLoading?: boolean;
+}
+
+function DashboardStaggerItem({
+  index,
+  className,
+  children,
+}: {
+  index: number;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      data-dashboard-stagger-item
+      className={cn(
+        'animate-dashboard-box-enter will-change-[transform,opacity] opacity-0 [animation-fill-mode:forwards]',
+        'motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:will-change-auto',
+        className
+      )}
+      style={{ animationDelay: `${dashboardStaggerDelayMs(index)}ms` }}
+    >
+      {children}
+    </div>
+  );
 }
 
 const SALE_STATUSES = ['paid', 'partial'] as const;
 
 const REVENUE_PERIOD_DAYS = 30;
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function isGenericServiceLineLabel(name: string): boolean {
+  const s = name.trim().toLowerCase();
+  return s === '' || s === 'service';
+}
+
+/**
+ * Map generic POS line names ("Service") to appointment service_type or catalog service name (service_id).
+ */
+function bucketNameForServiceLine(
+  lineName: string | null | undefined,
+  appointmentId: string | null | undefined,
+  appointmentServiceLabelById: Map<string, string>,
+  uncategorizedLabel: string
+): string {
+  const raw = String(lineName ?? '').trim();
+  const aid =
+    appointmentId != null && String(appointmentId).length > 0 ? String(appointmentId) : '';
+  const fromAppt = aid ? (appointmentServiceLabelById.get(aid) ?? '').trim() : '';
+  if (isGenericServiceLineLabel(raw)) {
+    if (fromAppt) return fromAppt;
+    return uncategorizedLabel;
+  }
+  return raw;
+}
+
+/** Horizontal bar: animates width 0 → fillPercent (of row track); longest earner = 100%. */
+function TopServiceRevenueBar({
+  fillPercent,
+  delayMs,
+  backgroundColor,
+}: {
+  fillPercent: number;
+  delayMs: number;
+  backgroundColor: string;
+}) {
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    setWidth(0);
+  }, [fillPercent, delayMs]);
+  useEffect(() => {
+    const t = window.setTimeout(() => setWidth(fillPercent), delayMs);
+    return () => clearTimeout(t);
+  }, [fillPercent, delayMs]);
+  return (
+    <div className="flex-1 min-w-0 h-2.5 flex items-center">
+      <div
+        className="h-full min-w-0 rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none"
+        style={{
+          width: `${width}%`,
+          maxWidth: '100%',
+          backgroundColor,
+        }}
+      />
+    </div>
+  );
+}
 
 function useTransactionStats(transactions: { status: string; total: number; created_at: string }[]) {
   return useMemo(() => {
@@ -79,10 +174,18 @@ function useTransactionStats(transactions: { status: string; total: number; crea
 
 const TODAY_APPOINTMENTS_DISPLAY_MAX = 5;
 
-export function Dashboard({ clients, pets, employees, appointments, onSelectClient }: DashboardProps) {
+export function Dashboard({
+  clients,
+  pets,
+  employees,
+  appointments,
+  onSelectClient,
+  dataLoading = false,
+}: DashboardProps) {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
-  const { transactions } = useTransactions();
+  const businessId = useBusinessId();
+  const { transactions, loading: transactionsLoading } = useTransactions();
   const { language } = useLanguage();
   const dateLocale = language === 'es' ? dateFnsEs : undefined;
   const { revenueLast30Days, todayRevenue, growthPct, todayTransactionCount } = useTransactionStats(transactions);
@@ -105,17 +208,15 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
   // Revenue and growth are always from transactions (no hardcoded values)
   const revenueDisplay = (() => {
     const n = Number(revenueLast30Days);
-    return Number.isFinite(n) ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
+    return Number.isFinite(n)
+      ? `$${Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      : '$0';
   })();
   const revenueDescription =
     todayTransactionCount > 0
-      ? t('dashboard.revenueFromTransactions') + ` • ${t('dashboard.todaySales')}: $${todayRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      ? t('dashboard.revenueFromTransactions') +
+          ` • ${t('dashboard.todaySales')}: $${Math.round(todayRevenue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
       : t('dashboard.revenueFromTransactions');
-  const growthDisplay = (() => {
-    if (growthPct === null || !Number.isFinite(growthPct)) return '—';
-    return growthPct >= 0 ? `+${growthPct}%` : `${growthPct}%`;
-  })();
-
   type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
   const DASHBOARD_PERIOD_KEY = 'pet-hub-dashboard-period';
   const DASHBOARD_CUSTOM_RANGE_KEY = 'pet-hub-dashboard-custom-range';
@@ -201,107 +302,76 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
     return today;
   }, [dashboardPeriod, customRangeStart, customRangeEnd, today]);
 
-  const revenueData = useMemo(() => {
+  const [periodSalesCount, setPeriodSalesCount] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!businessId) {
+      setPeriodSalesCount(null);
+      return;
+    }
+    const startIso = startOfDay(periodStart).toISOString();
+    const endExclusive = addDays(startOfDay(periodEnd), 1).toISOString();
+    setPeriodSalesCount(null);
+    void (async () => {
+      const { count, error } = await supabase
+        .from('transactions' as any)
+        .select('*', { count: 'exact', head: true })
+        .eq('business_id', businessId)
+        .in('status', ['paid', 'partial'])
+        .gte('created_at', startIso)
+        .lt('created_at', endExclusive);
+      if (!cancelled) setPeriodSalesCount(error ? 0 : count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, periodStart, periodEnd]);
+
+  /**
+   * Revenue line: fixed window — up to 12 calendar months ending in the current month.
+   * Left edge is the earlier of (12 months ago) and the first calendar month that contains any sale;
+   * right edge is always the current month (through end of month).
+   */
+  const rollingYearRevenueData = useMemo(() => {
     const sales = transactions.filter((t) => SALE_STATUSES.includes(t.status as any));
     const locale = language === 'es' ? dateFnsEs : undefined;
-    const start = periodStart;
-    const end = periodEnd;
+    const now = new Date();
+    const defaultLeft = startOfMonth(subMonths(now, 11));
+    let leftBound = defaultLeft;
 
-    if (dashboardPeriod === 'yearly') {
-      const months: { month: Date; label: string; revenue: number }[] = [];
-      for (let i = 11; i >= 0; i--) {
-        const d = subMonths(end, i);
-        const monthStart = startOfMonth(d);
-        const monthEnd = endOfMonth(d);
-        const revenueCents = sales
-          .filter((t) => {
-            const tDate = new Date(t.created_at).getTime();
-            return tDate >= monthStart.getTime() && tDate <= monthEnd.getTime();
-          })
-          .reduce((sum, t) => sum + t.total, 0);
-        months.push({
-          month: d,
-          label: format(d, 'MMM', { locale }),
-          revenue: revenueCents / 100,
-        });
+    if (sales.length > 0) {
+      let earliestMs = new Date(sales[0].created_at).getTime();
+      for (let i = 1; i < sales.length; i++) {
+        const ms = new Date(sales[i].created_at).getTime();
+        if (ms < earliestMs) earliestMs = ms;
       }
-      return months.map(({ label, revenue }) => ({ day: label, fullDay: label, revenue }));
+      const firstDataMonth = startOfMonth(new Date(earliestMs));
+      if (firstDataMonth.getTime() > defaultLeft.getTime()) {
+        leftBound = firstDataMonth;
+      }
     }
 
-    if (dashboardPeriod === 'quarterly') {
-      const weeks: { weekStart: Date; label: string; revenue: number }[] = [];
-      let w = startOfWeek(start, { weekStartsOn: 1 });
-      while (w <= end) {
-        const weekEnd = endOfWeek(w, { weekStartsOn: 1 });
-        const revenueCents = sales
-          .filter((t) => {
-            const tDate = new Date(t.created_at).getTime();
-            return tDate >= w.getTime() && tDate <= Math.min(weekEnd.getTime(), end.getTime() + 86400000);
-          })
-          .reduce((sum, t) => sum + t.total, 0);
-        weeks.push({
-          weekStart: w,
-          label: format(w, 'd MMM', { locale }),
-          revenue: revenueCents / 100,
-        });
-        w = addDays(weekEnd, 1);
-      }
-      return weeks.map(({ label, revenue }) => ({ day: label, fullDay: label, revenue }));
-    }
-
-    const totalDays = differenceInDays(end, start) + 1;
-    if (dashboardPeriod === 'custom' && totalDays > 180) {
-      const months: { month: Date; label: string; revenue: number }[] = [];
-      let m = new Date(start.getFullYear(), start.getMonth(), 1);
-      const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-      while (m <= endMonth) {
-        const monthStart = startOfMonth(m);
-        const monthEnd = endOfMonth(m);
-        const revenueCents = sales
-          .filter((t) => {
-            const tDate = new Date(t.created_at).getTime();
-            return tDate >= monthStart.getTime() && tDate <= monthEnd.getTime();
-          })
-          .reduce((sum, t) => sum + t.total, 0);
-        months.push({ month: m, label: format(m, 'MMM yyyy', { locale }), revenue: revenueCents / 100 });
-        m = addDays(monthEnd, 1);
-      }
-      return months.map(({ label, revenue }) => ({ day: label, fullDay: label, revenue }));
-    }
-    if (dashboardPeriod === 'custom' && totalDays > 60) {
-      const weeks: { weekStart: Date; label: string; revenue: number }[] = [];
-      let w = startOfWeek(start, { weekStartsOn: 1 });
-      while (w <= end) {
-        const weekEnd = endOfWeek(w, { weekStartsOn: 1 });
-        const revenueCents = sales
-          .filter((t) => {
-            const tDate = new Date(t.created_at).getTime();
-            return tDate >= w.getTime() && tDate <= Math.min(weekEnd.getTime(), end.getTime() + 86400000);
-          })
-          .reduce((sum, t) => sum + t.total, 0);
-        weeks.push({
-          weekStart: w,
-          label: format(w, 'd MMM', { locale }),
-          revenue: revenueCents / 100,
-        });
-        w = addDays(weekEnd, 1);
-      }
-      return weeks.map(({ label, revenue }) => ({ day: label, fullDay: label, revenue }));
-    }
-
-    const dayList = eachDayOfInterval({ start, end });
-    return dayList.map((day) => {
-      const dayStart = startOfDay(day);
-      const dayRevenueCents = sales
-        .filter((t) => startOfDay(new Date(t.created_at)).getTime() === dayStart.getTime())
+    const currentMonthStart = startOfMonth(now);
+    const months: { day: string; fullDay: string; revenue: number }[] = [];
+    let cursor = startOfMonth(leftBound);
+    while (cursor.getTime() <= currentMonthStart.getTime()) {
+      const ms = startOfMonth(cursor);
+      const me = endOfMonth(cursor);
+      const revenueCents = sales
+        .filter((t) => {
+          const tDate = new Date(t.created_at).getTime();
+          return tDate >= ms.getTime() && tDate <= me.getTime();
+        })
         .reduce((sum, t) => sum + t.total, 0);
-      return {
-        day: format(day, dashboardPeriod === 'weekly' ? 'EEE d' : 'MMM d', { locale }),
-        fullDay: format(day, 'MMM d', { locale }),
-        revenue: dayRevenueCents / 100,
-      };
-    });
-  }, [transactions, dashboardPeriod, periodStart, periodEnd, language]);
+      months.push({
+        day: format(cursor, 'MMM', { locale }),
+        fullDay: format(cursor, 'MMM yyyy', { locale }),
+        revenue: revenueCents / 100,
+      });
+      cursor = addMonths(cursor, 1);
+    }
+    return months;
+  }, [transactions, language]);
 
   const appointmentsInPeriod = useMemo(() => {
     const start = periodStart;
@@ -348,22 +418,200 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
   }, [appointments, pets, periodStart, periodEnd]);
 
   const servicesCompletedCount = useMemo(
-    () => appointmentsInPeriod.filter((a) => a.status === 'completed').length,
+    () =>
+      appointmentsInPeriod.filter(
+        (a) =>
+          a.status === 'completed' &&
+          (Boolean(a.transaction_id) || Boolean(a.billed))
+      ).length,
     [appointmentsInPeriod]
   );
 
-  const topServicesData = useMemo(() => {
-    const completed = appointmentsInPeriod.filter((a) => a.status === 'completed');
-    const byService = new Map<string, number>();
-    for (const a of completed) {
-      const name = (a.service_type?.trim() || '—');
-      byService.set(name, (byService.get(name) || 0) + 1);
+  const [revenueTopServices, setRevenueTopServices] = useState<
+    { rows: { name: string; value: number }[]; denom: number } | null | 'loading'
+  >('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setRevenueTopServices('loading');
+      if (!businessId) {
+        if (!cancelled) setRevenueTopServices(null);
+        return;
+      }
+      const startIso = startOfDay(periodStart).toISOString();
+      const endExclusive = addDays(startOfDay(periodEnd), 1).toISOString();
+      const periodStartTs = new Date(startIso).getTime();
+      const periodEndTs = new Date(endExclusive).getTime();
+      const uncategorizedLabel = t('dashboard.uncategorizedService');
+      const emptyLabelMap = new Map<string, string>();
+
+      const centsByName = new Map<string, number>();
+
+      for (const { transaction, lineItems } of loadDemoTransactionEntries(businessId)) {
+        const ct = new Date(transaction.created_at).getTime();
+        if (ct < periodStartTs || ct >= periodEndTs) continue;
+        if (!SALE_STATUSES.includes(transaction.status as (typeof SALE_STATUSES)[number])) continue;
+        for (const li of lineItems) {
+          if (li.type !== 'service') continue;
+          const bucket = bucketNameForServiceLine(
+            li.name,
+            transaction.appointment_id ?? null,
+            emptyLabelMap,
+            uncategorizedLabel
+          );
+          if (!bucket) continue;
+          centsByName.set(bucket, (centsByName.get(bucket) ?? 0) + li.line_total);
+        }
+      }
+
+      type TxRow = {
+        appointment_id?: string | null;
+        transaction_line_items?: { name: string; line_total: number; type: string }[] | null;
+      };
+
+      const { data: txRows, error } = await supabase
+        .from('transactions' as any)
+        .select('appointment_id, transaction_line_items(name, line_total, type)')
+        .eq('business_id', businessId)
+        .in('status', ['paid', 'partial'])
+        .gte('created_at', startIso)
+        .lt('created_at', endExclusive);
+
+      const appointmentServiceLabelById = new Map<string, string>();
+
+      if (!error && Array.isArray(txRows)) {
+        const appointmentIds = new Set<string>();
+        for (const row of txRows as TxRow[]) {
+          const aid = row.appointment_id;
+          if (aid != null && String(aid).length > 0) appointmentIds.add(String(aid));
+        }
+        const ids = [...appointmentIds];
+        const serviceIds = new Set<string>();
+        const apptRowsFlat: { id: string; service_type?: string | null; service_id?: string | null }[] = [];
+        for (const part of chunkArray(ids, 150)) {
+          const { data: apptRows } = await supabase
+            .from('appointments')
+            .select('id, service_type, service_id')
+            .eq('business_id', businessId)
+            .in('id', part);
+          for (const a of apptRows ?? []) {
+            const row = a as { id: string; service_type?: string | null; service_id?: string | null };
+            apptRowsFlat.push(row);
+            const sid = row.service_id != null && String(row.service_id).length > 0 ? String(row.service_id) : '';
+            if (sid) serviceIds.add(sid);
+          }
+        }
+        const serviceNameById = new Map<string, string>();
+        for (const part of chunkArray([...serviceIds], 150)) {
+          if (part.length === 0) continue;
+          const { data: svcRows } = await supabase
+            .from('services')
+            .select('id, name')
+            .eq('business_id', businessId)
+            .in('id', part);
+          for (const s of svcRows ?? []) {
+            const sv = s as { id: string; name?: string | null };
+            const nm = String(sv.name ?? '').trim();
+            if (nm) serviceNameById.set(String(sv.id), nm);
+          }
+        }
+        for (const row of apptRowsFlat) {
+          const idStr = String(row.id);
+          let label = String(row.service_type ?? '').trim();
+          if (!label && row.service_id != null && String(row.service_id).length > 0) {
+            const cat = serviceNameById.get(String(row.service_id));
+            if (cat) label = cat;
+          }
+          if (label) appointmentServiceLabelById.set(idStr, label);
+        }
+
+        for (const row of txRows as TxRow[]) {
+          const items = row.transaction_line_items;
+          if (!Array.isArray(items)) continue;
+          for (const li of items) {
+            if (li.type !== 'service') continue;
+            const bucket = bucketNameForServiceLine(
+              li.name,
+              row.appointment_id ?? null,
+              appointmentServiceLabelById,
+              uncategorizedLabel
+            );
+            if (!bucket) continue;
+            const cents = Number(li.line_total ?? 0);
+            centsByName.set(bucket, (centsByName.get(bucket) ?? 0) + cents);
+          }
+        }
+      } else if (import.meta.env.DEV && error) {
+        console.warn('[Dashboard] top services: transactions + line items', error);
+      }
+
+      const totalCents = [...centsByName.values()].reduce((s, v) => s + v, 0);
+      if (totalCents <= 0) {
+        if (!cancelled) setRevenueTopServices(null);
+        return;
+      }
+
+      const rows = Array.from(centsByName.entries())
+        .map(([name, cents]) => ({ name, value: cents / 100 }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 3);
+      const denom = totalCents / 100;
+      if (!cancelled) setRevenueTopServices({ rows, denom });
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, periodStart, periodEnd, language]);
+
+  /** Once true, stay true until business changes — avoids paw flicker when hooks refetch in the background. */
+  const dashboardCoreReady =
+    Boolean(businessId) &&
+    !dataLoading &&
+    !transactionsLoading &&
+    revenueTopServices !== 'loading';
+  const [pawLifted, setPawLifted] = useState(false);
+  const [chartEnterKey, setChartEnterKey] = useState(0);
+  /** Ignore transient `businessId === null` (slug/auth races) so the paw overlay does not flash off/on. */
+  const lastNonNullBusinessIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (businessId == null) return;
+    const prev = lastNonNullBusinessIdRef.current;
+    lastNonNullBusinessIdRef.current = businessId;
+    if (prev !== null && prev !== businessId) {
+      setPawLifted(false);
     }
-    return Array.from(byService.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3);
-  }, [appointmentsInPeriod]);
+  }, [businessId]);
+  useEffect(() => {
+    if (dashboardCoreReady) setPawLifted(true);
+  }, [dashboardCoreReady]);
+  useEffect(() => {
+    if (pawLifted) setChartEnterKey((k) => k + 1);
+  }, [pawLifted]);
+
+  /** Top selling = paid/partial service line revenue only (no appointment-count fallback). */
+  const topSellingDisplay = useMemo(() => {
+    if (revenueTopServices === 'loading') {
+      return { loading: true as const, rows: [] as { name: string; value: number }[], denom: 0 };
+    }
+    if (revenueTopServices === null || revenueTopServices.rows.length === 0) {
+      return { loading: false as const, rows: [] as { name: string; value: number }[], denom: 0 };
+    }
+    return {
+      loading: false as const,
+      rows: revenueTopServices.rows,
+      denom: revenueTopServices.denom,
+    };
+  }, [revenueTopServices]);
+
+  /** Bar length vs #1 earner (full width = highest $ in the top 3). */
+  const topServicesBarMax = Math.max(topSellingDisplay.rows[0]?.value ?? 0, 1e-6);
+  const topServicesBarFillColors = [
+    'hsl(var(--primary))',
+    'hsl(var(--primary) / 0.82)',
+    'hsl(var(--primary) / 0.64)',
+  ] as const;
 
   const handleClientClick = (clientId: string) => {
     if (onSelectClient) {
@@ -384,8 +632,16 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
   };
 
   return (
-    <div className="space-y-8 animate-fade-in" data-transition-root>
+    <PawLoadedContent
+      loading={!pawLifted}
+      loaderLabel={t('common.loading')}
+      reveal={false}
+      viewportCover
+      leavingTransition="scaleReveal"
+    >
+    <div className="space-y-8" data-transition-root data-dashboard-stagger>
       {/* Period selector above the card grid */}
+      <DashboardStaggerItem key={`dsk-${chartEnterKey}-0`} index={0}>
       <div className="flex justify-end min-w-0">
         <DropdownMenu open={dropdownOpen} onOpenChange={(open) => { setDropdownOpen(open); if (!open) setShowCustomPicker(false); }}>
           <DropdownMenuTrigger
@@ -476,11 +732,13 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      </DashboardStaggerItem>
 
       {/* Stats row: cards left→right top→bottom */}
       <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" data-transition-containers>
           {/* Card 1: New vs Repeat clients (pie) */}
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-1`} index={1}>
           <Link
             to={businessSlug ? `/${businessSlug}/clients` : '/clients'}
             className="block cursor-pointer h-full"
@@ -511,7 +769,10 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                         <div className="flex flex-col items-center w-full min-h-0 shrink">
                           <div className="w-full shrink-0 animate-pie-rotate-in" style={{ height: chartHeight }}>
                             <ResponsiveContainer width="100%" height="100%">
-                              <PieChart margin={{ top: margin, right: margin, bottom: margin, left: margin }}>
+                              <PieChart
+                                key={`pie-nvr-${chartEnterKey}`}
+                                margin={{ top: margin, right: margin, bottom: margin, left: margin }}
+                              >
                               <Pie
                                 data={newVsRepeatData}
                                 dataKey="value"
@@ -523,33 +784,31 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
                                 paddingAngle={0}
                                 stroke="none"
                                 isAnimationActive
-                                animationBegin={100}
-                                animationDuration={600}
-                                animationEasing="ease-out"
+                                animationBegin={420}
+                                animationDuration={2400}
+                                animationEasing="ease-in-out"
                                 startAngle={90}
                                 endAngle={-270}
                                 label={false}
                                 labelLine={false}
                               >
                                 {newVsRepeatData.map((entry, i) => (
-                                  <Cell key={i} fill={entry.color} stroke="none" animationBegin={i * 280} />
+                                  <Cell key={`${entry.name}-${i}`} fill={entry.color} stroke="none" />
                                 ))}
                               </Pie>
                               <Tooltip
-                                content={({ active, payload }) => {
-                                  if (!active || !payload?.length) return null;
-                                  const item = payload[0];
-                                  const value = typeof item?.value === 'number' ? item.value : 0;
-                                  const name = (item?.name as string) ?? '';
-                                  const isNew = name === t('dashboard.newClients');
-                                  const key = isNew ? 'dashboard.tooltipNewCount' : 'dashboard.tooltipRepeatCount';
-                                  const text = `${value} ${t(key)}`;
+                                content={({ active }) => {
+                                  if (!active) return null;
+                                  const newCount = newVsRepeatData[0]?.value ?? 0;
+                                  const repeatCount = newVsRepeatData[1]?.value ?? 0;
+                                  if (newCount === 0 && repeatCount === 0) return null;
                                   return (
                                     <div
-                                      className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm"
+                                      className="rounded-md border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm space-y-0.5"
                                       style={{ borderColor: 'hsl(var(--border))' }}
                                     >
-                                      {text}
+                                      <div>{t('dashboard.tooltipNewClientsFull', { n: newCount })}</div>
+                                      <div>{t('dashboard.tooltipRepeatClientsFull', { n: repeatCount })}</div>
                                     </div>
                                   );
                                 }}
@@ -574,8 +833,10 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               </CardContent>
             </Card>
           </Link>
+          </DashboardStaggerItem>
 
-          {/* Card 2: Services completed */}
+          {/* Card 2: Completed & billed (period) */}
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-2`} index={2}>
           <Link
             to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
             className="block cursor-pointer h-full"
@@ -587,8 +848,10 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               animate
             />
           </Link>
+          </DashboardStaggerItem>
 
           {/* Card 3: Active staff */}
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-3`} index={3}>
           <Link
             to={businessSlug ? `/${businessSlug}/employee-management` : '/employee-management'}
             className="block cursor-pointer h-full"
@@ -601,8 +864,10 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               animate
             />
           </Link>
+          </DashboardStaggerItem>
 
           {/* Card 4: Today appointments */}
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-4`} index={4}>
           <Link
             to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
             className="block cursor-pointer h-full"
@@ -615,73 +880,138 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
               animate
             />
           </Link>
+          </DashboardStaggerItem>
 
           {/* Card 5: Top selling services (bar chart) */}
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-5`} index={5}>
           <Link
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
             className="block cursor-pointer h-full"
           >
             <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col overflow-hidden">
-              <CardContent className="p-4 flex-1 flex flex-col min-h-0">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{t('dashboard.topSellingServices')}</p>
-                <div className="flex-1 min-h-[80px] mt-1">
-                  {topServicesData.length === 0 ? (
-                    <p className="text-xs text-muted-foreground flex items-center justify-center h-full">{t('dashboard.noData')}</p>
+              <CardContent className="p-3 flex flex-col gap-3 flex-1 min-h-0">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider leading-snug shrink-0">
+                  {t('dashboard.topSellingServices')}
+                </p>
+                <div className="flex-1 min-h-[5.5rem] flex flex-col justify-center">
+                  {topSellingDisplay.loading ? (
+                    <p className="text-xs text-muted-foreground text-center px-1 py-3">{t('common.loading')}</p>
+                  ) : topSellingDisplay.rows.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center px-1 py-3">{t('dashboard.noTopServicesData')}</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={100}>
-                      <BarChart data={topServicesData} layout="vertical" margin={{ top: 2, right: 8, bottom: 2, left: 0 }}>
-                        <XAxis type="number" hide />
-                        <YAxis type="category" dataKey="name" orientation="right" width={95} tick={false} tickLine={false} axisLine={false} />
-                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} maxBarSize={12}>
-                          <LabelList dataKey="name" position="right" offset={8} style={{ fontSize: 10, fontWeight: 500, fill: 'hsl(var(--foreground))' }} />
-                        </Bar>
-                        <Tooltip
-                          cursor={{ fill: 'hsl(var(--muted) / 0.5)' }}
-                          content={({ active, payload }) => {
-                            if (!active || !payload?.length) return null;
-                            const item = payload[0];
-                            const serviceName = (item?.payload as { name?: string })?.name ?? (item?.name as string) ?? '';
-                            const value = typeof item?.value === 'number' ? item.value : 0;
-                            return (
-                              <div
-                                className="rounded-lg border bg-card px-3 py-2 text-sm shadow-md"
-                                style={{ borderColor: 'hsl(var(--border))' }}
-                              >
-                                <p className="font-medium text-foreground">{serviceName || '—'}</p>
-                                <p className="text-muted-foreground">{value} {t('dashboard.appointmentsCount')}</p>
+                    <div className="flex flex-col gap-3 w-full min-w-0">
+                      {topSellingDisplay.rows.map((row, index) => {
+                        const fillPct = topServicesBarMax > 0 ? (row.value / topServicesBarMax) * 100 : 0;
+                        const denom = topSellingDisplay.denom;
+                        const shareOfAllPct =
+                          denom > 0 ? Math.round((row.value / denom) * 100) : 0;
+                        const revenueAmountStr = `$${Math.round(row.value).toLocaleString(undefined, {
+                          maximumFractionDigits: 0,
+                        })}`;
+                        const barColor = topServicesBarFillColors[index] ?? topServicesBarFillColors[2];
+                        const barDelay = dashboardStaggerDelayMs(5) + index * 90;
+                        return (
+                          <UiTooltip key={`${row.name}-${index}`} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <div className="min-w-0 cursor-default select-none">
+                                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_auto] gap-x-2 gap-y-0.5 items-center">
+                                  <span
+                                    className="text-xs font-medium text-foreground truncate min-w-0"
+                                    title={row.name}
+                                  >
+                                    {row.name}
+                                  </span>
+                                  <TopServiceRevenueBar
+                                    fillPercent={fillPct}
+                                    delayMs={barDelay}
+                                    backgroundColor={barColor}
+                                  />
+                                  <span className="text-xs tabular-nums text-foreground font-medium whitespace-nowrap text-right">
+                                    {revenueAmountStr}
+                                  </span>
+                                </div>
                               </div>
-                            );
-                          }}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              align="center"
+                              sideOffset={8}
+                              className="max-w-[280px] border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm"
+                            >
+                              <p className="font-medium text-foreground">{row.name}</p>
+                              <p className="text-muted-foreground mt-0.5">
+                                {t('dashboard.topServiceTooltipRevenueLine', { amount: revenueAmountStr })}
+                              </p>
+                              {denom > 0 && (
+                                <p className="text-muted-foreground/90 mt-1">
+                                  {t('dashboard.topServiceShareOfAllSales', { pct: shareOfAllPct })}
+                                </p>
+                              )}
+                            </TooltipContent>
+                          </UiTooltip>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </CardContent>
             </Card>
           </Link>
+          </DashboardStaggerItem>
 
           {/* Card 6: Growth */}
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-6`} index={6}>
           <Link
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
             className="block cursor-pointer h-full"
           >
             <StatCard
               title={t('dashboard.growth')}
-              value={growthDisplay}
+              value={
+                growthPct === null || !Number.isFinite(growthPct) ? '—' : Math.abs(growthPct)
+              }
               icon={TrendingUp}
               description={t('dashboard.vsLastMonth')}
+              animate={growthPct !== null && Number.isFinite(growthPct)}
+              animatePrefix={
+                growthPct !== null && Number.isFinite(growthPct)
+                  ? growthPct >= 0
+                    ? '+'
+                    : '−'
+                  : undefined
+              }
+              animateSuffix={
+                growthPct !== null && Number.isFinite(growthPct) ? '%' : undefined
+              }
             />
           </Link>
+          </DashboardStaggerItem>
+
+          {/* Full-width: sales count for selected dashboard period */}
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-7`} index={7} className="col-span-full">
+            <Link
+              to={businessSlug ? `/${businessSlug}/transactions` : '/transactions'}
+              className="block cursor-pointer h-full"
+            >
+              <StatCard
+                title={t('dashboard.periodSalesCount')}
+                value={periodSalesCount === null ? '…' : periodSalesCount}
+                icon={Receipt}
+                description={t('dashboard.periodSalesHint')}
+                animate
+              />
+            </Link>
+          </DashboardStaggerItem>
         </div>
       </div>
 
       {/* Left: Today's Appointments — Right: Revenue + Recent Pets */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" data-transition-row="2" data-transition-containers>
         {/* Appointments: long list on the left */}
+        <DashboardStaggerItem key={`dsk-${chartEnterKey}-8`} index={8} className="min-w-0">
         <Link
           to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
-          className="block cursor-pointer lg:col-span-1"
+          className="block cursor-pointer h-full min-h-0"
         >
         <Card
           className="shadow-sm hover:shadow-md transition-shadow h-full flex flex-col max-h-[420px]"
@@ -733,115 +1063,86 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
           </CardContent>
         </Card>
         </Link>
+        </DashboardStaggerItem>
 
-        {/* Right: Revenue graph (links to reports) + Recent Pets */}
-        <div className="lg:col-span-2 space-y-6">
-          <Link
-            to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
-            className="block cursor-pointer"
-          >
-          <Card
-            className="shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base" data-card-title>
-                {t('dashboard.revenue')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={revenueData} margin={{ top: 12, right: 28, bottom: 24, left: 12 }}>
-                  <defs>
-                    <linearGradient id="dashboardRevenueStroke" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={1} />
-                    </linearGradient>
-                    <linearGradient id="dashboardRevenueFill" x1="0" y1="1" x2="0" y2="0">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      <stop offset="70%" stopColor="hsl(var(--primary))" stopOpacity={0.12} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                    interval={dashboardPeriod === 'weekly' ? 2 : 6}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [`$${value.toFixed(2)}`, 'Revenue']}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
+        {/* Right: Revenue graph — own stagger slot (then recent pets below) */}
+        <div className="flex min-w-0 flex-col gap-6 lg:col-span-2" data-dashboard-stagger-group>
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-9`} index={9} className="min-w-0">
+            <Link
+              to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
+              className="block cursor-pointer"
+            >
+              <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base" data-card-title>
+                    {t('dashboard.revenue')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <DashboardRevenueChart
+                    data={rollingYearRevenueData}
+                    chartEnterKey={chartEnterKey}
+                    emptyLabel={t('dashboard.noData')}
+                    tooltipSeriesName={t('dashboard.revenue')}
+                    tooltipFormatter={(value) => [
+                      `$${Math.round(Number(value)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                      t('dashboard.revenue'),
+                    ]}
                     labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDay ?? ''}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="url(#dashboardRevenueStroke)"
-                    strokeWidth={2}
-                    fill="url(#dashboardRevenueFill)"
-                    dot={{ r: 2, fill: 'hsl(var(--primary))', strokeWidth: 0 }}
-                    activeDot={{ r: 4, fill: 'hsl(var(--primary))', stroke: 'hsl(var(--card))', strokeWidth: 2 }}
-                    isAnimationActive
-                    animationDuration={700}
-                    animationBegin={0}
-                    animationEasing="ease-out"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          </Link>
+                </CardContent>
+              </Card>
+            </Link>
+          </DashboardStaggerItem>
 
-          <Card className="shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base" data-card-title>
-                <Link
-                  to={businessSlug ? `/${businessSlug}/pets` : '/pets'}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <Dog className="w-5 h-5 text-primary" />
-                  {t('dashboard.recentPets')}
-                </Link>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentPets.length === 0 ? (
-                <p className="text-muted-foreground text-center py-6 text-sm">{t('dashboard.noPetsYet')}</p>
-              ) : (
-                <div className="space-y-2" data-list style={{ ['--list-start' as string]: '0.94s' }}>
-                  {recentPets.map((pet) => {
-                    const owner = clients.find((c) => c.id === pet.client_id);
-                    const target = businessSlug ? `/${businessSlug}/pets?highlight=${pet.id}` : `/pets?highlight=${pet.id}`;
-                    return (
-                      <Link
-                        key={pet.id}
-                        to={target}
-                        data-list-item
-                        className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors block text-sm"
-                      >
-                        <div>
-                          <p className="font-medium">{pet.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {pet.breed} • {owner ? `${owner.first_name} ${owner.last_name}`.trim() : t('dashboard.unknownOwner')}
-                          </p>
-                        </div>
-                        <span className="px-2 py-0.5 text-xs bg-accent rounded capitalize">{pet.species}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <DashboardStaggerItem key={`dsk-${chartEnterKey}-10`} index={10} className="min-w-0">
+            <Card className="shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base" data-card-title>
+                  <Link
+                    to={businessSlug ? `/${businessSlug}/pets` : '/pets'}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
+                    <Dog className="w-5 h-5 text-primary" />
+                    {t('dashboard.recentPets')}
+                  </Link>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recentPets.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-6 text-sm">{t('dashboard.noPetsYet')}</p>
+                ) : (
+                  <div className="space-y-2" data-list style={{ ['--list-start' as string]: '0.94s' }}>
+                    {recentPets.map((pet) => {
+                      const owner = clients.find((c) => c.id === pet.client_id);
+                      const target = businessSlug ? `/${businessSlug}/pets?highlight=${pet.id}` : `/pets?highlight=${pet.id}`;
+                      return (
+                        <Link
+                          key={pet.id}
+                          to={target}
+                          data-list-item
+                          className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors block text-sm"
+                        >
+                          <div>
+                            <p className="font-medium">{pet.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {pet.breed} • {owner ? `${owner.first_name} ${owner.last_name}`.trim() : t('dashboard.unknownOwner')}
+                            </p>
+                          </div>
+                          <span className="px-2 py-0.5 text-xs bg-accent rounded capitalize">{pet.species}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </DashboardStaggerItem>
         </div>
       </div>
 
       {/* Collapsible Data Diagnostics at bottom */}
+      <DashboardStaggerItem key={`dsk-${chartEnterKey}-11`} index={11}>
       <details className="mt-8 border border-border rounded-lg bg-card/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center justify-between">
           <span>Show Diagnostics</span>
@@ -851,6 +1152,8 @@ export function Dashboard({ clients, pets, employees, appointments, onSelectClie
           <DataDiagnostics />
         </div>
       </details>
+      </DashboardStaggerItem>
     </div>
+    </PawLoadedContent>
   );
 }

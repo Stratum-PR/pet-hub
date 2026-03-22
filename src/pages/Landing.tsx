@@ -82,25 +82,11 @@ export function Landing() {
     acc += letterDurations[i] ?? 0.02;
   }
 
-  // Redirect logged-in users
-  useEffect(() => {
-    if (loading) return;
-    if (!user) return;
-    const last = getLastRoute();
-    if (last && last !== '/' && last !== '/login') {
-      navigate(last, { replace: true });
-      return;
-    }
-    navigate(getDefaultRoute({ isAdmin, business }), { replace: true });
-  }, [loading, user, isAdmin, business, navigate]);
+  // Note: landing page stays public even when logged in; no auto-redirect.
 
   const handleLogoClick = () => {
-    if (loading) return;
-    if (!user) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    navigate(getDefaultRoute({ isAdmin, business }), { replace: true });
+    navigate('/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const scrollToSection = (id: string) => {
@@ -119,118 +105,130 @@ export function Landing() {
   return (
     <div className="min-h-screen bg-background">
       <PageMeta route={LANDING_ROUTE} jsonLd={getLandingJsonLd()} />
-      {/* Fixed header - stays on screen when scrolling */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/20 backdrop-blur-md supports-[backdrop-filter]:bg-black/10">
-        <nav className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between gap-4">
-          <button
-            type="button"
-            onClick={handleLogoClick}
-            className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] rounded"
-          >
-            <img
-              src="/pet-hub-icon.svg"
-              alt=""
-              className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
-            />
-            <span className="text-white font-semibold text-lg sm:text-xl">Pet Hub</span>
-          </button>
-
-          {/* Center nav - desktop */}
-          <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full bg-white/10 px-4 py-2 backdrop-blur-md">
-            {navLinks.map(({ id, key }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => scrollToSection(id)}
-                className="px-3 py-1.5 text-sm font-medium text-white hover:text-white/90 rounded-full hover:bg-white/10 transition-colors"
-              >
-                {t(key)}
-              </button>
-            ))}
-          </div>
-
-          {/* Right: language, Login, Start Free Trial */}
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-            <LanguageSwitcher
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/10 hover:text-white"
-            />
+      {/* Pill-shaped glass header, shared with Pricing */}
+      <header className="fixed top-3 left-0 right-0 z-50 flex justify-center pointer-events-none">
+        <nav className="container mx-auto px-4 pointer-events-auto">
+          <div className="relative flex items-center justify-between gap-4 rounded-full border border-white/30 bg-white/60 backdrop-blur-xl px-4 py-2 sm:px-6 sm:py-3 shadow-lg shadow-black/10">
             <button
               type="button"
-              onClick={() => setLoginModalOpen(true)}
-              className="hidden sm:inline-flex items-center px-3 py-2 text-sm font-medium text-white hover:bg-white/10 rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+              onClick={handleLogoClick}
+              className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] rounded-full"
             >
-              {t('landing.login')}
+              <img
+                src="/pet-hub-icon.svg"
+                alt=""
+                className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
+              />
+              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Pet Hub</span>
             </button>
-            <Button
-              onClick={() => setSignupModalOpen(true)}
-              className="bg-black hover:bg-black/90 text-white rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-            >
-              {t('landing.startFreeTrial')}
-            </Button>
-          </div>
 
-          {/* Mobile menu */}
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden text-white hover:bg-white/10"
-                aria-label="Menu"
-              >
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="flex flex-col gap-6 pt-8">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Idioma / Language</p>
-                <LanguageSwitcher />
-              </div>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginModalOpen(true);
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full justify-start"
-                >
-                  <Button variant="ghost" className="w-full justify-start">
-                    {t('landing.login')}
-                  </Button>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSignupModalOpen(true);
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <Button className="w-full justify-start">{t('landing.startFreeTrial')}</Button>
-                </button>
-                {navLinks.map(({ id, key }) => (
-                  <Button
+            {/* Center nav - desktop, centered inside pill */}
+            <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
+              {navLinks.map(({ id, key }) =>
+                id === 'pricing' ? (
+                  <Link
                     key={id}
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      scrollToSection(id);
-                    }}
+                    to="/pricing"
+                    className="px-3 py-1.5 text-sm font-medium text-slate-900/85 hover:text-slate-900 rounded-full hover:bg-white/80 transition-colors"
                   >
                     {t(key)}
-                  </Button>
-                ))}
-                <Link to="/demo/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start">
-                    {t('landing.viewDemo')}
-                  </Button>
-                </Link>
-              </div>
-            </SheetContent>
-          </Sheet>
+                  </Link>
+                ) : (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => scrollToSection(id)}
+                    className="px-3 py-1.5 text-sm font-medium text-slate-900/85 hover:text-slate-900 rounded-full hover:bg-white/80 transition-colors"
+                  >
+                    {t(key)}
+                  </button>
+                )
+              )}
+            </div>
+
+            {/* Right: language, Login, Sign Up */}
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+              <LanguageSwitcher
+                variant="ghost"
+                size="sm"
+                className="text-slate-900 hover:bg-white/70 hover:text-slate-900"
+              />
+              <button
+                type="button"
+                onClick={() => setLoginModalOpen(true)}
+                className="hidden sm:inline-flex items-center px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-white/80 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+              >
+                {t('landing.login')}
+              </button>
+              <Button
+                onClick={() => setSignupModalOpen(true)}
+                className="bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+              >
+                {t('landing.startFreeTrial')}
+              </Button>
+            </div>
+
+            {/* Mobile menu */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden text-white hover:bg-white/10 rounded-full"
+                  aria-label="Menu"
+                >
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="flex flex-col gap-6 pt-8">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Idioma / Language</p>
+                  <LanguageSwitcher />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginModalOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full justify-start"
+                  >
+                    <Button variant="ghost" className="w-full justify-start">
+                      {t('landing.login')}
+                    </Button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSignupModalOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <Button className="w-full justify-start">{t('landing.startFreeTrial')}</Button>
+                  </button>
+                  {navLinks.map(({ id, key }) => (
+                    <Button
+                      key={id}
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        scrollToSection(id);
+                      }}
+                    >
+                      {t(key)}
+                    </Button>
+                  ))}
+                  <Link to="/demo/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start">
+                      {t('landing.viewDemo')}
+                    </Button>
+                  </Link>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </nav>
       </header>
 
@@ -384,79 +382,12 @@ export function Landing() {
         </button>
       </section>
 
-      {/* Section: Features */}
-      <section id="features" className="container mx-auto px-4 py-16 sm:py-24 scroll-mt-20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
-          <div className="bg-card p-8 rounded-lg shadow-sm border">
-            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-              <Calendar className="w-6 h-6 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">{t('landing.featureSchedulingTitle')}</h3>
-            <p className="text-muted-foreground">{t('landing.featureSchedulingText')}</p>
-          </div>
-          <div className="bg-card p-8 rounded-lg shadow-sm border">
-            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-              <Users className="w-6 h-6 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">{t('landing.featureCustomersTitle')}</h3>
-            <p className="text-muted-foreground">{t('landing.featureCustomersText')}</p>
-          </div>
-          <div className="bg-card p-8 rounded-lg shadow-sm border">
-            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-              <DollarSign className="w-6 h-6 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">{t('landing.featureRevenueTitle')}</h3>
-            <p className="text-muted-foreground">{t('landing.featureRevenueText')}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Section: Why Pet Hub */}
-      <section id="why-pet-hub" className="container mx-auto px-4 py-16 sm:py-24 scroll-mt-20 bg-muted/30">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">{t('landing.readyTitle')}</h2>
-          <p className="text-muted-foreground text-lg">{t('landing.readyText')}</p>
-        </div>
-      </section>
-
-      {/* Section: Pricing */}
-      <section id="pricing" className="container mx-auto px-4 py-16 sm:py-24 scroll-mt-20">
-        <div className="bg-card p-6 sm:p-12 rounded-lg shadow-sm border max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">{t('landing.readyTitle')}</h2>
-          <p className="text-muted-foreground mb-6 sm:mb-8 text-base sm:text-lg px-2">
-            {t('landing.readyText')}
-          </p>
-          <Link to="/pricing" className="inline-block w-full sm:w-auto">
-            <Button size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8">
-              {t('landing.viewPricingPlans')}
-              <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* Section: FAQ */}
-      <section id="faq" className="container mx-auto px-4 py-16 sm:py-24 scroll-mt-20 bg-muted/30">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">{t('landing.navFaq')}</h2>
-          <Accordion type="single" collapsible className="text-left mt-8">
-            {FAQ_ENTRIES.map((faq, i) => (
-              <AccordionItem key={i} value={`faq-${i}`}>
-                <AccordionTrigger className="text-base">{faq.question}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">{faq.answer}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-      </section>
-
-      {/* Section: About */}
-      <section id="about" className="container mx-auto px-4 py-16 sm:py-24 scroll-mt-20">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">{t('landing.navAbout')}</h2>
-          <p className="text-muted-foreground">Content coming soon.</p>
-        </div>
-      </section>
+      {/* Placeholder anchors under hero (content removed for now) */}
+      <section id="features" aria-hidden className="hidden" />
+      <section id="why-pet-hub" aria-hidden className="hidden" />
+      <section id="pricing" aria-hidden className="hidden" />
+      <section id="faq" aria-hidden className="hidden" />
+      <section id="about" aria-hidden className="hidden" />
 
       <Footer />
 

@@ -20,6 +20,23 @@ WHERE employee_id::text IN (
   SELECT id::text FROM public.employees 
   WHERE business_id::text = '00000000-0000-0000-0000-000000000001'::text
 );
+-- Clear demo transactions before appointments (when tables exist)
+DO $$
+BEGIN
+  IF to_regclass('public.transaction_line_items') IS NOT NULL AND to_regclass('public.transactions') IS NOT NULL THEN
+    DELETE FROM public.transaction_line_items
+    WHERE transaction_id IN (
+      SELECT id FROM public.transactions WHERE business_id = '00000000-0000-0000-0000-000000000001'
+    );
+    DELETE FROM public.transactions WHERE business_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'appointments' AND column_name = 'transaction_id'
+  ) THEN
+    UPDATE public.appointments SET transaction_id = NULL WHERE business_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+END $$;
 DELETE FROM public.appointments WHERE business_id = '00000000-0000-0000-0000-000000000001';
 DELETE FROM public.pets        WHERE business_id = '00000000-0000-0000-0000-000000000001';
 DELETE FROM public.customers   WHERE business_id = '00000000-0000-0000-0000-000000000001';

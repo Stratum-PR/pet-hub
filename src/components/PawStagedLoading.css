@@ -1,0 +1,150 @@
+/* Two-stage load: backdrop blur-in (~0.18s), then paw fade/scale-in (0.35s, delay 0.12s). Exit mirrors. */
+@keyframes paw-staged-backdrop-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+@keyframes paw-staged-paw-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Exit: drop blur on frame 1 so content underneath (e.g. dashboard card enter) stays sharp; only opacity scrim fades. */
+@keyframes paw-staged-backdrop-out {
+  from {
+    opacity: 1;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+}
+
+@keyframes paw-staged-paw-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98) translateY(-4px);
+  }
+}
+
+.paw-staged-root {
+  position: relative;
+  isolation: isolate;
+}
+
+.paw-staged-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: hsl(var(--background) / 0.5);
+  animation: paw-staged-backdrop-in 0.18s ease-out forwards;
+}
+
+.paw-staged-paw-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  animation: paw-staged-paw-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.12s forwards;
+}
+
+.paw-staged-root.paw-staged-leaving .paw-staged-backdrop {
+  animation: paw-staged-backdrop-out 0.18s ease-out forwards;
+}
+
+.paw-staged-root.paw-staged-leaving .paw-staged-paw-wrap {
+  animation: paw-staged-paw-out 0.25s ease-out forwards;
+}
+
+/*
+ * Scale-reveal exit: scrim hits full transparency early (~first third) so the frosted
+ * layer clears fast; paw keeps a short zoom/fade so the handoff feels snappy.
+ */
+@keyframes paw-staged-backdrop-out-scale-reveal {
+  0% {
+    opacity: 1;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+  30% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+}
+
+/* Single smooth ramp: scale up + fade out together (no mid keyframe kink) */
+@keyframes paw-staged-paw-scale-reveal-out {
+  from {
+    opacity: 1;
+    filter: none;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    filter: none;
+    transform: scale(22) translateY(0);
+  }
+}
+
+.paw-staged-root.paw-staged-leaving.paw-staged-leaving-scale-reveal .paw-staged-backdrop {
+  animation: paw-staged-backdrop-out-scale-reveal 0.28s cubic-bezier(0.45, 0, 0.55, 1) forwards;
+}
+
+.paw-staged-root.paw-staged-leaving.paw-staged-leaving-scale-reveal .paw-staged-paw-wrap {
+  animation: paw-staged-paw-scale-reveal-out 0.28s cubic-bezier(0.33, 0, 0.2, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paw-staged-backdrop,
+  .paw-staged-paw-wrap,
+  .paw-staged-root.paw-staged-leaving .paw-staged-backdrop,
+  .paw-staged-root.paw-staged-leaving .paw-staged-paw-wrap {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .paw-staged-root.paw-staged-leaving .paw-staged-backdrop,
+  .paw-staged-root.paw-staged-leaving .paw-staged-paw-wrap {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+    transition: opacity 0.2s ease-out;
+  }
+
+  .paw-staged-root.paw-staged-leaving.paw-staged-leaving-scale-reveal .paw-staged-paw-wrap {
+    animation: none;
+    transform: none;
+  }
+}

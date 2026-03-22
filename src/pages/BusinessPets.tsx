@@ -8,6 +8,7 @@ import { SearchFilter } from '@/components/SearchFilter';
 import { usePets, useClients, useAppointments, Pet, BusinessClient } from '@/hooks/useBusinessData';
 import { t } from '@/lib/translations';
 import { useToast } from '@/hooks/use-toast';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function BusinessPets() {
   const { pets, loading: petsLoading, error: petsError, refetch: refetchPets, addPet, updatePet, deletePet } = usePets();
@@ -122,14 +123,6 @@ export function BusinessPets() {
     setEditingPet(null);
   };
 
-  if (petsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="space-y-6">
@@ -145,10 +138,16 @@ export function BusinessPets() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent
+      loading={petsLoading}
+      loaderLabel={t('common.loading')}
+      loaderWrapperClassName="min-h-[240px]"
+    >
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3" data-page-toolbar data-page-search>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="inline-flex rounded-md border bg-muted p-0.5">
+          <div className="inline-flex rounded-md border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40">
             <button
               type="button"
               className={`inline-flex items-center justify-center h-8 w-8 rounded-sm ${
@@ -184,6 +183,13 @@ export function BusinessPets() {
         </div>
       </div>
 
+      <SearchFilter
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        placeholder={t('pets.searchPlaceholder')}
+      />
+      </div>
+
       {clients.length === 0 && (
         <div className="p-4 bg-accent rounded-lg">
           <p className="text-sm text-accent-foreground">{t('pets.addClientFirst')}</p>
@@ -201,12 +207,6 @@ export function BusinessPets() {
           />
         </div>
       )}
-
-      <SearchFilter
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        placeholder={t('pets.searchPlaceholder')}
-      />
 
       {viewMode === 'cards' ? (
         <PetList 
@@ -270,5 +270,6 @@ export function BusinessPets() {
         </div>
       )}
     </div>
+    </PawLoadedContent>
   );
 }

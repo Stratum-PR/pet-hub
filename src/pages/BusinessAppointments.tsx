@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAppointments, usePets, useClients, useServices } from '@/hooks/useBusinessData';
 import { t } from '@/lib/translations';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function BusinessAppointments() {
   const navigate = useNavigate();
@@ -162,14 +163,6 @@ export function BusinessAppointments() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  if (appointmentsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="space-y-6">
@@ -185,7 +178,12 @@ export function BusinessAppointments() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent
+      loading={appointmentsLoading}
+      loaderLabel={t('common.loading')}
+      loaderWrapperClassName="min-h-[200px]"
+    >
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex gap-2">
           <Button
@@ -390,5 +388,6 @@ export function BusinessAppointments() {
         description={t('appointments.deleteAppointmentDescription')}
       />
     </div>
+    </PawLoadedContent>
   );
 }

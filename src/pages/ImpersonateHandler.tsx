@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { setImpersonation } from '@/lib/auth';
 import { toast } from 'sonner';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function ImpersonateHandler() {
   const { token } = useParams<{ token: string }>();
@@ -75,29 +76,22 @@ export function ImpersonateHandler() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Validating token...</p>
+  return (
+    <PawLoadedContent
+      loading={loading}
+      loaderLabel="Validating token"
+      loaderWrapperClassName="min-h-screen"
+    >
+      {error ? (
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <div className="text-center">
+            <div className="text-destructive mb-4 text-2xl">⚠️</div>
+            <h1 className="mb-2 text-2xl font-bold">Impersonation Failed</h1>
+            <p className="mb-4 text-muted-foreground">{error}</p>
+            <p className="text-sm text-muted-foreground">Redirecting to admin dashboard...</p>
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-destructive text-2xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold mb-2">Impersonation Failed</h1>
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <p className="text-sm text-muted-foreground">Redirecting to admin dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+      ) : null}
+    </PawLoadedContent>
+  );
 }

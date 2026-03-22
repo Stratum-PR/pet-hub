@@ -6,6 +6,8 @@ import { parseBusinessHours, getWeekTimeRange } from '@/lib/businessHours';
 import { ManagerScheduleView } from '@/components/ManagerScheduleView';
 import { MyScheduleView } from '@/components/MyScheduleView';
 import type { Employee, TimeEntry } from '@/types';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { t } from '@/lib/translations';
 
 interface EmployeeScheduleProps {
   employees: Employee[];
@@ -40,14 +42,6 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
     return getWeekTimeRange(hours);
   }, [settings.business_hours]);
 
-  if (loading && shifts.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="text-destructive text-center py-8">
@@ -59,8 +53,14 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
     );
   }
 
-  if (isManager) {
-    return (
+  return (
+    <PawLoadedContent
+      loading={loading && shifts.length === 0}
+      loaderLabel={t('common.loading')}
+      loaderSize="md"
+      loaderWrapperClassName="flex justify-center py-12"
+    >
+      {isManager ? (
       <ManagerScheduleView
         weekStart={weekStart}
         onWeekChange={setWeekStart}
@@ -71,15 +71,14 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
         deleteShift={deleteShift}
         timeRange={timeRange}
       />
-    );
-  }
-
-  return (
+      ) : (
     <MyScheduleView
       shifts={shifts}
       employees={employees}
       weekStart={weekStart}
       onWeekChange={setWeekStart}
     />
+      )}
+    </PawLoadedContent>
   );
 }

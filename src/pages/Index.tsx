@@ -32,10 +32,13 @@ import { BusinessSettingsPage } from '@/pages/BusinessSettingsPage';
 import { BookingSettings } from '@/pages/BookingSettings';
 import { Billing } from '@/pages/Billing';
 import { Help } from '@/pages/Help';
+import { Notifications } from '@/pages/Notifications';
 import { Transactions } from '@/pages/Transactions';
 import { TransactionCreate } from '@/pages/TransactionCreate';
 import { TransactionDetail } from '@/pages/TransactionDetail';
 import { isKioskLocked } from '@/lib/kioskLock';
+import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
+import { PawRevealEnter } from '@/components/PawRevealEnter';
 
 /** Renders Routes with displayPathname so old page stays visible while cover rolls down. */
 function TransitionRoutes({ children }: { children: React.ReactNode }) {
@@ -73,13 +76,29 @@ const Index = () => {
     }
   }, [kioskLocked, location.pathname, kioskFullPath, navigate]);
 
-  const { clients, addClient, updateClient, deleteClient } = useClients();
-  const { pets, addPet, updatePet, deletePet } = usePets();
-  const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const { clients, loading: clientsLoading, addClient, updateClient, deleteClient } = useClients();
+  const { pets, loading: petsLoading, addPet, updatePet, deletePet } = usePets();
+  const { employees, loading: employeesLoading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const { timeEntries, clockIn, clockOut, getActiveEntry, updateTimeEntry, addTimeEntry } = useTimeEntries();
-  const { appointments, addAppointment, updateAppointment, deleteAppointment, refetch: refetchAppointments } = useAppointments();
-  const { products, stockMovements, addProduct, updateProduct, deleteProduct, adjustStock, uploadProductPhoto } = useInventory();
-  const { services, addService, updateService, deleteService } = useServices();
+  const {
+    appointments,
+    loading: appointmentsLoading,
+    addAppointment,
+    updateAppointment,
+    deleteAppointment,
+    refetch: refetchAppointments,
+  } = useAppointments();
+  const {
+    products,
+    stockMovements,
+    loading: inventoryLoading,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    adjustStock,
+    uploadProductPhoto,
+  } = useInventory();
+  const { services, loading: servicesLoading, addService, updateService, deleteService } = useServices();
   const { settings, saveAllSettings, loading: settingsLoading } = useSettings();
   const { createNotification } = useNotifications();
 
@@ -93,12 +112,15 @@ const Index = () => {
         await createNotification(
           `Low stock: ${product?.name ?? 'Product'} (${data.quantity} left). Order soon.`,
           businessId,
-          id
+          { productId: id, type: 'inventory' }
         );
       }
     }
     return result;
   };
+
+  const dashboardDataLoading =
+    clientsLoading || petsLoading || employeesLoading || appointmentsLoading;
 
   const updateAppointmentWithNotification = async (id: string, data: Partial<import('@/types').Appointment>) => {
     const result = await updateAppointment(id, data);
@@ -114,7 +136,8 @@ const Index = () => {
         }
         await createNotification(
           'Appointment completed but not yet billed. Consider creating a transaction.',
-          businessId
+          businessId,
+          { appointmentId: id, type: 'appointment' }
         );
       }
     }
@@ -129,10 +152,9 @@ const Index = () => {
         element={kioskLocked ? <TimeKiosk /> : (
         <PageTransitionProvider>
           {settingsLoading ? (
-            <div className="flex-1 min-h-0 flex items-center justify-center bg-background">
-              <div className="text-muted-foreground">Loading business settings...</div>
-            </div>
+            <PawStagedLoadingFullscreen label="Loading business settings" />
           ) : (
+            <PawRevealEnter className="flex min-h-0 min-w-0 flex-1 flex-col">
             <Layout settings={settings}>
               <TransitionRoutes>
               {/* Default dashboard */}
@@ -148,6 +170,7 @@ const Index = () => {
                   pets={pets}
                   employees={employees}
                   appointments={appointments}
+                  dataLoading={dashboardDataLoading}
                 />
               }
             />
@@ -201,6 +224,7 @@ const Index = () => {
               path="inventory"
               element={
                 <Inventory
+                  loading={inventoryLoading}
                   products={products}
                   defaultLowStockThreshold={parseInt(settings.default_low_stock_threshold || '5', 10) || 5}
                   stockMovements={stockMovements}
@@ -309,6 +333,7 @@ const Index = () => {
               path="services"
               element={
                 <Services
+                  loading={servicesLoading}
                   services={services}
                   onAddService={addService}
                   onUpdateService={updateService}
@@ -343,8 +368,10 @@ const Index = () => {
               <Route path="billing" element={<Billing />} />
             </Route>
             <Route path="help" element={<Help />} />
+            <Route path="notifications" element={<Notifications />} />
               </TransitionRoutes>
             </Layout>
+            </PawRevealEnter>
           )}
         </PageTransitionProvider>
       )} />

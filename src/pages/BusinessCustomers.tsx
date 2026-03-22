@@ -10,6 +10,7 @@ import { ClientForm } from '@/components/ClientForm';
 import { SearchFilter } from '@/components/SearchFilter';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function BusinessCustomers() {
   const { clients, loading, error, refetch, addClient, updateClient, deleteClient } = useClients();
@@ -110,14 +111,6 @@ export function BusinessCustomers() {
     setEditingClient(null);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="space-y-6">
@@ -133,10 +126,12 @@ export function BusinessCustomers() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent loading={loading} loaderLabel={t('common.loading')}>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3" data-page-toolbar data-page-search>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="inline-flex rounded-md border bg-muted p-0.5">
+          <div className="inline-flex rounded-md border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40">
             <button
               type="button"
               className={`inline-flex items-center justify-center h-8 w-8 rounded-sm ${
@@ -171,6 +166,13 @@ export function BusinessCustomers() {
         </div>
       </div>
 
+      <SearchFilter
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        placeholder={t('clients.searchPlaceholder')}
+      />
+      </div>
+
       {showForm && (
         <div id="client-form">
           <ClientForm
@@ -181,12 +183,6 @@ export function BusinessCustomers() {
           />
         </div>
       )}
-
-      <SearchFilter
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        placeholder={t('clients.searchPlaceholder')}
-      />
 
       {filteredClients.length === 0 ? (
         <Card>
@@ -316,5 +312,6 @@ export function BusinessCustomers() {
         description={t('clients.deleteClientDescription')}
       />
     </div>
+    </PawLoadedContent>
   );
 }

@@ -1,25 +1,11 @@
-import { useState, useMemo, useRef } from 'react';
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Package,
-  Scan,
-  LayoutGrid,
-  List,
-  AlertTriangle,
-} from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, Package, LayoutGrid, List, AlertTriangle } from 'lucide-react';
+import { BarcodeScanIcon } from '@/components/icons/BarcodeScanIcon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Badge } from '@/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -31,8 +17,9 @@ import { Product } from '@/types/inventory';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { SearchFilter } from '@/components/SearchFilter';
 import { InventoryProductForm } from '@/components/InventoryProductForm';
-import { InventoryProductDetailModal } from '@/components/InventoryProductDetailModal';
+import { InventoryItemExpanded } from '@/components/InventoryItemExpanded';
 import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +36,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { generateSkuForBarcode } from '@/lib/skuFromBarcode';
 import { normalizeBarcodeForMatch } from '@/lib/barcodeValidation';
+import { usePageLoadRef } from '@/hooks/usePageLoad';
 
 /** Get user-facing message from supabase.functions.invoke error (e.g. 503 body). */
 async function getInvokeErrorMessage(err: unknown): Promise<string | null> {
@@ -67,6 +55,8 @@ async function getInvokeErrorMessage(err: unknown): Promise<string | null> {
 type ViewMode = 'tile' | 'list';
 
 interface InventoryProps {
+  /** When true, shows the same paw loader + reveal pattern as Pets. */
+  loading?: boolean;
   products: Product[];
   /** Global default low-stock threshold (used when product has no reorder_level). Default 5. */
   defaultLowStockThreshold?: number;
@@ -80,6 +70,7 @@ interface InventoryProps {
 }
 
 export function Inventory({
+  loading = false,
   products,
   defaultLowStockThreshold = 5,
   onAddProduct,
@@ -93,10 +84,38 @@ export function Inventory({
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'in_stock'>('all');
   const [formOpen, setFormOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
-  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const pageLoadRef = usePageLoadRef();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const editingLive = useMemo(
+    () => (editProduct ? products.find((p) => p.id === editProduct.id) ?? editProduct : null),
+    [editProduct, products]
+  );
+
+  // Deep link from notifications: ?product=id
+  useEffect(() => {
+    const productId = searchParams.get('product');
+    if (!productId || products.length === 0) return;
+    const p = products.find((x) => x.id === productId);
+    const next = new URLSearchParams(searchParams);
+    next.delete('product');
+    setSearchParams(next, { replace: true });
+    if (!p) return;
+    setEditProduct(p);
+  }, [searchParams, products, setSearchParams]);
+
+  useEffect(() => {
+    const el = pageLoadRef.current;
+    if (!el) return;
+    el.removeAttribute('data-page-visible');
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => el.setAttribute('data-page-visible', ''));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [viewMode]);
   const [scanOpen, setScanOpen] = useState(false);
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [adjustQty, setAdjustQty] = useState('');
@@ -112,9 +131,6 @@ export function Inventory({
     imageUrl?: string;
   } | null>(null);
   const [adjusting, setAdjusting] = useState(false);
-  const [quickAddProduct, setQuickAddProduct] = useState<Product | null>(null);
-  const [quickAddQty, setQuickAddQty] = useState('');
-  const [quickAdding, setQuickAdding] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const lastScanTimeRef = useRef<number>(0);
   const SCAN_COOLDOWN_MS = 1500;
@@ -140,13 +156,7 @@ export function Inventory({
     return list;
   }, [products, searchTerm, stockFilter]);
 
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setFormOpen(true);
-  };
-
   const handleAddProduct = () => {
-    setEditingProduct(null);
     setInitialBarcodeFromScan(null);
     setFormOpen(true);
   };
@@ -238,7 +248,6 @@ export function Inventory({
 
   function openFormWithBarcode(barcode: string) {
     setInitialBarcodeFromScan(barcode);
-    setEditingProduct(null);
     setFormOpen(true);
     toast.info(t('inventory.addProduct') + ' – ' + (t('inventory.manualBarcodeEntry') ?? 'Enter details'));
   }
@@ -300,8 +309,18 @@ export function Inventory({
       });
     }
     setFormOpen(false);
-    setEditingProduct(null);
     setInitialBarcodeFromScan(null);
+  };
+
+  const handleInlineSave = (id: string, data: Partial<Product>, photoFile?: File) => {
+    onUpdateProduct(id, data);
+    if (photoFile && onUploadProductPhoto) {
+      onUploadProductPhoto(id, photoFile).then((url) => {
+        if (url) onUpdateProduct(id, { photo_url: url });
+      });
+    }
+    toast.success(t('common.saved') ?? 'Saved');
+    setEditProduct(null);
   };
 
   const handleDeleteClick = (id: string) => {
@@ -312,6 +331,7 @@ export function Inventory({
   const handleConfirmDelete = () => {
     if (productToDelete) {
       onDeleteProduct(productToDelete);
+      if (editProduct?.id === productToDelete) setEditProduct(null);
       setProductToDelete(null);
     }
     setDeleteDialogOpen(false);
@@ -323,189 +343,142 @@ export function Inventory({
   };
   const isLowStock = (p: Product) => p.quantity <= thresholdFor(p);
 
-  const handleQuickAdd = async (p: Product) => {
-    const qty = parseInt(quickAddQty, 10) || 0;
-    if (qty <= 0 || !onAdjustStock) return;
-    setQuickAdding(true);
-    const updated = await onAdjustStock(p.id, qty, 'adjustment', 'Quick add');
-    setQuickAdding(false);
-    setQuickAddProduct(null);
-    setQuickAddQty('');
-    if (updated) {
-      onUpdateProduct(p.id, { quantity: updated.quantity });
-      toast.success(t('inventory.addQuantity') ?? 'Stock updated');
-    } else toast.error(t('common.genericError'));
-  };
-
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" title={t('inventory.scanBarcode')} onClick={() => setScanOpen(true)}>
-            <Scan className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('inventory.scanBarcode')}</span>
-          </Button>
-          <Button onClick={handleAddProduct} className="gap-2 shadow-sm">
-            <Plus className="w-4 h-4" />
-            {t('inventory.addProduct')}
-          </Button>
-        </div>
+    <PawLoadedContent
+      loading={loading}
+      loaderLabel={t('common.loading')}
+      loaderWrapperClassName="min-h-[240px]"
+    >
+    <div ref={pageLoadRef} data-transition-root className="space-y-4 animate-fade-in">
+      {/* Single-line toolbar: search grows; controls fixed width */}
+      <div
+        className="flex w-full min-w-0 flex-nowrap items-center gap-1.5 sm:gap-2"
+        data-page-toolbar
+        data-page-search
+      >
+        <SearchFilter
+          variant="toolbar"
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          placeholder={t('inventory.searchPlaceholder')}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="relative !h-9 !min-h-9 !w-auto !min-w-0 shrink-0 !rounded-lg border border-border/50 bg-white/70 p-0 backdrop-blur-sm hover:bg-accent dark:bg-background/50 aspect-[3/2] [&_svg]:!h-full [&_svg]:!w-full"
+          title={t('inventory.scanBarcode')}
+          onClick={() => setScanOpen(true)}
+        >
+          <span className="pointer-events-none absolute inset-1 flex items-center justify-center">
+            <BarcodeScanIcon />
+          </span>
+        </Button>
+        <Select value={stockFilter} onValueChange={(v: any) => setStockFilter(v)}>
+          <SelectTrigger className="h-9 w-[118px] shrink-0 border-border/50 bg-white/70 px-2 text-xs backdrop-blur-sm dark:bg-background/50 sm:text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('inventory.stockFilterAll')}</SelectItem>
+            <SelectItem value="low">{t('inventory.stockFilterLow')}</SelectItem>
+            <SelectItem value="in_stock">{t('inventory.stockFilterInStock')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(v) => v && setViewMode(v as ViewMode)}
+          className="h-9 shrink-0 rounded-md border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40"
+        >
+          <ToggleGroupItem value="tile" className="h-8 w-8 px-0" aria-label={t('inventory.tileView')}>
+            <LayoutGrid className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" className="h-8 w-8 px-0" aria-label={t('inventory.listView')}>
+            <List className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <Button type="button" onClick={handleAddProduct} className="h-9 shrink-0 gap-1.5 px-2.5 shadow-sm sm:px-3">
+          <Plus className="h-4 w-4" />
+          <span className="max-[480px]:sr-only sm:inline">{t('inventory.addProduct')}</span>
+        </Button>
       </div>
 
-      <div className="space-y-4">
-          {/* Search, filters, view toggle */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex-1">
-              <SearchFilter
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                placeholder={t('inventory.searchPlaceholder')}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={stockFilter} onValueChange={(v: any) => setStockFilter(v)}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('inventory.stockFilterAll')}</SelectItem>
-                  <SelectItem value="low">{t('inventory.stockFilterLow')}</SelectItem>
-                  <SelectItem value="in_stock">{t('inventory.stockFilterInStock')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <ToggleGroup
-                type="single"
-                value={viewMode}
-                onValueChange={(v) => v && setViewMode(v as ViewMode)}
-                className="border rounded-md p-0.5"
-              >
-                <ToggleGroupItem value="tile" aria-label={t('inventory.tileView')}>
-                  <LayoutGrid className="w-4 h-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="list" aria-label={t('inventory.listView')}>
-                  <List className="w-4 h-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          </div>
-
-          {/* Product grid or list */}
+      <div className="space-y-4" data-page-content>
           {viewMode === 'tile' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-page-cards-grid>
               {filteredProducts.map((product) => {
                 const low = isLowStock(product);
                 return (
                   <Card
                     key={product.id}
-                    className="shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group cursor-pointer"
-                    onClick={() => setDetailProduct(product)}
+                    className="group cursor-pointer overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md"
                   >
                     <CardContent className="p-0">
-                      <div className="aspect-square bg-muted/50 relative flex items-center justify-center">
-                        {product.photo_url ? (
-                          <img
-                            src={product.photo_url}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Package className="w-12 h-12 text-muted-foreground" />
-                        )}
-                        {low && (
-                          <Badge
-                            variant="destructive"
-                            className="absolute top-2 right-2 gap-1 text-xs"
-                          >
-                            <AlertTriangle className="w-3 h-3" />
-                            {t('inventory.lowStock')}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold truncate">{product.name}</h3>
-                            <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
-                          </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleEdit(product)}>
-                                  {t('inventory.editProduct')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => handleDeleteClick(product.id)}
-                                >
-                                  {t('common.delete')}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={cn('w-2 h-2 rounded-full shrink-0', low ? 'bg-destructive' : 'bg-green-500')} aria-hidden />
-                            <span className="text-muted-foreground">{t('inventory.stock')}: </span>
-                            <span className={cn('font-medium', low && 'text-destructive')}>
-                              {product.quantity}
-                            </span>
-                            {onAdjustStock && (
-                              <Popover open={quickAddProduct?.id === product.id} onOpenChange={(open) => { if (!open) { setQuickAddProduct(null); setQuickAddQty(''); } else setQuickAddProduct(product); }}>
-                                <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 ml-1" title={t('inventory.addMoreStock') ?? 'Add more to stock'}>
-                                    <Plus className="w-4 h-4" />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-56 p-3" align="start" onClick={(e) => e.stopPropagation()}>
-                                  <p className="text-sm font-medium mb-2">{t('inventory.addHowMany') ?? 'How many to add?'}</p>
-                                  <div className="flex gap-2">
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      value={quickAddProduct?.id === product.id ? quickAddQty : ''}
-                                      onChange={(e) => setQuickAddQty(e.target.value)}
-                                      placeholder="0"
-                                      className="h-9"
-                                    />
-                                    <Button size="sm" className="shrink-0" disabled={quickAdding || !(parseInt(quickAddQty, 10) > 0)} onClick={() => handleQuickAdd(product)}>
-                                      {quickAdding ? t('common.saving') : (t('inventory.done') ?? 'Done')}
-                                    </Button>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
+                      <button
+                        type="button"
+                        className="flex w-full cursor-pointer flex-col text-left"
+                        onClick={() => setEditProduct(product)}
+                      >
+                        <div className="relative flex w-full shrink-0 items-center justify-center bg-muted/50 px-4 py-3">
+                          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border/80 bg-muted">
+                            {product.photo_url ? (
+                              <img
+                                src={product.photo_url}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <Package className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            {low && (
+                              <Badge
+                                variant="destructive"
+                                className="absolute -right-1.5 -top-1.5 gap-0.5 px-1.5 py-0 text-[10px] leading-tight"
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                {t('inventory.lowStock')}
+                              </Badge>
                             )}
                           </div>
-                          <div className="text-right">
-                            <span className="text-muted-foreground">{t('inventory.costPrice')}: </span>
-                            <span>${(product.cost ?? 0).toFixed(2)}</span>
-                            <span className="text-muted-foreground ml-1">{t('inventory.salePrice')}: </span>
-                            <span className="font-medium">${product.price.toFixed(2)}</span>
+                        </div>
+                        <div className="w-full min-w-0 p-4 pt-2">
+                          <h3 className="truncate font-semibold">{product.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {t('inventory.sku')}: {product.sku}
+                          </p>
+                          <div className="mt-2 flex w-full min-w-0 items-center justify-between gap-3 text-sm">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span
+                                className={cn('h-2 w-2 shrink-0 rounded-full', low ? 'bg-destructive' : 'bg-green-500')}
+                                aria-hidden
+                              />
+                              <span className="shrink-0 text-muted-foreground">{t('inventory.stock')}:</span>
+                              <span className={cn('min-w-0 truncate font-medium tabular-nums', low && 'text-destructive')}>
+                                {product.quantity}
+                              </span>
+                            </span>
+                            <span className="shrink-0 tabular-nums text-muted-foreground">${product.price.toFixed(2)}</span>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
           ) : (
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full">
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto" data-table-load>
+                <table className="w-full min-w-[640px]">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="text-left p-3 text-sm font-medium">{t('inventory.productName')}</th>
-                      <th className="text-left p-3 text-sm font-medium">{t('inventory.sku')}</th>
-                      <th className="text-left p-3 text-sm font-medium">{t('inventory.stock')}</th>
-                      <th className="text-left p-3 text-sm font-medium">{t('inventory.costPrice')}</th>
-                      <th className="text-left p-3 text-sm font-medium">{t('inventory.salePrice')}</th>
-                      <th className="w-20 p-3" />
+                      <th className="p-3 text-left text-sm font-medium">{t('inventory.productName')}</th>
+                      <th className="p-3 text-left text-sm font-medium">{t('inventory.sku')}</th>
+                      <th className="p-3 text-left text-sm font-medium">{t('inventory.stock')}</th>
+                      <th className="p-3 text-left text-sm font-medium">{t('inventory.costPrice')}</th>
+                      <th className="p-3 text-left text-sm font-medium">{t('inventory.salePrice')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -514,23 +487,19 @@ export function Inventory({
                       return (
                         <tr
                           key={product.id}
-                          className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
-                          onClick={() => setDetailProduct(product)}
+                          className="cursor-pointer border-b transition-colors last:border-0 hover:bg-muted/30"
+                          onClick={() => setEditProduct(product)}
                         >
                           <td className="p-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
                                 {product.photo_url ? (
-                                  <img
-                                    src={product.photo_url}
-                                    alt=""
-                                    className="w-10 h-10 rounded-lg object-cover"
-                                  />
+                                  <img src={product.photo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
                                 ) : (
-                                  <Package className="w-5 h-5 text-muted-foreground" />
+                                  <Package className="h-5 w-5 text-muted-foreground" />
                                 )}
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <span className="font-medium">{product.name}</span>
                                 {low && (
                                   <Badge variant="destructive" className="ml-2 text-xs">
@@ -540,62 +509,18 @@ export function Inventory({
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 text-muted-foreground font-mono text-sm">{product.sku}</td>
+                          <td className="p-3 font-mono text-sm text-muted-foreground">{product.sku}</td>
                           <td className="p-3">
-                            <span className="flex items-center gap-1.5 flex-wrap">
-                              <span className={cn('w-2 h-2 rounded-full shrink-0', low ? 'bg-destructive' : 'bg-green-500')} aria-hidden />
-                              <span className={cn('font-medium', low && 'text-destructive')}>
-                                {product.quantity}
-                              </span>
-                              {onAdjustStock && (
-                                <Popover open={quickAddProduct?.id === product.id} onOpenChange={(open) => { if (!open) { setQuickAddProduct(null); setQuickAddQty(''); } else setQuickAddProduct(product); }}>
-                                  <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title={t('inventory.addMoreStock') ?? 'Add more to stock'}>
-                                      <Plus className="w-4 h-4" />
-                                    </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-56 p-3" align="start" onClick={(e) => e.stopPropagation()}>
-                                    <p className="text-sm font-medium mb-2">{t('inventory.addHowMany') ?? 'How many to add?'}</p>
-                                    <div className="flex gap-2">
-                                      <Input
-                                        type="number"
-                                        min={1}
-                                        value={quickAddProduct?.id === product.id ? quickAddQty : ''}
-                                        onChange={(e) => setQuickAddQty(e.target.value)}
-                                        placeholder="0"
-                                        className="h-9"
-                                      />
-                                      <Button size="sm" className="shrink-0" disabled={quickAdding || !(parseInt(quickAddQty, 10) > 0)} onClick={() => handleQuickAdd(product)}>
-                                        {quickAdding ? t('common.saving') : (t('inventory.done') ?? 'Done')}
-                                      </Button>
-                                    </div>
-                                  </PopoverContent>
-                                </Popover>
-                              )}
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className={cn('h-2 w-2 shrink-0 rounded-full', low ? 'bg-destructive' : 'bg-green-500')}
+                                aria-hidden
+                              />
+                              <span className={cn('font-medium', low && 'text-destructive')}>{product.quantity}</span>
                             </span>
                           </td>
                           <td className="p-3">${(product.cost ?? 0).toFixed(2)}</td>
                           <td className="p-3 font-medium">${product.price.toFixed(2)}</td>
-                          <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleEdit(product)}>
-                                  {t('inventory.editProduct')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => handleDeleteClick(product.id)}
-                                >
-                                  {t('common.delete')}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
                         </tr>
                       );
                     })}
@@ -619,17 +544,43 @@ export function Inventory({
           )}
         </div>
 
+      <Dialog open={!!editProduct} onOpenChange={(open) => !open && setEditProduct(null)}>
+        <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:rounded-3xl">
+          <div className="shrink-0 border-b border-border px-6 pb-4 pt-6 pr-14">
+            <DialogHeader>
+              <DialogTitle>{editingLive?.name ?? t('inventory.editProduct')}</DialogTitle>
+              <DialogDescription>{t('inventory.editProductDescription')}</DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-6 pb-6">
+            {editingLive && (
+              <InventoryItemExpanded
+                className="px-0 pb-0 pt-0 sm:px-0"
+                product={editingLive}
+                products={products}
+                stockMovements={stockMovements}
+                isLowStock={isLowStock}
+                onSave={handleInlineSave}
+                onRequestDelete={() => handleDeleteClick(editingLive.id)}
+                onUploadProductPhoto={onUploadProductPhoto}
+                onAdjustStock={onAdjustStock}
+                onQuantityUpdated={(id, qty) => onUpdateProduct(id, { quantity: qty })}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <InventoryProductForm
         open={formOpen}
         onOpenChange={(open) => {
           setFormOpen(open);
           if (!open) {
-            setEditingProduct(null);
             setInitialBarcodeFromScan(null);
             setInitialPrefilledFromLookup(null);
           }
         }}
-        product={editingProduct}
+        product={null}
         products={products}
         onSave={handleSaveNew}
         onUpdate={handleSaveUpdate}
@@ -712,16 +663,6 @@ export function Inventory({
         </DialogContent>
       </Dialog>
 
-      <InventoryProductDetailModal
-        product={detailProduct}
-        open={!!detailProduct}
-        onOpenChange={(open) => !open && setDetailProduct(null)}
-        stockMovements={stockMovements}
-        isLowStock={isLowStock}
-        onUpdateProduct={onUpdateProduct}
-        onEditProduct={handleEdit}
-      />
-
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -730,5 +671,6 @@ export function Inventory({
         description={t('inventory.deleteDescription')}
       />
     </div>
+    </PawLoadedContent>
   );
 }

@@ -23,6 +23,7 @@ import { useTheme } from 'next-themes';
 import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 
 type KioskState = 'pin_entry' | 'employee_verified' | 'clocking' | 'success' | 'error' | 'off_schedule_warning';
 
@@ -881,9 +882,8 @@ export function TimeKiosk() {
               )}
 
               {state === 'clocking' && (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-xl text-muted-foreground">{t('timeKiosk.processing')}</p>
+                <div className="relative flex min-h-[240px] flex-col items-center py-12">
+                  <PawStagedLoadingArea label={t('timeKiosk.processing')} size="lg" />
                 </div>
               )}
 

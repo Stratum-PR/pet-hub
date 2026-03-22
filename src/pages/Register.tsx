@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,12 +8,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDefaultRoute, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
+import { getDefaultRoute, setAuthContext, setBusinessSlugForSession, AUTH_CONTEXTS } from '@/lib/authRouting';
 import { Footer } from '@/components/Footer';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Building2, User } from 'lucide-react';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
+import { useBusinessBySlug } from '@/hooks/useBusinessBySlug';
+import { ensureBusinessClientLink } from '@/lib/businessClientLink';
 
 const REGISTER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/registrarse')!;
 
@@ -21,17 +23,19 @@ const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
 const PENDING_MANAGER_TIER = 'pending_manager_tier';
 
 type SignupType = 'owner' | 'client';
-type SubscriptionTier = 'starter' | 'basic' | 'pro' | 'enterprise';
+/** Tiers offered at signup. Enterprise is not selectable (manual/VIP only). */
+type SignupTier = 'basic' | 'growth' | 'pro';
 
-const SUBSCRIPTION_TIERS: { tier: SubscriptionTier; nameKey: string; descKey: string; price?: number }[] = [
-  { tier: 'starter', nameKey: 'register.planStarter', descKey: 'register.planStarterDesc' },
+const SIGNUP_TIERS: { tier: SignupTier; nameKey: string; descKey: string; price: number }[] = [
   { tier: 'basic', nameKey: 'register.planBasic', descKey: 'register.planBasicDesc', price: 29 },
-  { tier: 'pro', nameKey: 'register.planPro', descKey: 'register.planProDesc', price: 79 },
-  { tier: 'enterprise', nameKey: 'register.planEnterprise', descKey: 'register.planEnterpriseDesc', price: 199 },
+  { tier: 'growth', nameKey: 'register.planGrowth', descKey: 'register.planGrowthDesc', price: 79 },
+  { tier: 'pro', nameKey: 'register.planPro', descKey: 'register.planProDesc', price: 199 },
 ];
 
 export function Register() {
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug?: string }>();
+  const { business, businessId } = useBusinessBySlug();
   const { refreshAuth } = useAuth();
   const [signupType, setSignupType] = useState<SignupType | null>(null);
   const [step, setStep] = useState(1);
@@ -39,12 +43,18 @@ export function Register() {
   const [emailConfirmSent, setEmailConfirmSent] = useState(false);
 
   const [businessName, setBusinessName] = useState('');
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('starter');
+  const [selectedTier, setSelectedTier] = useState<SignupTier>('basic');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [signupLogs, setSignupLogs] = useState<string[]>([]);
   const [showRetryAfterTimeout, setShowRetryAfterTimeout] = useState(false);
+  /** When set, show "already registered" message with link to login (owner) or client portal (client). */
+  const [alreadyRegisteredAs, setAlreadyRegisteredAs] = useState<'owner' | 'client' | null>(null);
+  /** When true (business-scoped client + existing email), show account linking form: enter password to link. */
+  const [showLinkingPage, setShowLinkingPage] = useState(false);
+  const [linkPassword, setLinkPassword] = useState('');
+  const [linkLoading, setLinkLoading] = useState(false);
 
   const isOwner = signupType === 'owner';
 
@@ -57,7 +67,7 @@ export function Register() {
     }
   };
 
-  const handleCompleteManagerSignup = async (name: string, tier: SubscriptionTier) => {
+  const handleCompleteManagerSignup = async (name: string, tier: SignupTier) => {
     const { error } = await supabase.rpc('complete_manager_signup', {
       p_business_name: name,
       p_subscription_tier: tier,
@@ -95,13 +105,14 @@ export function Register() {
     e.preventDefault();
     setLoading(true);
     setSignupLogs([]);
-    addLog('Inicio registro (dueño)');
+    setAlreadyRegisteredAs(null);
+    addLog('Owner signup started');
     try {
       localStorage.setItem(PENDING_MANAGER_BUSINESS_NAME, businessName);
       localStorage.setItem(PENDING_MANAGER_TIER, selectedTier);
-      addLog('Datos guardados en localStorage');
+      addLog('Data saved to localStorage');
 
-      addLog('Llamando supabase.auth.signUp...');
+      addLog('Calling supabase.auth.signUp...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -114,14 +125,14 @@ export function Register() {
         ? [error.message, error.code, (error as { status?: number }).status].filter(Boolean).join(' ') || JSON.stringify(error)
         : '';
       addLog(
-        `signUp devolvió: sesión=${!!data?.session}, usuario=${!!data?.user}` +
+        `signUp returned: session=${!!data?.session}, user=${!!data?.user}` +
           (error ? `, error=${errorDetail}` : '')
       );
 
       if (error) {
         localStorage.removeItem(PENDING_MANAGER_BUSINESS_NAME);
         localStorage.removeItem(PENDING_MANAGER_TIER);
-        addLog(`Error de signUp: ${errorDetail}`);
+        addLog(`signUp error: ${errorDetail}`);
         const isTimeout =
           (error as { status?: number }).status === 504 ||
           error.message?.toLowerCase().includes('timeout') ||
@@ -135,7 +146,8 @@ export function Register() {
           error.message?.toLowerCase().includes('service unavailable') ||
           error.message?.toLowerCase().includes('server closed');
         if (error.message?.toLowerCase().includes('already registered') || error.code === 'user_already_exists') {
-          toast.error(t('register.errorEmailInUse'));
+          setAlreadyRegisteredAs('owner');
+          toast.error(t('register.errorEmailInUseOwner'));
           setShowRetryAfterTimeout(false);
         } else if (isServiceUnavailable) {
           setShowRetryAfterTimeout(true);
@@ -161,16 +173,16 @@ export function Register() {
       setShowRetryAfterTimeout(false);
 
       if (data.session) {
-        addLog('Sesión presente, esperando perfil...');
+        addLog('Session present, waiting for profile...');
         await new Promise((r) => setTimeout(r, 500));
-        addLog('Llamando complete_manager_signup...');
+        addLog('Calling complete_manager_signup...');
         await handleCompleteManagerSignup(businessName, selectedTier);
-        addLog('complete_manager_signup listo');
+        addLog('complete_manager_signup done');
         localStorage.removeItem(PENDING_MANAGER_BUSINESS_NAME);
         localStorage.removeItem(PENDING_MANAGER_TIER);
-        addLog('Llamando refreshAuth...');
+        addLog('Calling refreshAuth...');
         await refreshAuth();
-        addLog('refreshAuth listo');
+        addLog('refreshAuth done');
 
         // Default business timezone on creation (business owner flow only).
         try {
@@ -181,19 +193,19 @@ export function Register() {
 
         setAuthContext(AUTH_CONTEXTS.BUSINESS);
         const route = getDefaultRoute({ isAdmin: false, business: null });
-        addLog(`Redirigiendo a ${route}`);
+        addLog(`Redirecting to ${route}`);
         navigate(route, { replace: true });
         toast.success('Cuenta creada. Bienvenido a Pet Hub.');
       } else {
-        addLog('Sin sesión (confirmar email): mostrando pantalla "Revisa tu correo"');
+        addLog('No session (confirm email): showing "Check your email" screen');
         setEmailConfirmSent(true);
       }
     } catch (err: any) {
-      addLog(`Excepción: ${err?.message || String(err)}`);
+      addLog(`Exception: ${err?.message || String(err)}`);
       toast.error(t('register.errorGeneric'));
     } finally {
       setLoading(false);
-      addLog('Fin del flujo de registro');
+      addLog('Signup flow finished');
     }
   };
 
@@ -201,9 +213,10 @@ export function Register() {
     e.preventDefault();
     setLoading(true);
     setSignupLogs([]);
-    addLog('Inicio registro (cliente)');
+    setAlreadyRegisteredAs(null);
+    addLog('Client signup started');
     try {
-      addLog('Llamando supabase.auth.signUp...');
+      addLog('Calling supabase.auth.signUp...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -216,12 +229,12 @@ export function Register() {
         ? [error.message, error.code, (error as { status?: number }).status].filter(Boolean).join(' ') || JSON.stringify(error)
         : '';
       addLog(
-        `signUp devolvió: sesión=${!!data?.session}, usuario=${!!data?.user}` +
+        `signUp returned: session=${!!data?.session}, user=${!!data?.user}` +
           (error ? `, error=${clientErrorDetail}` : '')
       );
 
       if (error) {
-        addLog(`Error de signUp: ${clientErrorDetail}`);
+        addLog(`signUp error: ${clientErrorDetail}`);
         const isTimeout =
           (error as { status?: number }).status === 504 ||
           error.message?.toLowerCase().includes('timeout') ||
@@ -235,7 +248,13 @@ export function Register() {
           error.message?.toLowerCase().includes('service unavailable') ||
           error.message?.toLowerCase().includes('server closed');
         if (error.message?.toLowerCase().includes('already registered') || error.code === 'user_already_exists') {
-          toast.error(t('register.errorEmailInUse'));
+          setAlreadyRegisteredAs('client');
+          if (businessSlug && businessId) {
+            setShowLinkingPage(true);
+            toast.info(t('register.linkAccountPrompt'));
+          } else {
+            toast.error(t('register.errorEmailInUseClient'));
+          }
           setShowRetryAfterTimeout(false);
         } else if (isServiceUnavailable) {
           setShowRetryAfterTimeout(true);
@@ -261,20 +280,63 @@ export function Register() {
       setShowRetryAfterTimeout(false);
 
       if (data.session) {
-        addLog('Sesión presente, refreshAuth y redirigir a /cliente');
+        addLog('Session present, refreshAuth and redirect');
         await refreshAuth();
-        navigate('/cliente', { replace: true });
-        toast.success('Cuenta creada.');
+        if (businessSlug && businessId && data.user) {
+          try {
+            await ensureBusinessClientLink(data.user.id, businessId, 'pet_owner');
+            if (business) setBusinessSlugForSession(business);
+            navigate(`/${businessSlug}/dashboard`, { replace: true });
+            toast.success(t('register.linkedAndWelcome'));
+            return;
+          } catch (linkErr) {
+            addLog(`Link create failed: ${(linkErr as Error)?.message}`);
+          }
+        }
+        navigate('/login', { replace: true });
+        toast.success('Cuenta creada. Inicia sesión para continuar.');
       } else {
-        addLog('Sin sesión (confirmar email)');
+        addLog('No session (confirm email)');
         setEmailConfirmSent(true);
       }
     } catch (err: any) {
-      addLog(`Excepción: ${err?.message || String(err)}`);
+      addLog(`Exception: ${err?.message || String(err)}`);
       toast.error(t('register.errorGeneric'));
     } finally {
       setLoading(false);
-      addLog('Fin del flujo de registro');
+      addLog('Signup flow finished');
+    }
+  };
+
+  const handleLinkAccountSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !linkPassword || !businessId || !businessSlug) return;
+    setLinkLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: linkPassword });
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid') || error.message?.toLowerCase().includes('password')) {
+          toast.error(t('register.linkIncorrectPassword'));
+        } else {
+          toast.error(error.message);
+        }
+        setLinkLoading(false);
+        return;
+      }
+      if (!data.user) {
+        toast.error(t('register.errorGeneric'));
+        setLinkLoading(false);
+        return;
+      }
+      await ensureBusinessClientLink(data.user.id, businessId, 'pet_owner');
+      await refreshAuth();
+      if (business) setBusinessSlugForSession(business);
+      toast.success(t('register.linkSuccess'));
+      navigate(`/${businessSlug}/dashboard`, { replace: true });
+    } catch (err) {
+      toast.error(t('register.errorGeneric'));
+    } finally {
+      setLinkLoading(false);
     }
   };
 
@@ -294,6 +356,57 @@ export function Register() {
             <CardContent>
               <Link to="/login">
                 <Button variant="outline" className="w-full">{t('register.signInHere')}</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (showLinkingPage && businessSlug && businessId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
+        <PageMeta route={REGISTER_ROUTE} />
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle>{t('register.linkAccountTitle')}</CardTitle>
+              <CardDescription>
+                {t('register.linkAccountDescription', { businessName: business?.name ?? businessSlug })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={handleLinkAccountSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t('login.email')}</Label>
+                  <Input type="email" value={email} disabled className="bg-muted" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="link-password">{t('login.password')}</Label>
+                  <Input
+                    id="link-password"
+                    type="password"
+                    value={linkPassword}
+                    onChange={(e) => setLinkPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={linkLoading}>
+                  {linkLoading ? t('register.creating') : t('register.linkAccountButton')}
+                </Button>
+              </form>
+              <p className="text-xs text-muted-foreground">
+                {t('register.linkAccountPrivacy', { businessName: business?.name ?? businessSlug })}
+              </p>
+              <Link to="/login" className="block text-center text-sm text-primary hover:underline">
+                {t('login.forgotPassword')}
               </Link>
             </CardContent>
           </Card>
@@ -330,7 +443,7 @@ export function Register() {
                     type="button"
                     variant="outline"
                     className="h-auto py-6 flex flex-col items-center gap-2"
-                    onClick={() => setSignupType('owner')}
+                    onClick={() => { setSignupType('owner'); setAlreadyRegisteredAs(null); }}
                   >
                     <Building2 className="w-8 h-8" />
                     <span>{t('register.businessOwner')}</span>
@@ -339,7 +452,7 @@ export function Register() {
                     type="button"
                     variant="outline"
                     className="h-auto py-6 flex flex-col items-center gap-2"
-                    onClick={() => setSignupType('client')}
+                    onClick={() => { setSignupType('client'); setAlreadyRegisteredAs(null); }}
                   >
                     <User className="w-8 h-8" />
                     <span>{t('register.client')}</span>
@@ -429,7 +542,7 @@ export function Register() {
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground text-center">{t('register.choosePlan')}</p>
                 <div className="space-y-2">
-                  {SUBSCRIPTION_TIERS.map(({ tier, nameKey, descKey, price }) => (
+                  {SIGNUP_TIERS.map(({ tier, nameKey, descKey, price }) => (
                     <button
                       key={tier}
                       type="button"
@@ -440,11 +553,7 @@ export function Register() {
                     >
                       <div className="flex justify-between items-center">
                         <span className="font-medium">{t(nameKey)}</span>
-                        {price != null ? (
-                          <span className="text-muted-foreground">${price}/mes</span>
-                        ) : (
-                          <span className="text-primary font-medium">Gratis</span>
-                        )}
+                        <span className="text-muted-foreground">${price}/mes</span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{t(descKey)}</p>
                     </button>
@@ -522,11 +631,28 @@ export function Register() {
 
             {signupLogs.length > 0 && (
               <div className="mt-4 rounded-md border border-muted bg-muted/30 p-3">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Log de registro</p>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Registration log</p>
                 <pre className="text-xs font-mono overflow-auto max-h-32 whitespace-pre-wrap break-words">
                   {signupLogs.join('\n')}
                 </pre>
               </div>
+            )}
+
+            {alreadyRegisteredAs === 'owner' && (
+              <p className="mt-3 text-sm text-muted-foreground text-center">
+                {t('register.errorEmailInUseOwner')}{' '}
+                <Link to="/login" className="text-primary font-medium hover:underline">
+                  {t('register.signInHere')}
+                </Link>
+              </p>
+            )}
+            {alreadyRegisteredAs === 'client' && (
+              <p className="mt-3 text-sm text-muted-foreground text-center">
+                {t('register.errorEmailInUseClient')}{' '}
+                <Link to="/login" className="text-primary font-medium hover:underline">
+                  {t('register.clientPortalLogin')}
+                </Link>
+              </p>
             )}
 
             <p className="text-center text-sm text-muted-foreground mt-6">

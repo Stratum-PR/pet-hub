@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { Eye, LogOut } from 'lucide-react';
 import { signOut } from '@/lib/auth';
 import { toast } from 'sonner';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -64,21 +65,15 @@ export function AdminDashboard() {
       case 'enterprise':
         return 'default';
       case 'pro':
+      case 'growth':
         return 'secondary';
       default:
         return 'outline';
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
+    <PawLoadedContent loading={loading} loaderLabel="Loading businesses">
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
@@ -155,5 +150,6 @@ export function AdminDashboard() {
         </Card>
       </main>
     </div>
+    </PawLoadedContent>
   );
 }

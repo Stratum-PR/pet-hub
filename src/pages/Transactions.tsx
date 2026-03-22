@@ -14,6 +14,7 @@ import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getPaymentStatusLabel } from '@/types/transactions';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 
 type TransactionStatus =
   | 'pending'
@@ -72,7 +73,8 @@ export function Transactions() {
       notifiedUnpaidRef.current = true;
       createNotification(
         `${unpaid.length} transaction(s) have unpaid balance for more than 24 hours.`,
-        businessId
+        businessId,
+        { transactionId: unpaid[0].id, type: 'payment' }
       );
     }
   }, [businessId, createNotification, rawTransactions]);
@@ -104,7 +106,7 @@ export function Transactions() {
             placeholder="Search by transaction ID or customer name..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 border-border/50 bg-white/70 backdrop-blur-sm dark:bg-background/50"
           />
         </div>
         <Button asChild className="gap-2 shadow-sm shrink-0">
@@ -119,7 +121,9 @@ export function Transactions() {
         <Card>
           <CardContent className="p-0">
           {loading ? (
-            <p className="text-muted-foreground py-8 text-center">Loading…</p>
+            <div className="relative min-h-[220px] py-6">
+              <PawStagedLoadingArea label="Loading transactions" compact size="md" />
+            </div>
           ) : fetchError ? (
             <div className="py-8 text-center space-y-2">
               <p className="text-destructive font-medium">Failed to load transactions.</p>
@@ -129,8 +133,8 @@ export function Transactions() {
               </Button>
             </div>
           ) : filtered.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center">
-              No transactions yet. Create one with &quot;New Transaction&quot; (full flow coming soon).
+            <p className="text-muted-foreground py-8 text-center px-4">
+              {t('transactions.emptyListHint')}
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border-0 bg-card" data-table-load>

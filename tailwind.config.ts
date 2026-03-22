@@ -214,6 +214,20 @@ export default {
         'page-card-content-up': {
           '0%': { opacity: '0', transform: 'translateY(12px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' }
+        },
+        /**
+         * Dashboard cards: zoom up from smaller + below (stagger via animation-delay on each wrapper).
+         * Stronger motion + longer duration so left→right / top→row reads clearly.
+         */
+        'dashboard-box-enter': {
+          '0%': {
+            opacity: '0',
+            transform: 'scale(0.72) translateY(32px)'
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'scale(1) translateY(0)'
+          }
         }
       },
       animation: {
@@ -235,7 +249,10 @@ export default {
         'page-title-reveal': 'page-title-reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'header-title-in': 'header-title-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'page-object-appear': 'page-object-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'page-card-content-up': 'page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+        'page-card-content-up': 'page-card-content-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        /* Duration must match DASHBOARD_CARD_ENTER_MS in src/lib/dashboardEnterAnimation.ts */
+        'dashboard-box-enter':
+          'dashboard-box-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards'
       },
       fontFamily: {
         sans: [

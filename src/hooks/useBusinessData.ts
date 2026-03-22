@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import {
   validateClientPayload,
   validatePetPayload,
@@ -104,6 +105,7 @@ export interface Appointment {
 // Clients hook (uses the `clients` table exclusively)
 export function useClients() {
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const [clients, setClients] = useState<BusinessClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +147,18 @@ export function useClients() {
       if (import.meta.env.DEV) console.warn('[useClients] addClient validation:', validation.error);
       return null;
     }
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const newClient: BusinessClient = {
+        id: uuidv4(),
+        ...clientData,
+        business_id: businessId,
+        created_at: now,
+        updated_at: now,
+      };
+      setClients([newClient, ...clients]);
+      return newClient;
+    }
     const { data, error } = await supabase
       .from('clients')
       .insert({ id: uuidv4(), ...clientData, business_id: businessId } as any)
@@ -165,6 +179,13 @@ export function useClients() {
 
   const updateClient = async (id: string, clientData: Partial<BusinessClient>) => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const prev = clients.find((c) => c.id === id);
+      if (!prev) return null;
+      const updated = { ...prev, ...clientData, id: prev.id, updated_at: new Date().toISOString() };
+      setClients(clients.map((c) => (c.id === id ? updated : c)));
+      return updated;
+    }
 
     const { data, error } = await supabase
       .from('clients')
@@ -188,6 +209,10 @@ export function useClients() {
 
   const deleteClient = async (id: string) => {
     if (!businessId) return false;
+    if (demoBrowseOnly) {
+      setClients(clients.filter((c) => c.id !== id));
+      return true;
+    }
 
     const { error } = await supabase
       .from('clients')
@@ -209,6 +234,7 @@ export function useClients() {
 // Pets hook
 export function usePets() {
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -259,6 +285,12 @@ export function usePets() {
       if (import.meta.env.DEV) console.warn('[usePets] addPet validation:', validation.error);
       return null;
     }
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const row = { id: uuidv4(), ...petData, business_id: businessId, created_at: now, updated_at: now } as Pet;
+      setPets([row, ...pets]);
+      return row;
+    }
     const { data, error } = await supabase
       .from('pets')
       .insert({ id: uuidv4(), ...petData, business_id: businessId })
@@ -287,6 +319,13 @@ export function usePets() {
 
   const updatePet = async (id: string, petData: Partial<Pet>) => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const prev = pets.find((p) => p.id === id);
+      if (!prev) return null;
+      const data = { ...prev, ...petData, id: prev.id, updated_at: new Date().toISOString() } as Pet;
+      setPets(pets.map((p) => (p.id === id ? data : p)));
+      return data;
+    }
 
     const { data, error } = await supabase
       .from('pets')
@@ -318,6 +357,10 @@ export function usePets() {
 
   const deletePet = async (id: string) => {
     if (!businessId) return false;
+    if (demoBrowseOnly) {
+      setPets(pets.filter((p) => p.id !== id));
+      return true;
+    }
 
     const { error } = await supabase
       .from('pets')
@@ -340,6 +383,7 @@ export function usePets() {
 // Services hook
 export function useServices() {
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -381,6 +425,16 @@ export function useServices() {
       if (import.meta.env.DEV) console.warn('[useServices] addService validation:', validation.error);
       return null;
     }
+    if (demoBrowseOnly) {
+      const row = {
+        id: uuidv4(),
+        ...serviceData,
+        business_id: businessId,
+        created_at: new Date().toISOString(),
+      } as Service;
+      setServices([...services, row].sort((a, b) => a.name.localeCompare(b.name)));
+      return row;
+    }
     const { data, error } = await supabase
       .from('services')
       .insert({ id: uuidv4(), ...serviceData, business_id: businessId })
@@ -400,6 +454,13 @@ export function useServices() {
 
   const updateService = async (id: string, serviceData: Partial<Service>) => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const prev = services.find((s) => s.id === id);
+      if (!prev) return null;
+      const data = { ...prev, ...serviceData, id: prev.id } as Service;
+      setServices(services.map((s) => (s.id === id ? data : s)));
+      return data;
+    }
 
     const { data, error } = await supabase
       .from('services')
@@ -422,6 +483,10 @@ export function useServices() {
 
   const deleteService = async (id: string) => {
     if (!businessId) return false;
+    if (demoBrowseOnly) {
+      setServices(services.filter((s) => s.id !== id));
+      return true;
+    }
 
     const { error } = await supabase
       .from('services')
@@ -443,6 +508,7 @@ export function useServices() {
 // Appointments hook
 export function useAppointments() {
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -486,6 +552,18 @@ export function useAppointments() {
       if (import.meta.env.DEV) console.warn('[useAppointments] addAppointment validation:', validation.error);
       return null;
     }
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const row = {
+        id: uuidv4(),
+        ...appointmentData,
+        business_id: businessId,
+        created_at: now,
+        updated_at: now,
+      } as Appointment;
+      setAppointments([...appointments, row]);
+      return row;
+    }
     const { data, error } = await supabase
       .from('appointments')
       .insert({ id: uuidv4(), ...appointmentData, business_id: businessId })
@@ -501,6 +579,13 @@ export function useAppointments() {
 
   const updateAppointment = async (id: string, appointmentData: Partial<Appointment>) => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const prev = appointments.find((a) => a.id === id);
+      if (!prev) return null;
+      const data = { ...prev, ...appointmentData, id: prev.id, updated_at: new Date().toISOString() } as Appointment;
+      setAppointments(appointments.map((a) => (a.id === id ? data : a)));
+      return data;
+    }
 
     const { data, error } = await supabase
       .from('appointments')
@@ -519,6 +604,10 @@ export function useAppointments() {
 
   const deleteAppointment = async (id: string) => {
     if (!businessId) return false;
+    if (demoBrowseOnly) {
+      setAppointments(appointments.filter((a) => a.id !== id));
+      return true;
+    }
 
     const { error } = await supabase
       .from('appointments')

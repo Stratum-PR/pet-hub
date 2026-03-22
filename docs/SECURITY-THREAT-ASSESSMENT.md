@@ -12,11 +12,11 @@ This document is a threat-model style review: how an attacker could abuse the we
 
 | ID | Fix | Where |
 |----|-----|--------|
-| **H2** | User-facing errors no longer show raw `error.message`. Generic message (e.g. "Something went wrong. Please try again.") used in toasts and error UI. | Login, AuthCallback, BusinessDashboard, BusinessServices, BusinessPets, BusinessSettings, PetForm, AdminBusinessDetail, Register, GlobalErrorBoundary |
+| **H2** | User-facing errors no longer show raw `error.message`. Generic message (e.g. "Something went wrong. Please try again.") used in toasts and error UI. | Login, AuthCallback, Dashboard, BusinessServices, BusinessPets, BusinessSettings, PetForm, AdminBusinessDetail, Register, GlobalErrorBoundary |
 | **H1 (app)** | PetForm now verifies that the pet’s `business_id` matches the current user’s business (via `useBusinessId()`) before any Storage upload or delete. If mismatch, operation is blocked and a generic error is shown. | [src/components/PetForm.tsx](src/components/PetForm.tsx) |
 | **H1 (Storage RLS)** | Path-based Storage RLS: upload path is `{business_id}/{filename}`. Policies restrict INSERT/UPDATE/DELETE so the first path segment must equal the caller’s `business_id` (from `profiles`). Legacy flat paths: only object owner can UPDATE/DELETE. SELECT remains public for photo URLs. | [supabase/migrations/20260212000000_pet_photos_path_based_storage_rls.sql](supabase/migrations/20260212000000_pet_photos_path_based_storage_rls.sql), [PetForm.tsx](src/components/PetForm.tsx) |
 | **M1** | Password-reset Edge Function CORS is no longer `*`. It uses env `ALLOWED_ORIGINS` (comma-separated). If the request `Origin` is in that list, that origin is returned; otherwise first listed origin or `*` if unset (backward compatible). **You must set `ALLOWED_ORIGINS` in Supabase Edge Function secrets** (e.g. `https://yourapp.com,https://www.yourapp.com`). | [supabase/functions/rate-limited-reset-password/index.ts](supabase/functions/rate-limited-reset-password/index.ts) |
-| **M2** | Console logging gated with `import.meta.env.DEV` so logs only run in development. | BusinessDashboard, ProtectedRoute, Login, PetForm, auth.ts |
+| **M2** | Console logging gated with `import.meta.env.DEV` so logs only run in development. | Dashboard, ProtectedRoute, Login, PetForm, auth.ts |
 | **M3** | Security headers added in `vercel.json`: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`. | [vercel.json](vercel.json) |
 
 Translations: `common.genericError` and `login.errorGeneric` added for generic error messages.
@@ -302,7 +302,7 @@ These items could not be fully fixed in code or cannot be corroborated without y
   - **Option A (implemented):** Upload path is `{business_id}/{file}`; migration [20260212000000_pet_photos_path_based_storage_rls.sql](supabase/migrations/20260212000000_pet_photos_path_based_storage_rls.sql) restricts INSERT/UPDATE/DELETE by `(storage.foldername(name))[1]` = caller’s `business_id` from profiles. PetForm uses business_id prefix and validates pet ownership before any Storage op.
 
 - **H2 – Error exposure**
-  - In [BusinessDashboard.tsx](src/pages/BusinessDashboard.tsx), [BusinessServices.tsx](src/pages/BusinessServices.tsx), and any other place that shows `error.message` in a toast or UI: catch errors, log full error only in dev or server-side, and show a generic message (e.g. “Something went wrong. Please try again.”) to the user.
+  - In [Dashboard.tsx](src/pages/Dashboard.tsx), [BusinessServices.tsx](src/pages/BusinessServices.tsx), and any other place that shows `error.message` in a toast or UI: catch errors, log full error only in dev or server-side, and show a generic message (e.g. “Something went wrong. Please try again.”) to the user.
   - Optionally add a small logger that in production never sends stack or message to the client.
 
 ### Medium

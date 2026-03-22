@@ -1,0 +1,22 @@
+@keyframes paw-reveal-content {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.paw-reveal-content {
+  animation: paw-reveal-content 0.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paw-reveal-content {
+    animation: none;
+    opacity: 1;
+    filter: none;
+  }
+}

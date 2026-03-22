@@ -12,6 +12,8 @@ import { useEmployees } from '@/hooks/useSupabaseData';
 import { Button } from '@/components/ui/button';
 import { convertAppointmentsToCalendar, convertEmployeesToCalendar } from '@/lib/calendarHelpers';
 import { BookingFormDialog } from '@/components/BookingFormDialog';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
+import { PawRevealEnter } from '@/components/PawRevealEnter';
 
 export function AppointmentBook() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -144,7 +146,7 @@ export function AppointmentBook() {
           </div>
         )}
         {/* Top Navigation Tabs */}
-        <div className="bg-card border-b border-border px-6 py-3">
+        <div className="page-toolbar-strip px-6 py-3">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
             <TabsList className="bg-transparent">
               <TabsTrigger value="calendar">
@@ -168,10 +170,12 @@ export function AppointmentBook() {
         {activeTab === 'calendar' && (
           <div className="flex-1 overflow-hidden relative">
             {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <div className="relative flex h-full min-h-[320px] flex-1 flex-col">
+                <PawStagedLoadingArea label={t('common.loading')} size="lg" className="min-h-0 flex-1" />
               </div>
-            ) : filters.service === 'Daycare' ? (
+            ) : (
+              <PawRevealEnter className="h-full min-h-0">
+            {filters.service === 'Daycare' ? (
               <DaycareCalendarView
                 selectedDate={selectedDate}
                 appointments={filteredAppointments}
@@ -199,6 +203,8 @@ export function AppointmentBook() {
                 onToday={handleToday}
                 onCreateClick={() => setCreateDialogOpen(true)}
               />
+            )}
+              </PawRevealEnter>
             )}
           </div>
         )}

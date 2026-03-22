@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
+import { isDemoBrowseOnlyPath } from '@/hooks/useDemoBrowseOnly';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
+import { t } from '@/lib/translations';
+
+const DEMO_BUSINESS_ID = '00000000-0000-0000-0000-000000000001';
 
 export function DataDiagnostics() {
   const { profile, user, business } = useAuth();
+  const { pathname } = useLocation();
+  const isDemoPath = isDemoBrowseOnlyPath(pathname);
   const businessId = useBusinessId();
   const profileBusinessId = profile?.business_id ?? null;
   const businessIdMismatch =
@@ -56,12 +64,42 @@ export function DataDiagnostics() {
           email: business.email,
         } : null,
         businessId: businessId || 'null',
+        demoWorkspace: null as {
+          path: string;
+          effectiveBusinessId: string | null;
+          resolvedBusiness: { id: string; name: string; email: string | null } | null;
+          hint: string;
+        } | null,
         dataCounts: {},
         sampleData: {},
         relationships: {},
         errors: [],
         queryDetails: {},
       };
+
+      if (isDemoPath) {
+        let resolvedBusiness: { id: string; name: string; email: string | null } | null = null;
+        const idForLookup = businessId || DEMO_BUSINESS_ID;
+        const { data: bRow, error: bErr } = await supabase
+          .from('businesses')
+          .select('id, name, email')
+          .eq('id', idForLookup)
+          .maybeSingle();
+        if (!bErr && bRow) {
+          resolvedBusiness = {
+            id: bRow.id,
+            name: bRow.name,
+            email: bRow.email ?? null,
+          };
+        }
+        results.demoWorkspace = {
+          path: pathname,
+          effectiveBusinessId: businessId,
+          resolvedBusiness,
+          hint:
+            'You are on the public demo URL. Queries use the shared demo business id. Your Supabase profile may still show business_id null — that only means your account is not permanently linked to this tenant. If counts stay at 0, this project may have no seeded demo rows yet.',
+        };
+      }
 
       if (businessId) {
         // Test clients query
@@ -380,6 +418,39 @@ export function DataDiagnostics() {
           results.errors.push({ table: 'appointments', error: err.message });
         }
 
+        // Test transactions query (POS / revenue)
+        try {
+          const startTime = performance.now();
+          const { data: txns, error: txError, count } = await supabase
+            .from('transactions' as any)
+            .select('id, status, total, payment_method, created_at, transaction_number', { count: 'exact' })
+            .eq('business_id', businessId)
+            .order('created_at', { ascending: false })
+            .limit(5);
+          const queryTime = performance.now() - startTime;
+
+          if (txError) {
+            results.errors.push({ table: 'transactions', error: txError });
+          } else {
+            results.dataCounts.transactions = count ?? 0;
+            results.sampleData.transactions = (txns ?? []).map((row: any) => ({
+              id: row.id,
+              status: row.status,
+              total_cents: row.total,
+              payment_method: row.payment_method,
+              created_at: row.created_at,
+              transaction_number: row.transaction_number,
+            }));
+            results.queryDetails.transactions = {
+              queryTime: `${queryTime.toFixed(2)}ms`,
+              count: count ?? 0,
+              returned: txns?.length ?? 0,
+            };
+          }
+        } catch (err: any) {
+          results.errors.push({ table: 'transactions', error: err.message });
+        }
+
         // Check foreign key relationships
         try {
           const { data: orphanedPets } = await supabase
@@ -392,6 +463,50 @@ export function DataDiagnostics() {
         } catch (err: any) {
           // Ignore errors for relationship checks
         }
+
+        // Completed appointments with no linked transaction (appointment.transaction_id + transactions.appointment_id)
+        try {
+          const pageSize = 1000;
+          const linkedAppointmentIds = new Set<string>();
+          let txFrom = 0;
+          for (;;) {
+            const { data: txRows } = await supabase
+              .from('transactions' as any)
+              .select('appointment_id')
+              .eq('business_id', businessId)
+              .not('appointment_id', 'is', null)
+              .range(txFrom, txFrom + pageSize - 1);
+            const batch = txRows ?? [];
+            for (const row of batch as { appointment_id?: string | null }[]) {
+              if (row.appointment_id) linkedAppointmentIds.add(String(row.appointment_id));
+            }
+            if (batch.length < pageSize) break;
+            txFrom += pageSize;
+          }
+
+          let withoutTransaction = 0;
+          let apptFrom = 0;
+          for (;;) {
+            const { data: apptRows } = await supabase
+              .from('appointments')
+              .select('id, transaction_id')
+              .eq('business_id', businessId)
+              .eq('status', 'completed')
+              .range(apptFrom, apptFrom + pageSize - 1);
+            const batch = apptRows ?? [];
+            for (const a of batch as { id: string; transaction_id?: string | null }[]) {
+              const idStr = String(a.id);
+              if (a.transaction_id) continue;
+              if (linkedAppointmentIds.has(idStr)) continue;
+              withoutTransaction += 1;
+            }
+            if (batch.length < pageSize) break;
+            apptFrom += pageSize;
+          }
+          results.relationships.appointmentsWithoutTransaction = withoutTransaction;
+        } catch (err: any) {
+          results.relationships.appointmentsWithoutTransaction = null;
+        }
       }
 
       setDiagnostics(results);
@@ -399,7 +514,7 @@ export function DataDiagnostics() {
     };
 
     runDiagnostics();
-  }, [profile, businessId, user, business]);
+  }, [profile, businessId, user, business, pathname]);
 
   return (
     <Card className="m-4">
@@ -408,8 +523,8 @@ export function DataDiagnostics() {
       </CardHeader>
       <CardContent className="space-y-4">
         {loading && (
-          <div className="text-sm text-muted-foreground">
-            Loading diagnostics…
+          <div className="relative min-h-[200px] py-4">
+            <PawStagedLoadingArea label="Loading diagnostics" compact size="sm" />
           </div>
         )}
 
@@ -425,8 +540,16 @@ export function DataDiagnostics() {
                 <strong>Supabase URL:</strong> <code className="text-xs bg-muted px-1 py-0.5 rounded">{import.meta.env.VITE_SUPABASE_URL || 'Not set'}</code>
               </div>
               <div>
-                <strong>User:</strong> {diagnostics.user ? `${diagnostics.user.email} (${diagnostics.user.id.substring(0, 8)}...)` : 'Not logged in'}
+                <strong>User:</strong>{' '}
+                {diagnostics.user
+                  ? isDemoPath
+                    ? `${t('layout.demoUserName')} (${diagnostics.user.email})`
+                    : `${diagnostics.user.email} (${diagnostics.user.id.substring(0, 8)}...)`
+                  : 'Not logged in'}
               </div>
+              {isDemoPath && (
+                <p className="text-xs text-muted-foreground">{t('diagnostics.demoUserShownAs')}</p>
+              )}
               <div>
                 <strong>Profile:</strong> {diagnostics.profile ? (
                   <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-auto">
@@ -434,12 +557,30 @@ export function DataDiagnostics() {
                   </pre>
                 ) : 'No profile'}
               </div>
+              {diagnostics.demoWorkspace && (
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-muted-foreground">
+                  <strong className="text-foreground">Demo route</strong>
+                  <p className="mt-1">{diagnostics.demoWorkspace.hint}</p>
+                  {diagnostics.demoWorkspace.resolvedBusiness && (
+                    <p className="mt-2 text-xs">
+                      <strong className="text-foreground">Resolved demo business:</strong>{' '}
+                      {diagnostics.demoWorkspace.resolvedBusiness.name} (
+                      {diagnostics.demoWorkspace.resolvedBusiness.id})
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
-                <strong>Business:</strong> {diagnostics.business ? (
+                <strong>Business (from your session):</strong>{' '}
+                {diagnostics.business ? (
                   <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-auto">
                     {JSON.stringify(diagnostics.business, null, 2)}
                   </pre>
-                ) : 'No business'}
+                ) : (
+                  <span className="text-muted-foreground">
+                    No business on profile{isDemoPath ? ' — normal on /demo when you are not a member of the demo tenant' : ''}
+                  </span>
+                )}
               </div>
               <div>
                 <strong>Business ID:</strong> <Badge variant={businessId ? "default" : "destructive"}>
@@ -469,11 +610,12 @@ export function DataDiagnostics() {
             {expandedSections.dataCounts ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <div>Clients: <strong>{loading ? '…' : (diagnostics.dataCounts?.clients ?? 0)}</strong></div>
               <div>Pets: <strong>{loading ? '…' : (diagnostics.dataCounts?.pets ?? 0)}</strong></div>
               <div>Services: <strong>{loading ? '…' : (diagnostics.dataCounts?.services ?? 0)}</strong></div>
               <div>Appointments: <strong>{loading ? '…' : (diagnostics.dataCounts?.appointments ?? 0)}</strong></div>
+              <div>Transactions: <strong>{loading ? '…' : (diagnostics.dataCounts?.transactions ?? 0)}</strong></div>
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -510,6 +652,14 @@ export function DataDiagnostics() {
                   </pre>
                 </div>
               )}
+              {diagnostics.sampleData?.transactions && diagnostics.sampleData.transactions.length > 0 && (
+                <div>
+                  <strong>Transactions:</strong>
+                  <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-auto">
+                    {JSON.stringify(diagnostics.sampleData.transactions, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -526,6 +676,22 @@ export function DataDiagnostics() {
               <div>Pets Without Client Link: <Badge variant={diagnostics.relationships?.petsWithoutClient > 0 ? "destructive" : "default"}>{diagnostics.relationships?.petsWithoutClient ?? 0}</Badge></div>
               <div>Appointments Without Pet: <Badge variant={diagnostics.relationships?.appointmentsWithoutPet > 0 ? "destructive" : "default"}>{diagnostics.relationships?.appointmentsWithoutPet ?? 0}</Badge></div>
               <div>Appointments Without Client: <Badge variant={diagnostics.relationships?.appointmentsWithoutClient > 0 ? "destructive" : "default"}>{diagnostics.relationships?.appointmentsWithoutClient ?? 0}</Badge></div>
+              <div>
+                Completed appointments without transaction:{' '}
+                <Badge
+                  variant={
+                    diagnostics.relationships?.appointmentsWithoutTransaction == null
+                      ? 'secondary'
+                      : diagnostics.relationships.appointmentsWithoutTransaction > 0
+                        ? 'destructive'
+                        : 'default'
+                  }
+                >
+                  {diagnostics.relationships?.appointmentsWithoutTransaction == null
+                    ? '—'
+                    : diagnostics.relationships.appointmentsWithoutTransaction}
+                </Badge>
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>

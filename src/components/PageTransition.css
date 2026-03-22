@@ -39,46 +39,46 @@
 }
 
 /* 1) First title (hero): opacity only — skip when page uses its own staggered sequence */
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:first-child,
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:first-child,
 .page-transition-inner[data-active] [data-hero-title] {
   opacity: 0;
   animation: page-title-opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) 0.06s forwards;
 }
 
 /* 2) Containers: top-to-bottom, left-to-right order with quick stagger */
-.page-transition-inner[data-active] [data-transition-containers] > * {
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]) {
   opacity: 0;
   animation: page-object-appear 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.03s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.06s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(3) { animation-delay: 0.09s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(4) { animation-delay: 0.12s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(5) { animation-delay: 0.15s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(6) { animation-delay: 0.18s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(7) { animation-delay: 0.21s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(8) { animation-delay: 0.24s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(9) { animation-delay: 0.27s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(10) { animation-delay: 0.3s; }
-.page-transition-inner[data-active] [data-transition-containers] > *:nth-child(n+11) { animation-delay: 0.36s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(1) { animation-delay: 0.03s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(2) { animation-delay: 0.06s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(3) { animation-delay: 0.09s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(4) { animation-delay: 0.12s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(5) { animation-delay: 0.15s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(6) { animation-delay: 0.18s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(7) { animation-delay: 0.21s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(8) { animation-delay: 0.24s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(9) { animation-delay: 0.27s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(10) { animation-delay: 0.3s; }
+.page-transition-inner[data-active] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(n+11) { animation-delay: 0.36s; }
 
 /* 2b) Second row (dashboard: Citas then Ingresos) — after first row finishes */
 /* Faster row-2 stagger as well (dashboard second row currently feels laggy). */
-.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(1) { animation-delay: 0.25s; }
-.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:nth-child(2) { animation-delay: 0.32s; }
+.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(1) { animation-delay: 0.25s; }
+.page-transition-inner[data-active] [data-transition-row="2"] [data-transition-containers] > *:not([data-dashboard-stagger-item]):not([data-dashboard-stagger-group]):nth-child(2) { animation-delay: 0.32s; }
 
 /* 3) Other blocks — skip when page uses data-page-visible staggered sequence */
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(2) { animation: none; opacity: 1; }
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(3),
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(4),
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(n+5) {
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:nth-child(2) { animation: none; opacity: 1; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:nth-child(3),
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:nth-child(4),
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:nth-child(n+5) {
   opacity: 0;
   animation: page-object-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(3) { animation-delay: 0.7s; }
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(4) { animation-delay: 0.82s; }
-.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]) > *:nth-child(n+5) { animation-delay: 0.94s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:nth-child(3) { animation-delay: 0.7s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:nth-child(4) { animation-delay: 0.82s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-page-visible]):not([data-dashboard-stagger]) > *:nth-child(n+5) { animation-delay: 0.94s; }
 
 /* 4) List items: one by one quickly, top to bottom (delay = --list-start on parent [data-list]) */
 .page-transition-inner[data-active] [data-list] [data-list-item] {
@@ -100,26 +100,32 @@
 
 
 /* Card content: from below + transparent to position + opaque (blocks 3 and 4 = cards) */
-.page-transition-inner[data-active] [data-card-title] {
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) [data-card-title] {
   opacity: 0;
   animation: page-card-content-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.page-transition-inner[data-active] [data-card-subtitle] {
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) [data-card-subtitle] {
   opacity: 0;
   animation: page-card-content-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.page-transition-inner[data-active] [data-card-row] {
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) [data-card-row] {
   opacity: 0;
   animation: page-card-content-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-title] { animation-delay: 0.55s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-subtitle] { animation-delay: 0.58s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(3) [data-card-row] { animation-delay: 0.62s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) > *:nth-child(3) [data-card-title] { animation-delay: 0.55s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) > *:nth-child(3) [data-card-subtitle] { animation-delay: 0.58s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) > *:nth-child(3) [data-card-row] { animation-delay: 0.62s; }
 
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-title] { animation-delay: 0.62s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-subtitle] { animation-delay: 0.65s; }
-.page-transition-inner[data-active] [data-transition-root] > *:nth-child(4) [data-card-row] { animation-delay: 0.68s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) > *:nth-child(4) [data-card-title] { animation-delay: 0.62s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) > *:nth-child(4) [data-card-subtitle] { animation-delay: 0.65s; }
+.page-transition-inner[data-active] [data-transition-root]:not([data-dashboard-stagger]) > *:nth-child(4) [data-card-row] { animation-delay: 0.68s; }
+
+/* Dashboard list rows: do not force opacity 0 (would fight DashboardStaggerItem) */
+.page-transition-inner[data-active] [data-transition-root][data-dashboard-stagger] [data-list] [data-list-item] {
+  opacity: 1;
+  animation: none;
+}
 
 /* ========== Page load sequence (every page): title → subtitle → toolbar → search → table shell → columns L→R → rows T→B, quick sequential ========== */
 [data-page-visible] [data-page-title] {

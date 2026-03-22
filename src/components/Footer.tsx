@@ -5,7 +5,7 @@ export function Footer() {
         <div className="flex items-center justify-center gap-2">
           <span className="text-xs text-muted-foreground">Powered by</span>
           <a
-            href="https://stratumpr.com"
+            href="https://www.stratumpr.com"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center hover:opacity-90 transition-opacity shrink-0"

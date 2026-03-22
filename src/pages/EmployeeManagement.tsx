@@ -16,6 +16,7 @@ import { useBusinessId } from '@/hooks/useBusinessId';
 import { t } from '@/lib/translations';
 import { EMPLOYEE_PIN_LENGTH } from '@/lib/pinLengths';
 import { generateUniqueEmployeePin } from '@/lib/employeePin';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 
 interface EmployeeManagementProps {
   employees: Employee[];
@@ -33,6 +34,7 @@ export function EmployeeManagement({
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
@@ -214,6 +216,15 @@ export function EmployeeManagement({
     if (!businessId) return;
 
     if (!confirm('Are you sure you want to reset this employee\'s PIN? They will need to set a new PIN before clocking in.')) {
+      return;
+    }
+
+    if (demoBrowseOnly) {
+      await onUpdateEmployee(employeeId, {
+        pin: '',
+        pin_set_at: undefined,
+        pin_required: true,
+      } as any);
       return;
     }
 

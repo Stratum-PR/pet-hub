@@ -8,6 +8,7 @@ import { format, differenceInMinutes, parseISO, eachDayOfInterval, startOfDay } 
 import { t } from '@/lib/translations';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 interface EmployeeTimesheetProps {
   employees: Employee[];
@@ -104,15 +105,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
     setCurrentPayPeriod(new Date());
   };
 
-  if (settingsLoading) {
-    return (
-      <div className="space-y-6 animate-fade-in flex items-center justify-center min-h-[200px]">
-        <div className="text-muted-foreground">{t('common.loading')}</div>
-      </div>
-    );
-  }
-
-  if (!employee || !timesheetData) {
+  if (!settingsLoading && (!employee || !timesheetData)) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div>
@@ -131,7 +124,12 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent
+      loading={settingsLoading}
+      loaderLabel={t('common.loading')}
+      loaderWrapperClassName="min-h-[240px]"
+    >
+    <div className="space-y-6">
       <div>
         <Button
           variant="ghost"
@@ -280,5 +278,6 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
         </CardContent>
       </Card>
     </div>
+    </PawLoadedContent>
   );
 }

@@ -27,7 +27,7 @@ export interface Business {
   zip_code: string | null;
   website: string | null;
   logo_url: string | null;
-  subscription_tier: 'starter' | 'basic' | 'pro' | 'enterprise';
+  subscription_tier: 'basic' | 'growth' | 'pro' | 'enterprise';
   subscription_status: 'active' | 'canceled' | 'past_due' | 'trialing';
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;

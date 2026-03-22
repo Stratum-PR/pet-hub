@@ -168,7 +168,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
           onSearchChange={setSearchTerm}
           placeholder={t('clients.searchPlaceholder')}
         />
-        <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5">
+        <div className="inline-flex rounded-xl border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40">
           <button
             type="button"
             className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
