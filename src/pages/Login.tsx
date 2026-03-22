@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { t } from '@/lib/translations';
 import { Footer } from '@/components/Footer';
@@ -7,11 +7,14 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LoginForm } from '@/components/LoginForm';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
+import { useBusinessBySlug } from '@/hooks/useBusinessBySlug';
 
 const LOGIN_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/login')!;
 
 export function Login() {
   const navigate = useNavigate();
+  const { businessSlug } = useParams<{ businessSlug?: string }>();
+  const { business, businessId } = useBusinessBySlug();
   useLanguage(); // Force re-render on language change
 
   return (
@@ -30,10 +33,17 @@ export function Login() {
               <img src="/pet-hub-logo.svg" alt="Pet Hub" className="h-12" />
             </div>
             <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
-            <CardDescription>{t('login.subtitle')}</CardDescription>
+            <CardDescription>
+              {businessSlug && business?.name ? t('login.subtitleBusiness', { businessName: business.name }) : t('login.subtitle')}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <LoginForm onLoginSuccess={(destination) => navigate(destination, { replace: true })} />
+            <LoginForm
+              onLoginSuccess={(destination) => navigate(destination, { replace: true })}
+              businessSlug={businessSlug ?? undefined}
+              businessId={businessId ?? undefined}
+              business={business ?? undefined}
+            />
           </CardContent>
         </Card>
       </div>

@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import {
+  DEFAULT_PRIMARY_COLOR_HSL,
+  DEFAULT_SECONDARY_COLOR_HSL,
+} from '@/lib/defaultThemeColors';
 import { Palette, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,8 +45,8 @@ export function Admin({
   const [settingsFormData, setSettingsFormData] = useState({
     business_name: settings.business_name,
     business_hours: settings.business_hours,
-    primary_color: settings.primary_color || '168 60% 45%',
-    secondary_color: settings.secondary_color || '200 55% 55%',
+    primary_color: settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL,
+    secondary_color: settings.secondary_color || DEFAULT_SECONDARY_COLOR_HSL,
   });
 
   const [savingSettings, setSavingSettings] = useState(false);
@@ -52,8 +56,8 @@ export function Admin({
     setSettingsFormData({
       business_name: settings.business_name,
       business_hours: settings.business_hours,
-      primary_color: settings.primary_color || '168 60% 45%',
-      secondary_color: settings.secondary_color || '200 55% 55%',
+      primary_color: settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL,
+      secondary_color: settings.secondary_color || DEFAULT_SECONDARY_COLOR_HSL,
     });
   }, [settings]);
 
@@ -79,7 +83,7 @@ export function Admin({
   // Helper function to convert HSL to hex for color input
   const hslToHex = (hsl: string): string => {
     if (hsl.startsWith('#')) return hsl;
-    // Handle both formats: "168 60% 45%" and "hsl(168, 60%, 45%)"
+    // Handle both formats: "127 18% 47%" and "hsl(127, 18%, 47%)"
     let match = hsl.match(/(\d+)\s+(\d+)%\s+(\d+)%/);
     if (!match) {
       match = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
@@ -108,7 +112,7 @@ export function Admin({
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   };
 
-  // Helper function to convert hex to HSL (returns format: "168 60% 45%")
+  // Helper function to convert hex to HSL (returns format: "127 18% 47%")
   const hexToHsl = (hex: string): string => {
     if (!hex.startsWith('#')) {
       // Assume it's already HSL format, ensure it's in the right format
@@ -209,7 +213,7 @@ export function Admin({
                             const hslValue = e.target.value.replace(/hsl\(|\)/g, '').trim();
                             root.style.setProperty('--primary', hslValue);
                           }}
-                          placeholder="168 60% 45%"
+                          placeholder={DEFAULT_PRIMARY_COLOR_HSL}
                           className="flex-1"
                         />
                       </div>
@@ -237,7 +241,7 @@ export function Admin({
                             const hslValue = e.target.value.replace(/hsl\(|\)/g, '').trim();
                             root.style.setProperty('--secondary', hslValue);
                           }}
-                          placeholder="200 55% 55%"
+                          placeholder={DEFAULT_SECONDARY_COLOR_HSL}
                           className="flex-1"
                         />
                       </div>
@@ -257,6 +261,7 @@ export function Admin({
         
         <TabsContent value="services" className="mt-6">
           <Services
+            loading={false}
             services={services}
             onAddService={onAddService}
             onUpdateService={onUpdateService}

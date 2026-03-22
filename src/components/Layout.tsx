@@ -7,11 +7,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Settings as SettingsType } from '@/hooks/useSupabaseData';
 import { t } from '@/lib/translations';
 import { signOut } from '@/lib/auth';
+import { setDemoMode } from '@/lib/authRouting';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -20,8 +23,9 @@ import { AdminImpersonationHeader } from '@/components/AdminImpersonationHeader'
 import { useAuth } from '@/contexts/AuthContext';
 import { PetAnimations } from '@/components/PetAnimations';
 import { useNotifications } from '@/hooks/useNotifications';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
+import { isDemoBrowseOnlyPath } from '@/hooks/useDemoBrowseOnly';
 import { AppSidebar, getSidebarCollapsed, setSidebarCollapsed } from '@/components/AppSidebar';
 import { PageTransition } from '@/components/PageTransition';
 import { usePageTransition } from '@/contexts/PageTransitionContext';
@@ -62,6 +66,7 @@ function getPageTitle(pathname: string, businessSlug: string | undefined): strin
     payment: 'Payment',
     help: t('nav.help'),
     transactions: t('nav.transactions'),
+    notifications: t('notifications.pageTitle'),
   };
   return titles[segment] || segment;
 }
@@ -71,12 +76,14 @@ export function Layout({ children, settings }: LayoutProps) {
   const { businessSlug } = useParams();
   const { isAdmin, profile } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
-  const { notifications, markRead, markAllRead } = useNotifications();
+  const { notifications } = useNotifications();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(getSidebarCollapsed);
   const pageTransition = usePageTransition();
   const isRevealing = pageTransition?.isRevealing ?? false;
+  const demoLocalOnly = useDemoLocalSettingsMode();
+  const onDemoWorkspace = isDemoBrowseOnlyPath(location.pathname);
 
   const setCollapsed = (value: boolean) => {
     setSidebarCollapsedState(value);
@@ -103,8 +110,14 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/demo')) {
+        setDemoMode(false);
+      }
       setTheme('light');
-      if (typeof localStorage !== 'undefined') localStorage.removeItem('pet-hub-theme');
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('pet-hub-theme');
+        localStorage.removeItem('pet-hub-theme-demo');
+      }
       await signOut();
       toast.success(t('logout.success'));
       window.location.href = '/';
@@ -124,6 +137,10 @@ export function Layout({ children, settings }: LayoutProps) {
   const isImpersonating = typeof window !== 'undefined' && sessionStorage.getItem('is_impersonating') === 'true';
   const showAdminHeader = isAdmin && isImpersonating;
   const pageTitle = getPageTitle(location.pathname, businessSlug);
+  const isHelpPage = /\/help\/?$/.test(location.pathname);
+  const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
+  /** Match `/:businessSlug/dashboard` without relying on `useParams` (avoids missed triggers). */
+  const isDashboardPath = /^\/[^/]+\/dashboard$/.test(normalizedPath);
   const settingsBase = businessSlug ? `/${businessSlug}/settings` : '/settings';
 
   const [displayTitle, setDisplayTitle] = useState(pageTitle);
@@ -197,71 +214,60 @@ export function Layout({ children, settings }: LayoutProps) {
                   <span className="truncate w-full min-w-0">{displayTitle}</span>
                 </h1>
               </div>
-              <span
-                className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
-                title="Gracias por ayudarnos a perfeccionar este programa!"
-              >
-                BETA
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="shrink-0 cursor-default rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    BETA
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  {t('layout.betaTooltip')}
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <span className="hidden sm:inline text-sm text-muted-foreground truncate max-w-[160px]" title={profile?.full_name || profile?.email || ''}>
-                {profile?.full_name?.trim() || profile?.email || ''}
-              </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="w-4 h-4" />
-                    {notifications.filter((n) => !n.read).length > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground flex items-center justify-center">
-                        {notifications.filter((n) => !n.read).length > 9 ? '9+' : notifications.filter((n) => !n.read).length}
-                      </span>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 max-h-[360px] overflow-y-auto">
-                  <div className="px-2 py-1.5 flex items-center justify-between border-b">
-                    <span className="font-medium text-sm">{t('nav.notifications')}</span>
-                    {notifications.some((n) => !n.read) && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => markAllRead()}>
-                        {t('nav.markAllRead')}
-                      </Button>
-                    )}
-                  </div>
-                  {notifications.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-muted-foreground">{t('nav.noNotifications')}</div>
-                  ) : (
-                    notifications.slice(0, 15).map((n) => (
-                      <div
-                        key={n.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => markRead(n.id)}
-                        onKeyDown={(e) => e.key === 'Enter' && markRead(n.id)}
-                        className={`px-3 py-2 text-left text-sm cursor-pointer hover:bg-muted/50 ${!n.read ? 'bg-muted/30' : ''}`}
-                      >
-                        <p className="font-medium truncate">{n.message}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(n.created_at), 'MMM d, HH:mm')}</p>
-                      </div>
-                    ))
+              <Button variant="ghost" size="icon" className="relative" asChild>
+                <Link
+                  to={businessSlug ? `/${businessSlug}/notifications` : '/'}
+                  aria-label={t('nav.notifications')}
+                >
+                  <Bell className="w-4 h-4" />
+                  {notifications.filter((n) => !n.read).length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+                      {notifications.filter((n) => !n.read).length > 9
+                        ? '9+'
+                        : notifications.filter((n) => !n.read).length}
+                    </span>
                   )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </Link>
+              </Button>
 
-              {/* User menu: avatar — Log out only */}
+              {/* User menu: full name as trigger — Log out only */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={profile?.avatar_url ?? undefined} alt="" />
-                      <AvatarFallback className="text-xs">
-                        {(profile?.full_name || profile?.email || 'U').slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                  <Button
+                    variant="ghost"
+                    className="h-9 max-w-[min(100vw-12rem,220px)] px-2 font-normal text-foreground hover:bg-muted/80"
+                  >
+                    <span className="truncate">
+                      {onDemoWorkspace
+                        ? t('layout.demoUserName')
+                        : profile?.full_name?.trim() ||
+                          profile?.email?.trim() ||
+                          (demoLocalOnly ? t('layout.demoProfileMenuLabel') : t('layout.accountLabel'))}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
+                  {onDemoWorkspace && (
+                    <>
+                      <DropdownMenuLabel className="text-xs font-normal text-muted-foreground leading-snug">
+                        {demoLocalOnly ? t('layout.demoProfileMenuHint') : t('layout.demoSignedInWorkspaceHint')}
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem
                     onClick={() => setLogoutDialogOpen(true)}
                     className="flex items-center gap-2 text-destructive cursor-pointer"
@@ -274,9 +280,23 @@ export function Layout({ children, settings }: LayoutProps) {
             </div>
           </header>
 
+          {demoLocalOnly && (
+            <div
+              className="shrink-0 border-b border-border/60 bg-muted/50 px-4 py-1.5 text-center text-xs text-muted-foreground"
+              role="status"
+            >
+              {t('layout.demoLocalSettingsHint')}
+            </div>
+          )}
+
           {!showAdminHeader && <ImpersonationBanner />}
 
-          <main className="flex-1 min-h-0 overflow-auto container mx-auto px-4 py-6 flex flex-col">
+          <main
+            className={cn(
+              'flex-1 min-h-0 container mx-auto px-4 flex flex-col',
+              isHelpPage ? 'overflow-hidden py-3 min-h-0' : 'overflow-y-auto overflow-x-hidden py-6'
+            )}
+          >
             <PageTransition>
               {children}
             </PageTransition>
@@ -286,8 +306,25 @@ export function Layout({ children, settings }: LayoutProps) {
             <div className="max-w-[320px] mx-auto px-4 py-4 flex flex-col items-center gap-1">
               <div className="flex items-center justify-center gap-2">
                 <span className="text-xs text-muted-foreground">Powered by</span>
-                <a href="https://stratumpr.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center hover:opacity-90 transition-opacity shrink-0">
-                  <img src={resolvedTheme === 'dark' ? '/Logo 2.svg' : '/Logo 4.svg'} alt="STRATUM PR LLC" className="object-contain h-6 w-auto max-w-[100px] cursor-pointer" />
+                <a
+                  href="https://stratumpr.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center hover:opacity-90 transition-opacity shrink-0 rounded-sm"
+                >
+                  <span
+                    key={isDashboardPath ? normalizedPath : 'footer-stratum-logo'}
+                    className={cn(
+                      'relative inline-block rounded-sm',
+                      isDashboardPath && 'footer-logo-shine-mount'
+                    )}
+                  >
+                    <img
+                      src={resolvedTheme === 'dark' ? '/Logo 2.svg' : '/Logo 4.svg'}
+                      alt="STRATUM PR LLC"
+                      className="relative z-0 block object-contain h-6 w-auto max-w-[100px] cursor-pointer"
+                    />
+                  </span>
                 </a>
               </div>
               <div className="text-[10px] text-muted-foreground">© 2025 STRATUM PR LLC</div>

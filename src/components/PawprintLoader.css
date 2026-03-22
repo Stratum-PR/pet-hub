@@ -1,0 +1,81 @@
+/* Main pad: 100% ↔ 110% with `alternate` so loop has no 100%→0% seam (avoids blink). */
+@keyframes pawprint-loader-main-pulse {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+/*
+ * One full wave = 0.72s (~40% faster than 1.2s). Jump uses first third of cycle.
+ * Peak at mid-jump: 16.67%; landed by 33.33%.
+ */
+@keyframes pawprint-loader-toe-wave-outer {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  16.67% {
+    transform: translateY(-8px);
+  }
+  33.33%,
+  99.99% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes pawprint-loader-toe-wave-inner {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  16.67% {
+    transform: translateY(-10px);
+  }
+  33.33%,
+  99.99% {
+    transform: translateY(0);
+  }
+}
+
+.pawprint-loader__main {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  will-change: transform;
+  backface-visibility: hidden;
+  animation: pawprint-loader-main-pulse 0.72s ease-in-out infinite alternate;
+}
+
+.pawprint-loader__toe {
+  transform-box: fill-box;
+  transform-origin: center center;
+  animation-duration: 0.72s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Far toes: smaller jump -8px; delays scaled with 0.72s cycle */
+.pawprint-loader__toe--1 {
+  animation-name: pawprint-loader-toe-wave-outer;
+  animation-delay: 0s;
+}
+
+.pawprint-loader__toe--4 {
+  animation-name: pawprint-loader-toe-wave-outer;
+  animation-delay: 0.27s;
+}
+
+/* Center toes: -10px */
+.pawprint-loader__toe--2 {
+  animation-name: pawprint-loader-toe-wave-inner;
+  animation-delay: 0.09s;
+}
+
+.pawprint-loader__toe--3 {
+  animation-name: pawprint-loader-toe-wave-inner;
+  animation-delay: 0.18s;
+}

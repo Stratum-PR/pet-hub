@@ -7,15 +7,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { t, type Language } from '@/lib/translations';
+import {
+  DEFAULT_PRIMARY_COLOR_HSL,
+  DEFAULT_SECONDARY_COLOR_HSL,
+  DEFAULT_PRIMARY_HEX,
+  DEFAULT_SECONDARY_HEX,
+} from '@/lib/defaultThemeColors';
 import { Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function hexToHsl(hex: string): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return '168 60% 45%';
+  if (!result) return DEFAULT_PRIMARY_COLOR_HSL;
   let r = parseInt(result[1], 16) / 255;
   let g = parseInt(result[2], 16) / 255;
   let b = parseInt(result[3], 16) / 255;
@@ -99,6 +106,12 @@ function rgbStringToHsl(rgb: string): string | null {
 }
 
 const THEME_PRESETS = [
+  {
+    id: 'pet-hub',
+    name: 'Pet Hub',
+    primary: DEFAULT_PRIMARY_HEX,
+    secondary: DEFAULT_SECONDARY_HEX,
+  },
   { id: 'ocean', name: 'Ocean', primary: '#0077B6', secondary: '#90E0EF' },
   { id: 'forest', name: 'Forest', primary: '#2D6A4F', secondary: '#B7E4C7' },
   { id: 'sunset', name: 'Sunset', primary: '#E76F51', secondary: '#F4A261' },
@@ -114,21 +127,22 @@ interface AccountSettingsProps {
 
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
   const { user } = useAuth();
+  const demoLocalOnly = useDemoLocalSettingsMode();
   const { language, setLanguage } = useLanguage();
   const [pendingLanguage, setPendingLanguage] = useState<Language>(language);
   useEffect(() => { setPendingLanguage(language); }, [language]);
-  const [primaryColor, setPrimaryColor] = useState(settings.primary_color || '168 60% 45%');
-  const [secondaryColor, setSecondaryColor] = useState(settings.secondary_color || '200 55% 55%');
+  const [primaryColor, setPrimaryColor] = useState(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL);
+  const [secondaryColor, setSecondaryColor] = useState(settings.secondary_color || DEFAULT_SECONDARY_COLOR_HSL);
   const [primaryRgb, setPrimaryRgb] = useState(() => {
-    const { r, g, b } = hslToRgb(settings.primary_color || '168 60% 45%');
+    const { r, g, b } = hslToRgb(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL);
     return `${r}, ${g}, ${b}`;
   });
   const [secondaryRgb, setSecondaryRgb] = useState(() => {
-    const { r, g, b } = hslToRgb(settings.secondary_color || '200 55% 55%');
+    const { r, g, b } = hslToRgb(settings.secondary_color || DEFAULT_SECONDARY_COLOR_HSL);
     return `${r}, ${g}, ${b}`;
   });
-  const [primaryHex, setPrimaryHex] = useState(() => hslToHex(settings.primary_color || '168 60% 45%'));
-  const [secondaryHex, setSecondaryHex] = useState(() => hslToHex(settings.secondary_color || '200 55% 55%'));
+  const [primaryHex, setPrimaryHex] = useState(() => hslToHex(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL));
+  const [secondaryHex, setSecondaryHex] = useState(() => hslToHex(settings.secondary_color || DEFAULT_SECONDARY_COLOR_HSL));
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -243,6 +257,31 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {demoLocalOnly ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('accountSettings.demoProfileTitle')}</CardTitle>
+            <CardDescription>{t('accountSettings.demoProfileDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid gap-4 sm:grid-cols-2 text-sm">
+              <div>
+                <dt className="text-muted-foreground">{t('accountSettings.demoProfileDisplayName')}</dt>
+                <dd className="mt-1 font-medium text-foreground">{t('accountSettings.demoProfileDisplayNameValue')}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{t('accountSettings.demoProfileRole')}</dt>
+                <dd className="mt-1 font-medium text-foreground">{t('accountSettings.demoProfileRoleValue')}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground">{t('accountSettings.demoProfileEmail')}</dt>
+                <dd className="mt-1 font-medium text-foreground">{t('accountSettings.demoProfileEmailValue')}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>{t('accountSettings.language')}</CardTitle>
@@ -478,53 +517,62 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('accountSettings.changePassword')}</CardTitle>
-          <CardDescription>{t('accountSettings.changePasswordDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
-            <div className="space-y-2">
-              <Label htmlFor="current-password">{t('accountSettings.currentPassword')}</Label>
-              <Input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-password">{t('accountSettings.newPassword')}</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                minLength={6}
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">{t('accountSettings.confirmPassword')}</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="new-password"
-              />
-            </div>
-            <Button type="submit" disabled={changingPassword}>
-              {changingPassword ? t('common.saving') : t('accountSettings.updatePassword')}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {user ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('accountSettings.changePassword')}</CardTitle>
+            <CardDescription>{t('accountSettings.changePasswordDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">{t('accountSettings.currentPassword')}</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">{t('accountSettings.newPassword')}</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">{t('accountSettings.confirmPassword')}</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+              </div>
+              <Button type="submit" disabled={changingPassword}>
+                {changingPassword ? t('common.saving') : t('accountSettings.updatePassword')}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : demoLocalOnly ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('accountSettings.changePassword')}</CardTitle>
+            <CardDescription>{t('accountSettings.demoPasswordNote')}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
     </div>
   );
 }

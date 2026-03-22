@@ -18,6 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
 
 interface PayrollProps {
   employees: Employee[];
@@ -76,7 +78,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   // Helper to convert HSL to RGB array for jsPDF
   const hslToRgb = (hsl: string): [number, number, number] => {
     try {
-      // Handle format: "168 60% 45%" or "hsl(168, 60%, 45%)"
+      // Handle format: "127 18% 47%" or "hsl(127, 18%, 47%)"
       let match = hsl.match(/(\d+)\s+(\d+)%\s+(\d+)%/);
       if (!match) {
         match = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
@@ -319,7 +321,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     let yPos = margin;
 
     // Get primary color for table headers
-    const primaryColor = hslToRgb(settings.primary_color || '168 60% 45%');
+    const primaryColor = hslToRgb(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL);
 
     // Helper to get employee ID (use last 4 digits of UUID or a short ID)
     const getEmployeeId = (empId: string) => {
@@ -507,16 +509,13 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     doc.save(fileName);
   };
 
-  if (settingsLoading) {
-    return (
-      <div className="space-y-6 animate-fade-in flex items-center justify-center min-h-[200px]">
-        <div className="text-muted-foreground">{t('common.loading')}</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent
+      loading={settingsLoading}
+      loaderLabel={t('common.loading')}
+      loaderWrapperClassName="min-h-[240px]"
+    >
+    <div className="space-y-6">
       <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
           <Button
@@ -930,5 +929,6 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
         </DialogContent>
       </Dialog>
     </div>
+    </PawLoadedContent>
   );
 }

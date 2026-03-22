@@ -89,6 +89,20 @@ export function Appointments({
     }
   }, [searchParams]);
 
+  // Deep link from notifications: ?appointment=id
+  useEffect(() => {
+    const appointmentId = searchParams.get('appointment');
+    if (!appointmentId || appointments.length === 0) return;
+    const apt = appointments.find((a) => a.id === appointmentId);
+    const next = new URLSearchParams(searchParams);
+    next.delete('appointment');
+    setSearchParams(next, { replace: true });
+    if (!apt) return;
+    setActiveTab('history');
+    setEditingAppointment(apt);
+    setEditDialogOpen(true);
+  }, [appointments, searchParams, setSearchParams]);
+
   // Calendar: Get appointments for selected date
   const selectedDateAppointments = useMemo(() => {
     if (!selectedDate) return [];
@@ -258,8 +272,12 @@ export function Appointments({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex gap-2">
+      <div
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        data-page-toolbar
+        data-page-search
+      >
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             onClick={() => setShowBookingLink(!showBookingLink)}

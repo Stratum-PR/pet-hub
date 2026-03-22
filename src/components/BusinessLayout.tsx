@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Footer } from '@/components/Footer';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -87,13 +88,13 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <ImpersonationBanner />
       
       {/* Header */}
       <header className="border-b border-border bg-card shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/app" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="w-[140px] h-[50px] flex items-center justify-center overflow-hidden bg-transparent -my-2">
               <img src="/pet-hub-logo.svg" alt="Pet Hub" className="w-full h-full object-contain" />
             </div>
@@ -123,7 +124,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex flex-1">
         {/* Sidebar */}
         <aside className="w-64 border-r border-border bg-card min-h-[calc(100vh-73px)] sticky top-[73px]">
           <nav className="p-4 space-y-1">
@@ -152,6 +153,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
           {children}
         </main>
       </div>
+      <Footer />
     </div>
   );
 }

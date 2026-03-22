@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Product } from '@/types/inventory';
 import { useBusinessId } from './useBusinessId';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { supabase } from '@/integrations/supabase/client';
 
 function uuidv4(): string {
@@ -56,6 +57,7 @@ export function useInventory() {
   const [stockMovements, setStockMovements] = useState<StockMovementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const fetchStockMovements = async () => {
     if (!businessId) return;
@@ -92,6 +94,30 @@ export function useInventory() {
 
   const addProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const mapped: Product = {
+        id: uuidv4(),
+        name: productData.name,
+        sku: productData.sku,
+        barcode: productData.barcode || '',
+        price: productData.price,
+        quantity: productData.quantity,
+        supplier: productData.supplier || '',
+        category: productData.category || '',
+        description: productData.description || '',
+        cost: productData.cost ?? 0,
+        reorder_level: productData.reorder_level ?? 0,
+        notes: productData.notes || '',
+        created_at: now,
+        updated_at: now,
+        folder_id: productData.folder_id ?? null,
+        photo_url: productData.photo_url ?? null,
+        custom_fields: productData.custom_fields,
+      };
+      setProducts((prev) => [...prev, mapped].sort((a, b) => a.name.localeCompare(b.name)));
+      return mapped;
+    }
     const payload: any = {
       business_id: businessId,
       sku: productData.sku,
@@ -129,6 +155,18 @@ export function useInventory() {
 
   const updateProduct = async (id: string, productData: Partial<Product>) => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const prev = products.find((p) => p.id === id);
+      if (!prev) return null;
+      const next: Product = {
+        ...prev,
+        ...productData,
+        id: prev.id,
+        updated_at: new Date().toISOString(),
+      };
+      setProducts((p) => p.map((x) => (x.id === id ? next : x)));
+      return next;
+    }
     const patch: any = { updated_at: new Date().toISOString() };
     if (productData.name !== undefined) patch.product_name = productData.name;
     if (productData.sku !== undefined) patch.sku = productData.sku;
@@ -161,6 +199,10 @@ export function useInventory() {
 
   const deleteProduct = async (id: string) => {
     if (!businessId) return false;
+    if (demoBrowseOnly) {
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      return true;
+    }
     const { error } = await supabase
       .from('inventory' as any)
       .delete()
@@ -190,19 +232,33 @@ export function useInventory() {
     const newQty = Math.max(0, product.quantity + quantityDelta);
     const updated = await updateProduct(productId, { quantity: newQty });
     if (!updated) return null;
-    await supabase.from('inventory_stock_movements' as any).insert({
-      business_id: businessId,
-      product_id: productId,
-      quantity: quantityDelta,
-      movement_type: movementType,
-      notes: notes ?? null,
-    });
-    await fetchStockMovements();
+    if (!demoBrowseOnly) {
+      await supabase.from('inventory_stock_movements' as any).insert({
+        business_id: businessId,
+        product_id: productId,
+        quantity: quantityDelta,
+        movement_type: movementType,
+        notes: notes ?? null,
+      });
+      await fetchStockMovements();
+    } else {
+      const row: StockMovementRow = {
+        id: uuidv4(),
+        product_id: productId,
+        quantity: quantityDelta,
+        movement_type: movementType,
+        created_at: new Date().toISOString(),
+      };
+      setStockMovements((prev) => [row, ...prev]);
+    }
     return updated;
   };
 
   const uploadProductPhoto = async (productId: string, file: File): Promise<string | null> => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      return URL.createObjectURL(file);
+    }
     const ext = file.name.split('.').pop() || 'jpg';
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
     const filePath = `${businessId}/${productId}/${fileName}`;

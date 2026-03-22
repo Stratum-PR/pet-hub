@@ -12,7 +12,6 @@ const FORMSPREE_FORM_ID = import.meta.env.VITE_FORMSPREE_HELP_FORM_ID || 'xyzjgy
 const FORMSPREE_ENDPOINT = `https://formspree.io/f/${FORMSPREE_FORM_ID}`;
 
 const SUPPORT_EMAIL = 'admin@stratumpr.com';
-const MAX_WIDTH = '28rem';
 
 export function Help() {
   const [name, setName] = useState('');
@@ -72,80 +71,101 @@ export function Help() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
-      {/* Contact Email Box – centered */}
-      <Card className="mx-auto shadow-md" style={{ maxWidth: MAX_WIDTH }}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden md:grid md:grid-cols-2 md:grid-rows-1 md:items-stretch md:gap-6">
+      <Card className="flex min-h-0 flex-col overflow-hidden shadow-md md:max-h-full">
+        <CardHeader className="shrink-0 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Mail className="h-5 w-5 shrink-0 opacity-100" />
             {t('help.contactEmail') ?? 'Contact email'}
           </CardTitle>
-          <CardDescription>{t('help.contactSupportDescription')}</CardDescription>
+          <CardDescription className="text-xs">{t('help.contactSupportDescription')}</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <CardContent className="flex min-h-0 flex-1 flex-col justify-center gap-3 overflow-hidden pt-0">
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
-            className="text-primary font-medium hover:underline break-all"
+            className="text-primary font-medium hover:underline break-all text-sm"
           >
             {SUPPORT_EMAIL}
           </a>
-          <Button variant="outline" size="sm" onClick={copyEmail} className="shrink-0 gap-1">
-            <Copy className="h-4 w-4" />
-            {t('help.copy') ?? 'Copy'}
-          </Button>
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copyEmail}
+              className="shrink-0 gap-1 bg-background text-foreground opacity-100 hover:bg-muted hover:opacity-100"
+            >
+              <Copy className="h-4 w-4 opacity-100" />
+              {t('help.copy') ?? 'Copy'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Message Form Box – centered */}
-      <Card className="mx-auto shadow-md" style={{ maxWidth: MAX_WIDTH }}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" />
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-md md:max-h-full">
+        <CardHeader className="shrink-0 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="h-5 w-5 shrink-0 opacity-100" />
             {t('help.sendMessage') ?? 'Send a message'}
           </CardTitle>
-          <CardDescription>{t('help.formDescription') ?? 'Submit your question or feedback and we’ll get back to you.'}</CardDescription>
+          <CardDescription className="text-xs">
+            {t('help.formDescription') ?? 'Submit your question or feedback and we’ll get back to you.'}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="help-name">{t('help.yourName')} <span className="text-destructive">*</span></Label>
-              <Input
-                id="help-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
+        <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-0">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+            <div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="help-name" className="text-xs">
+                  {t('help.yourName')} <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="help-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="h-9 bg-background text-foreground"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="help-email" className="text-xs">
+                  {t('help.yourEmail')} <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="help-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-9 bg-background text-foreground"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="help-email">{t('help.yourEmail')} <span className="text-destructive">*</span></Label>
-              <Input
-                id="help-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="help-subject">{t('help.subject')}</Label>
+            <div className="shrink-0 space-y-1">
+              <Label htmlFor="help-subject" className="text-xs">
+                {t('help.subject')}
+              </Label>
               <Input
                 id="help-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Pet Hub – Need Help"
+                className="h-9 bg-background text-foreground"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="help-message">{t('help.message')} <span className="text-destructive">*</span></Label>
+            <div className="flex min-h-0 flex-1 flex-col space-y-1">
+              <Label htmlFor="help-message" className="shrink-0 text-xs">
+                {t('help.message')} <span className="text-destructive">*</span>
+              </Label>
               <Textarea
                 id="help-message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                rows={4}
+                rows={3}
                 required
+                className="min-h-0 flex-1 resize-none bg-background text-foreground"
               />
             </div>
-            <Button type="submit" disabled={submitting} className="w-full gap-2">
+            <Button type="submit" disabled={submitting} className="mt-auto w-full shrink-0 gap-2">
               {submitting ? t('common.saving') : t('help.submit')}
               <Send className="h-4 w-4" />
             </Button>

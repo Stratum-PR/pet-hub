@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { setLastRoute } from '@/lib/authRouting';
 import { PostLoginLoading } from '@/components/PostLoginLoading';
+import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
 import { supabase } from '@/integrations/supabase/client';
+import { getBusinessClientLink } from '@/lib/businessClientLink';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,10 +16,13 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const { user, isAdmin, loading, profile, business } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { businessSlug } = useParams<{ businessSlug?: string }>();
   const [showPostLoginLoading, setShowPostLoginLoading] = useState(false);
   const [loadingStartTime] = useState(Date.now());
   const [sessionChecked, setSessionChecked] = useState(false);
   const [hasSession, setHasSession] = useState<boolean | null>(null);
+  const [clientLinkChecked, setClientLinkChecked] = useState(false);
+  const [clientLinkAllowed, setClientLinkAllowed] = useState<boolean | null>(null);
 
   const isDemoRoute = location.pathname.startsWith('/demo');
   // Only the demo portal is public; all real business portals (including Pet Esthetic)
@@ -52,6 +57,53 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     if (location.pathname === '/' || location.pathname.startsWith('/login')) return;
     setLastRoute(`${location.pathname}${location.search}`);
   }, [loading, user, location.pathname, location.search]);
+
+  // Client on business-scoped route: must have approved business_client_link
+  useEffect(() => {
+    // Public demo slug is not a real client portal — never gate or redirect to /demo/login
+    if (isPublicBusinessRoute) {
+      setClientLinkChecked(false);
+      setClientLinkAllowed(null);
+      return;
+    }
+
+    if (!user?.id || !businessSlug || profile?.business_id != null || requireAdmin) {
+      if (businessSlug && user && !profile?.business_id && !requireAdmin) setClientLinkAllowed(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: biz } = await supabase.from('businesses').select('id').eq('slug', businessSlug).maybeSingle();
+        if (cancelled || !biz?.id) {
+          setClientLinkChecked(true);
+          if (!biz?.id) setClientLinkAllowed(false);
+          return;
+        }
+        const link = await getBusinessClientLink(user.id, biz.id);
+        if (cancelled) return;
+        setClientLinkChecked(true);
+        if (link?.status === 'approved') {
+          setClientLinkAllowed(true);
+        } else {
+          setClientLinkAllowed(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setClientLinkChecked(true);
+          setClientLinkAllowed(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, businessSlug, profile?.business_id, requireAdmin, isPublicBusinessRoute]);
+
+  useEffect(() => {
+    if (isPublicBusinessRoute) return;
+    if (clientLinkChecked && clientLinkAllowed === false && businessSlug) {
+      navigate(`/${businessSlug}/login`, { replace: true });
+    }
+  }, [clientLinkChecked, clientLinkAllowed, businessSlug, navigate, isPublicBusinessRoute]);
 
   // Show post-login loading screen if user is logged in but data is still loading
   // CRITICAL: This useEffect must be called before any conditional returns to maintain hooks order
@@ -126,30 +178,18 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         />
       );
     }
-    return (
-      <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
-        Loading…
-      </div>
-    );
+    return <PawStagedLoadingFullscreen label="Loading" />;
   }
   
   if (!user && !isPublicBusinessRoute) {
     // If we haven't checked session yet, show loading
     if (!sessionChecked || loading) {
-      return (
-        <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
-          Verifying authentication…
-        </div>
-      );
+      return <PawStagedLoadingFullscreen label="Verifying authentication" />;
     }
     
     // If session exists but user isn't set yet, show loading (AuthContext is catching up)
     if (hasSession === true) {
-      return (
-        <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
-          Loading user session…
-        </div>
-      );
+      return <PawStagedLoadingFullscreen label="Loading user session" />;
     }
     
     // No session found
@@ -167,6 +207,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         <p>You do not have permission to access this page.</p>
       </div>
     );
+  }
+
+  if (businessSlug && user && profile != null && profile.business_id == null && !requireAdmin && !clientLinkChecked) {
+    return <PawStagedLoadingFullscreen label="Verifying access" />;
   }
 
   return <>{children}</>;

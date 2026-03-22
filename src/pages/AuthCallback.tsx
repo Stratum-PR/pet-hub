@@ -26,7 +26,7 @@ export function AuthCallback() {
 
   const runCompleteManagerSignup = async (): Promise<boolean> => {
     const pendingName = localStorage.getItem(PENDING_MANAGER_BUSINESS_NAME);
-    const pendingTier = localStorage.getItem(PENDING_MANAGER_TIER) || 'starter';
+    const pendingTier = localStorage.getItem(PENDING_MANAGER_TIER) || 'basic';
     if (!pendingName) return false;
     await delay(400);
     const { error } = await supabase.rpc('complete_manager_signup', {
@@ -65,7 +65,7 @@ export function AuthCallback() {
       }
 
       const pendingName = localStorage.getItem(PENDING_MANAGER_BUSINESS_NAME);
-      const pendingTier = localStorage.getItem(PENDING_MANAGER_TIER) || 'starter';
+      const pendingTier = localStorage.getItem(PENDING_MANAGER_TIER) || 'basic';
 
       if (pendingName) {
         const ok = await runCompleteManagerSignup();

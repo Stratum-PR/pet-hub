@@ -9,6 +9,7 @@ import { formatPhoneNumber } from '@/lib/phoneFormat';
 import { t } from '@/lib/translations';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { getPayPeriodRangeForDate } from '@/lib/payScheduleUtils';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 interface EmployeePayrollProps {
   employees: Employee[];
@@ -70,15 +71,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
     };
   }, [employee, timeEntries, payPeriodStart, payPeriodEnd]);
 
-  if (settingsLoading) {
-    return (
-      <div className="space-y-6 animate-fade-in flex items-center justify-center min-h-[200px]">
-        <div className="text-muted-foreground">{t('common.loading')}</div>
-      </div>
-    );
-  }
-
-  if (!employee || !payrollData) {
+  if (!settingsLoading && (!employee || !payrollData)) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div>
@@ -97,7 +90,12 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent
+      loading={settingsLoading}
+      loaderLabel={t('common.loading')}
+      loaderWrapperClassName="min-h-[240px]"
+    >
+    <div className="space-y-6">
       <div>
         <Button
           variant="ghost"
@@ -262,5 +260,6 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
         </CardContent>
       </Card>
     </div>
+    </PawLoadedContent>
   );
 }

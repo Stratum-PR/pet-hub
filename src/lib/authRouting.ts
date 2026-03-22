@@ -1,4 +1,8 @@
 import type { Business } from '@/lib/auth';
+import { clearAllDemoStoredSettings } from '@/lib/demoLocalSettings';
+
+export const DEMO_LANGUAGE_STORAGE_KEY = 'pet-hub-demo-language';
+const DEMO_THEME_STORAGE_KEY = 'pet-hub-theme-demo';
 
 export const AUTH_CONTEXTS = {
   ADMIN: 'admin',
@@ -48,6 +52,14 @@ export function getBusinessSlugFromSession(): string | null {
   return sessionStorage.getItem('business_slug');
 }
 
+/** Clears in-browser demo preferences (settings blob, language, theme) when leaving demo. */
+export function clearDemoLocalPreferences() {
+  if (typeof window === 'undefined') return;
+  clearAllDemoStoredSettings();
+  localStorage.removeItem(DEMO_LANGUAGE_STORAGE_KEY);
+  localStorage.removeItem(DEMO_THEME_STORAGE_KEY);
+}
+
 export function setDemoMode(enabled: boolean) {
   if (typeof window === 'undefined') return;
   if (enabled) {
@@ -56,6 +68,7 @@ export function setDemoMode(enabled: boolean) {
   } else {
     sessionStorage.removeItem('demoMode');
     if (getAuthContext() === AUTH_CONTEXTS.DEMO) setAuthContext(AUTH_CONTEXTS.NONE);
+    clearDemoLocalPreferences();
   }
 }
 

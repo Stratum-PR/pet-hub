@@ -1,0 +1,148 @@
+import { cn } from '@/lib/utils';
+import './PawprintLoader.css';
+
+/** ~35% smaller than original (between 30–40% reduction) for a lighter loading mark */
+const SIZE_CLASS = {
+  sm: 'h-10 w-10',
+  md: 'h-[4.5rem] w-[4.5rem]',
+  lg: 'h-24 w-24',
+} as const;
+
+export type PawprintLoaderSize = keyof typeof SIZE_CLASS;
+
+export interface PawprintLoaderProps {
+  size?: PawprintLoaderSize;
+  className?: string;
+  label?: string;
+  showLabel?: boolean;
+  fullscreen?: boolean;
+  fullscreenZ?: number;
+  /** No flex-1 / min-height — use inside cards or small rows */
+  compact?: boolean;
+}
+
+/** Shapes from vecteezy_paw-print-vector-icon (local artboard coords inside inner `<g>`). Fill uses `currentColor` → CSS `--primary` (default olive ~#6B8B70, see `defaultThemeColors.ts`). */
+const PAW_TRANSFORM =
+  'matrix(5.616572380065918, 0, 0, 5.616572380065918, -534.6300048828125, -107.75253295898438)';
+
+/**
+ * Five-part paw (asset paths): main pad + four toes. Main breathes 1↔1.1× / 0.72s (`alternate`);
+ * toes wave L→R with staggered delays within the same loop (see CSS).
+ */
+export function PawprintLoader({
+  size = 'md',
+  className,
+  label = 'Loading',
+  showLabel = false,
+  fullscreen = false,
+  fullscreenZ = 50,
+  compact = false,
+}: PawprintLoaderProps) {
+  // viewBox cropped from Vecteezy artboard so the paw fills the icon box.
+  const svg = (
+    <svg
+      className={cn(SIZE_CLASS[size], 'shrink-0 translate-y-1 text-primary')}
+      viewBox="280 280 1980 1960"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <g transform={PAW_TRANSFORM}>
+        {/* Toes left → right (by path start x); outer toes use smaller jump in CSS */}
+        <g className="pawprint-loader__toe pawprint-loader__toe--1">
+          <path
+            className="fill-current"
+            d="M 242.2 270.4 C 246.1 262.79999999999995 246.79999999999998 251.79999999999998 244.39999999999998 235.79999999999998 C 243.89999999999998 232.39999999999998 243.09999999999997 229.2 242.2 225.99999999999997 C 233.79999999999998 198.29999999999998 208.82606995791323 175.64678709635385 190.38619689941405 175.43859558105464 C 165.17396494959456 175.15394931231822 155.29999999999998 216.59999999999997 165.29999999999998 241.59999999999997 C 175.29999999999998 266.59999999999997 194.49999999999997 289.09999999999997 217.79999999999998 284.9 C 229.9 282.8 238 278.6 242.2 270.4 Z"
+          />
+        </g>
+        <g className="pawprint-loader__toe pawprint-loader__toe--2">
+          <path
+            className="fill-current"
+            d="M 275.3 205.8 C 297 217.5 318.6 180.8 319.5 154.20000000000002 C 320.3 127.50000000000001 312.68870849609374 105.29323425292971 300.18870849609374 91.99323425292971 C 287.68870849609374 78.69323425292971 275.1144323297494 79.41147061596311 262.72279357910156 82.83634033203127 C 253.50197215074218 85.38483730925826 246.2 90.60000000000002 242.3 103.00000000000003 C 240.20000000000002 109.50000000000003 238.70000000000002 118.10000000000002 238.70000000000002 129.20000000000002 C 238.70000000000002 138.70000000000002 240.00000000000003 148.10000000000002 242.3 157.10000000000002 C 247.9 178.8 259.9 197.6 275.3 205.8 Z"
+          />
+        </g>
+        <g className="pawprint-loader__toe pawprint-loader__toe--3">
+          <path
+            className="fill-current"
+            d="M 365.2 212.5 C 383.4 217.6 401.2 195.1 412 172.2 C 417 161.5 420.5 150.79999999999998 421.8 142.6 C 424.1 128.29999999999998 422.6631304049236 100.9667239559407 410.4681701660156 90.20451049804687 C 398.3210050013923 79.48448291594761 377.39649021165314 82.72863552198436 363.5430908203125 91.03409271240234 C 348.8703036674375 99.83079951156564 343.5 111 339.3 140.1 C 335.2 169.2 338.6 205 365.2 212.5 Z"
+          />
+        </g>
+        <g className="pawprint-loader__toe pawprint-loader__toe--4">
+          <path
+            className="fill-current"
+            d="M439.4,202.5c0,0-16.2,11.6-27.3,28.4c-5.2,7.9-9.4,17-10.2,26.6c-1.6,19,1.5,34,10.2,42.4c5,4.9,11.8,7.5,20.7,7.5c24.2,0,55-35,55-67.5C487.7,207.5,470.2,182.5,439.4,202.5z"
+          />
+        </g>
+        <path
+          className="pawprint-loader__main fill-current"
+          d="M 412 333.5 C 395.7 299.6 367.7 267.7 355.2 256.6 C 340.2 243.3 307.8284030317388 245.23534992048906 287.3135314941406 254.8318298339844 C 267.0534557720469 264.30910235955344 267.79999999999995 277.8 242.19999999999996 309.1 C 232.49999999999997 321 223.89999999999995 333.8 218.59999999999997 346.6 C 202.19999999999996 386.6 206.90505976929924 393.51983786871045 222.28619689941402 405.76817016601564 C 233.85343065490707 414.97939155550864 267.6819732666015 401.93861083984376 271.0819732666015 401.2386108398438 C 295.28197326660154 396.2386108398438 314.29999999999995 377.40000000000003 354.29999999999995 393.3 C 377.09999999999997 402.3 404.66141967773433 405.42958984375 417.3614196777343 395.52958984375 C 426.8614196777343 388.12958984375 425.49999999999994 371.7 420.19999999999993 354.09999999999997 C 418.1 347.3 415.3 340.4 412 333.5 Z"
+        />
+      </g>
+    </svg>
+  );
+
+  const inner = (
+    <div
+      className="flex flex-col items-center justify-center gap-3 text-primary"
+      role="status"
+      aria-busy="true"
+      aria-label={label}
+    >
+      {svg}
+      {showLabel ? <span className="text-sm text-muted-foreground">{label}</span> : null}
+    </div>
+  );
+
+  if (fullscreen) {
+    return (
+      <div
+        className={cn(
+          'fixed inset-0 grid h-[100dvh] max-h-[100dvh] w-full place-items-center overflow-hidden bg-background p-4',
+          className
+        )}
+        style={{ zIndex: fullscreenZ }}
+      >
+        {inner}
+      </div>
+    );
+  }
+
+  /* Default: fill route column + true viewport-ish height so the paw sits mid-screen; compact: inline only */
+  return (
+    <div
+      className={cn(
+        compact
+          ? 'grid w-full place-items-center'
+          : 'grid w-full flex-1 place-items-center self-stretch min-h-[max(70vh,calc(100dvh-10rem))]',
+        className
+      )}
+    >
+      {inner}
+    </div>
+  );
+}
+
+/** Centered block for compact sections (tables, cards). */
+export function PawprintLoaderBlock({
+  className,
+  minHeight = 'min-h-[200px]',
+  size = 'md',
+  label,
+}: {
+  className?: string;
+  minHeight?: string;
+  size?: PawprintLoaderSize;
+  label?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex w-full flex-col items-center justify-center self-stretch',
+        minHeight,
+        className
+      )}
+    >
+      <PawprintLoader compact size={size} label={label} />
+    </div>
+  );
+}

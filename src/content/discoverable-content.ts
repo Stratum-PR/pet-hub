@@ -12,10 +12,13 @@
 export interface PricingTier {
   tier: string;
   name: string;
-  price: number;
+  /** Omit or null for "Contact us for custom pricing" (e.g. enterprise). */
+  price: number | null;
   description: string;
   features: string[];
   popular?: boolean;
+  /** If true, show Contact CTA instead of Start Trial (e.g. enterprise, manual/VIP only). */
+  contactUs?: boolean;
 }
 
 export const PRICING_TIERS: PricingTier[] = [
@@ -34,8 +37,8 @@ export const PRICING_TIERS: PricingTier[] = [
     popular: false,
   },
   {
-    tier: 'pro',
-    name: 'Pro',
+    tier: 'growth',
+    name: 'Growth',
     price: 79,
     description: 'Ideal for growing businesses',
     features: [
@@ -50,12 +53,12 @@ export const PRICING_TIERS: PricingTier[] = [
     popular: true,
   },
   {
-    tier: 'enterprise',
-    name: 'Enterprise',
+    tier: 'pro',
+    name: 'Pro',
     price: 199,
     description: 'For large operations',
     features: [
-      'Everything in Pro',
+      'Everything in Growth',
       'Custom integrations',
       'Dedicated account manager',
       '24/7 phone support',
@@ -64,6 +67,20 @@ export const PRICING_TIERS: PricingTier[] = [
       'API access',
     ],
     popular: false,
+  },
+  {
+    tier: 'enterprise',
+    name: 'Enterprise',
+    price: null,
+    description: 'Custom solutions for VIP and multi-location operations',
+    features: [
+      'Everything in Pro',
+      'Custom contracts',
+      'Dedicated success manager',
+      'SLA and custom terms',
+    ],
+    popular: false,
+    contactUs: true,
   },
 ];
 
@@ -115,7 +132,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     sections: [
       { heading: 'Intro', body: 'Simple, transparent pricing. Choose the plan that\'s right for your business. All plans include a 14-day free trial. No credit card required to start.' },
       ...PRICING_TIERS.flatMap((t) => [
-        { heading: `${t.name} - $${t.price}/month`, body: [t.description, ...t.features].join('. ') } as PageSection,
+        { heading: t.price != null ? `${t.name} - $${t.price}/month` : `${t.name} - Contact us for custom pricing`, body: [t.description, ...t.features].join('. ') } as PageSection,
       ]),
     ],
   },

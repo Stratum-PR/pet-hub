@@ -34,7 +34,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Scan, Search, Check, Plus, Upload } from 'lucide-react';
+import { Search, Check, Plus, Upload } from 'lucide-react';
+import { BarcodeScanIcon } from '@/components/icons/BarcodeScanIcon';
 import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -294,8 +295,17 @@ export function InventoryProductForm({
               onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
               placeholder={t('inventory.manualEntryPlaceholder') ?? 'Barcode or SKU'}
             />
-            <Button type="button" variant="outline" size="icon" title={t('inventory.scanBarcode')} onClick={() => setScanModalOpen(true)}>
-              <Scan className="w-4 h-4" />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="relative !h-9 !min-h-9 !w-auto !min-w-0 shrink-0 !rounded-lg border border-input bg-background p-0 aspect-[3/2] [&_svg]:!h-full [&_svg]:!w-full"
+              title={t('inventory.scanBarcode')}
+              onClick={() => setScanModalOpen(true)}
+            >
+              <span className="pointer-events-none absolute inset-1 flex items-center justify-center">
+                <BarcodeScanIcon />
+              </span>
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">{t('inventory.barcodeHelp')}</p>

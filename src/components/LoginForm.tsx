@@ -24,6 +24,7 @@ import {
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
 import { t } from '@/lib/translations';
+import { getBusinessClientLink, ensureBusinessClientLink } from '@/lib/businessClientLink';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -31,9 +32,12 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 export interface LoginFormProps {
   onLoginSuccess: (destination: string) => void;
   onClose?: () => void;
+  businessSlug?: string;
+  businessId?: string;
+  business?: Business | null;
 }
 
-export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
+export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, business }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -41,6 +45,8 @@ export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotMessage, setForgotMessage] = useState<'success' | 'too_many' | null>(null);
+  const [showNotLinked, setShowNotLinked] = useState(false);
+  const [linkLoading, setLinkLoading] = useState(false);
   const { refreshAuth } = useAuth();
 
   const getRedirectForAuthenticatedUser = async (): Promise<string> => {
@@ -184,13 +190,36 @@ export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setShowNotLinked(false);
     try {
       setDemoMode(false);
       const ok = await passwordLogin(email, password);
       if (ok) {
         await refreshAuth();
         toast.success('Signed in successfully');
-        const destination = await getRedirectForAuthenticatedUser();
+        let destination = await getRedirectForAuthenticatedUser();
+        if (destination === '/cliente' && businessSlug && businessId) {
+          const { data: { user: u } } = await supabase.auth.getUser();
+          if (u) {
+            try {
+              const link = await getBusinessClientLink(u.id, businessId);
+              if (link?.status === 'revoked') {
+                setShowNotLinked(true);
+                toast.error(t('login.revokedMessage', { businessName: business?.name ?? businessSlug }));
+                return;
+              }
+              if (!link || link.status !== 'approved') {
+                setShowNotLinked(true);
+                return;
+              }
+            } catch {
+              setShowNotLinked(true);
+              return;
+            }
+            destination = `/${businessSlug}/dashboard`;
+            if (business) setBusinessSlugForSession(business);
+          }
+        }
         onLoginSuccess(destination);
       }
     } catch (error: any) {
@@ -198,6 +227,23 @@ export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
       toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLinkMyAccount = async () => {
+    if (!businessSlug || !businessId) return;
+    setLinkLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await ensureBusinessClientLink(user.id, businessId, 'pet_owner');
+      if (business) setBusinessSlugForSession(business);
+      toast.success(t('register.linkSuccess'));
+      onLoginSuccess(`/${businessSlug}/dashboard`);
+    } catch (err) {
+      toast.error(t('register.errorGeneric'));
+    } finally {
+      setLinkLoading(false);
     }
   };
 
@@ -266,6 +312,22 @@ export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
           {loading ? t('login.signingIn') : t('login.signIn')}
         </Button>
       </form>
+
+      {showNotLinked && businessSlug && (
+        <div className="mt-4 p-4 rounded-lg border border-muted bg-muted/30 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {t('login.notLinkedMessage', { businessName: business?.name ?? businessSlug })}
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button onClick={handleLinkMyAccount} disabled={linkLoading} className="w-full">
+              {linkLoading ? t('register.creating') : t('login.linkMyAccount')}
+            </Button>
+            <Link to={businessSlug ? `/${businessSlug}/register` : '/registrarse'}>
+              <Button variant="outline" className="w-full">{t('register.createAccount')}</Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6">
         <div className="text-center text-sm text-muted-foreground mb-3">{t('login.demoPrompt')}</div>

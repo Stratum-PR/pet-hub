@@ -19,12 +19,13 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 18%;
 
-    /* Muted earthy green #6B8B70 */
+    /* Paw / brand olive #6B8B70 (loader uses currentColor = primary) */
     --primary: 127 18% 47%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 60 10% 93%;
-    --secondary-foreground: 0 0% 25%;
+    /* Warm clay — visible vs ~90% page bg; complements olive */
+    --secondary: 25 38% 72%;
+    --secondary-foreground: 0 0% 22%;
 
     --muted: 60 8% 91%;
     --muted-foreground: 0 0% 45%;
@@ -53,7 +54,8 @@
     --sidebar-ring: 127 18% 47%;
 
     --chart-1: 127 18% 47%;
-    --chart-2: 200 55% 55%;
+    /* Muted terracotta accent for charts (contrast vs olive primary) */
+    --chart-2: 18 38% 52%;
     --chart-3: 145 50% 45%;
     --chart-4: 180 45% 50%;
     --chart-5: 220 50% 60%;
@@ -100,11 +102,13 @@
     --popover: 200 20% 12%;
     --popover-foreground: 165 20% 95%;
 
-    --primary: 168 55% 50%;
+    /* Olive tuned for dark UI (same family as light paw green) */
+    --primary: 127 28% 52%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 200 20% 18%;
-    --secondary-foreground: 165 20% 90%;
+    /* Warm clay surface — readable on dark bg (not muddy / not invisible) */
+    --secondary: 26 22% 34%;
+    --secondary-foreground: 40 25% 96%;
 
     --muted: 200 15% 18%;
     --muted-foreground: 165 15% 60%;
@@ -117,19 +121,19 @@
 
     --border: 200 15% 25%;
     --input: 200 15% 25%;
-    --ring: 168 55% 50%;
+    --ring: 127 28% 52%;
 
     --sidebar-background: 200 20% 10%;
     --sidebar-foreground: 165 20% 95%;
-    --sidebar-primary: 168 55% 50%;
+    --sidebar-primary: 127 28% 52%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 200 30% 20%;
     --sidebar-accent-foreground: 200 50% 85%;
     --sidebar-border: 200 15% 25%;
-    --sidebar-ring: 168 55% 50%;
+    --sidebar-ring: 127 28% 52%;
 
-    --chart-1: 168 55% 55%;
-    --chart-2: 200 50% 60%;
+    --chart-1: 127 30% 55%;
+    --chart-2: 18 42% 58%;
     --chart-3: 145 45% 50%;
     --chart-4: 180 40% 55%;
     --chart-5: 220 45% 65%;
@@ -157,6 +161,11 @@
 @layer base {
   * {
     @apply border-border;
+  }
+
+  /* Prevent fixed paw / glow layers from widening the document (horizontal scrollbar). */
+  html {
+    overflow-x: hidden;
   }
 
   body {
@@ -194,9 +203,105 @@
   backdrop-filter: none;
 }
 
+/* Whitish glass strip above main content: search, filters, view toggles (see data-page-toolbar on pages) */
+@layer components {
+  [data-page-toolbar] {
+    @apply rounded-xl border border-border/50 bg-white/80 shadow-sm backdrop-blur-xl;
+    @apply px-3 py-2.5 sm:py-2;
+  }
+  .dark [data-page-toolbar] {
+    @apply border-border/60 bg-card/90 backdrop-blur-md;
+  }
+
+  /* Full-width bar (e.g. appointment book tabs) — same glass, no side radius */
+  .page-toolbar-strip {
+    @apply border-b border-border/50 bg-white/80 shadow-sm backdrop-blur-xl dark:bg-card/90 dark:backdrop-blur-md;
+  }
+}
+
+/* Glass surfaces: inputs, triggers, search, floating controls */
+.glass-control {
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.dark .glass-control {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Menus / popovers / command — same glass, slightly stronger for readability */
+.glass-popover {
+  background: rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.dark .glass-popover {
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
 /* Prevent background scroll when mobile menu is open */
 body.menu-open {
   overflow: hidden;
+}
+
+/* Layout footer: silver sweep across Stratum logo (class on mount at /:slug/dashboard via key remount) */
+.footer-logo-shine-mount {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.footer-logo-shine-mount::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -45%;
+  z-index: 3;
+  width: 42%;
+  height: calc(100% + 6px);
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 40%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0.12) 60%,
+    transparent 100%
+  );
+  animation: footer-logo-shine-move 0.95s ease-in-out 0.08s forwards;
+  animation-iteration-count: 1;
+  pointer-events: none;
+  border-radius: 3px;
+}
+
+.dark .footer-logo-shine-mount::after {
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 40%,
+    rgba(255, 255, 255, 0.65) 50%,
+    rgba(255, 255, 255, 0.06) 60%,
+    transparent 100%
+  );
+}
+
+@keyframes footer-logo-shine-move {
+  0% {
+    transform: translateX(0) skewX(-14deg);
+  }
+  100% {
+    transform: translateX(380%) skewX(-14deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-logo-shine-mount::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 /* Custom scrollbar for pet-friendly look */
@@ -283,11 +388,11 @@ body.menu-open {
   }
 }
 
-/* Dashboard pie chart: rotate in on load */
+/* Dashboard pie chart: gentle rotate/scale in (matches slower sector tween) */
 @keyframes pie-rotate-in {
   from {
     opacity: 0;
-    transform: rotate(-25deg) scale(0.92);
+    transform: rotate(-18deg) scale(0.94);
   }
   to {
     opacity: 1;
@@ -295,5 +400,5 @@ body.menu-open {
   }
 }
 .animate-pie-rotate-in {
-  animation: pie-rotate-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pie-rotate-in 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }

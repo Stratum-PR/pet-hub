@@ -6,7 +6,7 @@ interface AnimatedNumberProps {
   decimals?: number;
   prefix?: string;
   suffix?: string;
-  /** Format as currency (e.g. $1,234.56) */
+  /** Format as whole dollars (e.g. $1,235) */
   currency?: boolean;
   className?: string;
 }
@@ -52,7 +52,7 @@ export function AnimatedNumber({
   }, [value, duration]);
 
   const formatted = currency
-    ? display.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? Math.round(display).toLocaleString(undefined, { maximumFractionDigits: 0 })
     : decimals > 0
       ? display.toFixed(decimals)
       : Math.round(display).toLocaleString();

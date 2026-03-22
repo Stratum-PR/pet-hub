@@ -105,9 +105,18 @@
 }
 
 .pawprint-walking {
-  /* GPU acceleration for pawprints */
+  /* GPU hint — inline transform positions curved-path paws; avoid extra transform here */
   will-change: transform, opacity;
-  transform: translateZ(0);
+}
+
+/* Paw assets sit on transparent tiles (no white card behind prints) */
+.pet-paw-print {
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.pet-paw-print img {
+  background: transparent;
 }
 
 /* Alternative method: If screen blend mode doesn't work well, use multiply */

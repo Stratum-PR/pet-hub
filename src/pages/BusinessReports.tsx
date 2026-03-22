@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subDays, startOfDay } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { t } from '@/lib/translations';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 const SALE_STATUSES = ['paid', 'partial'];
 const REVENUE_PERIOD_DAYS = 30;
@@ -140,16 +141,9 @@ export function BusinessReports() {
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent loading={loading} loaderLabel={t('common.loading')}>
+    <div className="space-y-6">
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -265,5 +259,6 @@ export function BusinessReports() {
         </Card>
       </div>
     </div>
+    </PawLoadedContent>
   );
 }

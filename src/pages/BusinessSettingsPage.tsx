@@ -13,12 +13,15 @@ import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { isDemoMode } from '@/lib/authRouting';
+import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
+import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
 import { Download, Plus, Trash2, Upload, ZoomIn, ZoomOut, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { GeofencingSettings } from '@/components/GeofencingSettings';
 import { KioskManagerPinSettings } from '@/components/KioskManagerPinSettings';
 import { SidebarLogoPreview } from '@/components/SidebarLogoPreview';
 import { TimeKioskPreview } from '@/components/TimeKioskPreview';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import {
   Dialog,
   DialogContent,
@@ -65,6 +68,7 @@ function isPuertoRicoTaxSetup(rows: { label: string; rate: number }[]): boolean 
 export function BusinessSettingsPage() {
   const location = useLocation();
   const businessId = useBusinessId();
+  const demoLocalOnly = useDemoLocalSettingsMode();
   const { settings, updateSetting, refetch } = useSettings();
 
   // Punch clock / deep links: scroll to kiosk manager PIN when navigating with #kiosk-manager-pin
@@ -136,6 +140,14 @@ export function BusinessSettingsPage() {
 
   useEffect(() => {
     if (!businessId) return;
+    if (demoLocalOnly) {
+      const s = loadDemoStored(businessId);
+      if (s.receipt_header != null) setReceiptHeader(String(s.receipt_header));
+      if (s.receipt_footer != null) setReceiptFooter(String(s.receipt_footer));
+      if (s.business_phone != null) setBusinessPhone(String(s.business_phone));
+      if (s.business_address != null) setBusinessAddress(String(s.business_address));
+      return;
+    }
     Promise.all([
       supabase.from('receipt_settings' as any).select('*').eq('business_id', businessId).maybeSingle(),
       supabase
@@ -168,7 +180,20 @@ export function BusinessSettingsPage() {
         setCompanyLogoUrlDark(darkLogoUrl);
       }
     });
-  }, [businessId]);
+  }, [businessId, demoLocalOnly]);
+
+  useEffect(() => {
+    if (!businessId || !demoLocalOnly) return;
+    const light = settings.business_logo_url_light ?? settings.business_logo_url;
+    const dark = settings.business_logo_url_dark;
+    if (isDemoMode() && !light) {
+      setCompanyLogoUrlLight('/pet-hub-icon.svg');
+      setCompanyLogoUrlDark(null);
+    } else {
+      setCompanyLogoUrlLight(light ?? null);
+      setCompanyLogoUrlDark(dark ?? null);
+    }
+  }, [businessId, demoLocalOnly, settings.business_logo_url, settings.business_logo_url_light, settings.business_logo_url_dark]);
 
   useEffect(() => {
     setNavbarLogoMode((settings.navbar_logo_mode as any) || 'square');
@@ -207,6 +232,44 @@ export function BusinessSettingsPage() {
 
   useEffect(() => {
     if (!businessId) return;
+    if (demoLocalOnly) {
+      setTaxLoading(true);
+      const raw = loadDemoStored(businessId).demo_tax_rows;
+      try {
+        if (raw) {
+          const parsed = JSON.parse(raw) as TaxRow[];
+          const rows = parsed.map((r) => ({
+            id: r.id ?? null,
+            label: normalizeTaxLabelForStorage(r.label || ''),
+            rate: Number(r.rate) || 0,
+            applies_to: (r.applies_to || 'both') as TaxAppliesTo,
+            enabled: r.enabled !== false,
+            sort_order: r.sort_order ?? 0,
+          }));
+          if (rows.length === 0) {
+            setTaxMode(TAX_MODE_REGION);
+            setTaxRegion(REGION_PUERTO_RICO);
+            setCustomTaxRows([]);
+          } else if (isPuertoRicoTaxSetup(rows)) {
+            setTaxMode(TAX_MODE_REGION);
+            setTaxRegion(REGION_PUERTO_RICO);
+          } else {
+            setTaxMode(TAX_MODE_CUSTOM);
+            setCustomTaxRows(rows);
+          }
+        } else {
+          setTaxMode(TAX_MODE_REGION);
+          setTaxRegion(REGION_PUERTO_RICO);
+          setCustomTaxRows([]);
+        }
+      } catch {
+        setTaxMode(TAX_MODE_REGION);
+        setTaxRegion(REGION_PUERTO_RICO);
+        setCustomTaxRows([]);
+      }
+      setTaxLoading(false);
+      return;
+    }
     setTaxLoading(true);
     supabase
       .from('tax_settings' as any)
@@ -239,12 +302,31 @@ export function BusinessSettingsPage() {
           setCustomTaxRows(rows);
         }
       });
-  }, [businessId]);
+  }, [businessId, demoLocalOnly]);
 
   const handleSaveBusinessInfo = async () => {
     if (!businessId) return;
     setSavingBusinessInfo(true);
     try {
+      if (demoLocalOnly) {
+        const nameRes = await updateSetting('business_name', businessName.trim() || '');
+        if (!nameRes.ok) throw new Error(nameRes.error);
+        const hoursRes = await updateSetting('business_hours', serializeBusinessHours(hoursPerDay));
+        if (!hoursRes.ok) throw new Error(hoursRes.error);
+        const modeRes = await updateSetting('navbar_logo_mode', navbarLogoMode);
+        if (!modeRes.ok) throw new Error(modeRes.error);
+        const sizeNum = Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80));
+        const sizeRes = await updateSetting('navbar_logo_size_px', String(sizeNum));
+        if (!sizeRes.ok) throw new Error(sizeRes.error);
+        const tzRes = await updateSetting('timezone', businessTimezone.trim());
+        if (!tzRes.ok) throw new Error(tzRes.error);
+        patchDemoStored(businessId, {
+          business_phone: businessPhone.trim() || undefined,
+          business_address: businessAddress.trim() || undefined,
+        });
+        toast.success(t('businessSettings.businessInfoSaved'));
+        return;
+      }
       const { error: bizError } = await supabase
         .from('businesses')
         .update({
@@ -319,6 +401,14 @@ export function BusinessSettingsPage() {
 
   const handleSaveReceipt = async () => {
     if (!businessId) return;
+    if (demoLocalOnly) {
+      patchDemoStored(businessId, {
+        receipt_header: receiptHeader,
+        receipt_footer: receiptFooter,
+      });
+      toast.success(t('businessSettings.receiptSaved'));
+      return;
+    }
     const { error } = await supabase.from('receipt_settings' as any).upsert(
       {
         business_id: businessId,
@@ -379,8 +469,25 @@ export function BusinessSettingsPage() {
       ctx.drawImage(img, 0, 0, w, h);
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, file.type || 'image/png', 0.92));
       if (!blob) throw new Error('toBlob failed');
-      const ext = file.name.split('.').pop() || 'png';
       const variant = logoUploadVariant;
+      if (demoLocalOnly) {
+        const dataUrl = canvas.toDataURL(file.type || 'image/png', 0.92);
+        if (variant === 'light') {
+          const lr = await updateSetting('business_logo_url', dataUrl);
+          if (!lr.ok) throw new Error(lr.error || 'Failed saving logo');
+          const l2 = await updateSetting('business_logo_url_light', dataUrl);
+          if (!l2.ok) throw new Error(l2.error || 'Failed saving logo');
+          setCompanyLogoUrlLight(dataUrl);
+        } else {
+          const dr = await updateSetting('business_logo_url_dark', dataUrl);
+          if (!dr.ok) throw new Error(dr.error || 'Failed saving logo');
+          setCompanyLogoUrlDark(dataUrl);
+        }
+        toast.success(t('businessSettings.logoUploaded'));
+        closeLogoUploadPreview();
+        return;
+      }
+      const ext = file.name.split('.').pop() || 'png';
       const path = `${businessId}/logo_${variant}.${ext}`;
       const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, blob, { cacheControl: '3600', upsert: true });
       if (uploadError) throw uploadError;
@@ -426,6 +533,22 @@ export function BusinessSettingsPage() {
     if (!companyLogoUrl) return;
     setLogoUploading(true);
     try {
+      if (demoLocalOnly) {
+        if (variant === 'light') {
+          const a = await updateSetting('business_logo_url', null);
+          if (!a.ok) throw new Error(a.error);
+          const b = await updateSetting('business_logo_url_light', null);
+          if (!b.ok) throw new Error(b.error);
+          setCompanyLogoUrlLight(isDemoMode() ? '/pet-hub-icon.svg' : null);
+        } else {
+          const d = await updateSetting('business_logo_url_dark', null);
+          if (!d.ok) throw new Error(d.error);
+          setCompanyLogoUrlDark(null);
+        }
+        setCropZoomByVariant((prev) => ({ ...prev, [variant]: 1 }));
+        toast.success(t('businessSettings.logoDeleted'));
+        return;
+      }
       const pathMatch = companyLogoUrl.match(/\/storage\/v1\/object\/public\/business-logos\/(.+)$/);
       const path = pathMatch ? pathMatch[1] : null;
       if (path) await supabase.storage.from('business-logos').remove([path]);
@@ -476,6 +599,22 @@ export function BusinessSettingsPage() {
     }
     setTaxSaving(true);
     try {
+      if (demoLocalOnly) {
+        const persistRows: TaxRow[] = rows.map((r, i) => ({
+          ...(r as TaxRow),
+          id: (r as TaxRow).id ?? null,
+          label: normalizeTaxLabelForStorage((r as TaxRow).label.trim()),
+          sort_order: i,
+        }));
+        patchDemoStored(businessId, { demo_tax_rows: JSON.stringify(persistRows) });
+        toast.success(t('businessSettings.taxSaved'));
+        if (taxMode === TAX_MODE_CUSTOM) {
+          setCustomTaxRows(persistRows);
+        } else {
+          setTaxRegion(REGION_PUERTO_RICO);
+        }
+        return;
+      }
       await supabase.from('tax_settings' as any).delete().eq('business_id', businessId);
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i] as TaxRow;
@@ -933,7 +1072,9 @@ export function BusinessSettingsPage() {
           {taxMode === TAX_MODE_CUSTOM && (
             <>
               {taxLoading ? (
-                <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+                <div className="relative min-h-[200px] py-4">
+                  <PawStagedLoadingArea label={t('common.loading')} compact size="sm" />
+                </div>
               ) : (
                 <div className="space-y-3">
                   {customTaxRows.map((row, index) => (
@@ -1088,11 +1229,17 @@ export function BusinessSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Time Kiosk Settings */}
-      <div id="kiosk-manager-pin" className="space-y-6 scroll-mt-24">
-        <KioskManagerPinSettings />
-        <GeofencingSettings />
-      </div>
+      {/* Time Kiosk Settings — require a real account (no DB writes in public demo) */}
+      {demoLocalOnly ? (
+        <p className="text-sm text-muted-foreground max-w-xl">
+          {t('businessSettings.demoKioskGeofenceNote')}
+        </p>
+      ) : (
+        <div id="kiosk-manager-pin" className="space-y-6 scroll-mt-24">
+          <KioskManagerPinSettings />
+          <GeofencingSettings />
+        </div>
+      )}
 
       {/* Low stock and Data export side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

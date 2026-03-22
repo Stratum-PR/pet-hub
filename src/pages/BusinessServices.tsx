@@ -10,6 +10,7 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { APPOINTMENT_COLORS } from '@/types/calendar';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function BusinessServices() {
   const { services, loading, error, refetch, addService, updateService, deleteService } = useServices();
@@ -136,14 +137,6 @@ export function BusinessServices() {
     setEditingService(null);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="space-y-6">
@@ -159,7 +152,8 @@ export function BusinessServices() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PawLoadedContent loading={loading} loaderLabel={t('common.loading')}>
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <Button
           onClick={() => {
@@ -387,5 +381,6 @@ export function BusinessServices() {
         description={t('services.deleteServiceDescription')}
       />
     </div>
+    </PawLoadedContent>
   );
 }

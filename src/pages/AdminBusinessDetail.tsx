@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { ArrowLeft, Lock, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
+import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function AdminBusinessDetail() {
   const { id } = useParams<{ id: string }>();
@@ -87,15 +88,7 @@ export function AdminBusinessDetail() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!business) {
+  if (!loading && !business) {
     return (
       <div className="container mx-auto px-4 py-8">
         <p className="text-center text-muted-foreground">Business not found</p>
@@ -104,6 +97,7 @@ export function AdminBusinessDetail() {
   }
 
   return (
+    <PawLoadedContent loading={loading} loaderLabel="Loading business">
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
@@ -268,5 +262,6 @@ export function AdminBusinessDetail() {
         )}
       </main>
     </div>
+    </PawLoadedContent>
   );
 }

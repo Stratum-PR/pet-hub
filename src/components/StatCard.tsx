@@ -12,11 +12,25 @@ interface StatCardProps {
   animate?: boolean;
   /** Value is currency (animate from 0 to value) */
   currency?: boolean;
+  /** Shown before the animated number (e.g. "+" or "−") */
+  animatePrefix?: string;
+  /** Shown after the animated number (e.g. "%") */
+  animateSuffix?: string;
   /** Optional trend data for mini sparkline (e.g. [10, 12, 9, 14, 11]) */
   trendData?: number[];
 }
 
-export function StatCard({ title, value, icon: Icon, description, animate, currency, trendData }: StatCardProps) {
+export function StatCard({
+  title,
+  value,
+  icon: Icon,
+  description,
+  animate,
+  currency,
+  animatePrefix,
+  animateSuffix,
+  trendData,
+}: StatCardProps) {
   const isNumber = typeof value === 'number';
   const showAnimated = animate && isNumber;
   const sparklineData = trendData?.map((v, i) => ({ v, i })) ?? [];
@@ -31,9 +45,11 @@ export function StatCard({ title, value, icon: Icon, description, animate, curre
               {showAnimated ? (
                 <AnimatedNumber
                   value={value as number}
-                  duration={380}
-                  decimals={currency ? 2 : 0}
+                  duration={520}
+                  decimals={0}
                   currency={!!currency}
+                  prefix={animatePrefix ?? ''}
+                  suffix={animateSuffix ?? ''}
                 />
               ) : (
                 value

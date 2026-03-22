@@ -27,6 +27,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { t } from '@/lib/translations';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
+import { PawRevealEnter } from '@/components/PawRevealEnter';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
@@ -341,7 +343,9 @@ export function TransactionDetail() {
             {t('transactions.backToList')}
           </Link>
         </Button>
-        <p className="text-muted-foreground">Loading…</p>
+        <div className="relative min-h-[280px]">
+          <PawStagedLoadingArea label="Loading transaction" size="md" />
+        </div>
       </div>
     );
   }
@@ -430,7 +434,8 @@ export function TransactionDetail() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-3xl">
+    <PawRevealEnter className="max-w-3xl">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="ghost" size="icon" asChild>
@@ -865,5 +870,6 @@ export function TransactionDetail() {
         </DialogContent>
       </Dialog>
     </div>
+    </PawRevealEnter>
   );
 }

@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { validateCreatePayload, validateRefundPayload, validateUpdatePayload } from '@/lib/transactionValidation';
+import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
 import type {
   Transaction,
   TransactionLineItem,
@@ -70,13 +72,13 @@ const TRANSACTIONS_PAGE_SIZE = 50;
 const TRANSACTIONS_LIST_COLUMNS =
   'id,business_id,customer_id,appointment_id,staff_id,created_at,status,payment_method,payment_method_secondary,subtotal,discount_amount,discount_label,tip_amount,total,amount_tendered,change_given,transaction_number';
 
-function getDemoStorageKey(businessId: string): string {
+export function getDemoTransactionStorageKey(businessId: string): string {
   return `${DEMO_TX_STORAGE_KEY}-${businessId}`;
 }
 
 function loadDemoEntriesFromStorage(businessId: string): { transaction: Transaction; lineItems: TransactionLineItem[] }[] {
   try {
-    const raw = sessionStorage.getItem(getDemoStorageKey(businessId));
+    const raw = sessionStorage.getItem(getDemoTransactionStorageKey(businessId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -85,9 +87,15 @@ function loadDemoEntriesFromStorage(businessId: string): { transaction: Transact
   }
 }
 
+/** Demo local transactions in sessionStorage (same source as `useTransactions` merge). */
+export function loadDemoTransactionEntries(businessId: string): { transaction: Transaction; lineItems: TransactionLineItem[] }[] {
+  return loadDemoEntriesFromStorage(businessId);
+}
+
 export function useTransactions() {
   const businessId = useBusinessId();
   const { user } = useAuth();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const [serverTransactions, setServerTransactions] = useState<Transaction[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [localDemoEntries, setLocalDemoEntries] = useState<{ transaction: Transaction; lineItems: TransactionLineItem[] }[]>([]);
@@ -105,13 +113,23 @@ export function useTransactions() {
     receiptSettingsCacheRef.current = null;
   }, [businessId]);
 
-  // Sync demo transactions from sessionStorage when on demo route so list and detail see them
+  /** Load demo POS transactions from sessionStorage; seed sample sales when empty (logged-out /demo). */
   useEffect(() => {
-    if (isDemoLocalMode() && businessId) {
-      const stored = loadDemoEntriesFromStorage(businessId);
-      setLocalDemoEntries(stored);
+    if (!isDemoLocalMode() || !businessId) {
+      setLocalDemoEntries([]);
+      return;
     }
-  }, [businessId]);
+    let stored = loadDemoEntriesFromStorage(businessId);
+    if (stored.length === 0 && !user?.id) {
+      stored = buildDefaultDemoTransactionSeed(businessId);
+      try {
+        sessionStorage.setItem(getDemoTransactionStorageKey(businessId), JSON.stringify(stored));
+      } catch {
+        /* ignore quota / private mode */
+      }
+    }
+    setLocalDemoEntries(stored);
+  }, [businessId, user?.id]);
 
   const transactions = [
     ...localDemoEntries.map((e) => e.transaction),
@@ -321,7 +339,7 @@ export function useTransactions() {
       }));
       const newList = [{ transaction: created, lineItems }, ...currentEntries];
       setLocalDemoEntries(newList);
-      sessionStorage.setItem(getDemoStorageKey(businessId), JSON.stringify(newList));
+      sessionStorage.setItem(getDemoTransactionStorageKey(businessId), JSON.stringify(newList));
       return { data: created, error: null, lineItems };
     }
 
@@ -416,6 +434,10 @@ export function useTransactions() {
       setLocalDemoEntries((prev) => prev.map((e) => (e.transaction.id === id ? { ...e, transaction: { ...e.transaction, status } } : e)));
       return true;
     }
+    if (demoBrowseOnly) {
+      setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+      return true;
+    }
     const { data: current } = await supabase.from('transactions' as any).select('status').eq('id', id).eq('business_id', businessId).single();
     const { error } = await supabase.from('transactions' as any).update({ status, updated_at: new Date().toISOString() }).eq('id', id).eq('business_id', businessId);
     if (!error) {
@@ -445,6 +467,10 @@ export function useTransactions() {
           e.transaction.id === id ? { ...e, transaction: { ...e.transaction, ...patch } } : e
         )
       );
+      return true;
+    }
+    if (demoBrowseOnly) {
+      setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
       return true;
     }
     const { data: current } = await supabase.from('transactions' as any).select('payment_method, payment_method_secondary, total, amount_tendered, change_given, notes, status').eq('id', id).eq('business_id', businessId).single();
@@ -487,6 +513,26 @@ export function useTransactions() {
       const newStatus = amountCents >= entry.transaction.total ? 'refunded' : 'partial_refund';
       setLocalDemoEntries((prev) => prev.map((e) => (e.transaction.id === transactionId ? { ...e, transaction: { ...e.transaction, status: newStatus } } : e)));
       return { data: { id: 'local-refund-' + crypto.randomUUID(), transaction_id: transactionId, amount: amountCents, reason, created_at: new Date().toISOString(), staff_id: null, restock_applied: false }, error: null };
+    }
+    if (demoBrowseOnly) {
+      const txn = serverTransactions.find((t) => t.id === transactionId);
+      if (!txn) return { data: null, error: 'Transaction not found.' };
+      const newStatus = amountCents >= txn.total ? 'refunded' : 'partial_refund';
+      setServerTransactions((prev) =>
+        prev.map((t) => (t.id === transactionId ? { ...t, status: newStatus } : t))
+      );
+      return {
+        data: {
+          id: 'demo-refund-' + crypto.randomUUID(),
+          transaction_id: transactionId,
+          amount: amountCents,
+          reason,
+          created_at: new Date().toISOString(),
+          staff_id: null,
+          restock_applied: false,
+        },
+        error: null,
+      };
     }
     if (!user?.id) return { data: null, error: 'You must be signed in to issue a refund.' };
     const { data: txn, error: txnErr } = await supabase.from('transactions' as any).select('*').eq('id', transactionId).eq('business_id', businessId).single();

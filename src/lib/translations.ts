@@ -1,3 +1,5 @@
+import { DEMO_LANGUAGE_STORAGE_KEY, isDemoMode } from '@/lib/authRouting';
+
 export type Language = 'en' | 'es';
 
 export interface Translations {
@@ -30,8 +32,8 @@ export const translations: Translations = {
     es: 'Registro'
   },
   'landing.startFreeTrial': {
-    en: 'Start Free Trial',
-    es: 'Trial Gratis'
+    en: 'Sign Up',
+    es: 'Regístrate'
   },
   'landing.viewDemo': {
     en: 'View Demo',
@@ -126,8 +128,8 @@ export const translations: Translations = {
     es: 'Bienvenido de Nuevo'
   },
   'landing.modalSignUp': {
-    en: 'Start Free Trial',
-    es: 'Comenzar Prueba Gratis'
+    en: 'Sign Up',
+    es: 'Regístrate'
   },
 
   // Login page
@@ -138,6 +140,22 @@ export const translations: Translations = {
   'login.subtitle': {
     en: 'Sign in to your account',
     es: 'Inicia sesión en tu cuenta'
+  },
+  'login.subtitleBusiness': {
+    en: 'Sign in to access {businessName}',
+    es: 'Inicia sesión para acceder a {businessName}'
+  },
+  'login.notLinkedMessage': {
+    en: "We detected you have a Pet Hub account, but you're not linked to {businessName} yet. Would you like to link your account now?",
+    es: 'Ya tienes una cuenta de Pet Hub, pero no estás vinculado a {businessName}. ¿Quieres vincular tu cuenta ahora?'
+  },
+  'login.linkMyAccount': {
+    en: 'Link My Account',
+    es: 'Vincular mi cuenta'
+  },
+  'login.revokedMessage': {
+    en: 'Your access to {businessName} has been revoked. Please contact them for more information.',
+    es: 'Tu acceso a {businessName} ha sido revocado. Contáctalos para más información.'
   },
   'login.email': {
     en: 'Email',
@@ -233,37 +251,37 @@ export const translations: Translations = {
     en: 'Choose your subscription plan',
     es: 'Elige tu plan de suscripción'
   },
-  'register.planStarter': {
-    en: 'Free Starter',
-    es: 'Starter gratuito'
-  },
-  'register.planStarterDesc': {
-    en: 'Limited functionality (no limits applied yet)',
-    es: 'Funcionalidad limitada (por ahora sin límites)'
-  },
   'register.planBasic': {
     en: 'Basic',
     es: 'Básico'
+  },
+  'register.planGrowth': {
+    en: 'Growth',
+    es: 'Growth'
   },
   'register.planPro': {
     en: 'Pro',
     es: 'Pro'
   },
-  'register.planEnterprise': {
-    en: 'Enterprise',
-    es: 'Empresarial'
-  },
   'register.planBasicDesc': {
     en: 'For small grooming businesses',
     es: 'Para negocios de grooming pequeños'
   },
-  'register.planProDesc': {
+  'register.planGrowthDesc': {
     en: 'Ideal for growing businesses',
     es: 'Ideal para negocios en crecimiento'
   },
-  'register.planEnterpriseDesc': {
+  'register.planProDesc': {
     en: 'For large operations',
     es: 'Para operaciones grandes'
+  },
+  'register.planEnterprise': {
+    en: 'Enterprise',
+    es: 'Empresarial'
+  },
+  'register.planEnterpriseDesc': {
+    en: 'Custom solutions for VIP clients (contact us)',
+    es: 'Soluciones a medida para clientes VIP (contáctanos)'
   },
   'register.fullName': {
     en: 'Full name',
@@ -308,6 +326,54 @@ export const translations: Translations = {
   'register.errorEmailInUse': {
     en: 'This email is already registered.',
     es: 'Este correo ya está registrado.'
+  },
+  'register.errorEmailInUseOwner': {
+    en: 'This email is already registered. Log in here.',
+    es: 'Este correo ya está registrado. Inicia sesión aquí.'
+  },
+  'register.errorEmailInUseClient': {
+    en: "This email is already registered. If you're a client of a business, log in through the client portal.",
+    es: 'Este correo ya está registrado. Si eres cliente de un negocio, inicia sesión en el portal de clientes.'
+  },
+  'register.linkAccountTitle': {
+    en: 'Welcome back!',
+    es: '¡Bienvenido de nuevo!'
+  },
+  'register.linkAccountDescription': {
+    en: "We detected you already have a Pet Hub account with this email. To access {businessName}'s services, enter your existing password to link this business to your account.",
+    es: 'Ya tienes una cuenta de Pet Hub con este correo. Para acceder a los servicios de {businessName}, ingresa tu contraseña para vincular este negocio.'
+  },
+  'register.linkAccountButton': {
+    en: 'Link Account & Continue',
+    es: 'Vincular cuenta y continuar'
+  },
+  'register.linkAccountPrivacy': {
+    en: 'This will allow {businessName} to schedule appointments with you, view your contact information, and see pets you add. Your data from other businesses remains private.',
+    es: '{businessName} podrá agendar citas contigo, ver tu información de contacto y las mascotas que agregues. Tus datos de otros negocios siguen siendo privados.'
+  },
+  'register.linkIncorrectPassword': {
+    en: 'Incorrect password. Please try again or reset your password.',
+    es: 'Contraseña incorrecta. Intenta de nuevo o restablece tu contraseña.'
+  },
+  'register.linkVerifyEmailFirst': {
+    en: 'Please verify your email first. Check your inbox and spam folder.',
+    es: 'Verifica tu correo primero. Revisa tu bandeja y spam.'
+  },
+  'register.linkSuccess': {
+    en: 'Account linked successfully!',
+    es: '¡Cuenta vinculada correctamente!'
+  },
+  'register.linkedAndWelcome': {
+    en: 'Account created and linked. Welcome!',
+    es: 'Cuenta creada y vinculada. ¡Bienvenido!'
+  },
+  'register.linkAccountPrompt': {
+    en: 'This email is already registered. Enter your password below to link this business to your account.',
+    es: 'Este correo ya está registrado. Ingresa tu contraseña para vincular este negocio.'
+  },
+  'register.clientPortalLogin': {
+    en: 'Client portal login',
+    es: 'Iniciar sesión en el portal de clientes'
   },
 
   // Logout dialog
@@ -443,6 +509,46 @@ export const translations: Translations = {
     en: 'No notifications',
     es: 'Sin notificaciones'
   },
+  'notifications.pageTitle': {
+    en: 'Notifications',
+    es: 'Notificaciones'
+  },
+  'notifications.subtitle': {
+    en: 'Last 60 days',
+    es: 'Últimos 60 días'
+  },
+  'notifications.empty60Days': {
+    en: 'No notifications in the last 60 days',
+    es: 'No hay notificaciones en los últimos 60 días'
+  },
+  'notifications.yesterday': {
+    en: 'Yesterday',
+    es: 'Ayer'
+  },
+  'notifications.unread': {
+    en: 'Unread',
+    es: 'No leída'
+  },
+  'notifications.type.appointment': {
+    en: 'Appointment',
+    es: 'Cita'
+  },
+  'notifications.type.pet': {
+    en: 'Pet',
+    es: 'Mascota'
+  },
+  'notifications.type.inventory': {
+    en: 'Inventory',
+    es: 'Inventario'
+  },
+  'notifications.type.payment': {
+    en: 'Payment',
+    es: 'Pago'
+  },
+  'notifications.type.general': {
+    en: 'General',
+    es: 'General'
+  },
   'nav.user': {
     en: 'User',
     es: 'Usuario'
@@ -479,6 +585,50 @@ export const translations: Translations = {
     en: 'Log Out',
     es: 'Cerrar sesión'
   },
+  'layout.demoLocalSettingsHint': {
+    en: 'Demo: appearance and settings apply only in this browser — nothing is saved to the database.',
+    es: 'Demo: la apariencia y los ajustes solo aplican en este navegador — no se guardan en la base de datos.',
+  },
+  'layout.betaTooltip': {
+    en: "We're still refining Pet Hub. Your feedback is welcome!",
+    es: 'Seguimos puliendo Pet Hub. ¡Tu opinión es bienvenida!',
+  },
+  'layout.guestShort': {
+    en: 'Guest',
+    es: 'Invitado',
+  },
+  'layout.demoProfileMenuLabel': {
+    en: 'Demo · Manager preview',
+    es: 'Demo · Vista de gerente',
+  },
+  'layout.demoUserName': {
+    en: 'Demo User',
+    es: 'Usuario demo',
+  },
+  'layout.demoSignedInWorkspaceHint': {
+    en: 'This is a shared demo workspace: sample pets, appointments, and sales so you can explore the product safely. Nothing you change here is tied to a real business. Use Log out when you are done to leave the demo and return to the main site.',
+    es: 'Este es un espacio demo compartido: mascotas, citas y ventas de ejemplo para que explores el producto con seguridad. Nada de lo que cambies aquí pertenece a un negocio real. Usa Cerrar sesión cuando termines para salir del demo y volver al sitio principal.',
+  },
+  'layout.demoProfileMenuHint': {
+    en: 'You are not signed in. This is a read-only tour with sample data.',
+    es: 'No has iniciado sesión. Es un recorrido de solo lectura con datos de ejemplo.',
+  },
+  'layout.accountLabel': {
+    en: 'Account',
+    es: 'Cuenta',
+  },
+  'layout.woofButton': {
+    en: 'Woof!',
+    es: 'Woof!',
+  },
+  'layout.woofCooldownTooltip': {
+    en: 'Woof woof!',
+    es: '¡Woof woof!',
+  },
+  'businessSettings.demoKioskGeofenceNote': {
+    en: 'Kiosk PIN, geofencing, and similar options are available after you sign in with an account.',
+    es: 'El PIN del quiosco, geocercas y opciones similares están disponibles después de iniciar sesión con una cuenta.',
+  },
   'settings.backToMain': {
     en: 'Back to main',
     es: 'Volver al inicio'
@@ -509,6 +659,10 @@ export const translations: Translations = {
   'transactions.notesPlaceholder': { en: 'Optional internal note', es: 'Nota interna opcional' },
   'transactions.saveTransaction': { en: 'Save transaction', es: 'Guardar transacción' },
   'transactions.created': { en: 'Transaction created', es: 'Transacción creada' },
+  'transactions.emptyListHint': {
+    en: 'No transactions yet. Create one using New Transaction.',
+    es: 'Aún no hay transacciones. Crea una con Nueva transacción.',
+  },
   'transactions.addAtLeastOneItem': { en: 'Add at least one line item', es: 'Agrega al menos un ítem' },
   'transactions.receipt': { en: 'Receipt', es: 'Recibo' },
   'transactions.invoice': { en: 'Invoice', es: 'Factura' },
@@ -548,13 +702,28 @@ export const translations: Translations = {
   'transactions.historyCreated': { en: 'Transaction created', es: 'Transacción creada' },
 
   'accountSettings.description': { en: 'Manage your account and preferences', es: 'Administra tu cuenta y preferencias' },
+  'accountSettings.demoProfileTitle': { en: 'Demo profile', es: 'Perfil de demostración' },
+  'accountSettings.demoProfileDescription': {
+    en: 'You are exploring Pet Hub without signing in. The app shows sample business data. Appearance and some fields can be changed here, but they are stored only in this browser until you create an account.',
+    es: 'Estás explorando Pet Hub sin iniciar sesión. La app muestra datos de ejemplo del negocio. Puedes cambiar la apariencia y algunos campos aquí, pero se guardan solo en este navegador hasta que crees una cuenta.',
+  },
+  'accountSettings.demoProfileDisplayName': { en: 'Display name', es: 'Nombre mostrado' },
+  'accountSettings.demoProfileDisplayNameValue': { en: 'Demo manager (preview)', es: 'Gerente demo (vista previa)' },
+  'accountSettings.demoProfileRole': { en: 'Role', es: 'Rol' },
+  'accountSettings.demoProfileRoleValue': { en: 'Manager (full sample workspace)', es: 'Gerente (espacio de muestra completo)' },
+  'accountSettings.demoProfileEmail': { en: 'Email', es: 'Correo' },
+  'accountSettings.demoProfileEmailValue': { en: 'Not signed in — no account email', es: 'Sin sesión — sin correo de cuenta' },
+  'accountSettings.demoPasswordNote': {
+    en: 'Password and account security are available after you sign up or log in.',
+    es: 'La contraseña y la seguridad de la cuenta están disponibles después de registrarte o iniciar sesión.',
+  },
   'accountSettings.language': { en: 'Language', es: 'Idioma' },
   'accountSettings.languageDescription': { en: 'Choose your preferred language for the app', es: 'Elige el idioma de la aplicación' },
   'accountSettings.selectLanguage': { en: 'Select language', es: 'Seleccionar idioma' },
   'accountSettings.saveLanguage': { en: 'Save', es: 'Guardar' },
   'accountSettings.languageSavedRefresh': { en: 'Language saved. Refreshing to apply changes…', es: 'Idioma guardado. Actualizando para aplicar los cambios…' },
   'accountSettings.colorPalette': { en: 'Color palette', es: 'Paleta de colores' },
-  'accountSettings.colorPaletteDescription': { en: 'Set a primary brand color (HSL values, e.g. 168 60% 45%)', es: 'Establece un color de marca primario' },
+  'accountSettings.colorPaletteDescription': { en: 'Set a primary brand color (HSL values, e.g. 127 18% 47% for olive #6B8B70)', es: 'Establece un color de marca primario' },
   'accountSettings.primaryColor': { en: 'Primary color', es: 'Color primario' },
   'accountSettings.secondaryColor': { en: 'Secondary / Accent color', es: 'Color secundario / acento' },
   'accountSettings.colorPicker': { en: 'Color picker', es: 'Selector de color' },
@@ -1395,8 +1564,28 @@ export const translations: Translations = {
     es: 'Período'
   },
   'dashboard.topSellingServices': {
-    en: 'Top selling services',
-    es: 'Servicios más vendidos'
+    en: 'Top 3 selling services',
+    es: 'Top 3 servicios vendidos'
+  },
+  'dashboard.uncategorizedService': {
+    en: 'Other / unspecified',
+    es: 'Otros / sin especificar'
+  },
+  'dashboard.noTopServicesData': {
+    en: 'No service sales in this period yet. Record a paid transaction to see top services.',
+    es: 'Aún no hay ventas de servicios en este período. Registra una transacción pagada para ver los servicios más vendidos.'
+  },
+  'dashboard.topServiceTooltipRevenueLine': {
+    en: '{amount} from service lines',
+    es: '{amount} en líneas de servicio'
+  },
+  'dashboard.topServiceShareOfRevenue': {
+    en: '{pct}% of service revenue in this period',
+    es: '{pct}% de ingresos por servicios en este período'
+  },
+  'dashboard.topServiceShareOfAllSales': {
+    en: '{pct}% of all service sales this period',
+    es: '{pct}% de todas las ventas de servicio en el período'
   },
   'dashboard.clientType': {
     en: 'Client type',
@@ -1414,17 +1603,29 @@ export const translations: Translations = {
     en: 'Repeat',
     es: 'Recurrentes'
   },
-  'dashboard.tooltipNewCount': {
-    en: 'new',
-    es: 'nuevos'
+  'dashboard.tooltipNewClientsFull': {
+    en: '{n} new clients',
+    es: '{n} clientes nuevos'
   },
-  'dashboard.tooltipRepeatCount': {
-    en: 'repeat clients',
-    es: 'clientes recurrentes'
+  'dashboard.tooltipRepeatClientsFull': {
+    en: '{n} repeat clients',
+    es: '{n} clientes recurrentes'
   },
   'dashboard.servicesCompleted': {
-    en: 'Services completed',
-    es: 'Servicios completados'
+    en: 'Completed & billed',
+    es: 'Completados y facturados'
+  },
+  'dashboard.periodSalesCount': {
+    en: 'Sales in period',
+    es: 'Ventas en el período'
+  },
+  'dashboard.periodSalesHint': {
+    en: 'Paid and partial transactions in the selected range',
+    es: 'Transacciones pagadas y parciales en el rango seleccionado'
+  },
+  'diagnostics.demoUserShownAs': {
+    en: 'Headers on /demo show “Demo User”. Your real profile in Supabase is unchanged.',
+    es: 'Los encabezados en /demo muestran «Usuario demo». Tu perfil real en Supabase no cambia.',
   },
   'dashboard.quantity': {
     en: 'Quantity',
@@ -1668,7 +1869,15 @@ export const translations: Translations = {
     en: 'Edit Product',
     es: 'Editar Producto'
   },
-  
+  'inventory.editProductDescription': {
+    en: 'Update details, stock, and pricing for this product.',
+    es: 'Actualiza detalles, inventario y precios de este producto.'
+  },
+  'inventory.uploadPhoto': {
+    en: 'Upload or change photo',
+    es: 'Subir o cambiar foto'
+  },
+
   // Employee Management page
   'employeeManagement.title': {
     en: 'Employee Management',
@@ -3154,7 +3363,11 @@ let currentLanguage: Language = 'es';
 
 export const setLanguage = (lang: Language) => {
   currentLanguage = lang;
-  localStorage.setItem('language', lang);
+  if (typeof window !== 'undefined' && isDemoMode()) {
+    localStorage.setItem(DEMO_LANGUAGE_STORAGE_KEY, lang);
+  } else {
+    localStorage.setItem('language', lang);
+  }
   // Dispatch event to notify components
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('languagechange'));
@@ -3162,6 +3375,10 @@ export const setLanguage = (lang: Language) => {
 };
 
 export const getLanguage = (): Language => {
+  if (typeof window !== 'undefined' && isDemoMode()) {
+    const storedDemo = localStorage.getItem(DEMO_LANGUAGE_STORAGE_KEY) as Language;
+    return storedDemo || 'es';
+  }
   const stored = localStorage.getItem('language') as Language;
   // Default to Spanish (es) for Puerto Rico audience when nothing is stored
   return stored || 'es';

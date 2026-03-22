@@ -15,6 +15,7 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { toast } from 'sonner';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 
 interface GeofencingSettingsProps {
   onSave?: () => void;
@@ -132,8 +133,8 @@ export function GeofencingSettings({ onSave }: GeofencingSettingsProps) {
   if (loading) {
     return (
       <Card>
-        <CardContent className="py-8 text-center">
-          <p className="text-muted-foreground">Loading geofencing settings...</p>
+        <CardContent className="relative min-h-[220px] py-8 text-center">
+          <PawStagedLoadingArea label="Loading geofencing settings" compact size="sm" />
         </CardContent>
       </Card>
     );

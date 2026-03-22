@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Client, Pet, Employee, TimeEntry, EmployeeShift, Appointment, Service } from '@/types';
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
+import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
+import {
+  DEFAULT_PRIMARY_COLOR_HSL,
+  DEFAULT_SECONDARY_COLOR_HSL,
+} from '@/lib/defaultThemeColors';
 
 /** When true, data hooks cap rows to avoid loading thousands of rows on demo (e.g. seed appointments until March 2026). */
 function isDemoRoute(): boolean {
@@ -165,6 +172,7 @@ export function useClients() {
   const [error, setError] = useState<string | null>(null);
   const businessId = useBusinessId();
   const { profile } = useAuth();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const fetchClients = async () => {
     if (!businessId) {
@@ -258,6 +266,24 @@ export function useClients() {
       return null;
     }
 
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const newClient: Client = {
+        id: uuidv4(),
+        business_id: businessId,
+        first_name: clientData.first_name || '',
+        last_name: clientData.last_name || '',
+        email: clientData.email || '',
+        phone: clientData.phone || '',
+        address: clientData.address ?? '',
+        notes: clientData.notes ?? null,
+        created_at: now,
+        updated_at: now,
+      };
+      setClients([newClient, ...clients]);
+      return newClient;
+    }
+
     // Some deployments have clients.id without a DEFAULT (NOT NULL) → inserts fail unless we provide one.
     const newId = uuidv4();
 
@@ -307,6 +333,20 @@ export function useClients() {
       return null;
     }
 
+    if (demoBrowseOnly) {
+      const prev = clients.find((c) => c.id === id);
+      if (!prev) return null;
+      const updated: Client = {
+        ...prev,
+        ...clientData,
+        id: prev.id,
+        business_id: prev.business_id,
+        updated_at: new Date().toISOString(),
+      };
+      setClients(clients.map((c) => (c.id === id ? updated : c)));
+      return updated;
+    }
+
     const patch: Record<string, unknown> = {
       first_name: clientData.first_name,
       last_name: clientData.last_name,
@@ -354,6 +394,10 @@ export function useClients() {
       if (import.meta.env.DEV) console.warn('[useClients] deleteClient skipped: no businessId');
       return false;
     }
+    if (demoBrowseOnly) {
+      setClients(clients.filter((c) => c.id !== id));
+      return true;
+    }
     const { error } = await supabase
       .from('clients')
       .delete()
@@ -375,6 +419,7 @@ export function usePets() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const fetchPets = async () => {
     if (!businessId) {
@@ -454,6 +499,19 @@ export function usePets() {
   const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
 
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const newPet = {
+        id: uuidv4(),
+        ...petData,
+        business_id: businessId,
+        created_at: now,
+        updated_at: now,
+      } as Pet;
+      setPets([newPet, ...pets]);
+      return newPet;
+    }
+
     const { data, error } = await supabase
       .from('pets')
       .insert({ id: uuidv4(), ...petData, business_id: businessId })
@@ -487,6 +545,14 @@ export function usePets() {
 
   const updatePet = async (id: string, petData: Partial<Pet>) => {
     if (!businessId) return null;
+
+    if (demoBrowseOnly) {
+      const prev = pets.find((p) => p.id === id);
+      if (!prev) return null;
+      const updated = { ...prev, ...petData, id: prev.id } as Pet;
+      setPets(pets.map((p) => (p.id === id ? updated : p)));
+      return updated;
+    }
 
     const { data, error } = await supabase
       .from('pets')
@@ -522,6 +588,10 @@ export function usePets() {
   };
 
   const deletePet = async (id: string) => {
+    if (demoBrowseOnly) {
+      setPets(pets.filter((p) => p.id !== id));
+      return true;
+    }
     const { error } = await supabase
       .from('pets')
       .delete()
@@ -542,6 +612,7 @@ export function useEmployees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const fetchEmployees = async () => {
     if (!businessId) {
@@ -576,6 +647,27 @@ export function useEmployees() {
   }, [businessId]);
 
   const addEmployee = async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const row: Employee = {
+        id: uuidv4(),
+        business_id: businessId,
+        name: employeeData.name,
+        email: employeeData.email,
+        phone: employeeData.phone,
+        pin: employeeData.pin,
+        hourly_rate: employeeData.hourly_rate,
+        role: employeeData.role,
+        status: employeeData.status,
+        hire_date: (employeeData as any).hire_date ?? null,
+        last_date: (employeeData as any).last_date ?? null,
+        created_at: now,
+        updated_at: now,
+      } as Employee;
+      setEmployees([row, ...employees]);
+      return row;
+    }
     // Build payload with only columns known to the DB; add business_id.
     const payload: Record<string, unknown> = {
       id: uuidv4(),
@@ -609,6 +701,18 @@ export function useEmployees() {
   };
 
   const updateEmployee = async (id: string, employeeData: Partial<Employee>) => {
+    if (demoBrowseOnly) {
+      const prev = employees.find((e) => e.id === id);
+      if (!prev) return null;
+      const safeFields = ['name', 'email', 'phone', 'pin', 'hourly_rate', 'role', 'status', 'hire_date', 'last_date', 'pin_set_at', 'pin_required'] as const;
+      const next = { ...prev } as Employee;
+      for (const key of safeFields) {
+        if (key in employeeData) (next as any)[key] = (employeeData as any)[key];
+      }
+      next.updated_at = new Date().toISOString();
+      setEmployees(employees.map((e) => (e.id === id ? next : e)));
+      return next;
+    }
     // Only send known columns
     const safeFields = ['name', 'email', 'phone', 'pin', 'hourly_rate', 'role', 'status', 'hire_date', 'last_date', 'pin_set_at', 'pin_required'];
     const payload: Record<string, unknown> = {};
@@ -632,6 +736,10 @@ export function useEmployees() {
   };
 
   const deleteEmployee = async (id: string) => {
+    if (demoBrowseOnly) {
+      setEmployees(employees.filter((e) => e.id !== id));
+      return true;
+    }
     const { error } = await supabase
       .from('employees')
       .delete()
@@ -666,6 +774,7 @@ export function useTimeEntries() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const fetchTimeEntries = async () => {
     if (!businessId) {
@@ -719,6 +828,16 @@ export function useTimeEntries() {
   }, [businessId]);
 
   const clockIn = async (employeeId: string) => {
+    if (demoBrowseOnly) {
+      const row = {
+        id: uuidv4(),
+        employee_id: employeeId,
+        clock_in: new Date().toISOString(),
+        clock_out: null,
+      } as TimeEntry;
+      setTimeEntries([row, ...timeEntries]);
+      return row;
+    }
     const { data, error } = await supabase
       .from('time_entries')
       .insert({ id: uuidv4(), employee_id: employeeId })
@@ -733,6 +852,14 @@ export function useTimeEntries() {
   };
 
   const clockOut = async (entryId: string) => {
+    if (demoBrowseOnly) {
+      const out = new Date().toISOString();
+      const next = timeEntries.map((t) =>
+        t.id === entryId ? ({ ...t, clock_out: out } as TimeEntry) : t
+      );
+      setTimeEntries(next);
+      return (next.find((t) => t.id === entryId) as TimeEntry) ?? null;
+    }
     const { data, error } = await supabase
       .from('time_entries')
       .update({ clock_out: new Date().toISOString() })
@@ -752,6 +879,13 @@ export function useTimeEntries() {
   };
 
   const updateTimeEntry = async (id: string, entryData: Partial<TimeEntry>) => {
+    if (demoBrowseOnly) {
+      const prev = timeEntries.find((t) => t.id === id);
+      if (!prev) return null;
+      const data = { ...prev, ...entryData, id: prev.id } as TimeEntry;
+      setTimeEntries(timeEntries.map((t) => (t.id === id ? data : t)));
+      return data;
+    }
     const { data, error } = await supabase
       .from('time_entries')
       .update(entryData)
@@ -774,7 +908,12 @@ export function useTimeEntries() {
     if (clockOut) {
       entryData.clock_out = clockOut;
     }
-    
+    if (demoBrowseOnly) {
+      const row = { id: uuidv4(), ...entryData } as TimeEntry;
+      setTimeEntries([row, ...timeEntries]);
+      return row;
+    }
+
     const { data, error } = await supabase
       .from('time_entries')
       .insert({ id: uuidv4(), ...entryData })
@@ -794,6 +933,7 @@ export function useTimeEntries() {
 /** Fetch and mutate employee_shifts (scheduled shifts). Pass dateRange to scope calendar; optional employeeId for "My schedule". */
 export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: { start: Date; end: Date } }) {
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const [shifts, setShifts] = useState<EmployeeShift[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -818,9 +958,9 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
         .lt('start_time', end.toISOString())
         .gt('end_time', start.toISOString());
     }
-    const { data, err } = await query;
-    if (err) {
-      setError(err.message ?? 'Failed to load shifts');
+    const { data, error: shiftErr } = await query;
+    if (shiftErr) {
+      setError(shiftErr.message ?? 'Failed to load shifts');
     } else if (data) {
       setError(null);
       setShifts((data as EmployeeShift[]) ?? []);
@@ -840,6 +980,20 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
 
   const addShift = async (payload: { employee_id: string; start_time: string; end_time: string; notes?: string }) => {
     if (!businessId) return null;
+    if (demoBrowseOnly) {
+      const row: EmployeeShift = {
+        id: uuidv4(),
+        business_id: businessId,
+        employee_id: payload.employee_id,
+        start_time: payload.start_time,
+        end_time: payload.end_time,
+        notes: payload.notes ?? '',
+      } as EmployeeShift;
+      setShifts((prev) =>
+        [...prev, row].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      );
+      return row;
+    }
     const { data, error: err } = await supabase
       .from('employee_shifts')
       .insert({
@@ -861,6 +1015,15 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
   };
 
   const updateShift = async (id: string, payload: Partial<Pick<EmployeeShift, 'start_time' | 'end_time' | 'notes'>>): Promise<EmployeeShift | null> => {
+    if (demoBrowseOnly) {
+      const prev = shifts.find((s) => s.id === id);
+      if (!prev) throw new Error('Shift not found');
+      const data = { ...prev, ...payload, id: prev.id } as EmployeeShift;
+      setShifts((prevList) =>
+        prevList.map((s) => (s.id === id ? data : s)).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      );
+      return data;
+    }
     const { data, error: err } = await supabase
       .from('employee_shifts')
       .update(payload)
@@ -876,6 +1039,10 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
   };
 
   const deleteShift = async (id: string) => {
+    if (demoBrowseOnly) {
+      setShifts((prev) => prev.filter((s) => s.id !== id));
+      return true;
+    }
     const { error: err } = await supabase.from('employee_shifts').delete().eq('id', id);
     if (!err) {
       setShifts((prev) => prev.filter((s) => s.id !== id));
@@ -893,6 +1060,7 @@ export function useAppointments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const fetchAppointments = async () => {
     if (!businessId) {
@@ -972,6 +1140,22 @@ export function useAppointments() {
   }, [businessId]);
 
   const addAppointment = async (appointmentData: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => {
+    if (demoBrowseOnly) {
+      const now = new Date().toISOString();
+      const row = {
+        id: uuidv4(),
+        business_id: businessId,
+        ...appointmentData,
+        created_at: now,
+        updated_at: now,
+      } as Appointment;
+      setAppointments(
+        [...appointments, row].sort(
+          (a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime()
+        )
+      );
+      return row;
+    }
     const { data, error } = await supabase
       .from('appointments')
       .insert({ id: uuidv4(), business_id: businessId, ...appointmentData })
@@ -988,6 +1172,13 @@ export function useAppointments() {
   };
 
   const updateAppointment = async (id: string, appointmentData: Partial<Appointment>) => {
+    if (demoBrowseOnly) {
+      const prev = appointments.find((a) => a.id === id);
+      if (!prev) return null;
+      const data = { ...prev, ...appointmentData, id: prev.id } as Appointment;
+      setAppointments(appointments.map((a) => (a.id === id ? data : a)));
+      return data;
+    }
     const { data, error } = await supabase
       .from('appointments')
       .update(appointmentData)
@@ -1003,6 +1194,10 @@ export function useAppointments() {
   };
 
   const deleteAppointment = async (id: string) => {
+    if (demoBrowseOnly) {
+      setAppointments(appointments.filter((a) => a.id !== id));
+      return true;
+    }
     const { error } = await supabase
       .from('appointments')
       .delete()
@@ -1023,6 +1218,7 @@ export function useServices() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const fetchServices = async () => {
     if (!businessId) {
@@ -1078,6 +1274,19 @@ export function useServices() {
       if (import.meta.env.DEV) console.warn('[useServices] addService skipped: no businessId');
       return null;
     }
+    if (demoBrowseOnly) {
+      const row = {
+        id: uuidv4(),
+        business_id: businessId,
+        name: serviceData.name,
+        description: (serviceData as { description?: string }).description ?? null,
+        price: serviceData.price,
+        duration_minutes: serviceData.duration_minutes,
+        created_at: new Date().toISOString(),
+      } as Service;
+      setServices([...services, row].sort((a, b) => a.name.localeCompare(b.name)));
+      return row;
+    }
     // NOTE: `public.services` (in this project) does NOT have `category` or `cost` columns.
     const cleanData: Record<string, unknown> = {
       business_id: businessId,
@@ -1111,6 +1320,18 @@ export function useServices() {
       if (import.meta.env.DEV) console.warn('[useServices] updateService skipped: no businessId');
       return null;
     }
+    if (demoBrowseOnly) {
+      const prev = services.find((s) => s.id === id);
+      if (!prev) return null;
+      const patch = { ...serviceData };
+      delete (patch as Record<string, unknown>).category;
+      delete (patch as Record<string, unknown>).cost;
+      delete (patch as Record<string, unknown>).id;
+      delete (patch as Record<string, unknown>).created_at;
+      const data = { ...prev, ...patch, id: prev.id } as Service;
+      setServices(services.map((s) => (s.id === id ? data : s)));
+      return data;
+    }
     const patch = { ...serviceData };
     delete (patch as Record<string, unknown>).category;
     delete (patch as Record<string, unknown>).cost;
@@ -1140,6 +1361,10 @@ export function useServices() {
     if (!businessId) {
       if (import.meta.env.DEV) console.warn('[useServices] deleteService skipped: no businessId');
       return false;
+    }
+    if (demoBrowseOnly) {
+      setServices(services.filter((s) => s.id !== id));
+      return true;
     }
     const { error } = await supabase
       .from('services')
@@ -1182,13 +1407,21 @@ export interface Settings {
   pay_schedule_cadence_weeks: string;
 }
 
+function isUnauthenticatedDemoPath(pathname: string): boolean {
+  return pathname === '/demo' || pathname.startsWith('/demo/');
+}
+
 export function useSettings() {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  const demoLocalOnly = isUnauthenticatedDemoPath(pathname) && !user;
+
   const todayIso = new Date().toISOString().slice(0, 10);
   const [settings, setSettings] = useState<Settings>({
     business_name: 'Pet Hub',
     business_hours: '9:00 AM - 6:00 PM',
-    primary_color: '168 60% 45%',
-    secondary_color: '200 55% 55%',
+    primary_color: DEFAULT_PRIMARY_COLOR_HSL,
+    secondary_color: DEFAULT_SECONDARY_COLOR_HSL,
     business_logo_url: null,
     business_logo_url_light: null,
     business_logo_url_dark: null,
@@ -1204,6 +1437,7 @@ export function useSettings() {
 
   const fetchSettings = async () => {
     if (!businessId) return;
+    const mergeLocalDemo = isUnauthenticatedDemoPath(pathname) && !user;
 
     setLoading(true);
     const { data: business } = await supabase
@@ -1247,8 +1481,8 @@ export function useSettings() {
     const defaults = {
       business_name: business?.name ?? 'Pet Hub',
       business_hours: '9:00 AM - 6:00 PM',
-      primary_color: '168 60% 45%',
-      secondary_color: '200 55% 55%',
+      primary_color: DEFAULT_PRIMARY_COLOR_HSL,
+      secondary_color: DEFAULT_SECONDARY_COLOR_HSL,
       business_logo_url: null as string | null,
       business_logo_url_light: null as string | null,
       business_logo_url_dark: null as string | null,
@@ -1260,24 +1494,51 @@ export function useSettings() {
       pay_schedule_cadence_weeks: '2',
     };
 
-    if (!error && row) {
-      setSettings({
-        business_name: row.business_name ?? defaults.business_name,
-        business_hours: row.business_hours ?? defaults.business_hours,
-        primary_color: row.primary_color ?? defaults.primary_color,
-        secondary_color: row.secondary_color ?? defaults.secondary_color,
-        business_logo_url: row.business_logo_url ?? defaults.business_logo_url,
-        business_logo_url_light: row.business_logo_url_light ?? defaults.business_logo_url_light,
-        business_logo_url_dark: row.business_logo_url_dark ?? defaults.business_logo_url_dark,
-        navbar_logo_mode: row.navbar_logo_mode ?? defaults.navbar_logo_mode,
-        navbar_logo_size_px: String(row.navbar_logo_size_px ?? defaults.navbar_logo_size_px),
-        timezone: row.timezone ?? defaults.timezone,
-        default_low_stock_threshold: row.default_low_stock_threshold ?? defaults.default_low_stock_threshold,
-        pay_schedule_anchor_date: row.pay_schedule_anchor_date ?? defaults.pay_schedule_anchor_date,
-        pay_schedule_cadence_weeks: row.pay_schedule_cadence_weeks ?? defaults.pay_schedule_cadence_weeks,
-      });
+    const baseFromDb = !error && row
+      ? {
+          business_name: row.business_name ?? defaults.business_name,
+          business_hours: row.business_hours ?? defaults.business_hours,
+          primary_color: row.primary_color ?? defaults.primary_color,
+          secondary_color: row.secondary_color ?? defaults.secondary_color,
+          business_logo_url: row.business_logo_url ?? defaults.business_logo_url,
+          business_logo_url_light: row.business_logo_url_light ?? defaults.business_logo_url_light,
+          business_logo_url_dark: row.business_logo_url_dark ?? defaults.business_logo_url_dark,
+          navbar_logo_mode: row.navbar_logo_mode ?? defaults.navbar_logo_mode,
+          navbar_logo_size_px: String(row.navbar_logo_size_px ?? defaults.navbar_logo_size_px),
+          timezone: row.timezone ?? defaults.timezone,
+          default_low_stock_threshold: row.default_low_stock_threshold ?? defaults.default_low_stock_threshold,
+          pay_schedule_anchor_date: row.pay_schedule_anchor_date ?? defaults.pay_schedule_anchor_date,
+          pay_schedule_cadence_weeks: row.pay_schedule_cadence_weeks ?? defaults.pay_schedule_cadence_weeks,
+        }
+      : defaults;
+
+    if (mergeLocalDemo) {
+      const blob = loadDemoStored(businessId);
+      const keys = [
+        'business_name',
+        'business_hours',
+        'primary_color',
+        'secondary_color',
+        'business_logo_url',
+        'business_logo_url_light',
+        'business_logo_url_dark',
+        'navbar_logo_mode',
+        'navbar_logo_size_px',
+        'timezone',
+        'default_low_stock_threshold',
+        'pay_schedule_anchor_date',
+        'pay_schedule_cadence_weeks',
+      ] as const;
+      const merged = { ...baseFromDb } as Settings;
+      for (const k of keys) {
+        if (!Object.prototype.hasOwnProperty.call(blob, k)) continue;
+        const v = blob[k];
+        if (v === '') continue;
+        (merged as Record<string, unknown>)[k] = v as string | null;
+      }
+      setSettings(merged);
     } else {
-      setSettings(defaults);
+      setSettings(baseFromDb);
     }
     setLoading(false);
   };
@@ -1285,7 +1546,7 @@ export function useSettings() {
   useEffect(() => {
     if (!businessId) return; // wait for businessId to resolve
     fetchSettings();
-  }, [businessId]);
+  }, [businessId, demoLocalOnly, pathname, user?.id]);
 
   const settingsKeyToColumn: Record<string, string> = {
     business_name: 'business_name',
@@ -1308,6 +1569,12 @@ export function useSettings() {
     const column = settingsKeyToColumn[key];
     if (!column) return { ok: false, error: `Unknown setting key: ${key}` };
 
+    if (demoLocalOnly) {
+      patchDemoStored(businessId, { [key]: value ?? undefined });
+      setSettings((prev) => ({ ...prev, [key]: value } as Settings));
+      return { ok: true };
+    }
+
     const payload = { business_id: businessId, [column]: value };
     const { error } = await supabase
       .from('settings')
@@ -1323,6 +1590,17 @@ export function useSettings() {
 
   const saveAllSettings = async (newSettings: Partial<Settings>): Promise<{ ok: boolean; error?: string }> => {
     if (!businessId) return { ok: false, error: 'No business ID' };
+
+    if (demoLocalOnly) {
+      const patch: Record<string, string | null | undefined> = {};
+      for (const [k, v] of Object.entries(newSettings)) {
+        if (v === undefined) continue;
+        patch[k] = v as string | null;
+      }
+      patchDemoStored(businessId, patch);
+      setSettings((prev) => ({ ...prev, ...newSettings }));
+      return { ok: true };
+    }
 
     const payload: Record<string, unknown> = { business_id: businessId };
     const keys = [

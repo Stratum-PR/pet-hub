@@ -2,8 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "next-themes";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { DemoAwareThemeProvider } from "@/components/DemoAwareThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -27,13 +27,13 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="light" storageKey="pet-hub-theme">
-      <LanguageProvider>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-          <BrowserRouter>
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <DemoAwareThemeProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
             <NoIndexForProtectedRoutes />
             <ThemeGuard />
             <Routes>
@@ -43,8 +43,14 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/registrarse" element={<Register />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/cliente" element={<ClientPlaceholder />} />
+              {/* Legacy generic client portal path: redirect to main login. 
+                  Clients should log in through their business slug (/:businessSlug/login). */}
+              <Route path="/cliente" element={<Navigate to="/login" replace />} />
               <Route path="/signup/success" element={<SignupSuccess />} />
+
+              {/* Business-scoped client login/register (multi-business pet owner linking) */}
+              <Route path="/:businessSlug/login" element={<Login />} />
+              <Route path="/:businessSlug/register" element={<Register />} />
 
               {/* Business Routes (header-based app) */}
               <Route
@@ -79,11 +85,11 @@ const App = () => (
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
-          </TooltipProvider>
-        </AuthProvider>
-      </LanguageProvider>
-    </ThemeProvider>
+            </TooltipProvider>
+          </DemoAwareThemeProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
   </QueryClientProvider>
 );
 
