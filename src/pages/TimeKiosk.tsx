@@ -3,7 +3,8 @@
  * Full-screen kiosk interface for employee clock in/out
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Clock, LogIn, LogOut, User, AlertTriangle, X, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ export function TimeKiosk() {
   const [businessLogoLightUrl, setBusinessLogoLightUrl] = useState<string | null>(null);
   const [businessLogoDarkUrl, setBusinessLogoDarkUrl] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
+  const pinCaptureInputRef = useRef<HTMLInputElement>(null);
 
   // Lock the entire app into kiosk mode until a manager unlocks it.
   useEffect(() => {
@@ -304,25 +306,71 @@ export function TimeKiosk() {
     setPin('');
   }, []);
 
-  // Keyboard/numpad PIN entry: use e.key and e.code for numpad, capture phase so it works before buttons.
+  const getPinDigitFromKeyboard = useCallback((e: KeyboardEvent | ReactKeyboardEvent): string | null => {
+    if (e.key >= '0' && e.key <= '9') return e.key;
+    if (e.key.startsWith('Numpad') && e.key.length === 7) {
+      const d = e.key.slice(-1);
+      if (d >= '0' && d <= '9') return d;
+    }
+    const code = 'code' in e ? e.code : (e as KeyboardEvent).code;
+    if (code?.startsWith('Numpad') && code.length >= 7) {
+      const d = code.slice(-1);
+      if (d >= '0' && d <= '9') return d;
+    }
+    return null;
+  }, []);
+
+  const handlePinCaptureKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLInputElement>) => {
+      const digit = getPinDigitFromKeyboard(e);
+      if (digit !== null) {
+        setPin(prev => {
+          if (prev.length >= 4) return prev;
+          const next = prev + digit;
+          if (next.length === 4) setTimeout(() => handleVerifyPin(next), 0);
+          return next;
+        });
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (e.key === 'Backspace') {
+        setPin(prev => prev.slice(0, -1));
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    [getPinDigitFromKeyboard, handleVerifyPin]
+  );
+
+  // Focus capture field on PIN screen so the first physical key isn't lost to body/document.
   useEffect(() => {
-    if (state !== 'pin_entry') return;
-    const getDigit = (e: KeyboardEvent): string | null => {
-      if (e.key >= '0' && e.key <= '9') return e.key;
-      if (e.key.startsWith('Numpad') && e.key.length === 7) {
-        const d = e.key.slice(-1);
-        if (d >= '0' && d <= '9') return d;
-      }
-      if (e.code?.startsWith('Numpad') && e.code.length >= 7) {
-        const d = e.code.slice(-1);
-        if (d >= '0' && d <= '9') return d;
-      }
-      return null;
-    };
+    if (state !== 'pin_entry' || showManagerChoice) return;
+    const t = window.setTimeout(() => pinCaptureInputRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [state, showManagerChoice]);
+
+  // Keyboard/numpad PIN entry: digits/backspace work even when focus is on keypad buttons (they stay focused after tap).
+  useEffect(() => {
+    if (state !== 'pin_entry' || showManagerChoice) return;
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target === pinCaptureInputRef.current) return;
+
       const target = e.target as HTMLElement;
-      if (target?.closest('button') || target?.closest('a') || (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
-      const digit = getDigit(e);
+      const digit = getPinDigitFromKeyboard(e);
+      const isPinKey = digit !== null || e.key === 'Backspace';
+
+      if (!isPinKey) {
+        if (
+          target?.closest('button') ||
+          target?.closest('a') ||
+          (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+        ) {
+          return;
+        }
+        return;
+      }
+
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+
       if (digit !== null) {
         setPin(prev => {
           if (prev.length >= 4) return prev;
@@ -340,7 +388,7 @@ export function TimeKiosk() {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [state, handleVerifyPin]);
+  }, [state, showManagerChoice, getPinDigitFromKeyboard, handleVerifyPin]);
 
   // Render based on state
   return (
@@ -421,7 +469,18 @@ export function TimeKiosk() {
           <Card className="shadow-lg">
             <CardContent className="p-8">
               {state === 'pin_entry' && (
-                <div className="space-y-6">
+                <div className="space-y-6 relative">
+                  <input
+                    ref={pinCaptureInputRef}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    aria-label={t('timeTracking.enterPin')}
+                    tabIndex={0}
+                    className="absolute left-0 top-0 w-px h-px opacity-0 overflow-hidden"
+                    onKeyDown={handlePinCaptureKeyDown}
+                    readOnly
+                  />
                   {/* PIN Display */}
                   <div className="flex justify-center">
                     <div className="flex gap-2">
@@ -448,7 +507,6 @@ export function TimeKiosk() {
                     </Alert>
                   )}
 
-                  {/* Numeric Keypad */}
                   <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                       <Button
@@ -456,6 +514,7 @@ export function TimeKiosk() {
                         size="lg"
                         variant="outline"
                         className="h-20 text-2xl font-bold"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handlePinInput(num.toString())}
                       >
                         {num}
@@ -465,6 +524,7 @@ export function TimeKiosk() {
                       size="lg"
                       variant="outline"
                       className="h-20 text-xl"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={handleClear}
                     >
                       {t('timeKiosk.clear')}
@@ -473,6 +533,7 @@ export function TimeKiosk() {
                       size="lg"
                       variant="outline"
                       className="h-20 text-2xl font-bold"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handlePinInput('0')}
                     >
                       0
@@ -481,6 +542,7 @@ export function TimeKiosk() {
                       size="lg"
                       variant="outline"
                       className="h-20 text-xl"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={handleBackspace}
                     >
                       ←
