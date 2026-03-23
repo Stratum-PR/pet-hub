@@ -129,7 +129,12 @@ const Index = () => {
   const updateAppointmentWithNotification = async (id: string, data: Partial<import('@/types').Appointment>) => {
     const result = await updateAppointment(id, data);
     if (result && data.status === 'completed' && businessId) {
-      const updated = result as { transaction_id?: string | null; billed?: boolean };
+      const updated = result as {
+        transaction_id?: string | null;
+        billed?: boolean;
+        service_id?: string | null;
+        service_type?: string | null;
+      };
       if (!updated.transaction_id && !updated.billed && businessSlug) {
         const createTxn = window.confirm(
           'Appointment completed. Create a transaction for this appointment?'
@@ -139,9 +144,15 @@ const Index = () => {
           return result;
         }
         await createNotification(
-          'Appointment completed but not yet billed. Consider creating a transaction.',
+          updated.service_type
+            ? `${updated.service_type} completed but not yet billed. Consider creating a transaction.`
+            : 'Appointment completed but not yet billed. Consider creating a transaction.',
           businessId,
-          { appointmentId: id, type: 'appointment' }
+          {
+            appointmentId: id,
+            serviceId: updated.service_id ?? null,
+            type: updated.service_id ? 'service' : 'appointment',
+          }
         );
       }
     }

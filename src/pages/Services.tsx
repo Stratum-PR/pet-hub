@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, X, Edit, Trash2, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ interface ServicesProps {
 
 export function Services({ loading, services, onAddService, onUpdateService, onDeleteService }: ServicesProps) {
   const pageLoadRef = usePageLoadRef();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -88,6 +90,18 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
     });
     setShowForm(true);
   };
+
+  // Deep link from notifications: ?service=id
+  useEffect(() => {
+    const serviceId = searchParams.get('service');
+    if (!serviceId || services.length === 0) return;
+    const svc = services.find((s) => s.id === serviceId);
+    const next = new URLSearchParams(searchParams);
+    next.delete('service');
+    setSearchParams(next, { replace: true });
+    if (!svc) return;
+    handleEdit(svc);
+  }, [searchParams, services, setSearchParams]);
 
   const handleCancel = () => {
     setShowForm(false);

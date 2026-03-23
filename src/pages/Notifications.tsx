@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format, isToday, isYesterday } from 'date-fns';
 import { enUS, es } from 'date-fns/locale';
-import { Bell, Calendar, Dog, Package, DollarSign, Loader2 } from 'lucide-react';
+import { Bell, Calendar, Dog, Package, DollarSign, Cake, Scissors, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useNotifications, type NotificationRow } from '@/hooks/useNotifications';
@@ -25,6 +25,10 @@ function TypeIcon({ type, className }: { type: ResolvedNotificationType; classNa
       return <Package className={cls} aria-hidden />;
     case 'payment':
       return <DollarSign className={cls} aria-hidden />;
+    case 'service':
+      return <Scissors className={cls} aria-hidden />;
+    case 'birthday':
+      return <Cake className={cls} aria-hidden />;
     default:
       return <Bell className={cls} aria-hidden />;
   }
@@ -40,6 +44,10 @@ function typeTitleKey(type: ResolvedNotificationType): string {
       return 'notifications.type.inventory';
     case 'payment':
       return 'notifications.type.payment';
+    case 'service':
+      return 'notifications.type.service';
+    case 'birthday':
+      return 'notifications.type.birthday';
     default:
       return 'notifications.type.general';
   }
@@ -58,10 +66,15 @@ export function Notifications() {
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const { notifications, loading, markRead, markAllRead } = useNotifications();
   const locale = getLanguage() === 'es' ? es : enUS;
+  const [tab, setTab] = useState<'all' | 'unread'>('all');
+  const shownNotifications = useMemo(
+    () => (tab === 'unread' ? notifications.filter((n) => !n.read) : notifications),
+    [notifications, tab]
+  );
 
   const grouped = useMemo(() => {
     const groups: { key: string; label: string; items: NotificationRow[] }[] = [];
-    for (const n of notifications) {
+    for (const n of shownNotifications) {
       const d = new Date(n.created_at);
       const key = format(d, 'yyyy-MM-dd');
       const label = groupLabelForDate(d, locale);
@@ -70,12 +83,11 @@ export function Notifications() {
       else groups.push({ key, label, items: [n] });
     }
     return groups;
-  }, [notifications, locale]);
+  }, [shownNotifications, locale]);
 
   const hasUnread = notifications.some((n) => !n.read);
 
   const handleRowClick = async (n: NotificationRow) => {
-    if (!businessSlug) return;
     await markRead(n.id);
     navigate(getNotificationPath(n, businessSlug));
   };
@@ -97,12 +109,35 @@ export function Notifications() {
         </div>
         {hasUnread && (
           <Button type="button" variant="outline" size="sm" onClick={() => markAllRead()}>
-            {t('nav.markAllRead')}
+            {t('nav.dismissAll')}
           </Button>
         )}
       </div>
 
-      {notifications.length === 0 ? (
+      <div className="inline-flex w-fit overflow-hidden rounded-md border border-border/80 p-0.5">
+        <button
+          type="button"
+          onClick={() => setTab('all')}
+          className={cn(
+            'rounded px-3 py-1.5 text-xs font-medium transition-colors',
+            tab === 'all' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+          )}
+        >
+          {t('notifications.all')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('unread')}
+          className={cn(
+            'rounded px-3 py-1.5 text-xs font-medium transition-colors',
+            tab === 'unread' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+          )}
+        >
+          {t('notifications.unread')}
+        </button>
+      </div>
+
+      {shownNotifications.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             {t('notifications.empty60Days')}
@@ -121,9 +156,15 @@ export function Notifications() {
                       const timeStr = format(new Date(n.created_at), 'p', { locale });
                       return (
                         <li key={n.id}>
-                          <button
-                            type="button"
+                          <div
+                            role="button"
+                            tabIndex={0}
                             onClick={() => handleRowClick(n)}
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return;
+                              e.preventDefault();
+                              void handleRowClick(n);
+                            }}
                             className={cn(
                               'flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50',
                               !n.read && 'bg-primary/[0.06]'
@@ -156,7 +197,7 @@ export function Notifications() {
                                 <span>{t(typeTitleKey(kind))}</span>
                               </span>
                             </span>
-                          </button>
+                          </div>
                         </li>
                       );
                     })}

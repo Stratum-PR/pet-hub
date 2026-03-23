@@ -11,14 +11,11 @@ import {
   BarChart3,
   DollarSign,
   Scissors,
-  Settings,
   PanelLeftClose,
   PanelLeftOpen,
   Moon,
   Sun,
   Mail,
-  User,
-  CreditCard,
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
@@ -73,13 +70,6 @@ const reportsItems = [
   { path: 'reports/payroll', labelKey: 'nav.payroll', icon: DollarSign },
 ];
 
-const settingsItems = [
-  { path: 'settings/account', labelKey: 'nav.accountSettings', icon: User },
-  { path: 'settings/business', labelKey: 'nav.businessSettings', icon: Settings },
-  { path: 'settings/booking', labelKey: 'nav.bookingSettings', icon: Calendar },
-  { path: 'settings/billing', labelKey: 'nav.subscription', icon: CreditCard },
-];
-
 interface AppSidebarProps {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
@@ -106,7 +96,6 @@ export function AppSidebar({
   const { role } = useAuth();
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const scheduleLabelKey = role === 'employee' ? 'nav.mySchedule' : 'nav.schedule';
 
@@ -269,29 +258,6 @@ export function AppSidebar({
                 </DropdownMenuContent>
               </div>
             </DropdownMenu>
-            <DropdownMenu open={settingsOpen} onOpenChange={setSettingsOpen}>
-              <div
-                onMouseEnter={() => setSettingsOpen(true)}
-                onMouseLeave={() => setSettingsOpen(false)}
-              >
-                <DropdownMenuTrigger asChild>
-                  <button className={cn('w-full', linkClass(location.pathname.includes('/settings'), true))}>
-                    <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                      <Settings className="h-5 w-5 shrink-0" />
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start" className="w-48">
-                  {settingsItems.map((item) => (
-                    <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`} onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}>
-                        {t(item.labelKey)}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </div>
-            </DropdownMenu>
           </>
         ) : (
           <>
@@ -332,28 +298,6 @@ export function AppSidebar({
             <CollapsibleContent>
               <div className="ml-2 mt-2 space-y-2 border-l border-sidebar-border pl-3">
                 {reportsItems.map((item) => (
-                  <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
-                ))}
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-
-        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-          <div
-            onMouseEnter={() => setSettingsOpen(true)}
-            onMouseLeave={() => setSettingsOpen(false)}
-          >
-            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('/settings')))}>
-              <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                <Settings className="h-5 w-5 shrink-0" />
-              </span>
-              {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.settings')}</span>}
-              {(!collapsed || mobile) && (settingsOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="ml-2 mt-2 space-y-2 border-l border-sidebar-border pl-3">
-                {settingsItems.map((item) => (
                   <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
                 ))}
               </div>

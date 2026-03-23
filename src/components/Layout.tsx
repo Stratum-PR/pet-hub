@@ -1,4 +1,4 @@
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Menu, LogOut, Bell } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect } from 'react';
@@ -30,6 +30,7 @@ import { AppSidebar, getSidebarCollapsed, setSidebarCollapsed } from '@/componen
 import { PageTransition } from '@/components/PageTransition';
 import { usePageTransition } from '@/contexts/PageTransitionContext';
 import { cn } from '@/lib/utils';
+import { getNotificationPath } from '@/lib/notificationNavigation';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -73,10 +74,12 @@ function getPageTitle(pathname: string, businessSlug: string | undefined): strin
 
 export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { businessSlug } = useParams();
   const { isAdmin, profile } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
-  const { notifications } = useNotifications();
+  const { notifications, markRead, markAllRead } = useNotifications();
+  const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(getSidebarCollapsed);
@@ -164,6 +167,10 @@ export function Layout({ children, settings }: LayoutProps) {
   const logoDark = settings.business_logo_url_dark ?? settings.business_logo_url_light ?? settings.business_logo_url;
   const isDark = resolvedTheme === 'dark';
   const logoToShow = isDark ? logoDark : logoLight;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const recentAll = notifications.slice(0, 7);
+  const recentUnread = notifications.filter((n) => !n.read).slice(0, 7);
+  const recentNotifications = notificationTab === 'unread' ? recentUnread : recentAll;
 
   return (
     <>
@@ -228,21 +235,104 @@ export function Layout({ children, settings }: LayoutProps) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <Button variant="ghost" size="icon" className="relative" asChild>
-                <Link
-                  to={businessSlug ? `/${businessSlug}/notifications` : '/'}
-                  aria-label={t('nav.notifications')}
-                >
-                  <Bell className="w-4 h-4" />
-                  {notifications.filter((n) => !n.read).length > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-                      {notifications.filter((n) => !n.read).length > 9
-                        ? '9+'
-                        : notifications.filter((n) => !n.read).length}
-                    </span>
-                  )}
-                </Link>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative" aria-label={t('nav.notifications')}>
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[360px] p-0">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <DropdownMenuLabel className="p-0">{t('nav.notifications')}</DropdownMenuLabel>
+                    {unreadCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => markAllRead()}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        {t('nav.dismissAll')}
+                      </button>
+                    ) : null}
+                  </div>
+                  <DropdownMenuSeparator />
+                  <div className="px-3 py-2">
+                    <div className="inline-flex w-fit overflow-hidden rounded-md border border-border/80 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setNotificationTab('all')}
+                        className={cn(
+                          'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                          notificationTab === 'all'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {t('notifications.all')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotificationTab('unread')}
+                        className={cn(
+                          'rounded px-2.5 py-1 text-xs font-medium transition-colors',
+                          notificationTab === 'unread'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {t('notifications.unread')}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="max-h-[360px] overflow-y-auto px-1 pb-1">
+                    {recentNotifications.length === 0 ? (
+                      <p className="px-3 py-8 text-center text-sm text-muted-foreground">{t('nav.noNotifications')}</p>
+                    ) : (
+                      recentNotifications.map((n) => (
+                        <div
+                          key={n.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={async () => {
+                            await markRead(n.id);
+                            navigate(getNotificationPath(n, businessSlug));
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return;
+                            e.preventDefault();
+                            void (async () => {
+                              await markRead(n.id);
+                              navigate(getNotificationPath(n, businessSlug));
+                            })();
+                          }}
+                          className={cn(
+                            'mb-1 flex w-full items-start justify-between gap-3 rounded-md px-3 py-2 text-left hover:bg-muted/60',
+                            !n.read && 'bg-primary/[0.07]'
+                          )}
+                        >
+                          <p className={cn('line-clamp-2 text-sm text-foreground', !n.read && 'font-semibold')}>
+                            {n.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <DropdownMenuSeparator />
+                  <div className="p-2">
+                    <Button
+                      variant="ghost"
+                      className="h-8 w-full justify-center text-xs"
+                      onClick={() => navigate(businessSlug ? `/${businessSlug}/notifications` : '/notifications')}
+                    >
+                      {t('notifications.seeHistory')}
+                    </Button>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* User menu: full name as trigger — Log out only */}
               <DropdownMenu>
@@ -269,6 +359,39 @@ export function Layout({ children, settings }: LayoutProps) {
                       <DropdownMenuSeparator />
                     </>
                   )}
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to={`${settingsBase}/account`}
+                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
+                    >
+                      {t('nav.accountSettings')}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to={`${settingsBase}/business`}
+                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
+                    >
+                      {t('nav.businessSettings')}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to={`${settingsBase}/booking`}
+                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
+                    >
+                      {t('nav.bookingSettings')}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to={`${settingsBase}/billing`}
+                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
+                    >
+                      {t('nav.subscription')}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setLogoutDialogOpen(true)}
                     className="flex items-center gap-2 text-destructive cursor-pointer"
