@@ -63,6 +63,9 @@ export interface Employee {
   status: 'active' | 'inactive';
   hire_date?: string;
   last_date?: string;
+  /** Employee birthday (used for birthday notifications). */
+  birth_month?: number | null;
+  birth_day?: number | null;
   pin_set_at?: string;
   pin_required?: boolean;
   created_at: string;

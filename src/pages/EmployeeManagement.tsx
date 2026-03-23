@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock, Lock, RotateCcw, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,7 @@ export function EmployeeManagement({
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
@@ -52,6 +53,8 @@ export function EmployeeManagement({
     status: 'active' as 'active' | 'inactive',
     hire_date: '',
     last_date: '',
+    birth_month: '',
+    birth_day: '',
   });
   const [showPinInForm, setShowPinInForm] = useState(false);
 
@@ -100,6 +103,8 @@ export function EmployeeManagement({
       status: 'active',
       hire_date: '',
       last_date: '',
+      birth_month: '',
+      birth_day: '',
     });
     setShowPinInForm(false);
   };
@@ -127,6 +132,20 @@ export function EmployeeManagement({
       submitData.last_date = new Date(submitData.last_date).toISOString();
     } else {
       submitData.last_date = null;
+    }
+
+    // Convert birthday month/day to numbers or null.
+    if (submitData.birth_month) {
+      const m = parseInt(String(submitData.birth_month), 10);
+      submitData.birth_month = Number.isFinite(m) ? m : null;
+    } else {
+      submitData.birth_month = null;
+    }
+    if (submitData.birth_day) {
+      const d = parseInt(String(submitData.birth_day), 10);
+      submitData.birth_day = Number.isFinite(d) ? d : null;
+    } else {
+      submitData.birth_day = null;
     }
 
     // If PIN is being set/changed by manager, set pin_set_at timestamp
@@ -166,10 +185,24 @@ export function EmployeeManagement({
       status: employee.status,
       hire_date: employee.hire_date ? new Date(employee.hire_date).toISOString().split('T')[0] : '',
       last_date: employee.last_date ? new Date(employee.last_date).toISOString().split('T')[0] : '',
+      birth_month: employee.birth_month != null ? String(employee.birth_month) : '',
+      birth_day: employee.birth_day != null ? String(employee.birth_day) : '',
     });
     setShowPinInForm(false);
     setShowAddForm(true);
   };
+
+  // Deep link from notifications: ?employee=id
+  useEffect(() => {
+    const employeeId = searchParams.get('employee');
+    if (!employeeId || employees.length === 0) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('employee');
+    setSearchParams(next, { replace: true });
+    const emp = employees.find((e) => e.id === employeeId);
+    if (!emp) return;
+    handleEdit(emp);
+  }, [searchParams, employees, setSearchParams]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
@@ -396,6 +429,28 @@ export function EmployeeManagement({
                   </Select>
                 </div>
                 <div className="space-y-2">
+                  <Label>Birthday Month</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={formData.birth_month}
+                    onChange={(e) => setFormData({ ...formData, birth_month: e.target.value })}
+                    placeholder="1-12"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Birthday Day</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={formData.birth_day}
+                    onChange={(e) => setFormData({ ...formData, birth_day: e.target.value })}
+                    placeholder="1-31"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Hire Date</Label>
                   <Input
                     type="date"
@@ -471,6 +526,11 @@ export function EmployeeManagement({
                 )}
                 {employee.last_date && (
                   <p>Last Date: {new Date(employee.last_date).toLocaleDateString()}</p>
+                )}
+                {employee.birth_month != null && employee.birth_day != null && (
+                  <p>
+                    Birthday: {employee.birth_month}/{employee.birth_day}
+                  </p>
                 )}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">

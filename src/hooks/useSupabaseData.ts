@@ -662,6 +662,8 @@ export function useEmployees() {
         status: employeeData.status,
         hire_date: (employeeData as any).hire_date ?? null,
         last_date: (employeeData as any).last_date ?? null,
+        birth_month: (employeeData as any).birth_month ?? null,
+        birth_day: (employeeData as any).birth_day ?? null,
         created_at: now,
         updated_at: now,
       } as Employee;
@@ -681,6 +683,8 @@ export function useEmployees() {
       status: employeeData.status,
       hire_date: (employeeData as any).hire_date ?? null,
       last_date: (employeeData as any).last_date ?? null,
+      birth_month: (employeeData as any).birth_month ?? null,
+      birth_day: (employeeData as any).birth_day ?? null,
     };
 
     let { data, error } = await supabase.from('employees').insert(payload as any).select().single();
@@ -689,6 +693,8 @@ export function useEmployees() {
     if (error?.code === 'PGRST204') {
       delete payload.hire_date;
       delete payload.last_date;
+      delete payload.birth_month;
+      delete payload.birth_day;
       ({ data, error } = await supabase.from('employees').insert(payload as any).select().single());
     }
 
@@ -704,7 +710,21 @@ export function useEmployees() {
     if (demoBrowseOnly) {
       const prev = employees.find((e) => e.id === id);
       if (!prev) return null;
-      const safeFields = ['name', 'email', 'phone', 'pin', 'hourly_rate', 'role', 'status', 'hire_date', 'last_date', 'pin_set_at', 'pin_required'] as const;
+      const safeFields = [
+        'name',
+        'email',
+        'phone',
+        'pin',
+        'hourly_rate',
+        'role',
+        'status',
+        'hire_date',
+        'last_date',
+        'birth_month',
+        'birth_day',
+        'pin_set_at',
+        'pin_required',
+      ] as const;
       const next = { ...prev } as Employee;
       for (const key of safeFields) {
         if (key in employeeData) (next as any)[key] = (employeeData as any)[key];
@@ -714,7 +734,21 @@ export function useEmployees() {
       return next;
     }
     // Only send known columns
-    const safeFields = ['name', 'email', 'phone', 'pin', 'hourly_rate', 'role', 'status', 'hire_date', 'last_date', 'pin_set_at', 'pin_required'];
+    const safeFields = [
+      'name',
+      'email',
+      'phone',
+      'pin',
+      'hourly_rate',
+      'role',
+      'status',
+      'hire_date',
+      'last_date',
+      'birth_month',
+      'birth_day',
+      'pin_set_at',
+      'pin_required',
+    ];
     const payload: Record<string, unknown> = {};
     for (const key of safeFields) {
       if (key in employeeData) payload[key] = (employeeData as any)[key];
@@ -724,6 +758,8 @@ export function useEmployees() {
     if (error?.code === 'PGRST204') {
       delete payload.hire_date;
       delete payload.last_date;
+      delete payload.birth_month;
+      delete payload.birth_day;
       ({ data, error } = await supabase.from('employees').update(payload as any).eq('id', id).select().single());
     }
 
@@ -1405,6 +1441,16 @@ export interface Settings {
   pay_schedule_anchor_date: string;
   /** Pay cadence in weeks (e.g. '1' for weekly, '2' for bi-weekly). */
   pay_schedule_cadence_weeks: string;
+  /** Notification toggle: unbilled completed appointments. */
+  notify_appointment_unbilled: string;
+  /** Notification toggle: low stock inventory alerts. */
+  notify_inventory_low_stock: string;
+  /** Notification toggle: overdue partial payment alerts. */
+  notify_payment_overdue: string;
+  /** Notification toggle: birthday reminders. */
+  notify_birthdays: string;
+  /** Notification toggle: generic notices. */
+  notify_general: string;
 }
 
 function isUnauthenticatedDemoPath(pathname: string): boolean {
@@ -1431,6 +1477,11 @@ export function useSettings() {
     default_low_stock_threshold: '5',
     pay_schedule_anchor_date: todayIso,
     pay_schedule_cadence_weeks: '2',
+    notify_appointment_unbilled: 'true',
+    notify_inventory_low_stock: 'true',
+    notify_payment_overdue: 'true',
+    notify_birthdays: 'true',
+    notify_general: 'true',
   });
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
@@ -1449,7 +1500,7 @@ export function useSettings() {
     // Prefer full settings row, but fall back gracefully if newer columns
     // (e.g. timezone/logo variants) haven't been migrated in this environment yet.
     const fullSelect =
-      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
+      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general';
     const legacySelect =
       'business_name, business_hours, primary_color, secondary_color, business_logo_url, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
 
@@ -1492,6 +1543,11 @@ export function useSettings() {
       default_low_stock_threshold: '5',
       pay_schedule_anchor_date: todayIso,
       pay_schedule_cadence_weeks: '2',
+      notify_appointment_unbilled: 'true',
+      notify_inventory_low_stock: 'true',
+      notify_payment_overdue: 'true',
+      notify_birthdays: 'true',
+      notify_general: 'true',
     };
 
     const baseFromDb = !error && row
@@ -1509,6 +1565,11 @@ export function useSettings() {
           default_low_stock_threshold: row.default_low_stock_threshold ?? defaults.default_low_stock_threshold,
           pay_schedule_anchor_date: row.pay_schedule_anchor_date ?? defaults.pay_schedule_anchor_date,
           pay_schedule_cadence_weeks: row.pay_schedule_cadence_weeks ?? defaults.pay_schedule_cadence_weeks,
+          notify_appointment_unbilled: row.notify_appointment_unbilled ?? defaults.notify_appointment_unbilled,
+          notify_inventory_low_stock: row.notify_inventory_low_stock ?? defaults.notify_inventory_low_stock,
+          notify_payment_overdue: row.notify_payment_overdue ?? defaults.notify_payment_overdue,
+          notify_birthdays: row.notify_birthdays ?? defaults.notify_birthdays,
+          notify_general: row.notify_general ?? defaults.notify_general,
         }
       : defaults;
 
@@ -1528,6 +1589,11 @@ export function useSettings() {
         'default_low_stock_threshold',
         'pay_schedule_anchor_date',
         'pay_schedule_cadence_weeks',
+        'notify_appointment_unbilled',
+        'notify_inventory_low_stock',
+        'notify_payment_overdue',
+        'notify_birthdays',
+        'notify_general',
       ] as const;
       const merged = { ...baseFromDb } as Settings;
       for (const k of keys) {
@@ -1562,6 +1628,11 @@ export function useSettings() {
     default_low_stock_threshold: 'default_low_stock_threshold',
     pay_schedule_anchor_date: 'pay_schedule_anchor_date',
     pay_schedule_cadence_weeks: 'pay_schedule_cadence_weeks',
+    notify_appointment_unbilled: 'notify_appointment_unbilled',
+    notify_inventory_low_stock: 'notify_inventory_low_stock',
+    notify_payment_overdue: 'notify_payment_overdue',
+    notify_birthdays: 'notify_birthdays',
+    notify_general: 'notify_general',
   };
 
   const updateSetting = async (key: string, value: string | null): Promise<{ ok: boolean; error?: string }> => {
@@ -1617,6 +1688,11 @@ export function useSettings() {
       'default_low_stock_threshold',
       'pay_schedule_anchor_date',
       'pay_schedule_cadence_weeks',
+      'notify_appointment_unbilled',
+      'notify_inventory_low_stock',
+      'notify_payment_overdue',
+      'notify_birthdays',
+      'notify_general',
     ] as const;
     for (const k of keys) {
       const v = newSettings[k];

@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getPaymentStatusLabel } from '@/types/transactions';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 type TransactionStatus =
   | 'pending'
@@ -49,6 +51,7 @@ function centsToDollars(cents: number): string {
 export function Transactions() {
   const { businessSlug } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const businessId = useBusinessId();
   const { transactions: rawTransactions, loading, loadingMore, hasMore, loadMore, updateTransaction, error: fetchError, refetch } = useTransactions();
   const { clients } = useClientNames();
@@ -64,20 +67,61 @@ export function Transactions() {
 
   const notifiedUnpaidRef = useRef(false);
   useEffect(() => {
-    if (!businessId || !createNotification || rawTransactions.length === 0 || notifiedUnpaidRef.current) return;
+    if (!businessId || !createNotification || !user?.id || rawTransactions.length === 0) return;
     const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
-    const unpaid = rawTransactions.filter(
-      (t) => t.status === 'partial' && new Date(t.created_at).getTime() < twentyFourHoursAgo
-    );
-    if (unpaid.length > 0) {
-      notifiedUnpaidRef.current = true;
-      createNotification(
-        `${unpaid.length} transaction(s) have unpaid balance for more than 24 hours.`,
-        businessId,
-        { transactionId: unpaid[0].id, type: 'payment' }
+    const weeklyAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const run = async () => {
+      // Weekly reminder: only create if we haven't created any "payment" notification in the last 7 days.
+      const { data: recentPaymentNotifs } = await supabase
+        .from('notifications' as any)
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('business_id', businessId)
+        .eq('notification_type', 'payment')
+        .gte('created_at', weeklyAgoIso)
+        .limit(1);
+
+      if (recentPaymentNotifs && recentPaymentNotifs.length > 0) return;
+
+      const unpaid = rawTransactions.filter(
+        (t) => t.status === 'partial' && new Date(t.created_at).getTime() < twentyFourHoursAgo
       );
-    }
-  }, [businessId, createNotification, rawTransactions]);
+      if (unpaid.length === 0) return;
+
+      // Keep local guard to avoid rapid duplicate inserts while the effect is recomputing.
+      if (notifiedUnpaidRef.current) return;
+      notifiedUnpaidRef.current = true;
+
+      try {
+        const targetTransactionId = unpaid[0].id;
+
+        // Extra safety: don't recreate for the same transaction within the last 24 hours.
+        const { data: existing } = await supabase
+          .from('notifications' as any)
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('business_id', businessId)
+          .eq('notification_type', 'payment')
+          .eq('transaction_id', targetTransactionId)
+          .gte('created_at', new Date(twentyFourHoursAgo).toISOString())
+          .limit(1);
+
+        if (existing && existing.length > 0) return;
+
+        await createNotification(
+          `${unpaid.length} transaction(s) have unpaid balance for more than 24 hours.`,
+          businessId,
+          { transactionId: targetTransactionId, type: 'payment' }
+        );
+      } finally {
+        // Allow re-attempt after navigation / recompute. Weekly gate will block until 7 days pass.
+        notifiedUnpaidRef.current = false;
+      }
+    };
+
+    void run();
+  }, [businessId, createNotification, rawTransactions, user?.id]);
 
   const isFullyPaid = (txn: (typeof rawTransactions)[0]) =>
     (txn.amount_tendered ?? 0) >= txn.total || txn.status === 'paid' || txn.status === 'void' || txn.status === 'refunded' || txn.status === 'partial_refund';

@@ -505,6 +505,10 @@ export const translations: Translations = {
     en: 'Mark all read',
     es: 'Marcar todo leído'
   },
+  'nav.dismissAll': {
+    en: 'Dismiss all',
+    es: 'Descartar todo'
+  },
   'nav.noNotifications': {
     en: 'No notifications',
     es: 'Sin notificaciones'
@@ -529,6 +533,14 @@ export const translations: Translations = {
     en: 'Unread',
     es: 'No leída'
   },
+  'notifications.all': {
+    en: 'All',
+    es: 'Todas'
+  },
+  'notifications.seeHistory': {
+    en: 'See notification history',
+    es: 'Ver historial de notificaciones'
+  },
   'notifications.type.appointment': {
     en: 'Appointment',
     es: 'Cita'
@@ -545,9 +557,69 @@ export const translations: Translations = {
     en: 'Payment',
     es: 'Pago'
   },
+  'notifications.type.service': {
+    en: 'Service',
+    es: 'Servicio'
+  },
+  'notifications.type.birthday': {
+    en: 'Birthday',
+    es: 'Cumpleanos'
+  },
   'notifications.type.general': {
     en: 'General',
     es: 'General'
+  },
+  'notifications.settingsTitle': {
+    en: 'Notification Settings',
+    es: 'Configuracion de notificaciones'
+  },
+  'notifications.settingsDescription': {
+    en: 'Choose which notifications you want to receive.',
+    es: 'Elige que notificaciones deseas recibir.'
+  },
+  'notifications.settingsSaved': {
+    en: 'Notification settings saved',
+    es: 'Configuracion de notificaciones guardada'
+  },
+  'notifications.pref.unbilledAppointments': {
+    en: 'Completed appointments without billing',
+    es: 'Citas completadas sin facturacion'
+  },
+  'notifications.pref.unbilledAppointmentsDesc': {
+    en: 'Get alerted when a completed appointment has no transaction yet.',
+    es: 'Recibe alerta cuando una cita completada aun no tiene transaccion.'
+  },
+  'notifications.pref.lowStock': {
+    en: 'Low stock alerts',
+    es: 'Alertas de inventario bajo'
+  },
+  'notifications.pref.lowStockDesc': {
+    en: 'Notify when inventory reaches reorder levels.',
+    es: 'Notifica cuando el inventario llega al nivel de reorden.'
+  },
+  'notifications.pref.paymentOverdue': {
+    en: 'Overdue payment reminders',
+    es: 'Recordatorios de pagos vencidos'
+  },
+  'notifications.pref.paymentOverdueDesc': {
+    en: 'Notify when transactions remain partially unpaid.',
+    es: 'Notifica cuando una transaccion sigue parcialmente sin pagar.'
+  },
+  'notifications.pref.birthdays': {
+    en: 'Birthday reminders',
+    es: 'Recordatorios de cumpleanos'
+  },
+  'notifications.pref.birthdaysDesc': {
+    en: 'Monthly reminders for birthdays in your team.',
+    es: 'Recordatorios mensuales de cumpleaños en los registros de tu equipo.'
+  },
+  'notifications.pref.general': {
+    en: 'General notices',
+    es: 'Avisos generales'
+  },
+  'notifications.pref.generalDesc': {
+    en: 'Enable general operational reminders and updates.',
+    es: 'Activa recordatorios y actualizaciones generales.'
   },
   'nav.user': {
     en: 'User',

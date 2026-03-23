@@ -19,6 +19,7 @@ import {
 } from '@/lib/defaultThemeColors';
 import { Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 function hexToHsl(hex: string): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -149,6 +150,12 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
   const [savingColor, setSavingColor] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
+  const [notifyAppointmentUnbilled, setNotifyAppointmentUnbilled] = useState(settings.notify_appointment_unbilled !== 'false');
+  const [notifyInventoryLowStock, setNotifyInventoryLowStock] = useState(settings.notify_inventory_low_stock !== 'false');
+  const [notifyPaymentOverdue, setNotifyPaymentOverdue] = useState(settings.notify_payment_overdue !== 'false');
+  const [notifyBirthdays, setNotifyBirthdays] = useState(settings.notify_birthdays !== 'false');
+  const [notifyGeneral, setNotifyGeneral] = useState(settings.notify_general !== 'false');
+  const [savingNotifications, setSavingNotifications] = useState(false);
   const primaryColorInputRef = useRef<HTMLInputElement | null>(null);
   const secondaryColorInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -169,6 +176,20 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
   useEffect(() => {
     setSecondaryHex(hslToHex(secondaryColor));
   }, [secondaryColor]);
+
+  useEffect(() => {
+    setNotifyAppointmentUnbilled(settings.notify_appointment_unbilled !== 'false');
+    setNotifyInventoryLowStock(settings.notify_inventory_low_stock !== 'false');
+    setNotifyPaymentOverdue(settings.notify_payment_overdue !== 'false');
+    setNotifyBirthdays(settings.notify_birthdays !== 'false');
+    setNotifyGeneral(settings.notify_general !== 'false');
+  }, [
+    settings.notify_appointment_unbilled,
+    settings.notify_inventory_low_stock,
+    settings.notify_payment_overdue,
+    settings.notify_birthdays,
+    settings.notify_general,
+  ]);
 
   const applyPreview = (primary: string, secondary: string) => {
     const root = document.documentElement;
@@ -209,6 +230,20 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
       toast.success(t('accountSettings.colorSaved'));
       setSelectedThemeId(null);
     } else toast.error(result.error || t('common.genericError'));
+  };
+
+  const handleSaveNotifications = async () => {
+    setSavingNotifications(true);
+    const result = await onSaveSettings({
+      notify_appointment_unbilled: String(notifyAppointmentUnbilled),
+      notify_inventory_low_stock: String(notifyInventoryLowStock),
+      notify_payment_overdue: String(notifyPaymentOverdue),
+      notify_birthdays: String(notifyBirthdays),
+      notify_general: String(notifyGeneral),
+    });
+    setSavingNotifications(false);
+    if (result.ok) toast.success(t('notifications.settingsSaved'));
+    else toast.error(result.error || t('common.genericError'));
   };
 
   const handleThemePreview = (preset: (typeof THEME_PRESETS)[0]) => {
@@ -315,6 +350,53 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
             }}
           >
             {t('accountSettings.saveLanguage')}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('notifications.settingsTitle')}</CardTitle>
+          <CardDescription>{t('notifications.settingsDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">{t('notifications.pref.unbilledAppointments')}</p>
+              <p className="text-xs text-muted-foreground">{t('notifications.pref.unbilledAppointmentsDesc')}</p>
+            </div>
+            <Switch checked={notifyAppointmentUnbilled} onCheckedChange={setNotifyAppointmentUnbilled} />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">{t('notifications.pref.lowStock')}</p>
+              <p className="text-xs text-muted-foreground">{t('notifications.pref.lowStockDesc')}</p>
+            </div>
+            <Switch checked={notifyInventoryLowStock} onCheckedChange={setNotifyInventoryLowStock} />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">{t('notifications.pref.paymentOverdue')}</p>
+              <p className="text-xs text-muted-foreground">{t('notifications.pref.paymentOverdueDesc')}</p>
+            </div>
+            <Switch checked={notifyPaymentOverdue} onCheckedChange={setNotifyPaymentOverdue} />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">{t('notifications.pref.birthdays')}</p>
+              <p className="text-xs text-muted-foreground">{t('notifications.pref.birthdaysDesc')}</p>
+            </div>
+            <Switch checked={notifyBirthdays} onCheckedChange={setNotifyBirthdays} />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">{t('notifications.pref.general')}</p>
+              <p className="text-xs text-muted-foreground">{t('notifications.pref.generalDesc')}</p>
+            </div>
+            <Switch checked={notifyGeneral} onCheckedChange={setNotifyGeneral} />
+          </div>
+          <Button onClick={handleSaveNotifications} disabled={savingNotifications}>
+            {savingNotifications ? t('common.saving') : t('common.save')}
           </Button>
         </CardContent>
       </Card>
