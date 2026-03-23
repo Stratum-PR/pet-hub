@@ -120,7 +120,11 @@ const Index = () => {
   };
 
   const dashboardDataLoading =
-    clientsLoading || petsLoading || employeesLoading || appointmentsLoading;
+    clientsLoading ||
+    petsLoading ||
+    employeesLoading ||
+    appointmentsLoading ||
+    inventoryLoading;
 
   const updateAppointmentWithNotification = async (id: string, data: Partial<import('@/types').Appointment>) => {
     const result = await updateAppointment(id, data);
@@ -170,6 +174,8 @@ const Index = () => {
                   pets={pets}
                   employees={employees}
                   appointments={appointments}
+                  products={products}
+                  defaultLowStockThreshold={defaultLow}
                   dataLoading={dashboardDataLoading}
                 />
               }

@@ -166,6 +166,7 @@ export function Layout({ children, settings }: LayoutProps) {
   const logoToShow = isDark ? logoDark : logoLight;
 
   return (
+    <>
     <div className="h-screen overflow-hidden flex flex-col bg-background">
       {showAdminHeader && <AdminImpersonationHeader />}
 
@@ -364,8 +365,9 @@ export function Layout({ children, settings }: LayoutProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <PetAnimations />
     </div>
+    {/* Outside overflow-hidden root so fixed paw overlays aren’t clipped mid-viewport */}
+    <PetAnimations />
+    </>
   );
 }

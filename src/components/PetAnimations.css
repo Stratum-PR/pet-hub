@@ -143,6 +143,7 @@
 /* Ensure animations don't interfere with page interactions */
 .pet-animations-container {
   pointer-events: none;
+  overflow: visible;
 }
 
 .pet-animations-container > * {

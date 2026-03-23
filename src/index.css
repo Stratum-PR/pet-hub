@@ -388,11 +388,11 @@ body.menu-open {
   }
 }
 
-/* Dashboard pie chart: gentle rotate/scale in (matches slower sector tween) */
+/* Dashboard pie chart: quick rotate/scale in (kept short vs Recharts sector tween) */
 @keyframes pie-rotate-in {
   from {
     opacity: 0;
-    transform: rotate(-18deg) scale(0.94);
+    transform: rotate(-12deg) scale(0.96);
   }
   to {
     opacity: 1;
@@ -400,5 +400,12 @@ body.menu-open {
   }
 }
 .animate-pie-rotate-in {
-  animation: pie-rotate-in 1.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: pie-rotate-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pie-rotate-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }

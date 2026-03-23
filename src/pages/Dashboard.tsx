@@ -1,6 +1,6 @@
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { Dog, Calendar, TrendingUp, Clock, ChevronDown, Receipt } from 'lucide-react';
+import { Package, Calendar, TrendingUp, Clock, ChevronDown, AlertTriangle } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,12 +27,16 @@ import { cn } from '@/lib/utils';
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { dashboardStaggerDelayMs } from '@/lib/dashboardEnterAnimation';
 import { DashboardRevenueChart } from '@/components/DashboardRevenueChart';
+import type { Product } from '@/types/inventory';
 
 interface DashboardProps {
   clients: Client[];
   pets: Pet[];
   employees: Employee[];
   appointments: Appointment[];
+  products?: Product[];
+  /** Matches Inventory / business settings default reorder hint */
+  defaultLowStockThreshold?: number;
   onSelectClient?: (clientId: string) => void;
   /** True while clients / pets / employees / appointments hooks are still fetching */
   dataLoading?: boolean;
@@ -102,10 +106,13 @@ function TopServiceRevenueBar({
   fillPercent,
   delayMs,
   backgroundColor,
+  trackClassName = 'h-2.5',
 }: {
   fillPercent: number;
   delayMs: number;
   backgroundColor: string;
+  /** Track height (taller bars in expanded top-services card). */
+  trackClassName?: string;
 }) {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -116,7 +123,7 @@ function TopServiceRevenueBar({
     return () => clearTimeout(t);
   }, [fillPercent, delayMs]);
   return (
-    <div className="flex-1 min-w-0 h-2.5 flex items-center">
+    <div className={cn('flex-1 min-w-0 flex items-center', trackClassName)}>
       <div
         className="h-full min-w-0 rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none"
         style={{
@@ -174,11 +181,34 @@ function useTransactionStats(transactions: { status: string; total: number; crea
 
 const TODAY_APPOINTMENTS_DISPLAY_MAX = 5;
 
+/** Placeholder row matching appointment slot height when list is short or empty */
+function AppointmentSlotPlaceholder() {
+  return (
+    <div
+      className="flex items-center justify-between p-2.5 rounded-lg border border-dashed border-border/50 bg-muted/15"
+      aria-hidden
+    >
+      <div className="flex-1 space-y-1.5 min-w-0 pr-2">
+        <div className="h-3.5 w-[45%] max-w-[7rem] rounded-md bg-muted/45" />
+        <div className="h-3 w-[72%] max-w-[11rem] rounded-md bg-muted/30" />
+      </div>
+      <div className="h-5 w-12 rounded-md bg-muted/35 shrink-0" />
+    </div>
+  );
+}
+
+function reorderThresholdForProduct(p: Product, defaultLow: number): number {
+  if (p.reorder_level != null && p.reorder_level >= 0) return p.reorder_level;
+  return defaultLow;
+}
+
 export function Dashboard({
   clients,
   pets,
   employees,
   appointments,
+  products = [],
+  defaultLowStockThreshold = 5,
   onSelectClient,
   dataLoading = false,
 }: DashboardProps) {
@@ -190,9 +220,12 @@ export function Dashboard({
   const dateLocale = language === 'es' ? dateFnsEs : undefined;
   const { revenueLast30Days, todayRevenue, growthPct, todayTransactionCount } = useTransactionStats(transactions);
 
-  const recentPets = pets.slice(0, 5);
-  const dogCount = pets.filter(p => p.species === 'dog').length;
-  const catCount = pets.filter(p => p.species === 'cat').length;
+  const lowStockProducts = useMemo(() => {
+    return products
+      .filter((p) => p.quantity <= reorderThresholdForProduct(p, defaultLowStockThreshold))
+      .sort((a, b) => a.quantity - b.quantity || a.name.localeCompare(b.name))
+      .slice(0, 16);
+  }, [products, defaultLowStockThreshold]);
 
   const activeEmployees = employees.filter(e => e.status === 'active').length;
   const todayAppointments = appointments.filter(a => {
@@ -278,12 +311,24 @@ export function Dashboard({
   useEffect(() => {
     const el = pieContainerRef.current;
     if (!el) return;
+    const apply = (width: number, height: number) => {
+      setPieSize((prev) =>
+        width > 0 || height > 0 ? { w: width, h: height } : prev
+      );
+    };
     const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0]?.contentRect ?? { width: 0, height: 0 };
-      setPieSize({ w: width, h: height });
+      apply(width, height);
     });
     ro.observe(el);
-    return () => ro.disconnect();
+    const raf = requestAnimationFrame(() => {
+      const r = el.getBoundingClientRect();
+      apply(r.width, r.height);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -301,31 +346,6 @@ export function Dashboard({
       return startOfDay(customRangeEnd);
     return today;
   }, [dashboardPeriod, customRangeStart, customRangeEnd, today]);
-
-  const [periodSalesCount, setPeriodSalesCount] = useState<number | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    if (!businessId) {
-      setPeriodSalesCount(null);
-      return;
-    }
-    const startIso = startOfDay(periodStart).toISOString();
-    const endExclusive = addDays(startOfDay(periodEnd), 1).toISOString();
-    setPeriodSalesCount(null);
-    void (async () => {
-      const { count, error } = await supabase
-        .from('transactions' as any)
-        .select('*', { count: 'exact', head: true })
-        .eq('business_id', businessId)
-        .in('status', ['paid', 'partial'])
-        .gte('created_at', startIso)
-        .lt('created_at', endExclusive);
-      if (!cancelled) setPeriodSalesCount(error ? 0 : count ?? 0);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [businessId, periodStart, periodEnd]);
 
   /**
    * Revenue line: fixed window — up to 12 calendar months ending in the current month.
@@ -565,12 +585,12 @@ export function Dashboard({
     };
   }, [businessId, periodStart, periodEnd, language]);
 
-  /** Once true, stay true until business changes — avoids paw flicker when hooks refetch in the background. */
+  /**
+   * Base dashboard data (appointments, clients, transactions list, pie, revenue chart).
+   * Top selling services loads in the background — that card already has its own loading UI.
+   */
   const dashboardCoreReady =
-    Boolean(businessId) &&
-    !dataLoading &&
-    !transactionsLoading &&
-    revenueTopServices !== 'loading';
+    Boolean(businessId) && !dataLoading && !transactionsLoading;
   const [pawLifted, setPawLifted] = useState(false);
   const [chartEnterKey, setChartEnterKey] = useState(0);
   /** Ignore transient `businessId === null` (slug/auth races) so the paw overlay does not flash off/on. */
@@ -737,19 +757,109 @@ export function Dashboard({
       {/* Stats row: cards left→right top→bottom */}
       <div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" data-transition-containers>
-          {/* Card 1: New vs Repeat clients (pie) */}
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-1`} index={1}>
+          {/* Card 1: Top selling — same row height as client-type / KPI cards (no fixed aspect) */}
+          <DashboardStaggerItem
+            key={`dsk-${chartEnterKey}-1`}
+            index={1}
+            className="min-w-0 sm:col-span-2 lg:col-span-3 xl:col-span-2 h-full min-h-0"
+          >
+          <Link
+            to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
+            className="block cursor-pointer w-full h-full min-h-0 max-w-full lg:mx-auto lg:max-w-[min(100%,20rem)] xl:mx-0 xl:max-w-none"
+          >
+            <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full w-full flex flex-col overflow-hidden">
+              <CardContent className="p-2.5 sm:p-3 flex flex-col gap-1.5 flex-1 min-h-0 overflow-hidden">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider leading-tight shrink-0">
+                  {t('dashboard.topSellingServices')}
+                </p>
+                <div className="flex-1 min-h-0 flex flex-col justify-center overflow-y-auto">
+                  {topSellingDisplay.loading ? (
+                    <p className="text-xs text-muted-foreground text-center px-1 py-3">{t('common.loading')}</p>
+                  ) : topSellingDisplay.rows.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center px-1 py-3">{t('dashboard.noTopServicesData')}</p>
+                  ) : (
+                    <div className="flex flex-col gap-2 w-full min-w-0">
+                      {topSellingDisplay.rows.map((row, index) => {
+                        const fillPct = topServicesBarMax > 0 ? (row.value / topServicesBarMax) * 100 : 0;
+                        const denom = topSellingDisplay.denom;
+                        const shareOfAllPct =
+                          denom > 0 ? Math.round((row.value / denom) * 100) : 0;
+                        const revenueAmountStr = `$${Math.round(row.value).toLocaleString(undefined, {
+                          maximumFractionDigits: 0,
+                        })}`;
+                        const barColor = topServicesBarFillColors[index] ?? topServicesBarFillColors[2];
+                        const barDelay = dashboardStaggerDelayMs(1) + index * 90;
+                        return (
+                          <UiTooltip key={`${row.name}-${index}`} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <div className="min-w-0 cursor-default select-none">
+                                <div className="grid grid-cols-[5.5rem_minmax(0,1fr)_auto] gap-x-2 items-center w-full min-w-0">
+                                  <span
+                                    className="text-[11px] font-medium text-foreground truncate min-w-0 text-left"
+                                    title={row.name}
+                                  >
+                                    {row.name}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <TopServiceRevenueBar
+                                      fillPercent={fillPct}
+                                      delayMs={barDelay}
+                                      backgroundColor={barColor}
+                                      trackClassName="h-2.5"
+                                    />
+                                  </div>
+                                  <span className="text-[11px] tabular-nums text-foreground font-semibold whitespace-nowrap shrink-0 text-right pl-0.5">
+                                    {revenueAmountStr}
+                                  </span>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent
+                              side="top"
+                              align="center"
+                              sideOffset={8}
+                              className="max-w-[280px] border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm"
+                            >
+                              <p className="font-medium text-foreground">{row.name}</p>
+                              <p className="text-muted-foreground mt-0.5">
+                                {t('dashboard.topServiceTooltipRevenueLine', { amount: revenueAmountStr })}
+                              </p>
+                              {denom > 0 && (
+                                <p className="text-muted-foreground/90 mt-1">
+                                  {t('dashboard.topServiceShareOfAllSales', { pct: shareOfAllPct })}
+                                </p>
+                              )}
+                            </TooltipContent>
+                          </UiTooltip>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+          </DashboardStaggerItem>
+
+          {/* Card 2: New vs Repeat clients (pie) — reference height for row 1 */}
+          <DashboardStaggerItem
+            key={`dsk-${chartEnterKey}-2`}
+            index={2}
+            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
+          >
           <Link
             to={businessSlug ? `/${businessSlug}/clients` : '/clients'}
             className="block cursor-pointer h-full"
           >
             <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col overflow-hidden">
               <CardContent className="p-2.5 flex-1 flex flex-col min-h-0">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{t('dashboard.clientType')}</p>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider leading-tight">
+                  {t('dashboard.clientType')}
+                </p>
                 <div
                   ref={pieContainerRef}
-                  className="flex-1 min-h-[64px] max-h-[200px] flex items-center justify-center mt-0.5 w-full min-w-0"
-                  style={{ minHeight: 64 }}
+                  className="flex-1 min-h-[52px] max-h-[132px] flex items-center justify-center mt-0.5 w-full min-w-0"
+                  style={{ minHeight: 52 }}
                 >
                   {newVsRepeatData.every((d) => d.value === 0) ? (
                     <p className="text-xs text-muted-foreground">{t('dashboard.noData')}</p>
@@ -759,7 +869,7 @@ export function Dashboard({
                       const h = pieSize.h || 120;
                       const legendHeight = 22;
                       const gap = 2;
-                      const chartHeight = Math.max(64, Math.min(160, h - legendHeight - gap));
+                      const chartHeight = Math.max(52, Math.min(108, h - legendHeight - gap));
                       const totalSize = Math.min(w, chartHeight) || 100;
                       const margin = 3;
                       const outerRadius = Math.max(20, Math.min(44, totalSize * 0.36));
@@ -784,9 +894,9 @@ export function Dashboard({
                                 paddingAngle={0}
                                 stroke="none"
                                 isAnimationActive
-                                animationBegin={420}
-                                animationDuration={2400}
-                                animationEasing="ease-in-out"
+                                animationBegin={0}
+                                animationDuration={420}
+                                animationEasing="ease-out"
                                 startAngle={90}
                                 endAngle={-270}
                                 label={false}
@@ -835,137 +945,61 @@ export function Dashboard({
           </Link>
           </DashboardStaggerItem>
 
-          {/* Card 2: Completed & billed (period) */}
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-2`} index={2}>
+          {/* Card 3: Completed & billed (period) */}
+          <DashboardStaggerItem
+            key={`dsk-${chartEnterKey}-3`}
+            index={3}
+            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
+          >
           <Link
             to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
             className="block cursor-pointer h-full"
           >
             <StatCard
+              compact
               title={t('dashboard.servicesCompleted')}
               value={servicesCompletedCount}
               icon={Calendar}
               animate
+              className="h-full"
             />
           </Link>
           </DashboardStaggerItem>
 
-          {/* Card 3: Active staff */}
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-3`} index={3}>
+          {/* Card 4: Active staff */}
+          <DashboardStaggerItem
+            key={`dsk-${chartEnterKey}-4`}
+            index={4}
+            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
+          >
           <Link
             to={businessSlug ? `/${businessSlug}/employee-management` : '/employee-management'}
             className="block cursor-pointer h-full"
           >
             <StatCard
+              compact
               title={t('dashboard.activeStaff')}
               value={activeEmployees}
               icon={Clock}
               description={t('dashboard.teamMembers')}
               animate
+              className="h-full"
             />
           </Link>
           </DashboardStaggerItem>
 
-          {/* Card 4: Today appointments */}
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-4`} index={4}>
-          <Link
-            to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
-            className="block cursor-pointer h-full"
+          {/* Card 5: Growth (was today appointments KPI) */}
+          <DashboardStaggerItem
+            key={`dsk-${chartEnterKey}-5`}
+            index={5}
+            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
           >
-            <StatCard
-              title={t('dashboard.today')}
-              value={todayAppointments}
-              icon={Calendar}
-              description={t('dashboard.appointments')}
-              animate
-            />
-          </Link>
-          </DashboardStaggerItem>
-
-          {/* Card 5: Top selling services (bar chart) */}
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-5`} index={5}>
-          <Link
-            to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
-            className="block cursor-pointer h-full"
-          >
-            <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col overflow-hidden">
-              <CardContent className="p-3 flex flex-col gap-3 flex-1 min-h-0">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider leading-snug shrink-0">
-                  {t('dashboard.topSellingServices')}
-                </p>
-                <div className="flex-1 min-h-[5.5rem] flex flex-col justify-center">
-                  {topSellingDisplay.loading ? (
-                    <p className="text-xs text-muted-foreground text-center px-1 py-3">{t('common.loading')}</p>
-                  ) : topSellingDisplay.rows.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center px-1 py-3">{t('dashboard.noTopServicesData')}</p>
-                  ) : (
-                    <div className="flex flex-col gap-3 w-full min-w-0">
-                      {topSellingDisplay.rows.map((row, index) => {
-                        const fillPct = topServicesBarMax > 0 ? (row.value / topServicesBarMax) * 100 : 0;
-                        const denom = topSellingDisplay.denom;
-                        const shareOfAllPct =
-                          denom > 0 ? Math.round((row.value / denom) * 100) : 0;
-                        const revenueAmountStr = `$${Math.round(row.value).toLocaleString(undefined, {
-                          maximumFractionDigits: 0,
-                        })}`;
-                        const barColor = topServicesBarFillColors[index] ?? topServicesBarFillColors[2];
-                        const barDelay = dashboardStaggerDelayMs(5) + index * 90;
-                        return (
-                          <UiTooltip key={`${row.name}-${index}`} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <div className="min-w-0 cursor-default select-none">
-                                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_auto] gap-x-2 gap-y-0.5 items-center">
-                                  <span
-                                    className="text-xs font-medium text-foreground truncate min-w-0"
-                                    title={row.name}
-                                  >
-                                    {row.name}
-                                  </span>
-                                  <TopServiceRevenueBar
-                                    fillPercent={fillPct}
-                                    delayMs={barDelay}
-                                    backgroundColor={barColor}
-                                  />
-                                  <span className="text-xs tabular-nums text-foreground font-medium whitespace-nowrap text-right">
-                                    {revenueAmountStr}
-                                  </span>
-                                </div>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="top"
-                              align="center"
-                              sideOffset={8}
-                              className="max-w-[280px] border border-border bg-card px-2.5 py-1.5 text-xs shadow-sm"
-                            >
-                              <p className="font-medium text-foreground">{row.name}</p>
-                              <p className="text-muted-foreground mt-0.5">
-                                {t('dashboard.topServiceTooltipRevenueLine', { amount: revenueAmountStr })}
-                              </p>
-                              {denom > 0 && (
-                                <p className="text-muted-foreground/90 mt-1">
-                                  {t('dashboard.topServiceShareOfAllSales', { pct: shareOfAllPct })}
-                                </p>
-                              )}
-                            </TooltipContent>
-                          </UiTooltip>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-          </DashboardStaggerItem>
-
-          {/* Card 6: Growth */}
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-6`} index={6}>
           <Link
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
             className="block cursor-pointer h-full"
           >
             <StatCard
+              compact
               title={t('dashboard.growth')}
               value={
                 growthPct === null || !Number.isFinite(growthPct) ? '—' : Math.abs(growthPct)
@@ -983,166 +1017,254 @@ export function Dashboard({
               animateSuffix={
                 growthPct !== null && Number.isFinite(growthPct) ? '%' : undefined
               }
+              className="h-full"
             />
           </Link>
-          </DashboardStaggerItem>
-
-          {/* Full-width: sales count for selected dashboard period */}
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-7`} index={7} className="col-span-full">
-            <Link
-              to={businessSlug ? `/${businessSlug}/transactions` : '/transactions'}
-              className="block cursor-pointer h-full"
-            >
-              <StatCard
-                title={t('dashboard.periodSalesCount')}
-                value={periodSalesCount === null ? '…' : periodSalesCount}
-                icon={Receipt}
-                description={t('dashboard.periodSalesHint')}
-                animate
-              />
-            </Link>
           </DashboardStaggerItem>
         </div>
       </div>
 
-      {/* Left: Today's Appointments — Right: Revenue + Recent Pets */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" data-transition-row="2" data-transition-containers>
-        {/* Appointments: long list on the left */}
-        <DashboardStaggerItem key={`dsk-${chartEnterKey}-8`} index={8} className="min-w-0">
+      {/* Today's Appointments (2/6) + Revenue chart (4/6) — tops aligned on lg+ */}
+      <div
+        className="grid grid-cols-1 lg:grid-cols-6 gap-6 items-start"
+        data-transition-row="2"
+        data-transition-containers
+      >
+        <DashboardStaggerItem
+          key={`dsk-${chartEnterKey}-6`}
+          index={6}
+          className="min-w-0 lg:col-span-2 lg:row-start-1"
+        >
         <Link
           to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
           className="block cursor-pointer h-full min-h-0"
         >
         <Card
-          className="shadow-sm hover:shadow-md transition-shadow h-full flex flex-col max-h-[420px]"
+          className="shadow-sm hover:shadow-md transition-shadow h-full flex flex-col min-h-[22rem] max-h-[560px]"
           role="article"
         >
           <CardHeader className="shrink-0 flex flex-row items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2" data-card-title>
               <Calendar className="w-5 h-5 text-primary" />
-              {t('dashboard.todayAppointments')}
+              {t('dashboard.todayAppointments')} ({todayAppointments})
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto min-h-0 flex flex-col">
-            {todaysAppointmentsList.length === 0 ? (
-              <p className="text-muted-foreground text-center py-6 text-sm">{t('dashboard.noAppointmentsToday')}</p>
-            ) : (
-              <>
-                <div className="space-y-2" data-list style={{ ['--list-start' as string]: '0.52s' }}>
-                  {todaysAppointmentsList.slice(0, TODAY_APPOINTMENTS_DISPLAY_MAX).map((appointment) => {
-                    const pet = pets.find(p => p.id === appointment.pet_id);
-                    const client = pet ? clients.find(c => c.id === pet.client_id) : null;
-                    const employee = appointment.employee_id ? employees.find(e => e.id === appointment.employee_id) : null;
-                    return (
-                      <div
-                        key={appointment.id}
-                        data-list-item
-                        className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg text-sm"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate">{pet?.name || t('appointments.unknownPet')}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {format(new Date(appointment.scheduled_date), 'h:mm a', { locale: dateLocale })} • {client ? `${client.first_name} ${client.last_name}`.trim() : '—'}
-                            {employee && ` • ${employee.name}`}
-                          </p>
+          <CardContent className="flex-1 overflow-y-auto min-h-0 flex flex-col min-h-[17rem]">
+            {(() => {
+              const shown = todaysAppointmentsList.slice(0, TODAY_APPOINTMENTS_DISPLAY_MAX);
+              const filler = TODAY_APPOINTMENTS_DISPLAY_MAX - shown.length;
+              return (
+                <>
+                  {shown.length === 0 ? (
+                    <p className="text-muted-foreground text-center text-xs mb-3">{t('dashboard.noAppointmentsToday')}</p>
+                  ) : null}
+                  <div className="space-y-2 flex-1" data-list style={{ ['--list-start' as string]: '0.52s' }}>
+                    {shown.map((appointment) => {
+                      const pet = pets.find((p) => p.id === appointment.pet_id);
+                      const client = pet ? clients.find((c) => c.id === pet.client_id) : null;
+                      const employee = appointment.employee_id
+                        ? employees.find((e) => e.id === appointment.employee_id)
+                        : null;
+                      return (
+                        <div
+                          key={appointment.id}
+                          data-list-item
+                          className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg text-sm"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{pet?.name || t('appointments.unknownPet')}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {format(new Date(appointment.scheduled_date), 'h:mm a', { locale: dateLocale })} •{' '}
+                              {client ? `${client.first_name} ${client.last_name}`.trim() : '—'}
+                              {employee && ` • ${employee.name}`}
+                            </p>
+                          </div>
+                          <Badge
+                            variant={
+                              appointment.status === 'completed'
+                                ? 'default'
+                                : appointment.status === 'cancelled'
+                                  ? 'destructive'
+                                  : 'secondary'
+                            }
+                            className="shrink-0 ml-2 text-[10px]"
+                          >
+                            {appointment.status}
+                          </Badge>
                         </div>
-                        <Badge variant={appointment.status === 'completed' ? 'default' : appointment.status === 'cancelled' ? 'destructive' : 'secondary'} className="shrink-0 ml-2 text-[10px]">
-                          {appointment.status}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-3 pt-2 border-t border-border">
-                  <span className="text-sm font-medium text-primary hover:underline">
-                    {t('dashboard.viewAll')}
-                  </span>
-                </div>
-              </>
-            )}
+                      );
+                    })}
+                    {filler > 0
+                      ? Array.from({ length: filler }, (_, i) => (
+                          <AppointmentSlotPlaceholder key={`appt-slot-${i}`} />
+                        ))
+                      : null}
+                  </div>
+                  {shown.length > 0 ? (
+                    <div className="mt-3 pt-2 border-t border-border shrink-0">
+                      <span className="text-sm font-medium text-primary hover:underline">
+                        {t('dashboard.viewAll')}
+                      </span>
+                    </div>
+                  ) : null}
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
         </Link>
         </DashboardStaggerItem>
 
-        {/* Right: Revenue graph — own stagger slot (then recent pets below) */}
-        <div className="flex min-w-0 flex-col gap-6 lg:col-span-2" data-dashboard-stagger-group>
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-9`} index={9} className="min-w-0">
-            <Link
-              to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
-              className="block cursor-pointer"
-            >
-              <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base" data-card-title>
-                    {t('dashboard.revenue')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <DashboardRevenueChart
-                    data={rollingYearRevenueData}
-                    chartEnterKey={chartEnterKey}
-                    emptyLabel={t('dashboard.noData')}
-                    tooltipSeriesName={t('dashboard.revenue')}
-                    tooltipFormatter={(value) => [
-                      `$${Math.round(Number(value)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-                      t('dashboard.revenue'),
-                    ]}
-                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDay ?? ''}
-                  />
-                </CardContent>
-              </Card>
-            </Link>
-          </DashboardStaggerItem>
-
-          <DashboardStaggerItem key={`dsk-${chartEnterKey}-10`} index={10} className="min-w-0">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base" data-card-title>
-                  <Link
-                    to={businessSlug ? `/${businessSlug}/pets` : '/pets'}
-                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                  >
-                    <Dog className="w-5 h-5 text-primary" />
-                    {t('dashboard.recentPets')}
-                  </Link>
+        {/* Stack revenue + low stock in one column so row height isn’t driven by the tall appointments card */}
+        <div className="min-w-0 lg:col-span-4 flex flex-col gap-6">
+        <DashboardStaggerItem
+          key={`dsk-${chartEnterKey}-7`}
+          index={7}
+          className="min-w-0"
+        >
+          <Link
+            to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
+            className="block cursor-pointer w-full min-h-0"
+          >
+            <Card className="shadow-sm h-full min-h-0 flex flex-col cursor-pointer hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2 pt-4 px-4 sm:px-6 shrink-0">
+                <CardTitle className="text-base" data-card-title>
+                  {t('dashboard.revenue')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                {recentPets.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-6 text-sm">{t('dashboard.noPetsYet')}</p>
-                ) : (
-                  <div className="space-y-2" data-list style={{ ['--list-start' as string]: '0.94s' }}>
-                    {recentPets.map((pet) => {
-                      const owner = clients.find((c) => c.id === pet.client_id);
-                      const target = businessSlug ? `/${businessSlug}/pets?highlight=${pet.id}` : `/pets?highlight=${pet.id}`;
-                      return (
-                        <Link
-                          key={pet.id}
-                          to={target}
-                          data-list-item
-                          className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors block text-sm"
-                        >
-                          <div>
-                            <p className="font-medium">{pet.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {pet.breed} • {owner ? `${owner.first_name} ${owner.last_name}`.trim() : t('dashboard.unknownOwner')}
-                            </p>
-                          </div>
-                          <span className="px-2 py-0.5 text-xs bg-accent rounded capitalize">{pet.species}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
+              <CardContent className="pt-0 px-4 sm:px-6 pb-4 flex-1 min-h-0">
+                <DashboardRevenueChart
+                  data={rollingYearRevenueData}
+                  chartEnterKey={chartEnterKey}
+                  chartHeight={200}
+                  emptyLabel={t('dashboard.noData')}
+                  tooltipSeriesName={t('dashboard.revenue')}
+                  tooltipFormatter={(value) => [
+                    `$${Math.round(Number(value)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                    t('dashboard.revenue'),
+                  ]}
+                  labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDay ?? ''}
+                />
               </CardContent>
             </Card>
-          </DashboardStaggerItem>
+          </Link>
+        </DashboardStaggerItem>
+
+        <DashboardStaggerItem
+          key={`dsk-${chartEnterKey}-8`}
+          index={8}
+          className="min-w-0"
+        >
+          <Card className="shadow-sm border border-orange-500/25 bg-gradient-to-br from-orange-500/[0.07] via-card to-card dark:from-orange-500/10">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-2 pt-4 px-4 sm:px-6">
+              <div className="min-w-0">
+                <CardTitle className="flex items-center gap-2 text-base" data-card-title>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400">
+                    <AlertTriangle className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="flex flex-col gap-0.5">
+                    <span>{t('dashboard.lowStockTitle')}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {t('dashboard.lowStockSubtitle')}
+                    </span>
+                  </span>
+                </CardTitle>
+              </div>
+              <Link
+                to={businessSlug ? `/${businessSlug}/inventory` : '/inventory'}
+                className="shrink-0 text-sm font-medium text-primary hover:underline"
+              >
+                {t('dashboard.openInventory')}
+              </Link>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 pt-0 sm:px-6">
+              {lowStockProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
+                  <Package className="h-10 w-10 text-muted-foreground/50" aria-hidden />
+                  <p className="max-w-sm text-sm text-muted-foreground">{t('dashboard.lowStockEmpty')}</p>
+                  <Link
+                    to={businessSlug ? `/${businessSlug}/inventory` : '/inventory'}
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    {t('dashboard.openInventory')}
+                  </Link>
+                </div>
+              ) : (
+                <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 pt-1 scroll-smooth [scrollbar-gutter:stable]">
+                  {lowStockProducts.map((p) => {
+                    const th = reorderThresholdForProduct(p, defaultLowStockThreshold);
+                    const ratio = th > 0 ? p.quantity / th : 1;
+                    const barPct = Math.min(100, Math.max(p.quantity === 0 ? 5 : 8, ratio * 100));
+                    const inv = businessSlug ? `/${businessSlug}/inventory` : '/inventory';
+                    return (
+                      <Link
+                        key={p.id}
+                        to={`${inv}?product=${encodeURIComponent(p.id)}`}
+                        className="group flex w-[10.25rem] shrink-0 flex-col overflow-hidden rounded-xl border border-orange-500/30 bg-card shadow-sm ring-1 ring-orange-500/10 transition hover:border-orange-500/50 hover:shadow-md hover:ring-orange-500/25"
+                      >
+                        <div className="relative aspect-[5/4] w-full bg-muted">
+                          {p.photo_url ? (
+                            <img
+                              src={p.photo_url}
+                              alt=""
+                              className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center bg-gradient-to-br from-muted to-muted/60">
+                              <Package className="h-11 w-11 text-muted-foreground/35" aria-hidden />
+                            </div>
+                          )}
+                          <div
+                            className={cn(
+                              'absolute right-2 top-2 rounded-lg px-2 py-0.5 text-sm font-bold tabular-nums shadow-md',
+                              p.quantity === 0
+                                ? 'bg-destructive text-destructive-foreground'
+                                : 'bg-background/95 text-destructive dark:bg-background/90'
+                            )}
+                          >
+                            {p.quantity}
+                          </div>
+                        </div>
+                        <div className="flex flex-1 flex-col gap-2 border-t border-border/60 bg-card p-2.5">
+                          <p className="line-clamp-2 text-left text-xs font-semibold leading-snug text-foreground">
+                            {p.name}
+                          </p>
+                          <div className="mt-auto space-y-1">
+                            <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                              <span>{t('inventory.stock')}</span>
+                              <span className="tabular-nums">
+                                {t('inventory.reorderLevel')}: {th}
+                              </span>
+                            </div>
+                            <div
+                              className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
+                              title={`${p.quantity} / ${th}`}
+                            >
+                              <div
+                                className={cn(
+                                  'h-full rounded-full bg-gradient-to-r transition-all',
+                                  p.quantity === 0
+                                    ? 'from-destructive to-destructive/80'
+                                    : 'from-amber-500 to-orange-600'
+                                )}
+                                style={{ width: `${barPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </DashboardStaggerItem>
         </div>
       </div>
 
       {/* Collapsible Data Diagnostics at bottom */}
-      <DashboardStaggerItem key={`dsk-${chartEnterKey}-11`} index={11}>
+      <DashboardStaggerItem key={`dsk-${chartEnterKey}-9`} index={9}>
       <details className="mt-8 border border-border rounded-lg bg-card/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center justify-between">
           <span>Show Diagnostics</span>

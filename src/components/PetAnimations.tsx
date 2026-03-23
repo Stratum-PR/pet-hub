@@ -1,517 +1,421 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { WoofButton } from '@/components/WoofButton';
-import { isDemoMode } from '@/lib/authRouting';
+import { petPawSvgHtml } from '@/lib/petPawGeometry';
 import './PetAnimations.css';
 
-function applyPawPrintSurface(pawprint: HTMLElement, img: HTMLImageElement) {
+/**
+ * PetAnimations
+ *
+ * **Manual Woof + sidebar nav** (`pet-quick-trigger`): Always the same effect — a fixed number of
+ * paws on a fixed cubic (viewport-relative), equal arc-length spacing along the path, constant
+ * delay between each paw. No random pick between “walking” vs “burst”.
+ *
+ * **Ambient** (long random timer): Either the same *scheduled* walking pattern with a **random**
+ * curve each time, or the separate multi-paw Bézier burst (all-at-once staggered fade).
+ *
+ * Graphic: `petPawSvgHtml`, `color` black/white by theme, opacity 0.5. Tilt alternates
+ * `PAW_TILT_A_DEG` / `PAW_TILT_B_DEG`.
+ */
+const PAW_TILT_A_DEG = 80;
+const PAW_TILT_B_DEG = 84;
+
+const WALKING_BASE_PX = 28;
+
+/** Manual Woof / nav — identical every click. */
+const WOOF_PAW_COUNT = 14;
+const WOOF_STEP_MS = 400;
+const WOOF_MAX_VISIBLE = 10;
+
+/** Ambient walking — same rhythm as Woof; only the Bézier control points change. */
+const AMBIENT_WALK_PAW_COUNT = 12;
+const AMBIENT_WALK_STEP_MS = 480;
+const AMBIENT_MAX_VISIBLE = 10;
+
+const BEZIER_BURST_COUNT = 6;
+const BEZIER_PAW_PX = 32;
+const BEZIER_STEP_INTERVAL_MS = 1250;
+const BEZIER_FADE_OUT_DELAY_MS = 3200;
+
+function cubicBezierPoint(
+  t: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number
+) {
+  const mt = 1 - t;
+  const x =
+    mt * mt * mt * x0 + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x3;
+  const y =
+    mt * mt * mt * y0 + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y3;
+  return { x, y };
+}
+
+/**
+ * Parameter `t` uniform in [0,1] ≠ equal distance along a cubic. Returns `t` samples
+ * so consecutive points are equally spaced by arc length.
+ */
+function arcLengthParameterTimes(
+  count: number,
+  getPoint: (t: number) => { x: number; y: number },
+  samples = 400
+): number[] {
+  if (count <= 0) return [];
+  if (count === 1) return [0.5];
+  const dt = 1 / samples;
+  const cum: number[] = [0];
+  let prev = getPoint(0);
+  for (let i = 1; i <= samples; i++) {
+    const p = getPoint(i * dt);
+    cum.push(cum[i - 1] + Math.hypot(p.x - prev.x, p.y - prev.y));
+    prev = p;
+  }
+  const total = cum[samples];
+  if (total < 1e-6) {
+    return Array.from({ length: count }, (_, k) => (k / (count - 1)) * (1 - 1e-6));
+  }
+  const ts: number[] = [];
+  for (let k = 0; k < count; k++) {
+    const target = (k / (count - 1)) * total;
+    let lo = 0;
+    let hi = samples;
+    while (lo < hi - 1) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] < target) lo = mid;
+      else hi = mid;
+    }
+    const lenLo = cum[lo];
+    const lenHi = cum[hi];
+    const f = lenHi - lenLo < 1e-9 ? 0 : (target - lenLo) / (lenHi - lenLo);
+    ts.push((lo + f) * dt);
+  }
+  return ts;
+}
+
+/** Canonical Woof path: left → right, smooth S, uses current vw/vh. */
+function woofBezierControl(vw: number, vh: number) {
+  return {
+    x0: -64,
+    y0: vh * 0.42,
+    x1: vw * 0.2,
+    y1: vh * 0.16,
+    x2: vw * 0.8,
+    y2: vh * 0.84,
+    x3: vw + 64,
+    y3: vh * 0.52,
+  };
+}
+
+/** Random ambient walking path: always crosses the screen. */
+function randomWalkBezierControl(vw: number, vh: number) {
+  const r = () => Math.random();
+  const flip = r() < 0.12;
+  const x0 = flip ? vw + 72 : -72;
+  const x3 = flip ? -72 : vw + 72;
+  const y0 = vh * (0.2 + r() * 0.55);
+  const y3 = vh * (0.2 + r() * 0.55);
+  return {
+    x0,
+    y0,
+    x1: vw * (0.1 + r() * 0.35),
+    y1: vh * (0.1 + r() * 0.4),
+    x2: vw * (0.45 + r() * 0.4),
+    y2: vh * (0.35 + r() * 0.5),
+    x3,
+    y3,
+  };
+}
+
+function mountPawPrintGraphic(pawprint: HTMLElement) {
   pawprint.classList.add('pet-paw-print');
   pawprint.style.background = 'transparent';
-  img.style.backgroundColor = 'transparent';
+  pawprint.innerHTML = petPawSvgHtml();
+  const night = document.documentElement.classList.contains('dark');
+  pawprint.style.color = night ? '#ffffff' : '#000000';
+}
+
+function pawTiltDeg(useTiltA: boolean): number {
+  return useTiltA ? PAW_TILT_A_DEG : PAW_TILT_B_DEG;
 }
 
 interface AnimationConfig {
-  minInterval: number; // in milliseconds
-  maxInterval: number; // in milliseconds
+  minInterval: number;
+  maxInterval: number;
   enabled: boolean;
 }
 
 const DEFAULT_CONFIG: AnimationConfig = {
-  minInterval: 10 * 60 * 1000, // 10 minutes
-  maxInterval: 20 * 60 * 1000, // 20 minutes
+  minInterval: 10 * 60 * 1000,
+  maxInterval: 20 * 60 * 1000,
   enabled: true,
 };
 
-// Check if we're in development mode
-const isDevMode = (): boolean => {
-  return import.meta.env.DEV || isDemoMode();
-};
-
 export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<AnimationConfig> }) {
-  const [isVisible, setIsVisible] = useState(true); // Always show button for manual triggering
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationContainerRef = useRef<HTMLDivElement>(null);
   const animationIdRef = useRef<number>(0);
   const activePawprintsRef = useRef<Set<string>>(new Set());
   const walkingPawprintsRef = useRef<Array<{ id: string; element: HTMLElement }>>([]);
-  const walkingAnimationRef = useRef<number | null>(null);
+  /** Legacy: recursive ambient walker removed; kept only so old cleanup clears if set. */
+  const walkingAnimationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trailTimeoutsRef = useRef<number[]>([]);
+  const trailRunIdRef = useRef(0);
 
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
 
-  // Generate random interval between min and max
   const getRandomInterval = useCallback(() => {
     const { minInterval, maxInterval } = finalConfig;
     return Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
   }, [finalConfig]);
 
-  // Create walking dog paw print animation
-  const createWalkingDogAnimation = useCallback(() => {
-    if (!animationContainerRef.current) return;
-    
-    // Only allow one walking animation at a time
-    if (walkingAnimationRef.current !== null) {
-      return;
+  const clearScheduledTrail = useCallback(() => {
+    for (const id of trailTimeoutsRef.current) {
+      clearTimeout(id);
     }
-
-    const container = animationContainerRef.current;
-    const maxPawprints = 8;
-    let stepCount = 0;
-    let currentX = -100;
-    let currentY = window.innerHeight * 0.3 + (Math.random() * window.innerHeight * 0.4);
-    let isLeftPaw = Math.random() > 0.5;
-    const stepInterval = 200 + Math.random() * 150;
-
-    const pathVariation = () => ({
-      x: Math.random() * 40 - 20,
-      y: Math.random() * 30 - 15,
-      rotation: (Math.random() * 20 - 10) * (Math.PI / 180),
-      scale: 0.8 + Math.random() * 0.4,
-    });
-
-    const createPawprint = () => {
-      if (walkingPawprintsRef.current.length >= maxPawprints) {
-        const oldest = walkingPawprintsRef.current.shift();
-        if (oldest) {
-          oldest.element.style.transition = 'opacity 0.5s ease-out';
-          oldest.element.style.opacity = '0';
-          setTimeout(() => {
-            if (oldest.element.parentNode) {
-              oldest.element.remove();
-            }
-          }, 500);
-        }
-      }
-
-      const variation = pathVariation();
-      isLeftPaw = !isLeftPaw;
-      const stepX = currentX + 60 + variation.x;
-      const stepY = currentY + variation.y;
-      
-      // Update current position for next step
-      currentX = stepX;
-      currentY += variation.y * 0.3; // Slight drift in Y direction
-
-      const pawW = 40 * variation.scale;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const drawX = Math.max(0, Math.min(stepX, vw - pawW));
-      const drawY = Math.max(0, Math.min(stepY, vh - pawW));
-
-      // Create paw print element
-      const id = `walking-paw-${Date.now()}-${stepCount++}`;
-      const pawprint = document.createElement('div');
-      pawprint.id = id;
-      pawprint.style.position = 'fixed';
-      pawprint.style.left = `${drawX}px`;
-      pawprint.style.top = `${drawY}px`;
-      pawprint.style.width = `${pawW}px`;
-      pawprint.style.height = `${pawW}px`;
-      pawprint.style.pointerEvents = 'none';
-      pawprint.style.zIndex = '9999';
-      pawprint.style.opacity = '0.7';
-      pawprint.style.transform = `rotate(${variation.rotation}rad)`;
-      pawprint.style.transition = 'opacity 0.3s ease-in';
-      pawprint.style.transformOrigin = 'center center';
-      
-      // Create image element using the uploaded asset
-      const img = document.createElement('img');
-      img.src = '/stock-vector-one-single-paw-print.webp';
-      img.alt = 'Paw print';
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
-      img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
-      applyPawPrintSurface(pawprint, img);
-      
-      // Handle imfage load error
-      img.addEventListener('error', () => {
-        console.warn('[PetAnimations] Failed to load paw print image');
-        // Fallback: create a simple SVG paw print
-        pawprint.innerHTML = `
-          <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="30" cy="30" r="12" fill="currentColor" opacity="0.6"/>
-            <circle cx="70" cy="30" r="12" fill="currentColor" opacity="0.6"/>
-            <circle cx="30" cy="70" r="12" fill="currentColor" opacity="0.6"/>
-            <circle cx="70" cy="70" r="12" fill="currentColor" opacity="0.6"/>
-            <ellipse cx="50" cy="50" rx="20" ry="25" fill="currentColor" opacity="0.6"/>
-          </svg>
-        `;
-        pawprint.style.color = '#666';
-      });
-
-      pawprint.appendChild(img);
-      container.appendChild(pawprint);
-      
-      // Add to tracking array
-      walkingPawprintsRef.current.push({ id, element: pawprint });
-    };
-
-    const scheduleNextStep = (isFirstStep = false) => {
-      if (!isFirstStep && walkingAnimationRef.current === null) return;
-
-      createPawprint();
-
-      if (currentX <= window.innerWidth + 100) {
-        const timeoutId = setTimeout(() => {
-          scheduleNextStep(false);
-        }, stepInterval);
-        walkingAnimationRef.current = timeoutId as any;
-      } else {
-        walkingPawprintsRef.current.forEach(({ element }) => {
-          element.style.transition = 'opacity 0.5s ease-out';
-          element.style.opacity = '0';
-          setTimeout(() => {
-            if (element.parentNode) {
-              element.remove();
-            }
-          }, 500);
-        });
-        walkingPawprintsRef.current = [];
-        walkingAnimationRef.current = null;
-      }
-    };
-
-    scheduleNextStep(true);
-
-    setTimeout(() => {
-      if (walkingAnimationRef.current !== null) {
-        clearTimeout(walkingAnimationRef.current as any);
-        walkingAnimationRef.current = null;
-        walkingPawprintsRef.current.forEach(({ element }) => {
-          element.style.transition = 'opacity 0.5s ease-out';
-          element.style.opacity = '0';
-          setTimeout(() => {
-            if (element.parentNode) {
-              element.remove();
-            }
-          }, 500);
-        });
-        walkingPawprintsRef.current = [];
-      }
-    }, 15000);
+    trailTimeoutsRef.current = [];
+    if (walkingAnimationRef.current !== null) {
+      clearTimeout(walkingAnimationRef.current);
+      walkingAnimationRef.current = null;
+    }
   }, []);
 
-  // Create pawprint animation - alternating left/right with curved path
-  const createPawprintAnimation = useCallback(() => {
+  const fadeAndClearWalkingPaws = useCallback(() => {
+    walkingPawprintsRef.current.forEach(({ element }) => {
+      element.style.transition = 'opacity 0.45s ease-out';
+      element.style.opacity = '0';
+      setTimeout(() => {
+        if (element.parentNode) element.remove();
+      }, 450);
+    });
+    walkingPawprintsRef.current = [];
+  }, []);
+
+  /**
+   * Schedule `pawCount` paws along a cubic at `stepMs` intervals (deterministic rhythm).
+   * Arc-length–spaced samples on the centerline; each paw centered on the point.
+   */
+  const scheduleCenterlineTrail = useCallback(
+    (args: {
+      pawCount: number;
+      stepMs: number;
+      maxVisible: number;
+      control: {
+        x0: number;
+        y0: number;
+        x1: number;
+        y1: number;
+        x2: number;
+        y2: number;
+        x3: number;
+        y3: number;
+      };
+    }) => {
+      if (!animationContainerRef.current || !finalConfig.enabled) return;
+
+      clearScheduledTrail();
+      fadeAndClearWalkingPaws();
+      trailRunIdRef.current += 1;
+      const runId = trailRunIdRef.current;
+
+      const container = animationContainerRef.current;
+      const { pawCount, stepMs, maxVisible, control } = args;
+      const { x0, y0, x1, y1, x2, y2, x3, y3 } = control;
+
+      const getPoint = (t: number) => cubicBezierPoint(t, x0, y0, x1, y1, x2, y2, x3, y3);
+      const ts = arcLengthParameterTimes(pawCount, getPoint);
+      const pawW = WALKING_BASE_PX;
+      let stepIdx = 0;
+
+      const pushTimeout = (fn: () => void, ms: number) => {
+        const tid = window.setTimeout(fn, ms);
+        trailTimeoutsRef.current.push(tid);
+      };
+
+      for (let i = 0; i < pawCount; i++) {
+        const delay = i * stepMs;
+        pushTimeout(() => {
+          if (trailRunIdRef.current !== runId) return;
+
+          while (walkingPawprintsRef.current.length >= maxVisible) {
+            const oldest = walkingPawprintsRef.current.shift();
+            if (oldest) {
+              oldest.element.style.transition = 'opacity 0.35s ease-out';
+              oldest.element.style.opacity = '0';
+              setTimeout(() => {
+                if (oldest.element.parentNode) oldest.element.remove();
+              }, 350);
+            }
+          }
+
+          const t = ts[i] ?? i / Math.max(1, pawCount - 1);
+          const pos = getPoint(t);
+          const drawX = pos.x - pawW / 2;
+          const drawY = pos.y - pawW / 2;
+          const angleDeg = pawTiltDeg(i % 2 === 0);
+
+          const id = `trail-paw-${Date.now()}-${stepIdx++}`;
+          const pawprint = document.createElement('div');
+          pawprint.id = id;
+          pawprint.style.position = 'fixed';
+          pawprint.style.left = `${drawX}px`;
+          pawprint.style.top = `${drawY}px`;
+          pawprint.style.width = `${pawW}px`;
+          pawprint.style.height = `${pawW}px`;
+          pawprint.style.pointerEvents = 'none';
+          pawprint.style.zIndex = '9999';
+          pawprint.style.opacity = '0.5';
+          pawprint.style.transform = `rotate(${angleDeg}deg)`;
+          pawprint.style.transition = 'opacity 0.3s ease-in';
+          pawprint.style.transformOrigin = 'center center';
+
+          mountPawPrintGraphic(pawprint);
+          container.appendChild(pawprint);
+          walkingPawprintsRef.current.push({ id, element: pawprint });
+        }, delay);
+      }
+
+      const fadeAfterMs = (pawCount - 1) * stepMs + 2200;
+      pushTimeout(() => {
+        if (trailRunIdRef.current !== runId) return;
+        fadeAndClearWalkingPaws();
+      }, fadeAfterMs);
+    },
+    [clearScheduledTrail, fadeAndClearWalkingPaws, finalConfig.enabled]
+  );
+
+  const runWoofTrail = useCallback(() => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    scheduleCenterlineTrail({
+      pawCount: WOOF_PAW_COUNT,
+      stepMs: WOOF_STEP_MS,
+      maxVisible: WOOF_MAX_VISIBLE,
+      control: woofBezierControl(vw, vh),
+    });
+  }, [scheduleCenterlineTrail]);
+
+  const runAmbientWalkingTrail = useCallback(() => {
     if (!animationContainerRef.current) return;
-    
-    // Only allow one pawprint animation sequence at a time
-    if (activePawprintsRef.current.size > 0) {
-      return;
-    }
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    scheduleCenterlineTrail({
+      pawCount: AMBIENT_WALK_PAW_COUNT,
+      stepMs: AMBIENT_WALK_STEP_MS,
+      maxVisible: AMBIENT_MAX_VISIBLE,
+      control: randomWalkBezierControl(vw, vh),
+    });
+  }, [scheduleCenterlineTrail]);
+
+  const createPawprintBurst = useCallback(() => {
+    if (!animationContainerRef.current) return;
+    if (activePawprintsRef.current.size > 0) return;
+
+    clearScheduledTrail();
+    fadeAndClearWalkingPaws();
 
     const container = animationContainerRef.current;
-
     const startX = -50;
     const endX = window.innerWidth + 50;
     const startY = window.innerHeight * 0.3;
     const endY = window.innerHeight * 0.7;
-
     const controlPoint1X = window.innerWidth * 0.3;
     const controlPoint1Y = window.innerHeight * 0.2;
     const controlPoint2X = window.innerWidth * 0.7;
     const controlPoint2Y = window.innerHeight * 0.8;
 
-    const pawprintCount = 12;
-    const stepInterval = 800;
-    const fadeOutDelay = 8000;
+    const getBezierPoint = (t: number) =>
+      cubicBezierPoint(t, startX, startY, controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endX, endY);
 
+    const pawprintCount = BEZIER_BURST_COUNT;
+    const ts = arcLengthParameterTimes(pawprintCount, getBezierPoint);
+    const half = BEZIER_PAW_PX / 2;
     let isLeftPaw = Math.random() > 0.5;
 
-    // Helper function to calculate position on bezier curve
-    const getBezierPoint = (t: number) => {
-      const mt = 1 - t;
-      const x = mt * mt * mt * startX + 
-                3 * mt * mt * t * controlPoint1X + 
-                3 * mt * t * t * controlPoint2X + 
-                t * t * t * endX;
-      const y = mt * mt * mt * startY + 
-                3 * mt * mt * t * controlPoint1Y + 
-                3 * mt * t * t * controlPoint2Y + 
-                t * t * t * endY;
-      return { x, y };
-    };
-    
-    // Helper function to calculate tangent (derivative) of bezier curve at point t
-    // This gives us the direction the curve is heading at that point
-    const getBezierTangent = (t: number) => {
-      const mt = 1 - t;
-      // Derivative of cubic bezier
-      const dx = 3 * mt * mt * (controlPoint1X - startX) + 
-                 6 * mt * t * (controlPoint2X - controlPoint1X) + 
-                 3 * t * t * (endX - controlPoint2X);
-      const dy = 3 * mt * mt * (controlPoint1Y - startY) + 
-                 6 * mt * t * (controlPoint2Y - controlPoint1Y) + 
-                 3 * t * t * (endY - controlPoint2Y);
-      return { dx, dy };
-    };
-    
-    // Helper function to calculate angle from tangent vector (in degrees)
-    const getAngleFromTangent = (dx: number, dy: number) => {
-      return Math.atan2(dy, dx) * (180 / Math.PI);
-    };
-    
     for (let i = 0; i < pawprintCount; i++) {
       const id = `pawprint-${Date.now()}-${animationIdRef.current++}-${i}`;
       activePawprintsRef.current.add(id);
 
-      const progress = i / (pawprintCount - 1);
-      
-      // Calculate current position on curved path
-      const currentPos = getBezierPoint(progress);
-
-      // tangent / angle from curve direction
-      const tangent = getBezierTangent(progress);
-      const angle = getAngleFromTangent(tangent.dx, tangent.dy);
-
+      const t = ts[i] ?? i / Math.max(1, pawprintCount - 1);
+      const currentPos = getBezierPoint(t);
       isLeftPaw = !isLeftPaw;
-      const offsetX = isLeftPaw ? -30 : 30;
-      const offsetY = isLeftPaw ? -10 : 10;
+      const vx = currentPos.x - half;
+      const vy = currentPos.y - half;
+      const angleDeg = pawTiltDeg(isLeftPaw);
 
-      const maxX = window.innerWidth - 52;
-      const minX = 8;
-      const maxY = window.innerHeight - 52;
-      const minY = 8;
-      const vx = Math.max(minX, Math.min(currentPos.x + offsetX, maxX));
-      const vy = Math.max(minY, Math.min(currentPos.y + offsetY, maxY));
-
-      // Create pawprint element
       const pawprint = document.createElement('div');
       pawprint.className = 'pawprint-walking';
       pawprint.id = id;
       pawprint.style.position = 'fixed';
       pawprint.style.left = '0';
       pawprint.style.top = '0';
-      pawprint.style.width = '50px';
-      pawprint.style.height = '50px';
+      pawprint.style.width = `${BEZIER_PAW_PX}px`;
+      pawprint.style.height = `${BEZIER_PAW_PX}px`;
       pawprint.style.pointerEvents = 'none';
       pawprint.style.zIndex = '9999';
       pawprint.style.opacity = '0';
       pawprint.style.transition = 'opacity 0.3s ease-in';
-      // Use transform for position and rotation - GPU accelerated
-      pawprint.style.transform = `translate(${vx}px, ${vy}px) rotate(${angle}deg)`;
+      pawprint.style.transform = `translate(${vx}px, ${vy}px) rotate(${angleDeg}deg)`;
       pawprint.style.transformOrigin = 'center center';
-      pawprint.style.willChange = 'transform, opacity'; // GPU acceleration hint
-      
-      // Use pawprint.webp image
-      const img = document.createElement('img');
-      img.src = '/pawprint.webp';
-      img.alt = 'Paw print';
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
-      img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
-      applyPawPrintSurface(pawprint, img);
+      pawprint.style.willChange = 'transform, opacity';
 
-      // Handle image load error - fallback to SVG
-      img.addEventListener('error', () => {
-        console.warn('[PetAnimations] Failed to load paw print image');
-        // Fallback: create a simple SVG paw print
-        pawprint.innerHTML = `
-          <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="30" cy="30" r="12" fill="currentColor" opacity="0.6"/>
-            <circle cx="70" cy="30" r="12" fill="currentColor" opacity="0.6"/>
-            <circle cx="30" cy="70" r="12" fill="currentColor" opacity="0.6"/>
-            <circle cx="70" cy="70" r="12" fill="currentColor" opacity="0.6"/>
-            <ellipse cx="50" cy="50" rx="20" ry="25" fill="currentColor" opacity="0.6"/>
-          </svg>
-        `;
-        pawprint.style.color = '#666';
-      });
-
-      pawprint.appendChild(img);
+      mountPawPrintGraphic(pawprint);
       container.appendChild(pawprint);
 
-      setTimeout(() => {
-        pawprint.style.opacity = '0.8';
+      const stepInterval = BEZIER_STEP_INTERVAL_MS;
+      const fadeOutDelay = BEZIER_FADE_OUT_DELAY_MS;
+
+      window.setTimeout(() => {
+        pawprint.style.opacity = '0.5';
       }, i * stepInterval);
 
-      setTimeout(() => {
+      window.setTimeout(() => {
         pawprint.style.transition = 'opacity 1s ease-out';
         pawprint.style.opacity = '0';
-        setTimeout(() => {
-          if (pawprint.parentNode) {
-            pawprint.remove();
-          }
+        window.setTimeout(() => {
+          if (pawprint.parentNode) pawprint.remove();
           activePawprintsRef.current.delete(id);
         }, 1000);
       }, i * stepInterval + fadeOutDelay);
     }
-  }, []);
+  }, [clearScheduledTrail, fadeAndClearWalkingPaws]);
 
-  // Quick navigation-triggered animation (kept intentionally short).
-  const createQuickWalkingDogAnimation = useCallback(() => {
-    if (!animationContainerRef.current) return;
-
-    if (walkingAnimationRef.current !== null) return;
-
-    const container = animationContainerRef.current;
-    const maxPawprints = 4;
-    let stepCount = 0;
-    let currentX = -100;
-    let currentY = window.innerHeight * 0.35 + (Math.random() * window.innerHeight * 0.25);
-    let isLeftPaw = Math.random() > 0.5;
-
-    const stepInterval = 80 + Math.random() * 70;
-
-    const pathVariation = () => ({
-      x: Math.random() * 30 - 15,
-      y: Math.random() * 20 - 10,
-      rotation: (Math.random() * 18 - 9) * (Math.PI / 180),
-      scale: 0.9 + Math.random() * 0.2,
-    });
-
-    const createPawprint = () => {
-      if (!animationContainerRef.current) return;
-
-      if (walkingPawprintsRef.current.length >= maxPawprints) {
-        const oldest = walkingPawprintsRef.current.shift();
-        if (oldest) {
-          oldest.element.style.transition = 'opacity 0.25s ease-out';
-          oldest.element.style.opacity = '0';
-          setTimeout(() => {
-            if (oldest.element.parentNode) oldest.element.remove();
-          }, 250);
-        }
-      }
-
-      const variation = pathVariation();
-      isLeftPaw = !isLeftPaw;
-
-      const stepX = currentX + 60 + variation.x;
-      const stepY = currentY + variation.y;
-
-      currentX = stepX;
-      currentY += variation.y * 0.25;
-
-      const pawW = 38 * variation.scale;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const drawX = Math.max(0, Math.min(stepX, vw - pawW));
-      const drawY = Math.max(0, Math.min(stepY, vh - pawW));
-
-      const id = `walking-paw-quick-${Date.now()}-${stepCount++}`;
-      const pawprint = document.createElement('div');
-      pawprint.id = id;
-      pawprint.style.position = 'fixed';
-      pawprint.style.left = `${drawX}px`;
-      pawprint.style.top = `${drawY}px`;
-      pawprint.style.width = `${pawW}px`;
-      pawprint.style.height = `${pawW}px`;
-      pawprint.style.pointerEvents = 'none';
-      pawprint.style.zIndex = '9999';
-      pawprint.style.opacity = '0.75';
-      pawprint.style.transform = `rotate(${variation.rotation}rad)`;
-      pawprint.style.transition = 'opacity 0.18s ease-in';
-      pawprint.style.transformOrigin = 'center center';
-
-      const img = document.createElement('img');
-      img.src = '/stock-vector-one-single-paw-print.webp';
-      img.alt = 'Paw print';
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
-      img.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))';
-      applyPawPrintSurface(pawprint, img);
-
-      img.addEventListener('error', () => {
-        pawprint.innerHTML = `
-          <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="30" cy="30" r="10" fill="currentColor" opacity="0.6"/>
-            <circle cx="70" cy="30" r="10" fill="currentColor" opacity="0.6"/>
-            <circle cx="30" cy="70" r="10" fill="currentColor" opacity="0.6"/>
-            <circle cx="70" cy="70" r="10" fill="currentColor" opacity="0.6"/>
-            <ellipse cx="50" cy="50" rx="18" ry="22" fill="currentColor" opacity="0.6"/>
-          </svg>
-        `;
-        pawprint.style.color = '#666';
-      });
-
-      pawprint.appendChild(img);
-      container.appendChild(pawprint);
-
-      walkingPawprintsRef.current.push({ id, element: pawprint });
-    };
-
-    const scheduleNextStep = (isFirstStep = false) => {
-      if (!isFirstStep && walkingAnimationRef.current === null) return;
-
-      createPawprint();
-
-      if (currentX <= window.innerWidth + 80) {
-        const timeoutId = setTimeout(() => scheduleNextStep(false), stepInterval);
-        walkingAnimationRef.current = timeoutId as any;
-      } else {
-        walkingPawprintsRef.current.forEach(({ element }) => {
-          element.style.transition = 'opacity 0.25s ease-out';
-          element.style.opacity = '0';
-          setTimeout(() => {
-            if (element.parentNode) element.remove();
-          }, 250);
-        });
-        walkingPawprintsRef.current = [];
-        walkingAnimationRef.current = null;
-      }
-    };
-
-    scheduleNextStep(true);
-
-    setTimeout(() => {
-      if (walkingAnimationRef.current !== null) {
-        clearTimeout(walkingAnimationRef.current as any);
-        walkingAnimationRef.current = null;
-
-        walkingPawprintsRef.current.forEach(({ element }) => {
-          element.style.transition = 'opacity 0.25s ease-out';
-          element.style.opacity = '0';
-          setTimeout(() => {
-            if (element.parentNode) element.remove();
-          }, 250);
-        });
-        walkingPawprintsRef.current = [];
-      }
-    }, 3000);
-  }, []);
-
-  // Trigger random animation - ensures only one of each type
   const triggerRandomAnimation = useCallback(() => {
     if (!finalConfig.enabled) return;
+    const roll = Math.random();
+    if (roll < 0.55) {
+      runAmbientWalkingTrail();
+    } else {
+      createPawprintBurst();
+    }
+  }, [createPawprintBurst, finalConfig.enabled, runAmbientWalkingTrail]);
 
-    const animations = [createWalkingDogAnimation, createPawprintAnimation];
-    const randomAnimation = animations[Math.floor(Math.random() * animations.length)];
-    
-    // Trigger the selected animation (only one of each type allowed)
-    randomAnimation();
-  }, [createWalkingDogAnimation, createPawprintAnimation, finalConfig.enabled]);
-
-  // Trigger a short animation when navigation happens.
-  const triggerQuickAnimation = useCallback(() => {
+  const triggerWalkingOnNav = useCallback(() => {
     if (!finalConfig.enabled) return;
-    createQuickWalkingDogAnimation();
-  }, [createQuickWalkingDogAnimation, finalConfig.enabled]);
+    runWoofTrail();
+  }, [finalConfig.enabled, runWoofTrail]);
 
   useEffect(() => {
-    const handler = () => triggerQuickAnimation();
+    const handler = () => triggerWalkingOnNav();
     window.addEventListener('pet-quick-trigger', handler);
     return () => window.removeEventListener('pet-quick-trigger', handler);
-  }, [triggerQuickAnimation]);
+  }, [triggerWalkingOnNav]);
 
-  // Set up random interval
   useEffect(() => {
     if (!finalConfig.enabled) return;
 
     const scheduleNext = () => {
-      if (intervalRef.current) {
-        clearTimeout(intervalRef.current);
-      }
-
+      if (intervalRef.current) clearTimeout(intervalRef.current);
       const interval = getRandomInterval();
       intervalRef.current = setTimeout(() => {
         triggerRandomAnimation();
-        scheduleNext(); // Schedule next animation
+        scheduleNext();
       }, interval);
     };
 
-    // Start first animation after initial delay
     const initialDelay = getRandomInterval();
     intervalRef.current = setTimeout(() => {
       triggerRandomAnimation();
@@ -519,32 +423,25 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
     }, initialDelay);
 
     return () => {
-      if (intervalRef.current) {
-        clearTimeout(intervalRef.current);
-      }
-      // Clean up walking animation on unmount
+      if (intervalRef.current) clearTimeout(intervalRef.current);
+      clearScheduledTrail();
       if (walkingAnimationRef.current !== null) {
-        clearTimeout(walkingAnimationRef.current as any);
+        clearTimeout(walkingAnimationRef.current);
         walkingAnimationRef.current = null;
       }
-      // Clean up all walking paw prints
       walkingPawprintsRef.current.forEach(({ element }) => {
-        if (element.parentNode) {
-          element.remove();
-        }
+        if (element.parentNode) element.remove();
       });
       walkingPawprintsRef.current = [];
     };
-  }, [finalConfig.enabled, getRandomInterval, triggerRandomAnimation]);
+  }, [clearScheduledTrail, finalConfig.enabled, getRandomInterval, triggerRandomAnimation]);
 
-  // Manual trigger handler
   const handleManualTrigger = useCallback(() => {
-    triggerRandomAnimation();
-  }, [triggerRandomAnimation]);
+    runWoofTrail();
+  }, [runWoofTrail]);
 
   return (
     <>
-      {/* Animation container - fixed position, pointer-events-none so it doesn't block interactions */}
       <div
         ref={animationContainerRef}
         className="pet-animations-container"
@@ -553,16 +450,13 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
           inset: 0,
           maxWidth: '100%',
           pointerEvents: 'none',
-          zIndex: 9998, // Below modals but above most content
+          zIndex: 9998,
         }}
       />
 
-      {/* Manual Woof: animated control + paw triggers (desktop) */}
-      {isVisible && (
-        <div className="pointer-events-auto fixed bottom-4 right-4 z-[9999] hidden md:block max-w-[calc(100vw-2rem)]">
-          <WoofButton onWoof={handleManualTrigger} />
-        </div>
-      )}
+      <div className="pointer-events-auto fixed bottom-4 right-4 z-[9999] hidden md:block max-w-[calc(100vw-2rem)]">
+        <WoofButton onWoof={handleManualTrigger} />
+      </div>
     </>
   );
 }

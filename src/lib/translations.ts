@@ -1612,16 +1612,8 @@ export const translations: Translations = {
     es: '{n} clientes recurrentes'
   },
   'dashboard.servicesCompleted': {
-    en: 'Completed & billed',
-    es: 'Completados y facturados'
-  },
-  'dashboard.periodSalesCount': {
-    en: 'Sales in period',
-    es: 'Ventas en el período'
-  },
-  'dashboard.periodSalesHint': {
-    en: 'Paid and partial transactions in the selected range',
-    es: 'Transacciones pagadas y parciales en el rango seleccionado'
+    en: 'Billed services',
+    es: 'Servicios facturados'
   },
   'diagnostics.demoUserShownAs': {
     en: 'Headers on /demo show “Demo User”. Your real profile in Supabase is unchanged.',
@@ -1678,6 +1670,22 @@ export const translations: Translations = {
   'dashboard.viewAll': {
     en: 'View All',
     es: 'Ver Todo'
+  },
+  'dashboard.lowStockTitle': {
+    en: 'Low in stock',
+    es: 'Poco stock'
+  },
+  'dashboard.lowStockSubtitle': {
+    en: 'At or below reorder level',
+    es: 'En o bajo el nivel de pedido'
+  },
+  'dashboard.lowStockEmpty': {
+    en: 'All products are above your reorder levels.',
+    es: 'Todos los productos están por encima del nivel de pedido.'
+  },
+  'dashboard.openInventory': {
+    en: 'Open inventory',
+    es: 'Abrir inventario'
   },
   'dashboard.noAppointmentsToday': {
     en: 'No appointments scheduled for today',

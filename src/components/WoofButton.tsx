@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import './WoofButton.css';
 
 const WOOF_ANIM_PHASE_MS = 800;
-const WOOF_COOLDOWN_MS = 30_000;
+const WOOF_COOLDOWN_MS = 5_000;
 
 type WoofPhase = 'idle' | 'animating' | 'cooldown';
 
