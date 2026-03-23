@@ -20,6 +20,7 @@ export function DashboardRevenueChart({
   tooltipSeriesName,
   tooltipFormatter,
   labelFormatter,
+  chartHeight = 220,
 }: {
   data: DashboardRevenueChartPoint[];
   chartEnterKey: number;
@@ -27,6 +28,8 @@ export function DashboardRevenueChart({
   tooltipSeriesName: string;
   tooltipFormatter: (value: number) => [string, string];
   labelFormatter: (_: unknown, payload: readonly { payload?: DashboardRevenueChartPoint }[]) => string;
+  /** SVG plot height in px (ResponsiveContainer). */
+  chartHeight?: number;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const baseId = useId().replace(/:/g, '');
@@ -111,7 +114,7 @@ export function DashboardRevenueChart({
       const area = root.querySelector<SVGPathElement>('.recharts-area-area');
       if (curve) applyEndState(curve, area ?? null);
     };
-  }, [data, chartEnterKey]);
+  }, [data, chartEnterKey, chartHeight]);
 
   if (data.length === 0) {
     return <p className="text-xs text-muted-foreground px-1 py-8 text-center">{emptyLabel}</p>;
@@ -119,7 +122,7 @@ export function DashboardRevenueChart({
 
   return (
     <div ref={wrapRef} className="w-full">
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <AreaChart
           key={`revenue-chart-${chartEnterKey}`}
           data={data}
