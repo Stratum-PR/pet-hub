@@ -34,7 +34,7 @@ export function TimeKioskPreview({ logoUrl, zoom, logoHeightPx = 48 }: TimeKiosk
         <p className="text-muted-foreground text-lg">{t('timeTracking.description')}</p>
       </div>
 
-      <Card className="shadow-lg">
+      <Card className="shadow-none hover:shadow-lg">
         <CardContent className="p-6 sm:p-8">
           <div className="space-y-6">
             {/* PIN Display (empty) — 4 slots like the live punch clock */}

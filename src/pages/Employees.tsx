@@ -71,7 +71,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Clock In/Out Section */}
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-primary" />
@@ -150,7 +150,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
         </Card>
 
         {/* Today's Activity */}
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="w-5 h-5 text-primary" />
@@ -166,7 +166,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
             ) : (
               <div className="space-y-3">
                 {todayEntries.map((entry) => {
-                  const employee = employees.find(e => e.id === entry.employee_id);
+                  const employee = employees.find(e => e.id === entry.staff_id);
                   return (
                     <div
                       key={entry.id}

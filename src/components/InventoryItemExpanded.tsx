@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Product } from '@/types/inventory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Package, Trash2, Upload, Save } from 'lucide-react';
+import { Package, Trash2, Upload, Save, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 import { format } from 'date-fns';
@@ -48,6 +48,10 @@ function productToForm(p: Product): FormShape {
   };
 }
 
+export type InventoryItemExpandedHandle = {
+  save: () => void;
+};
+
 interface InventoryItemExpandedProps {
   product: Product;
   products: Product[];
@@ -65,20 +69,27 @@ interface InventoryItemExpandedProps {
   onQuantityUpdated?: (id: string, quantity: number) => void;
   /** e.g. dialog body: `px-0 pt-1` */
   className?: string;
+  /** When false, Save/Delete row is omitted (use modal header + ref.save()). */
+  hideToolbar?: boolean;
 }
 
-export function InventoryItemExpanded({
-  product,
-  products,
-  stockMovements,
-  isLowStock,
-  onSave,
-  onRequestDelete,
-  onUploadProductPhoto,
-  onAdjustStock,
-  onQuantityUpdated,
-  className,
-}: InventoryItemExpandedProps) {
+export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, InventoryItemExpandedProps>(
+  function InventoryItemExpanded(
+    {
+      product,
+      products,
+      stockMovements,
+      isLowStock,
+      onSave,
+      onRequestDelete,
+      onUploadProductPhoto,
+      onAdjustStock,
+      onQuantityUpdated,
+      className,
+      hideToolbar = false,
+    },
+    ref
+  ) {
   const [form, setForm] = useState<FormShape>(() => productToForm(product));
   const [saving, setSaving] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -151,6 +162,12 @@ export function InventoryItemExpanded({
     setSaving(false);
   };
 
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  useImperativeHandle(ref, () => ({
+    save: () => handleSaveRef.current(),
+  }));
+
   const handleQuickAdd = async () => {
     const qty = parseInt(quickQty, 10);
     if (!onAdjustStock || !qty || qty <= 0) return;
@@ -176,31 +193,33 @@ export function InventoryItemExpanded({
 
   return (
     <div className={cn('space-y-4 p-4 sm:p-5', className)} onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center justify-end gap-1.5 border-b border-border pb-3">
-        <Button
-          type="button"
-          size="icon"
-          variant="default"
-          className="h-9 w-9 shrink-0"
-          disabled={saving || duplicateSku}
-          title={saving ? t('common.saving') : t('common.save')}
-          aria-label={saving ? t('common.saving') : t('common.save')}
-          onClick={handleSave}
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="destructive"
-          className="h-9 w-9 shrink-0"
-          title={t('common.delete')}
-          aria-label={t('common.delete')}
-          onClick={onRequestDelete}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
+      {!hideToolbar ? (
+        <div className="flex items-center justify-end gap-1.5 border-b border-border pb-3">
+          <Button
+            type="button"
+            size="icon"
+            variant="default"
+            className="h-9 w-9 shrink-0"
+            disabled={saving || duplicateSku}
+            title={saving ? t('common.saving') : t('common.save')}
+            aria-label={saving ? t('common.saving') : t('common.save')}
+            onClick={handleSave}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="destructive"
+            className="h-9 w-9 shrink-0"
+            title={t('common.delete')}
+            aria-label={t('common.delete')}
+            onClick={onRequestDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="flex shrink-0 flex-col items-center gap-2 sm:w-36">
@@ -411,4 +430,6 @@ export function InventoryItemExpanded({
 
     </div>
   );
-}
+});
+
+InventoryItemExpanded.displayName = 'InventoryItemExpanded';

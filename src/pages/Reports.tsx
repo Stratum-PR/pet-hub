@@ -92,7 +92,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
     return employees.filter(e => e.status === 'active').map(emp => {
       const empEntries = timeEntries.filter(entry => {
         const entryDate = new Date(entry.clock_in);
-        return entry.employee_id === emp.id && entryDate >= weekStart && entry.clock_out;
+        return entry.staff_id === emp.id && entryDate >= weekStart && entry.clock_out;
       });
       
       const totalHours = empEntries.reduce((sum, entry) => {
@@ -128,7 +128,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
     <div className="space-y-6 animate-fade-in">
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="shadow-sm">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-lg">
@@ -142,7 +142,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-lg">
@@ -155,7 +155,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-lg">
@@ -168,7 +168,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-lg">
@@ -186,7 +186,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart - from transactions */}
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
@@ -222,7 +222,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
         </Card>
 
         {/* Pet Distribution */}
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Dog className="w-5 h-5 text-primary" />
@@ -257,7 +257,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
         </Card>
 
         {/* Weekly Registrations */}
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle>{t('reports.weeklyRegistrations')}</CardTitle>
             <CardDescription>{t('reports.newClientsPetsThisWeek')}</CardDescription>
@@ -284,7 +284,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
         </Card>
 
         {/* Employee Hours */}
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader>
             <CardTitle>{t('reports.employeeHours')}</CardTitle>
             <CardDescription>{t('reports.hoursWorkedByStaff')}</CardDescription>

@@ -152,6 +152,14 @@ export default {
             transform: 'translate(-50%, -50%) scale(1)'
           }
         },
+        'dialog-overlay-in': {
+          '0%': { opacity: '0', backdropFilter: 'blur(0px)' },
+          '100%': { opacity: '1', backdropFilter: 'blur(14px)' }
+        },
+        'dialog-overlay-out': {
+          '0%': { opacity: '1', backdropFilter: 'blur(14px)' },
+          '100%': { opacity: '0', backdropFilter: 'blur(0px)' }
+        },
         'logo-appear': {
           '0%': {
             opacity: '0',
@@ -240,6 +248,8 @@ export default {
         'modal-appear': 'modal-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'zoom-out-up': 'zoom-out-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'dialog-content-appear': 'dialog-content-appear 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'dialog-overlay-in': 'dialog-overlay-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'dialog-overlay-out': 'dialog-overlay-out 0.26s cubic-bezier(0.4, 0, 1, 1) forwards',
         'logo-appear': 'logo-appear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'cta-bounce-in': 'cta-bounce-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         'letter-appear': 'letter-appear var(--letter-duration, 0.03s) ease-out forwards',

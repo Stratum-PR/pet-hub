@@ -60,7 +60,7 @@ const mainNavItems = [
 ];
 
 const employeeItems = [
-  { path: 'employee-management', labelKey: 'nav.employeeInfo', icon: UserCog },
+  { path: 'staff-management', labelKey: 'nav.employeeInfo', icon: UserCog },
   { path: 'employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
   { path: 'time-kiosk', labelKey: 'nav.timeKiosk', icon: Clock },
 ];
@@ -100,14 +100,20 @@ export function AppSidebar({
   const scheduleLabelKey = role === 'employee' ? 'nav.mySchedule' : 'nav.schedule';
 
   const basePath = businessSlug ? `/${businessSlug}` : '';
+  const staffNavSectionActive =
+    location.pathname.includes('/staff-management') ||
+    location.pathname.includes('/employee-management') ||
+    location.pathname.includes('/employee-schedule') ||
+    location.pathname.includes('/time-kiosk') ||
+    location.pathname.includes('/time-tracking');
   const isActive = (path: string) => location.pathname === `${basePath}/${path}` || (path !== 'dashboard' && location.pathname.startsWith(`${basePath}/${path}`));
 
   const isPill = !mobile;
   const linkClass = (active: boolean, isCollapsedNav = false) =>
     cn(
       'flex items-center gap-3 rounded-full text-sm font-medium transition-all duration-200 min-w-0',
-      isCollapsedNav ? 'justify-center w-10 h-10 flex-shrink-0' : 'rounded-full w-10 h-10 flex-shrink-0 justify-center sm:justify-start sm:w-full sm:px-3 sm:py-2 sm:h-auto',
-      mobile && !isCollapsedNav && 'justify-start w-full px-3 py-2 h-auto',
+      isCollapsedNav ? 'justify-center w-10 h-9 flex-shrink-0' : 'rounded-full w-10 h-9 flex-shrink-0 justify-center sm:justify-start sm:w-full sm:px-3 sm:py-1 sm:h-auto',
+      mobile && !isCollapsedNav && 'justify-start w-full px-3 py-1.5 h-auto',
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
@@ -202,7 +208,7 @@ export function AppSidebar({
         )}
       </div>
 
-      <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-2 space-y-2', isPill ? (collapsed ? 'px-3 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
+      <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-1 space-y-0.5', isPill ? (collapsed ? 'px-3 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
         {mainNavItems.map((item) => (
           <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
         ))}
@@ -215,7 +221,7 @@ export function AppSidebar({
                 onMouseLeave={() => setEmployeesOpen(false)}
               >
                 <DropdownMenuTrigger asChild>
-                  <button className={cn('w-full', linkClass(location.pathname.includes('employee') || location.pathname.includes('time-tracking'), true))}>
+                  <button className={cn('w-full', linkClass(staffNavSectionActive, true))}>
                     <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
                       <UserCog className="h-5 w-5 shrink-0" />
                     </span>
@@ -266,7 +272,7 @@ export function AppSidebar({
             onMouseEnter={() => setEmployeesOpen(true)}
             onMouseLeave={() => setEmployeesOpen(false)}
           >
-            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('employee') || location.pathname.includes('time-tracking')))}>
+            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(staffNavSectionActive))}>
               <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
                 <UserCog className="h-5 w-5 shrink-0" />
               </span>
@@ -274,7 +280,7 @@ export function AppSidebar({
               {(!collapsed || mobile) && (employeesOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="ml-2 mt-2 space-y-2 border-l border-sidebar-border pl-3">
+              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
                 {employeeItems.map((item) => (
                   <NavLink key={item.path} path={item.path} labelKey={item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey} icon={item.icon} />
                 ))}
@@ -296,7 +302,7 @@ export function AppSidebar({
               {(!collapsed || mobile) && (reportsOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <div className="ml-2 mt-2 space-y-2 border-l border-sidebar-border pl-3">
+              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
                 {reportsItems.map((item) => (
                   <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
                 ))}

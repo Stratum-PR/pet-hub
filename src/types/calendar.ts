@@ -13,19 +13,22 @@ export interface CalendarAppointment {
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
   color: string; // hex color code
-  employeeId: string;
-  employeeName: string;
+  staffId: string;
+  staffName: string;
   hasAlert?: boolean;
   notes?: string;
   price?: number;
 }
 
-export interface CalendarEmployee {
+export interface CalendarStaff {
   id: string;
   name: string;
   initials?: string;
   color?: string;
 }
+
+/** @deprecated use CalendarStaff */
+export type CalendarEmployee = CalendarStaff;
 
 export interface WaitlistEntry {
   id: string;
@@ -53,7 +56,8 @@ export type CalendarView = 'day' | 'week' | 'month';
 
 export interface CalendarFilters {
   service: string; // "Grooming" or "All Services"
-  employee: string; // "All Employees" or specific employee ID
+  /** "All Employees" / "All Rooms" or staff display name (grooming) */
+  staff: string;
   view: CalendarView;
 }
 

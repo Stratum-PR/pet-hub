@@ -64,7 +64,7 @@ interface ManagerScheduleViewProps {
   onWeekChange: (start: Date) => void;
   employees: Employee[];
   shifts: EmployeeShift[];
-  addShift: (payload: { employee_id: string; start_time: string; end_time: string; notes?: string }) => Promise<EmployeeShift | null>;
+  addShift: (payload: { staff_id: string; start_time: string; end_time: string; notes?: string }) => Promise<EmployeeShift | null>;
   updateShift: (id: string, payload: Partial<Pick<EmployeeShift, 'start_time' | 'end_time' | 'notes'>>) => Promise<EmployeeShift | null>;
   deleteShift: (id: string) => Promise<boolean>;
   timeRange?: WeekTimeRange;
@@ -121,7 +121,7 @@ export function ManagerScheduleView({
         return;
       }
       await addShift({
-        employee_id: employeeId,
+        staff_id: employeeId,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
       });
@@ -170,7 +170,7 @@ export function ManagerScheduleView({
       if (newEnd > maxEnd) newEnd = maxEnd;
       const shift = shifts.find((s) => s.id === r.shiftId);
       const dayStr = format(startDate, 'yyyy-MM-dd');
-      if (shift && hasSameEmployeeOverlap(shifts, shift.employee_id, dayStr, r.shiftStart, newEnd.toISOString(), r.shiftId)) {
+      if (shift && hasSameEmployeeOverlap(shifts, shift.staff_id, dayStr, r.shiftStart, newEnd.toISOString(), r.shiftId)) {
         toast.error(t('schedule.sameEmployeeOverlap'));
       } else {
         updateShift(r.shiftId, { end_time: newEnd.toISOString() }).catch(() => {});
@@ -236,7 +236,7 @@ export function ManagerScheduleView({
       const releasedInsideGrid = gridRef.current?.contains(e.target as Node) ?? false;
       if (didDragRef.current && releasedInsideGrid && preview?.shiftId === m.shift.id) {
         const dayStr = format(new Date(preview.startTime), 'yyyy-MM-dd');
-        if (hasSameEmployeeOverlap(shifts, m.shift.employee_id, dayStr, preview.startTime, preview.endTime, m.shift.id)) {
+        if (hasSameEmployeeOverlap(shifts, m.shift.staff_id, dayStr, preview.startTime, preview.endTime, m.shift.id)) {
           toast.error(t('schedule.sameEmployeeOverlap'));
           setMovePreview(null);
         } else {
@@ -268,7 +268,7 @@ export function ManagerScheduleView({
             newStart = addMinutes(newEnd, -(endDate.getTime() - startDate.getTime()) / 60000);
           }
           const dayStr = format(newStart, 'yyyy-MM-dd');
-          if (hasSameEmployeeOverlap(shifts, m.shift.employee_id, dayStr, newStart.toISOString(), newEnd.toISOString(), m.shift.id)) {
+          if (hasSameEmployeeOverlap(shifts, m.shift.staff_id, dayStr, newStart.toISOString(), newEnd.toISOString(), m.shift.id)) {
             toast.error(t('schedule.sameEmployeeOverlap'));
           } else {
             updateShift(m.shift.id, {
@@ -340,7 +340,7 @@ export function ManagerScheduleView({
         const durationMs = new Date(shift.end_time).getTime() - startDate.getTime();
         const newEnd = addMinutes(newStart, durationMs / 60000);
         await addShift({
-          employee_id: shift.employee_id,
+          staff_id: shift.staff_id,
           start_time: newStart.toISOString(),
           end_time: newEnd.toISOString(),
           notes: shift.notes ?? undefined,
@@ -490,8 +490,8 @@ export function ManagerScheduleView({
                           endTimeForPosition,
                           rangeStartMinutes
                         );
-                        const emp = employees.find((e) => e.id === shift.employee_id);
-                        const colors = getShiftColor(shift.employee_id, activeEmployees);
+                        const emp = employees.find((e) => e.id === shift.staff_id);
+                        const colors = getShiftColor(shift.staff_id, activeEmployees);
                         const totalHeight = Math.max(height, 28);
                         const bodyHeight = totalHeight - 6;
                         return (
@@ -548,8 +548,8 @@ export function ManagerScheduleView({
                           movePreview.endTime,
                           rangeStartMinutes
                         );
-                        const emp = employees.find((e) => e.id === shift.employee_id);
-                        const colors = getShiftColor(shift.employee_id, activeEmployees);
+                        const emp = employees.find((e) => e.id === shift.staff_id);
+                        const colors = getShiftColor(shift.staff_id, activeEmployees);
                         const totalHeight = Math.max(height, 28);
                         const bodyHeight = totalHeight - 6;
                         return (

@@ -17,7 +17,7 @@ export type Database = {
       appointments: {
         Row: {
           created_at: string
-          employee_id: string | null
+          staff_id: string | null
           id: string
           notes: string | null
           pet_id: string
@@ -29,7 +29,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          employee_id?: string | null
+          staff_id?: string | null
           id?: string
           notes?: string | null
           pet_id: string
@@ -41,7 +41,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          employee_id?: string | null
+          staff_id?: string | null
           id?: string
           notes?: string | null
           pet_id?: string
@@ -54,7 +54,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "appointments_employee_id_fkey"
-            columns: ["employee_id"]
+            columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
@@ -249,7 +249,7 @@ export type Database = {
           clock_in: string
           clock_out: string | null
           created_at: string
-          employee_id: string
+          staff_id: string
           id: string
           notes: string | null
         }
@@ -257,7 +257,7 @@ export type Database = {
           clock_in?: string
           clock_out?: string | null
           created_at?: string
-          employee_id: string
+          staff_id: string
           id?: string
           notes?: string | null
         }
@@ -265,14 +265,14 @@ export type Database = {
           clock_in?: string
           clock_out?: string | null
           created_at?: string
-          employee_id?: string
+          staff_id?: string
           id?: string
           notes?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "time_entries_employee_id_fkey"
-            columns: ["employee_id"]
+            columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]

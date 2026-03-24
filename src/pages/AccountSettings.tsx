@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { t, type Language } from '@/lib/translations';
+import { dayOptions, isValidEmployeeDob, monthOptions, yearOptions } from '@/lib/employeeDob';
 import {
   DEFAULT_PRIMARY_COLOR_HSL,
   DEFAULT_SECONDARY_COLOR_HSL,
@@ -127,7 +128,7 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const demoLocalOnly = useDemoLocalSettingsMode();
   const { language, setLanguage } = useLanguage();
   const [pendingLanguage, setPendingLanguage] = useState<Language>(language);
@@ -156,8 +157,53 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
   const [notifyBirthdays, setNotifyBirthdays] = useState(settings.notify_birthdays !== 'false');
   const [notifyGeneral, setNotifyGeneral] = useState(settings.notify_general !== 'false');
   const [savingNotifications, setSavingNotifications] = useState(false);
+  const [staffDobMonth, setStaffDobMonth] = useState('');
+  const [staffDobDay, setStaffDobDay] = useState('');
+  const [staffDobYear, setStaffDobYear] = useState('');
+  const [staffDobLoading, setStaffDobLoading] = useState(false);
+  const [staffDobSaving, setStaffDobSaving] = useState(false);
   const primaryColorInputRef = useRef<HTMLInputElement | null>(null);
   const secondaryColorInputRef = useRef<HTMLInputElement | null>(null);
+
+  const monthChoices = useMemo(() => monthOptions(language), [language]);
+  const yearChoices = useMemo(() => yearOptions(), []);
+  const birthYearNum = parseInt(staffDobYear, 10);
+  const birthMonthNum = parseInt(staffDobMonth, 10);
+  const yForDays = Number.isFinite(birthYearNum) ? birthYearNum : 2000;
+  const mForDays =
+    Number.isFinite(birthMonthNum) && birthMonthNum >= 1 && birthMonthNum <= 12 ? birthMonthNum : 1;
+  const dayChoices = useMemo(() => dayOptions(mForDays, yForDays), [mForDays, yForDays]);
+
+  const clampBirthDay = (month: number, year: number, dayStr: string) => {
+    const dim = dayOptions(month, year).length;
+    const d = parseInt(dayStr, 10);
+    if (!Number.isFinite(d)) return '';
+    return String(Math.min(Math.max(1, d), dim));
+  };
+
+  useEffect(() => {
+    if (demoLocalOnly || !profile?.staff_id) return;
+    let cancelled = false;
+    (async () => {
+      setStaffDobLoading(true);
+      const { data, error } = await supabase
+        .from('staff')
+        .select('birth_month, birth_day, birth_year')
+        .eq('id', profile.staff_id)
+        .maybeSingle();
+      if (!cancelled) {
+        if (!error && data) {
+          setStaffDobMonth(data.birth_month != null ? String(data.birth_month) : '');
+          setStaffDobDay(data.birth_day != null ? String(data.birth_day) : '');
+          setStaffDobYear(data.birth_year != null ? String(data.birth_year) : '');
+        }
+        setStaffDobLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [demoLocalOnly, profile?.staff_id]);
 
   useEffect(() => {
     const { r, g, b } = hslToRgb(primaryColor);
@@ -244,6 +290,38 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     setSavingNotifications(false);
     if (result.ok) toast.success(t('notifications.settingsSaved'));
     else toast.error(result.error || t('common.genericError'));
+  };
+
+  const handleSaveStaffBirthday = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.staff_id) return;
+    const dm = staffDobMonth.trim();
+    const dd = staffDobDay.trim();
+    const dy = staffDobYear.trim();
+    const anyDob = dm || dd || dy;
+    const allDob = dm && dd && dy;
+    if (anyDob && !allDob) {
+      toast.error(t('employeeManagement.dobIncomplete'));
+      return;
+    }
+    let payload: { birth_month: number | null; birth_day: number | null; birth_year: number | null };
+    if (!allDob) {
+      payload = { birth_month: null, birth_day: null, birth_year: null };
+    } else {
+      const month = parseInt(dm, 10);
+      const day = parseInt(dd, 10);
+      const year = parseInt(dy, 10);
+      if (!isValidEmployeeDob(day, month, year)) {
+        toast.error(t('employeeManagement.dobInvalid'));
+        return;
+      }
+      payload = { birth_month: month, birth_day: day, birth_year: year };
+    }
+    setStaffDobSaving(true);
+    const { error } = await supabase.from('staff').update(payload as any).eq('id', profile.staff_id);
+    setStaffDobSaving(false);
+    if (error) toast.error(error.message);
+    else toast.success(t('accountSettings.staffBirthdaySaved'));
   };
 
   const handleThemePreview = (preset: (typeof THEME_PRESETS)[0]) => {
@@ -353,6 +431,111 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
           </Button>
         </CardContent>
       </Card>
+
+      {!demoLocalOnly && profile?.staff_id ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('accountSettings.staffBirthdayTitle')}</CardTitle>
+            <CardDescription>{t('accountSettings.staffBirthdayDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {staffDobLoading ? (
+              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+            ) : (
+              <form onSubmit={handleSaveStaffBirthday} className="space-y-4 max-w-xl">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <Label>{t('employeeManagement.dateOfBirthLabel')}</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setStaffDobMonth('');
+                      setStaffDobDay('');
+                      setStaffDobYear('');
+                    }}
+                  >
+                    {t('employeeManagement.dobClear')}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobMonth')}</Label>
+                    <Select
+                      value={staffDobMonth || undefined}
+                      onValueChange={(v) => {
+                        const month = parseInt(v, 10);
+                        const y = parseInt(staffDobYear, 10) || 2000;
+                        const nextDay = staffDobDay ? clampBirthDay(month, y, staffDobDay) : staffDobDay;
+                        setStaffDobMonth(v);
+                        setStaffDobDay(nextDay);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthChoices.map((mo) => (
+                          <SelectItem key={mo.value} value={String(mo.value)}>
+                            {mo.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobDay')}</Label>
+                    <Select
+                      value={staffDobDay || undefined}
+                      onValueChange={(v) => setStaffDobDay(v)}
+                      disabled={!staffDobMonth}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {dayChoices.map((d) => (
+                          <SelectItem key={d} value={String(d)}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobYear')}</Label>
+                    <Select
+                      value={staffDobYear || undefined}
+                      onValueChange={(v) => {
+                        const year = parseInt(v, 10);
+                        const month = parseInt(staffDobMonth, 10) || 1;
+                        const nextDay = staffDobDay ? clampBirthDay(month, year, staffDobDay) : staffDobDay;
+                        setStaffDobYear(v);
+                        setStaffDobDay(nextDay);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {yearChoices.map((y) => (
+                          <SelectItem key={y} value={String(y)}>
+                            {y}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button type="submit" disabled={staffDobSaving}>
+                  {staffDobSaving ? t('common.saving') : t('accountSettings.staffBirthdaySave')}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

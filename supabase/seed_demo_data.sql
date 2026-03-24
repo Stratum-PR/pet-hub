@@ -13,13 +13,28 @@ SET name = 'Demo'
 WHERE id = '00000000-0000-0000-0000-000000000001';
 
 -- Clear existing demo data to avoid duplicates on re-run
--- Delete time_entries through employees (time_entries may not have business_id directly)
--- Handle type mismatch: employee_id might be TEXT or UUID, cast both sides to text for comparison
-DELETE FROM public.time_entries 
-WHERE employee_id::text IN (
-  SELECT id::text FROM public.employees 
-  WHERE business_id::text = '00000000-0000-0000-0000-000000000001'::text
-);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'staff_id'
+  ) THEN
+    DELETE FROM public.time_entries
+    WHERE staff_id::text IN (
+      SELECT id::text FROM public.staff
+      WHERE business_id::text = '00000000-0000-0000-0000-000000000001'::text
+    );
+  ELSIF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'employee_id'
+  ) THEN
+    DELETE FROM public.time_entries
+    WHERE employee_id::text IN (
+      SELECT id::text FROM public.employees
+      WHERE business_id::text = '00000000-0000-0000-0000-000000000001'::text
+    );
+  END IF;
+END $$;
 -- Clear demo transactions before appointments (when tables exist)
 DO $$
 BEGIN
@@ -40,7 +55,17 @@ END $$;
 DELETE FROM public.appointments WHERE business_id = '00000000-0000-0000-0000-000000000001';
 DELETE FROM public.pets        WHERE business_id = '00000000-0000-0000-0000-000000000001';
 DELETE FROM public.customers   WHERE business_id = '00000000-0000-0000-0000-000000000001';
-DELETE FROM public.employees   WHERE business_id = '00000000-0000-0000-0000-000000000001';
+DO $$
+BEGIN
+  IF to_regclass('public.staff_shifts') IS NOT NULL THEN
+    DELETE FROM public.staff_shifts WHERE business_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+  IF to_regclass('public.staff') IS NOT NULL THEN
+    DELETE FROM public.staff WHERE business_id = '00000000-0000-0000-0000-000000000001';
+  ELSIF to_regclass('public.employees') IS NOT NULL THEN
+    DELETE FROM public.employees WHERE business_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+END $$;
 DELETE FROM public.services    WHERE business_id = '00000000-0000-0000-0000-000000000001';
 DELETE FROM public.inventory   WHERE business_id = '00000000-0000-0000-0000-000000000001';
 
@@ -205,16 +230,47 @@ BEGIN
 END $$;
 
 -- ============================================
--- 6. CREATE DEMO EMPLOYEES (if table exists)
+-- 6. CREATE DEMO STAFF (public.staff after rename, else employees)
 -- ============================================
 DO $$
 DECLARE
   business_uuid UUID := '00000000-0000-0000-0000-000000000001';
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'employees') THEN
-    -- Check if business_id column exists
+  IF to_regclass('public.staff') IS NOT NULL THEN
+    INSERT INTO public.staff (
+      id,
+      business_id,
+      name,
+      email,
+      phone,
+      role,
+      access_role,
+      status,
+      pin,
+      hourly_rate,
+      birth_month,
+      birth_day,
+      birth_year
+    ) VALUES
+      (
+        gen_random_uuid(),
+        business_uuid,
+        'Demo User',
+        'demo.manager@pethub.demo',
+        '(787) 555-0000',
+        'Manager',
+        'manager',
+        'active',
+        '9999',
+        32.00,
+        EXTRACT(MONTH FROM CURRENT_DATE)::integer,
+        EXTRACT(DAY FROM CURRENT_DATE)::integer,
+        EXTRACT(YEAR FROM CURRENT_DATE)::integer - 35
+      ),
+      (gen_random_uuid(), business_uuid, 'Juan Pérez', 'juan.perez@demo.com', '(787) 555-1111', 'groomer', 'staff', 'active', '1234', 18.00, 6, 15, EXTRACT(YEAR FROM CURRENT_DATE)::integer - 34),
+      (gen_random_uuid(), business_uuid, 'Sofía Rivera', 'sofia.rivera@demo.com', '(787) 555-2222', 'groomer', 'staff', 'active', '5678', 22.00, 11, 8, EXTRACT(YEAR FROM CURRENT_DATE)::integer - 32);
+  ELSIF to_regclass('public.employees') IS NOT NULL THEN
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'business_id') THEN
-      -- Insert with business_id
       INSERT INTO public.employees (
         id,
         business_id,
@@ -228,21 +284,6 @@ BEGIN
       ) VALUES
         (gen_random_uuid(), business_uuid, 'Juan Pérez', 'juan.perez@demo.com', '(787) 555-1111', 'groomer', 'active', '1234', 18.00),
         (gen_random_uuid(), business_uuid, 'Sofía Rivera', 'sofia.rivera@demo.com', '(787) 555-2222', 'groomer', 'active', '5678', 22.00)
-      ON CONFLICT DO NOTHING;
-    ELSE
-      -- Insert without business_id (old schema)
-      INSERT INTO public.employees (
-        id,
-        name,
-        email,
-        phone,
-        role,
-        status,
-        pin,
-        hourly_rate
-      ) VALUES
-        (gen_random_uuid(), 'Juan Pérez', 'juan.perez@demo.com', '(787) 555-1111', 'groomer', 'active', '1234', 18.00),
-        (gen_random_uuid(), 'Sofía Rivera', 'sofia.rivera@demo.com', '(787) 555-2222', 'groomer', 'active', '5678', 22.00)
       ON CONFLICT DO NOTHING;
     END IF;
   END IF;
@@ -306,65 +347,128 @@ DECLARE
   business_uuid UUID := '00000000-0000-0000-0000-000000000001';
   emp1 UUID;
   emp2 UUID;
+  emp_mgr UUID;
   d DATE;
+  use_staff_id boolean := EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'staff_id'
+  );
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'time_entries') THEN
+  IF to_regclass('public.time_entries') IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF to_regclass('public.staff') IS NOT NULL THEN
+    SELECT id INTO emp1 FROM public.staff WHERE business_id = business_uuid AND name = 'Juan Pérez' LIMIT 1;
+    SELECT id INTO emp2 FROM public.staff WHERE business_id = business_uuid AND name = 'Sofía Rivera' LIMIT 1;
+    SELECT id INTO emp_mgr FROM public.staff WHERE business_id = business_uuid AND name = 'Demo User' LIMIT 1;
+  ELSE
     SELECT id INTO emp1 FROM public.employees WHERE business_id = business_uuid AND name = 'Juan Pérez' LIMIT 1;
     SELECT id INTO emp2 FROM public.employees WHERE business_id = business_uuid AND name = 'Sofía Rivera' LIMIT 1;
-
-    -- Últimos 5 días laborales para cada empleado
-    FOR d IN (SELECT (current_date - 4) + generate_series(0,4)) LOOP
-      IF emp1 IS NOT NULL THEN
-        -- Check if business_id column exists, otherwise insert without it
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
-          INSERT INTO public.time_entries (id, employee_id, business_id, clock_in, clock_out, notes)
-          VALUES (
-            gen_random_uuid(),
-            emp1,
-            business_uuid,
-            (d::date + time '09:00'),
-            (d::date + time '17:00'),
-            'Turno regular'
-          )
-          ON CONFLICT DO NOTHING;
-        ELSE
-          INSERT INTO public.time_entries (id, employee_id, clock_in, clock_out, notes)
-          VALUES (
-            gen_random_uuid(),
-            emp1,
-            (d::date + time '09:00'),
-            (d::date + time '17:00'),
-            'Turno regular'
-          )
-          ON CONFLICT DO NOTHING;
-        END IF;
-      END IF;
-
-      IF emp2 IS NOT NULL THEN
-        -- Check if business_id column exists, otherwise insert without it
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
-          INSERT INTO public.time_entries (id, employee_id, business_id, clock_in, clock_out, notes)
-          VALUES (
-            gen_random_uuid(),
-            emp2,
-            business_uuid,
-            (d::date + time '10:00'),
-            (d::date + time '16:00'),
-            'Turno corrido'
-          )
-          ON CONFLICT DO NOTHING;
-        ELSE
-          INSERT INTO public.time_entries (id, employee_id, clock_in, clock_out, notes)
-          VALUES (
-            gen_random_uuid(),
-            emp2,
-            (d::date + time '10:00'),
-            (d::date + time '16:00'),
-            'Turno corrido'
-          )
-          ON CONFLICT DO NOTHING;
-        END IF;
-      END IF;
-    END LOOP;
   END IF;
+
+  FOR d IN (SELECT (current_date - 4) + generate_series(0,4)) LOOP
+    IF emp1 IS NOT NULL THEN
+      IF use_staff_id AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+        INSERT INTO public.time_entries (id, staff_id, business_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp1, business_uuid, (d::timestamp + time '09:00'), (d::timestamp + time '17:00'), 'Turno regular');
+      ELSIF use_staff_id THEN
+        INSERT INTO public.time_entries (id, staff_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp1, (d::timestamp + time '09:00'), (d::timestamp + time '17:00'), 'Turno regular');
+      ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+        INSERT INTO public.time_entries (id, employee_id, business_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp1, business_uuid, (d::timestamp + time '09:00'), (d::timestamp + time '17:00'), 'Turno regular');
+      ELSE
+        INSERT INTO public.time_entries (id, employee_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp1, (d::timestamp + time '09:00'), (d::timestamp + time '17:00'), 'Turno regular');
+      END IF;
+    END IF;
+
+    IF emp2 IS NOT NULL THEN
+      IF use_staff_id AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+        INSERT INTO public.time_entries (id, staff_id, business_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp2, business_uuid, (d::timestamp + time '10:00'), (d::timestamp + time '16:00'), 'Turno corrido');
+      ELSIF use_staff_id THEN
+        INSERT INTO public.time_entries (id, staff_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp2, (d::timestamp + time '10:00'), (d::timestamp + time '16:00'), 'Turno corrido');
+      ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+        INSERT INTO public.time_entries (id, employee_id, business_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp2, business_uuid, (d::timestamp + time '10:00'), (d::timestamp + time '16:00'), 'Turno corrido');
+      ELSE
+        INSERT INTO public.time_entries (id, employee_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp2, (d::timestamp + time '10:00'), (d::timestamp + time '16:00'), 'Turno corrido');
+      END IF;
+    END IF;
+
+    IF emp_mgr IS NOT NULL THEN
+      IF use_staff_id AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+        INSERT INTO public.time_entries (id, staff_id, business_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp_mgr, business_uuid, (d::timestamp + time '08:00'), (d::timestamp + time '18:00'), 'Turno gerencia');
+      ELSIF use_staff_id THEN
+        INSERT INTO public.time_entries (id, staff_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp_mgr, (d::timestamp + time '08:00'), (d::timestamp + time '18:00'), 'Turno gerencia');
+      ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'time_entries' AND column_name = 'business_id') THEN
+        INSERT INTO public.time_entries (id, employee_id, business_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp_mgr, business_uuid, (d::timestamp + time '08:00'), (d::timestamp + time '18:00'), 'Turno gerencia');
+      ELSE
+        INSERT INTO public.time_entries (id, employee_id, clock_in, clock_out, notes)
+        VALUES (gen_random_uuid(), emp_mgr, (d::timestamp + time '08:00'), (d::timestamp + time '18:00'), 'Turno gerencia');
+      END IF;
+    END IF;
+  END LOOP;
+END $$;
+
+-- ============================================
+-- 9. DEMO STAFF SHIFTS (current week, Mon–Fri 9–5)
+-- ============================================
+DO $$
+DECLARE
+  business_uuid UUID := '00000000-0000-0000-0000-000000000001';
+  emp1 UUID;
+  emp2 UUID;
+  emp_mgr UUID;
+  d DATE;
+BEGIN
+  IF to_regclass('public.staff_shifts') IS NULL OR to_regclass('public.staff') IS NULL THEN
+    RETURN;
+  END IF;
+  SELECT id INTO emp1 FROM public.staff WHERE business_id = business_uuid AND name = 'Juan Pérez' LIMIT 1;
+  SELECT id INTO emp2 FROM public.staff WHERE business_id = business_uuid AND name = 'Sofía Rivera' LIMIT 1;
+  SELECT id INTO emp_mgr FROM public.staff WHERE business_id = business_uuid AND name = 'Demo User' LIMIT 1;
+
+  FOR d IN SELECT generate_series(current_date, current_date + 6, '1 day'::interval)::date LOOP
+    IF EXTRACT(ISODOW FROM d) >= 6 THEN
+      CONTINUE;
+    END IF;
+    IF emp1 IS NOT NULL THEN
+      INSERT INTO public.staff_shifts (business_id, staff_id, start_time, end_time, notes)
+      VALUES (
+        business_uuid,
+        emp1,
+        d::timestamp + time '09:00',
+        d::timestamp + time '17:00',
+        'Demo schedule'
+      );
+    END IF;
+    IF emp2 IS NOT NULL THEN
+      INSERT INTO public.staff_shifts (business_id, staff_id, start_time, end_time, notes)
+      VALUES (
+        business_uuid,
+        emp2,
+        d::timestamp + time '09:00',
+        d::timestamp + time '17:00',
+        'Demo schedule'
+      );
+    END IF;
+    IF emp_mgr IS NOT NULL THEN
+      INSERT INTO public.staff_shifts (business_id, staff_id, start_time, end_time, notes)
+      VALUES (
+        business_uuid,
+        emp_mgr,
+        d::timestamp + time '08:00',
+        d::timestamp + time '18:00',
+        'Demo manager schedule'
+      );
+    END IF;
+  END LOOP;
 END $$;

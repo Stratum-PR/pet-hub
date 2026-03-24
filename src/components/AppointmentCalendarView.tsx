@@ -3,13 +3,13 @@ import { format, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Printer, Bell, PawPrint } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarAppointment, CalendarEmployee, CalendarFilters, CalendarView } from '@/types/calendar';
+import { CalendarAppointment, CalendarStaff, CalendarFilters, CalendarView } from '@/types/calendar';
 import { cn } from '@/lib/utils';
 
 interface AppointmentCalendarViewProps {
   selectedDate: Date;
   appointments: CalendarAppointment[];
-  employees: CalendarEmployee[];
+  employees: CalendarStaff[];
   filters: CalendarFilters;
   onFilterChange: (key: keyof CalendarFilters, value: string | CalendarView) => void;
   onPreviousDay: () => void;
@@ -66,7 +66,7 @@ export function AppointmentCalendarView({
   const appointmentsByEmployee = useMemo(() => {
     const grouped: Record<string, CalendarAppointment[]> = {};
     employees.forEach(emp => {
-      grouped[emp.id] = appointments.filter(apt => apt.employeeId === emp.id);
+      grouped[emp.id] = appointments.filter(apt => apt.staffId === emp.id);
     });
     return grouped;
   }, [appointments, employees]);
@@ -132,14 +132,14 @@ export function AppointmentCalendarView({
             </Select>
 
             <Select
-              value={filters.employee || 'All Employees'}
-              onValueChange={(value) => onFilterChange('employee', value)}
+              value={filters.staff || 'All Employees'}
+              onValueChange={(value) => onFilterChange('staff', value)}
             >
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="All Employees">All Employees</SelectItem>
+                <SelectItem value="All Employees">All staff</SelectItem>
                 {employees.map(emp => (
                   <SelectItem key={emp.id} value={emp.name}>
                     {emp.name}

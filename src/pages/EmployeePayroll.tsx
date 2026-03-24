@@ -17,7 +17,13 @@ interface EmployeePayrollProps {
 }
 
 export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps) {
-  const { employeeId } = useParams<{ employeeId: string }>();
+  const { staffId, employeeId, businessSlug } = useParams<{
+    staffId?: string;
+    employeeId?: string;
+    businessSlug?: string;
+  }>();
+  const staffRecordId = staffId ?? employeeId;
+  const pathPrefix = businessSlug ? `/${businessSlug}` : '';
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -29,7 +35,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
     return startISO ? parseISO(startISO) : new Date();
   });
 
-  const employee = employees.find(emp => emp.id === employeeId);
+  const employee = employees.find(emp => emp.id === staffRecordId);
   const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
   const anchorDateISO = settings.pay_schedule_anchor_date || new Date().toISOString().slice(0, 10);
 
@@ -48,7 +54,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
 
     const empEntries = timeEntries.filter(entry => {
       const entryDate = new Date(entry.clock_in);
-      return entry.employee_id === employee.id && entryDate >= payPeriodStart && entryDate <= payPeriodEnd && entry.clock_out;
+      return entry.staff_id === employee.id && entryDate >= payPeriodStart && entryDate <= payPeriodEnd && entry.clock_out;
     });
 
     const entriesWithHours = empEntries.map(entry => {
@@ -77,7 +83,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
         <div>
           <Button
             variant="ghost"
-            onClick={() => navigate('/reports/payroll')}
+            onClick={() => navigate(`${pathPrefix}/reports/payroll`)}
             className="mb-4"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
@@ -99,7 +105,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
       <div>
         <Button
           variant="ghost"
-          onClick={() => navigate('/reports/payroll')}
+          onClick={() => navigate(`${pathPrefix}/reports/payroll`)}
           className="mb-4"
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
@@ -108,7 +114,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
-            onClick={() => navigate(`/reports/payroll/employee/${employee.id}/timesheet`, {
+            onClick={() => navigate(`${pathPrefix}/reports/payroll/staff/${employee.id}/timesheet`, {
               state: {
                 payPeriodStart: payPeriodStart.toISOString(),
                 payPeriodEnd: payPeriodEnd.toISOString()
@@ -123,7 +129,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
       </div>
 
       {/* Summary Card */}
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-primary" />
@@ -156,7 +162,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
       </Card>
 
       {/* Timekeeping Records */}
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
@@ -223,7 +229,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
       </Card>
 
       {/* Employee Information */}
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-primary" />

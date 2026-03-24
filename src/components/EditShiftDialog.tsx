@@ -39,7 +39,7 @@ interface EditShiftDialogProps {
   allShifts?: EmployeeShift[];
   /** When set with shift=null, dialog adds a new shift for this employee/date. onAdd is called on save. */
   addContext?: AddShiftContext | null;
-  onAdd?: (payload: { employee_id: string; start_time: string; end_time: string; notes?: string }) => Promise<EmployeeShift | null>;
+  onAdd?: (payload: { staff_id: string; start_time: string; end_time: string; notes?: string }) => Promise<EmployeeShift | null>;
 }
 
 function toTimeInputValue(iso: string): string {
@@ -115,7 +115,7 @@ export function EditShiftDialog({
   }, [shift, addContext]);
 
   const employeeName = shift
-    ? employees.find((e) => e.id === shift.employee_id)?.name ?? ''
+    ? employees.find((e) => e.id === shift.staff_id)?.name ?? ''
     : addContext
       ? employees.find((e) => e.id === addContext.employeeId)?.name ?? ''
       : '';
@@ -160,7 +160,7 @@ export function EditShiftDialog({
       setSaving(true);
       try {
         await onAdd({
-          employee_id: addContext.employeeId,
+          staff_id: addContext.employeeId,
           start_time,
           end_time,
           notes: notes.trim() || undefined,
@@ -208,7 +208,7 @@ export function EditShiftDialog({
         return;
       }
     }
-    if (allShifts?.length && hasSameEmployeeOverlapByTime(allShifts, shift.employee_id, start_time, end_time, shift.id)) {
+    if (allShifts?.length && hasSameEmployeeOverlapByTime(allShifts, shift.staff_id, start_time, end_time, shift.id)) {
       setValidationError(t('schedule.sameEmployeeOverlap'));
       return;
     }

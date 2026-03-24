@@ -1,12 +1,12 @@
 import { format, parse, isSameDay } from 'date-fns';
-import { CalendarAppointment, CalendarEmployee, APPOINTMENT_COLORS } from '@/types/calendar';
+import { CalendarAppointment, CalendarStaff, APPOINTMENT_COLORS } from '@/types/calendar';
 import { Appointment, Pet, Service } from '@/hooks/useBusinessData';
 import { Employee } from '@/types';
 
 /**
  * Convert database employees to calendar employees
  */
-export function convertEmployeesToCalendar(employees: Employee[]): CalendarEmployee[] {
+export function convertEmployeesToCalendar(employees: Employee[]): CalendarStaff[] {
   return employees
     .filter(emp => emp.status === 'active')
     .map(emp => ({
@@ -79,7 +79,7 @@ export function convertAppointmentsToCalendar(
       const aptAny = apt as any;
       const pet = aptAny.pets || pets.find(p => p.id === apt.pet_id);
       const service = aptAny.services || services.find(s => s.id === apt.service_id);
-      const employee = apt.employee_id ? employees.find(e => e.id === apt.employee_id) : null;
+      const employee = apt.staff_id ? employees.find(e => e.id === apt.staff_id) : null;
       
       // Get service color or default
       const serviceColor = (service as any)?.color || APPOINTMENT_COLORS.blue;
@@ -132,8 +132,8 @@ export function convertAppointmentsToCalendar(
         startTime,
         endTime: endTime as string,
         color: serviceColor,
-        employeeId: employee?.id || apt.employee_id || '',
-        employeeName: employee?.name || 'Unassigned',
+        staffId: employee?.id || apt.staff_id || '',
+        staffName: employee?.name || 'Unassigned',
         hasAlert: false,
         notes: apt.notes || undefined,
         price: apt.total_price || (apt as any).price || (service as any)?.price || service?.price || 0,

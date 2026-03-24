@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { ChevronLeft, ChevronRight, Printer, AlertTriangle, User, MoreVertical, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarAppointment, CalendarEmployee, CalendarFilters, CalendarView } from '@/types/calendar';
+import { CalendarAppointment, CalendarFilters, CalendarView } from '@/types/calendar';
 import { Pet } from '@/hooks/useBusinessData';
 import { Dog, Cat } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -147,8 +147,8 @@ export function DaycareCalendarView({
             </Select>
 
             <Select
-              value={filters.employee || 'All Rooms'}
-              onValueChange={(value) => onFilterChange('employee', value)}
+              value={filters.staff || 'All Rooms'}
+              onValueChange={(value) => onFilterChange('staff', value)}
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -189,7 +189,7 @@ export function DaycareCalendarView({
         <div className="space-y-6">
           {DAYCARE_ROOMS.map((room) => {
             const roomAppointments = appointmentsByRoom[room.id] || [];
-            const filteredAppointments = filters.employee === 'All Rooms' || filters.employee === room.name
+            const filteredAppointments = filters.staff === 'All Rooms' || filters.staff === room.name
               ? roomAppointments
               : [];
 

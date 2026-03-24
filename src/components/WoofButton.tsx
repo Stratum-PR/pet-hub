@@ -52,6 +52,9 @@ export function WoofButton({ onWoof }: { onWoof: () => void }) {
     phase === 'cooldown' && 'woof-btn-outer--cooldown'
   );
 
+  const tooltipLabel =
+    phase === 'cooldown' ? t('layout.woofCooldownTooltip') : t('layout.woofButton');
+
   const button = (
     <div className={outerClass}>
       <button
@@ -59,13 +62,6 @@ export function WoofButton({ onWoof }: { onWoof: () => void }) {
         disabled={busy}
         onClick={handleClick}
         className="woof-btn-face"
-        title={
-          phase === 'cooldown'
-            ? t('layout.woofCooldownTooltip')
-            : phase === 'animating'
-              ? undefined
-              : t('layout.woofButton')
-        }
         aria-busy={busy}
       >
         <Sparkles className="woof-sparkle-icon" strokeWidth={2} aria-hidden />
@@ -74,18 +70,21 @@ export function WoofButton({ onWoof }: { onWoof: () => void }) {
     </div>
   );
 
-  if (phase === 'cooldown') {
-    return (
-      <Tooltip delayDuration={200}>
-        <TooltipTrigger asChild>
-          <span className="inline-flex rounded-full cursor-not-allowed">{button}</span>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
-          {t('layout.woofCooldownTooltip')}
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return button;
+  return (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            'inline-flex rounded-full',
+            phase === 'cooldown' && 'cursor-not-allowed'
+          )}
+        >
+          {button}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        {tooltipLabel}
+      </TooltipContent>
+    </Tooltip>
+  );
 }

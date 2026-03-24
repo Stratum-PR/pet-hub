@@ -44,19 +44,19 @@ export function ScheduleSummary({ shifts, employees, weekDays, onOpenShift }: Sc
     shifts.forEach((shift) => {
       const dayStr = format(new Date(shift.start_time), 'yyyy-MM-dd');
       const h = hoursBetween(shift.start_time, shift.end_time);
-      if (!byEmployeeDay[shift.employee_id]) {
-        byEmployeeDay[shift.employee_id] = {};
-        byEmployeeDayShifts[shift.employee_id] = {};
+      if (!byEmployeeDay[shift.staff_id]) {
+        byEmployeeDay[shift.staff_id] = {};
+        byEmployeeDayShifts[shift.staff_id] = {};
         weekDays.forEach((d) => {
           const ds = format(d, 'yyyy-MM-dd');
-          byEmployeeDay[shift.employee_id][ds] = 0;
-          byEmployeeDayShifts[shift.employee_id][ds] = [];
+          byEmployeeDay[shift.staff_id][ds] = 0;
+          byEmployeeDayShifts[shift.staff_id][ds] = [];
         });
       }
-      byEmployee[shift.employee_id] = (byEmployee[shift.employee_id] ?? 0) + h;
-      if (dayStr in byEmployeeDay[shift.employee_id]) {
-        byEmployeeDay[shift.employee_id][dayStr] += h;
-        byEmployeeDayShifts[shift.employee_id][dayStr].push(shift);
+      byEmployee[shift.staff_id] = (byEmployee[shift.staff_id] ?? 0) + h;
+      if (dayStr in byEmployeeDay[shift.staff_id]) {
+        byEmployeeDay[shift.staff_id][dayStr] += h;
+        byEmployeeDayShifts[shift.staff_id][dayStr].push(shift);
       }
     });
     return { byEmployee, byEmployeeDay, byEmployeeDayShifts };

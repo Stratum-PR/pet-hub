@@ -231,7 +231,7 @@ export function TimeKiosk() {
           const { data: activeEntry } = await supabase
             .from('time_entries')
             .select('*')
-            .eq('employee_id', emp.id)
+            .eq('staff_id', emp.id)
             .eq('business_id', businessId)
             .is('clock_out', null)
             .eq('status', 'active')
@@ -565,7 +565,7 @@ export function TimeKiosk() {
     }
     return (
       <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-lg">
+        <Card className="w-full max-w-md shadow-none hover:shadow-lg">
           <CardContent className="p-8 space-y-4 text-center">
             <h1 className="text-xl font-bold">{t('timeKiosk.businessNotResolvedTitle')}</h1>
             <p className="text-muted-foreground text-sm">{t('timeKiosk.businessNotResolvedDescription')}</p>
@@ -606,7 +606,7 @@ export function TimeKiosk() {
 
     return (
       <div className="min-h-screen w-full bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-lg">
+        <Card className="w-full max-w-md shadow-none hover:shadow-lg">
           <CardContent className="p-8 space-y-4">
             <div className="flex justify-center">
               <Settings className="w-12 h-12 text-primary" aria-hidden />
@@ -714,7 +714,7 @@ export function TimeKiosk() {
           </div>
 
           {/* Main Content */}
-          <Card className="shadow-lg">
+          <Card className="shadow-none hover:shadow-lg">
             <CardContent className="p-8">
               {state === 'pin_entry' && (
                 <div className="space-y-6 relative">

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, LayoutGrid, List, Dog, Cat, ArrowLeft, Edit, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, X, LayoutGrid, List, Dog, Cat, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
@@ -10,8 +10,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { DetailModalActionBar } from '@/components/DetailModalActionBar';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
@@ -474,6 +474,15 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           {petDetailOpen && (
             <>
+              <DetailModalActionBar
+                editLabel={t('common.edit')}
+                deleteLabel={t('common.delete')}
+                onEdit={() => {
+                  setPetDetailOpen(null);
+                  handleEdit(petDetailOpen);
+                }}
+                onDelete={() => setPetDeleteConfirmOpen(true)}
+              />
               <DialogHeader>
                 <DialogTitle>{petDetailOpen.name}</DialogTitle>
               </DialogHeader>
@@ -537,20 +546,6 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                   })()}
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => { setPetDetailOpen(null); handleEdit(petDetailOpen); }}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit pet
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setPetDeleteConfirmOpen(true);
-                  }}
-                >
-                  Delete pet
-                </Button>
-              </DialogFooter>
             </>
           )}
         </DialogContent>

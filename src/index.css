@@ -176,11 +176,8 @@
 /* White cards with slight opacity/translucency and elevation */
 .card-glass {
   background-color: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.05), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-.card-glass:hover {
-  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.07), 0 12px 28px -6px rgba(0, 0, 0, 0.07);
 }
 @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
   .card-glass {
@@ -193,10 +190,7 @@
 /* Dark mode: cards use theme card background (same adaptation as tables) */
 .dark .card-glass {
   background-color: hsl(var(--card));
-  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.3);
-}
-.dark .card-glass:hover {
-  box-shadow: 0 8px 20px 0 rgba(0, 0, 0, 0.4);
+  box-shadow: none;
 }
 .dark .card-glass.card-glass {
   -webkit-backdrop-filter: none;

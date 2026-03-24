@@ -12,6 +12,10 @@ import {
   resolveNotificationType,
   type ResolvedNotificationType,
 } from '@/lib/notificationNavigation';
+import {
+  getBirthdayCelebrationFromNotification,
+  getNotificationDisplayMessage,
+} from '@/lib/notificationDisplay';
 import { cn } from '@/lib/utils';
 
 function TypeIcon({ type, className }: { type: ResolvedNotificationType; className?: string }) {
@@ -34,7 +38,10 @@ function TypeIcon({ type, className }: { type: ResolvedNotificationType; classNa
   }
 }
 
-function typeTitleKey(type: ResolvedNotificationType): string {
+function typeTitleKey(type: ResolvedNotificationType, rawType?: string | null): string {
+  const raw = rawType?.trim().toLowerCase();
+  if (raw === 'birthday_celebration') return 'notifications.type.birthdayCelebration';
+  if (raw === 'birthday_team') return 'notifications.type.birthdayTeam';
   switch (type) {
     case 'appointment':
       return 'notifications.type.appointment';
@@ -89,6 +96,14 @@ export function Notifications() {
 
   const handleRowClick = async (n: NotificationRow) => {
     await markRead(n.id);
+    const raw = n.notification_type?.trim().toLowerCase();
+    if (raw === 'birthday_celebration') {
+      const d = getBirthdayCelebrationFromNotification(n);
+      if (d) {
+        window.dispatchEvent(new CustomEvent('pet-hub-open-birthday-modal', { detail: d }));
+        return;
+      }
+    }
     navigate(getNotificationPath(n, businessSlug));
   };
 
@@ -167,7 +182,9 @@ export function Notifications() {
                             }}
                             className={cn(
                               'flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50',
-                              !n.read && 'bg-primary/[0.06]'
+                              !n.read && 'bg-primary/[0.06]',
+                              n.notification_type?.trim().toLowerCase() === 'birthday_celebration' &&
+                                'ring-2 ring-amber-400/40 ring-inset bg-gradient-to-r from-amber-500/10 to-fuchsia-500/8'
                             )}
                           >
                             <span className="mt-0.5 flex shrink-0 items-start">
@@ -194,7 +211,7 @@ export function Notifications() {
                               <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                                 <span className="tabular-nums">{timeStr}</span>
                                 <span className="text-border">·</span>
-                                <span>{t(typeTitleKey(kind))}</span>
+                                <span>{t(typeTitleKey(kind, n.notification_type))}</span>
                               </span>
                             </span>
                           </div>

@@ -45,7 +45,7 @@ export function StatCard({
     return (
       <Card
         className={cn(
-          'card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col',
+          'card-glass hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col',
           className
         )}
       >
@@ -94,7 +94,7 @@ export function StatCard({
   return (
     <Card
       className={cn(
-        'card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col',
+        'card-glass hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col',
         className
       )}
     >

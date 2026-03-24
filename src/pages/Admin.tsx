@@ -169,7 +169,7 @@ export function Admin({
         </TabsList>
         
         <TabsContent value="personalization" className="space-y-6 mt-6">
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle>Business Personalization</CardTitle>
               <CardDescription>Configure your business preferences</CardDescription>

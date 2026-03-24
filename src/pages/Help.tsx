@@ -72,7 +72,7 @@ export function Help() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden md:grid md:grid-cols-2 md:grid-rows-1 md:items-stretch md:gap-6">
-      <Card className="flex min-h-0 flex-col overflow-hidden shadow-md md:max-h-full">
+      <Card className="flex min-h-0 flex-col overflow-hidden shadow-none hover:shadow-md md:max-h-full">
         <CardHeader className="shrink-0 pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Mail className="h-5 w-5 shrink-0 opacity-100" />
@@ -101,7 +101,7 @@ export function Help() {
         </CardContent>
       </Card>
 
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-md md:max-h-full">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-none hover:shadow-md md:max-h-full">
         <CardHeader className="shrink-0 pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Send className="h-5 w-5 shrink-0 opacity-100" />

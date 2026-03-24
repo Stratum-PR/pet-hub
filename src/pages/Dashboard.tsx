@@ -14,7 +14,20 @@ import { Calendar as CalendarDateRange } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Client, Pet, Employee, Appointment } from '@/types';
-import { format, startOfDay, startOfMonth, endOfMonth, subMonths, subDays, isWithinInterval, differenceInDays, addDays, addMonths, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import {
+  format,
+  startOfDay,
+  startOfMonth,
+  endOfMonth,
+  subDays,
+  differenceInDays,
+  differenceInCalendarDays,
+  addDays,
+  addMonths,
+  eachDayOfInterval,
+  min as minDate,
+  max as maxDate,
+} from 'date-fns';
 import { es as dateFnsEs } from 'date-fns/locale';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -26,7 +39,7 @@ import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { cn } from '@/lib/utils';
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { dashboardStaggerDelayMs } from '@/lib/dashboardEnterAnimation';
-import { DashboardRevenueChart } from '@/components/DashboardRevenueChart';
+import { DashboardRevenueChart, type DashboardRevenueChartPoint } from '@/components/DashboardRevenueChart';
 import type { Product } from '@/types/inventory';
 
 interface DashboardProps {
@@ -67,8 +80,6 @@ function DashboardStaggerItem({
 }
 
 const SALE_STATUSES = ['paid', 'partial'] as const;
-
-const REVENUE_PERIOD_DAYS = 30;
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -136,47 +147,19 @@ function TopServiceRevenueBar({
   );
 }
 
-function useTransactionStats(transactions: { status: string; total: number; created_at: string }[]) {
-  return useMemo(() => {
-    const sales = transactions.filter((t) => SALE_STATUSES.includes(t.status as any));
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const periodStart = subDays(now, REVENUE_PERIOD_DAYS);
-    const thisMonthStart = startOfMonth(now);
-    const thisMonthEnd = endOfMonth(now);
-    const lastMonthStart = startOfMonth(subMonths(now, 1));
-    const lastMonthEnd = endOfMonth(subMonths(now, 1));
-
-    const revenueLast30DaysCents = sales.reduce((sum, t) => {
-      const d = new Date(t.created_at);
-      return d >= periodStart ? sum + t.total : sum;
-    }, 0);
-    const todayRevenueCents = sales.reduce((sum, t) => {
-      const d = new Date(t.created_at);
-      return startOfDay(d).getTime() === todayStart.getTime() ? sum + t.total : sum;
-    }, 0);
-    const thisMonthCents = sales.reduce((sum, t) => {
-      const d = new Date(t.created_at);
-      return isWithinInterval(d, { start: thisMonthStart, end: thisMonthEnd }) ? sum + t.total : sum;
-    }, 0);
-    const lastMonthCents = sales.reduce((sum, t) => {
-      const d = new Date(t.created_at);
-      return isWithinInterval(d, { start: lastMonthStart, end: lastMonthEnd }) ? sum + t.total : sum;
-    }, 0);
-
-    const growthPct =
-      lastMonthCents > 0
-        ? Math.round(((thisMonthCents - lastMonthCents) / lastMonthCents) * 100)
-        : null;
-
-    return {
-      revenueLast30Days: revenueLast30DaysCents / 100,
-      todayRevenue: todayRevenueCents / 100,
-      growthPct,
-      transactionCount: sales.length,
-      todayTransactionCount: sales.filter((t) => startOfDay(new Date(t.created_at)).getTime() === todayStart.getTime()).length,
-    };
-  }, [transactions]);
+function sumSaleCentsInInclusiveDayRange(
+  sales: { created_at: string; total: number }[],
+  rangeStart: Date,
+  rangeEnd: Date
+): number {
+  const startTs = startOfDay(rangeStart).getTime();
+  const endExclusive = addDays(startOfDay(rangeEnd), 1).getTime();
+  let sum = 0;
+  for (const t of sales) {
+    const ct = new Date(t.created_at).getTime();
+    if (ct >= startTs && ct < endExclusive) sum += t.total;
+  }
+  return sum;
 }
 
 const TODAY_APPOINTMENTS_DISPLAY_MAX = 5;
@@ -218,8 +201,6 @@ export function Dashboard({
   const { transactions, loading: transactionsLoading } = useTransactions();
   const { language } = useLanguage();
   const dateLocale = language === 'es' ? dateFnsEs : undefined;
-  const { revenueLast30Days, todayRevenue, growthPct, todayTransactionCount } = useTransactionStats(transactions);
-
   const lowStockProducts = useMemo(() => {
     return products
       .filter((p) => p.quantity <= reorderThresholdForProduct(p, defaultLowStockThreshold))
@@ -238,18 +219,6 @@ export function Dashboard({
     return new Date(a.scheduled_date).toDateString() === today;
   }).sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
 
-  // Revenue and growth are always from transactions (no hardcoded values)
-  const revenueDisplay = (() => {
-    const n = Number(revenueLast30Days);
-    return Number.isFinite(n)
-      ? `$${Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      : '$0';
-  })();
-  const revenueDescription =
-    todayTransactionCount > 0
-      ? t('dashboard.revenueFromTransactions') +
-          ` • ${t('dashboard.todaySales')}: $${Math.round(todayRevenue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      : t('dashboard.revenueFromTransactions');
   type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
   const DASHBOARD_PERIOD_KEY = 'pet-hub-dashboard-period';
   const DASHBOARD_CUSTOM_RANGE_KEY = 'pet-hub-dashboard-custom-range';
@@ -347,51 +316,88 @@ export function Dashboard({
     return today;
   }, [dashboardPeriod, customRangeStart, customRangeEnd, today]);
 
-  /**
-   * Revenue line: fixed window — up to 12 calendar months ending in the current month.
-   * Left edge is the earlier of (12 months ago) and the first calendar month that contains any sale;
-   * right edge is always the current month (through end of month).
-   */
-  const rollingYearRevenueData = useMemo(() => {
+  const { growthPct, periodRevenueDollars } = useMemo(() => {
+    const sales = transactions.filter((t) => SALE_STATUSES.includes(t.status as any));
+    const len = differenceInCalendarDays(periodEnd, periodStart) + 1;
+    const prevEnd = subDays(periodStart, 1);
+    const prevStart = subDays(prevEnd, len - 1);
+    const currentCents = sumSaleCentsInInclusiveDayRange(sales, periodStart, periodEnd);
+    const prevCents = sumSaleCentsInInclusiveDayRange(sales, prevStart, prevEnd);
+    const growthPct =
+      prevCents > 0 ? Math.round(((currentCents - prevCents) / prevCents) * 100) : null;
+    return {
+      growthPct,
+      periodRevenueDollars: currentCents / 100,
+    };
+  }, [transactions, periodStart, periodEnd]);
+
+  const growthPeriodLabel = useMemo(() => {
+    switch (dashboardPeriod) {
+      case 'weekly':
+        return t('dashboard.vsPreviousWeek');
+      case 'monthly':
+        return t('dashboard.vsPrevious30Days');
+      case 'quarterly':
+        return t('dashboard.vsPrevious90Days');
+      case 'yearly':
+        return t('dashboard.vsPreviousYear');
+      default:
+        return t('dashboard.vsPreviousPeriod');
+    }
+  }, [dashboardPeriod, language]);
+
+  /** Paid/partial totals per bucket; window matches dashboard period filter. */
+  const periodRevenueChartData = useMemo((): DashboardRevenueChartPoint[] => {
     const sales = transactions.filter((t) => SALE_STATUSES.includes(t.status as any));
     const locale = language === 'es' ? dateFnsEs : undefined;
-    const now = new Date();
-    const defaultLeft = startOfMonth(subMonths(now, 11));
-    let leftBound = defaultLeft;
+    const spanDays = differenceInCalendarDays(periodEnd, periodStart) + 1;
 
-    if (sales.length > 0) {
-      let earliestMs = new Date(sales[0].created_at).getTime();
-      for (let i = 1; i < sales.length; i++) {
-        const ms = new Date(sales[i].created_at).getTime();
-        if (ms < earliestMs) earliestMs = ms;
-      }
-      const firstDataMonth = startOfMonth(new Date(earliestMs));
-      if (firstDataMonth.getTime() > defaultLeft.getTime()) {
-        leftBound = firstDataMonth;
-      }
+    const centsInRange = (from: Date, to: Date) =>
+      sumSaleCentsInInclusiveDayRange(sales, from, to);
+
+    if (spanDays <= 31) {
+      const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
+      return days.map((day) => ({
+        day: format(day, spanDays > 7 ? 'd MMM' : 'EEE', { locale }),
+        fullDay: format(day, 'PPP', { locale }),
+        revenue: centsInRange(day, day) / 100,
+      }));
     }
 
-    const currentMonthStart = startOfMonth(now);
-    const months: { day: string; fullDay: string; revenue: number }[] = [];
-    let cursor = startOfMonth(leftBound);
-    while (cursor.getTime() <= currentMonthStart.getTime()) {
-      const ms = startOfMonth(cursor);
-      const me = endOfMonth(cursor);
-      const revenueCents = sales
-        .filter((t) => {
-          const tDate = new Date(t.created_at).getTime();
-          return tDate >= ms.getTime() && tDate <= me.getTime();
-        })
-        .reduce((sum, t) => sum + t.total, 0);
-      months.push({
-        day: format(cursor, 'MMM', { locale }),
-        fullDay: format(cursor, 'MMM yyyy', { locale }),
-        revenue: revenueCents / 100,
-      });
-      cursor = addMonths(cursor, 1);
+    if (spanDays <= 120) {
+      const out: DashboardRevenueChartPoint[] = [];
+      let cursor = periodStart;
+      while (cursor.getTime() <= periodEnd.getTime()) {
+        const chunkEnd = minDate([addDays(cursor, 6), periodEnd]);
+        out.push({
+          day: format(cursor, 'd MMM', { locale }),
+          fullDay: `${format(cursor, 'd MMM', { locale })} – ${format(chunkEnd, 'd MMM yyyy', { locale })}`,
+          revenue: centsInRange(cursor, chunkEnd) / 100,
+        });
+        cursor = addDays(chunkEnd, 1);
+      }
+      return out;
+    }
+
+    const months: DashboardRevenueChartPoint[] = [];
+    let m = startOfMonth(periodStart);
+    const lastMonthStart = startOfMonth(periodEnd);
+    while (m.getTime() <= lastMonthStart.getTime()) {
+      const ms = startOfMonth(m);
+      const me = endOfMonth(m);
+      const from = maxDate([ms, periodStart]);
+      const to = minDate([me, periodEnd]);
+      if (from.getTime() <= to.getTime()) {
+        months.push({
+          day: format(ms, 'MMM', { locale }),
+          fullDay: format(ms, 'MMM yyyy', { locale }),
+          revenue: centsInRange(from, to) / 100,
+        });
+      }
+      m = addMonths(m, 1);
     }
     return months;
-  }, [transactions, language]);
+  }, [transactions, periodStart, periodEnd, language]);
 
   const appointmentsInPeriod = useMemo(() => {
     const start = periodStart;
@@ -767,7 +773,7 @@ export function Dashboard({
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
             className="block cursor-pointer w-full h-full min-h-0 max-w-full lg:mx-auto lg:max-w-[min(100%,20rem)] xl:mx-0 xl:max-w-none"
           >
-            <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full w-full flex flex-col overflow-hidden">
+            <Card className="card-glass hover:-translate-y-0.5 transition-all duration-200 h-full w-full flex flex-col overflow-hidden">
               <CardContent className="p-2.5 sm:p-3 flex flex-col gap-1.5 flex-1 min-h-0 overflow-hidden">
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider leading-tight shrink-0">
                   {t('dashboard.topSellingServices')}
@@ -851,7 +857,7 @@ export function Dashboard({
             to={businessSlug ? `/${businessSlug}/clients` : '/clients'}
             className="block cursor-pointer h-full"
           >
-            <Card className="card-glass shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col overflow-hidden">
+            <Card className="card-glass hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col overflow-hidden">
               <CardContent className="p-2.5 flex-1 flex flex-col min-h-0">
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider leading-tight">
                   {t('dashboard.clientType')}
@@ -973,7 +979,7 @@ export function Dashboard({
             className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
           >
           <Link
-            to={businessSlug ? `/${businessSlug}/employee-management` : '/employee-management'}
+            to={businessSlug ? `/${businessSlug}/staff-management` : '/staff-management'}
             className="block cursor-pointer h-full"
           >
             <StatCard
@@ -1005,7 +1011,7 @@ export function Dashboard({
                 growthPct === null || !Number.isFinite(growthPct) ? '—' : Math.abs(growthPct)
               }
               icon={TrendingUp}
-              description={t('dashboard.vsLastMonth')}
+              description={growthPeriodLabel}
               animate={growthPct !== null && Number.isFinite(growthPct)}
               animatePrefix={
                 growthPct !== null && Number.isFinite(growthPct)
@@ -1040,7 +1046,7 @@ export function Dashboard({
           className="block cursor-pointer h-full min-h-0"
         >
         <Card
-          className="shadow-sm hover:shadow-md transition-shadow h-full flex flex-col min-h-[22rem] max-h-[560px]"
+          className="shadow-none hover:shadow-md transition-shadow h-full flex flex-col min-h-[22rem] max-h-[560px]"
           role="article"
         >
           <CardHeader className="shrink-0 flex flex-row items-center justify-between gap-2">
@@ -1062,8 +1068,8 @@ export function Dashboard({
                     {shown.map((appointment) => {
                       const pet = pets.find((p) => p.id === appointment.pet_id);
                       const client = pet ? clients.find((c) => c.id === pet.client_id) : null;
-                      const employee = appointment.employee_id
-                        ? employees.find((e) => e.id === appointment.employee_id)
+                      const employee = appointment.staff_id
+                        ? employees.find((e) => e.id === appointment.staff_id)
                         : null;
                       return (
                         <div
@@ -1126,15 +1132,23 @@ export function Dashboard({
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
             className="block cursor-pointer w-full min-h-0"
           >
-            <Card className="shadow-sm h-full min-h-0 flex flex-col cursor-pointer hover:shadow-md transition-shadow">
+            <Card className="h-full min-h-0 flex flex-col cursor-pointer transition-shadow">
               <CardHeader className="pb-2 pt-4 px-4 sm:px-6 shrink-0">
                 <CardTitle className="text-base" data-card-title>
                   {t('dashboard.revenue')}
                 </CardTitle>
+                <p className="text-xs text-muted-foreground font-normal mt-1 tabular-nums">
+                  {format(periodStart, 'd MMM', { locale: dateLocale })} –{' '}
+                  {format(periodEnd, 'd MMM yyyy', { locale: dateLocale })}
+                  {' · '}$
+                  {Math.round(periodRevenueDollars).toLocaleString(undefined, {
+                    maximumFractionDigits: 0,
+                  })}
+                </p>
               </CardHeader>
               <CardContent className="pt-0 px-4 sm:px-6 pb-4 flex-1 min-h-0">
                 <DashboardRevenueChart
-                  data={rollingYearRevenueData}
+                  data={periodRevenueChartData}
                   chartEnterKey={chartEnterKey}
                   chartHeight={200}
                   emptyLabel={t('dashboard.noData')}
@@ -1155,7 +1169,7 @@ export function Dashboard({
           index={8}
           className="min-w-0"
         >
-          <Card className="shadow-sm border border-orange-500/25 bg-gradient-to-br from-orange-500/[0.07] via-card to-card dark:from-orange-500/10">
+          <Card className="border border-orange-500/25 bg-gradient-to-br from-orange-500/[0.07] via-card to-card dark:from-orange-500/10">
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-2 pt-4 px-4 sm:px-6">
               <div className="min-w-0">
                 <CardTitle className="flex items-center gap-2 text-base" data-card-title>
@@ -1190,72 +1204,59 @@ export function Dashboard({
                   </Link>
                 </div>
               ) : (
-                <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 pt-1 scroll-smooth [scrollbar-gutter:stable]">
+                <ul className="max-h-[min(22rem,55vh)] space-y-2 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
                   {lowStockProducts.map((p) => {
                     const th = reorderThresholdForProduct(p, defaultLowStockThreshold);
                     const ratio = th > 0 ? p.quantity / th : 1;
                     const barPct = Math.min(100, Math.max(p.quantity === 0 ? 5 : 8, ratio * 100));
                     const inv = businessSlug ? `/${businessSlug}/inventory` : '/inventory';
                     return (
-                      <Link
-                        key={p.id}
-                        to={`${inv}?product=${encodeURIComponent(p.id)}`}
-                        className="group flex w-[10.25rem] shrink-0 flex-col overflow-hidden rounded-xl border border-orange-500/30 bg-card shadow-sm ring-1 ring-orange-500/10 transition hover:border-orange-500/50 hover:shadow-md hover:ring-orange-500/25"
-                      >
-                        <div className="relative aspect-[5/4] w-full bg-muted">
-                          {p.photo_url ? (
-                            <img
-                              src={p.photo_url}
-                              alt=""
-                              className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center bg-gradient-to-br from-muted to-muted/60">
-                              <Package className="h-11 w-11 text-muted-foreground/35" aria-hidden />
-                            </div>
-                          )}
-                          <div
-                            className={cn(
-                              'absolute right-2 top-2 rounded-lg px-2 py-0.5 text-sm font-bold tabular-nums shadow-md',
-                              p.quantity === 0
-                                ? 'bg-destructive text-destructive-foreground'
-                                : 'bg-background/95 text-destructive dark:bg-background/90'
-                            )}
-                          >
-                            {p.quantity}
-                          </div>
-                        </div>
-                        <div className="flex flex-1 flex-col gap-2 border-t border-border/60 bg-card p-2.5">
-                          <p className="line-clamp-2 text-left text-xs font-semibold leading-snug text-foreground">
-                            {p.name}
-                          </p>
-                          <div className="mt-auto space-y-1">
-                            <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
-                              <span>{t('inventory.stock')}</span>
-                              <span className="tabular-nums">
+                      <li key={p.id}>
+                        <Link
+                          to={`${inv}?product=${encodeURIComponent(p.id)}`}
+                          className="block rounded-lg border border-orange-500/25 bg-card/80 px-3 py-2.5 shadow-none ring-1 ring-orange-500/10 transition hover:border-orange-500/45 hover:bg-card hover:shadow-md hover:ring-orange-500/20"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold leading-snug text-foreground truncate">
+                                {p.name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                                {t('inventory.stock')}: {p.quantity}
+                                <span className="mx-1.5 text-border">·</span>
                                 {t('inventory.reorderLevel')}: {th}
-                              </span>
+                              </p>
                             </div>
-                            <div
-                              className="h-2.5 w-full overflow-hidden rounded-full bg-muted"
-                              title={`${p.quantity} / ${th}`}
+                            <span
+                              className={cn(
+                                'shrink-0 rounded-md px-2 py-0.5 text-xs font-bold tabular-nums',
+                                p.quantity === 0
+                                  ? 'bg-destructive/15 text-destructive'
+                                  : 'bg-orange-500/10 text-orange-700 dark:text-orange-400'
+                              )}
                             >
-                              <div
-                                className={cn(
-                                  'h-full rounded-full bg-gradient-to-r transition-all',
-                                  p.quantity === 0
-                                    ? 'from-destructive to-destructive/80'
-                                    : 'from-amber-500 to-orange-600'
-                                )}
-                                style={{ width: `${barPct}%` }}
-                              />
-                            </div>
+                              {p.quantity}
+                            </span>
                           </div>
-                        </div>
-                      </Link>
+                          <div
+                            className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
+                            title={`${p.quantity} / ${th}`}
+                          >
+                            <div
+                              className={cn(
+                                'h-full rounded-full bg-gradient-to-r transition-all',
+                                p.quantity === 0
+                                  ? 'from-destructive to-destructive/80'
+                                  : 'from-amber-500 to-orange-600'
+                              )}
+                              style={{ width: `${barPct}%` }}
+                            />
+                          </div>
+                        </Link>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               )}
             </CardContent>
           </Card>

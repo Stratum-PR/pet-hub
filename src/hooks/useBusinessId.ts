@@ -4,6 +4,7 @@ import { getBusinessSlugFromSession } from '@/lib/authRouting';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import { DEMO_WORKSPACE_BUSINESS_ID } from '@/lib/demoWorkspace';
 
 /**
  * Hook to get the active business ID (supports impersonation)
@@ -17,9 +18,6 @@ export function useBusinessId(): string | null {
   const params = useParams<{ businessSlug?: string }>();
   const slugFromRoute = params?.businessSlug;
 
-  // Hard-coded demo business ID used in seed_demo_data.sql
-  const DEMO_BUSINESS_ID = '00000000-0000-0000-0000-000000000001';
-
   useEffect(() => {
     // Special case: public demo route, allow reading demo business data even without profile
     const isDemoRoute = location.pathname.startsWith('/demo');
@@ -27,7 +25,7 @@ export function useBusinessId(): string | null {
       console.log('[useBusinessId] Using DEMO business id for public demo route', {
         path: location.pathname,
       });
-      setBusinessId(DEMO_BUSINESS_ID);
+      setBusinessId(DEMO_WORKSPACE_BUSINESS_ID);
       setSlugResolvedId(null);
       return;
     }
