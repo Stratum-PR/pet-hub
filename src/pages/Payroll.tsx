@@ -28,6 +28,41 @@ interface PayrollProps {
   onAddTimeEntry: (employeeId: string, clockIn: string, clockOut?: string) => Promise<TimeEntry | null>;
 }
 
+type PayrollPdfImage = { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' | 'GIF' };
+
+/** Load a raster image for jsPDF. SVG is skipped (not supported by addImage). */
+async function loadImageDataForPayrollPdf(logoUrl: string): Promise<PayrollPdfImage | null> {
+  const pathLower = logoUrl.split('?')[0].toLowerCase();
+  if (pathLower.endsWith('.svg')) return null;
+  try {
+    const resolved =
+      logoUrl.startsWith('http') || logoUrl.startsWith('data:')
+        ? logoUrl
+        : `${typeof window !== 'undefined' ? window.location.origin : ''}${
+            logoUrl.startsWith('/') ? logoUrl : `/${logoUrl}`
+          }`;
+    const res = await fetch(resolved);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const mime = blob.type || '';
+    if (mime.includes('svg')) return null;
+    let format: PayrollPdfImage['format'] = 'PNG';
+    if (mime.includes('jpeg') || mime.includes('jpg')) format = 'JPEG';
+    else if (mime.includes('webp')) format = 'WEBP';
+    else if (mime.includes('gif')) format = 'GIF';
+    else if (mime.includes('png')) format = 'PNG';
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as string);
+      fr.onerror = () => reject(new Error('read'));
+      fr.readAsDataURL(blob);
+    });
+    return { dataUrl, format };
+  } catch {
+    return null;
+  }
+}
+
 export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEntry }: PayrollProps) {
   const navigate = useNavigate();
   const { settings, loading: settingsLoading } = useSettings();
@@ -320,19 +355,55 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     const margin = 14;
     let yPos = margin;
 
-    // Get primary color for table headers
     const primaryColor = hslToRgb(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL);
+    const getEmployeeId = (empId: string) => empId.slice(-4).toUpperCase();
 
-    // Helper to get employee ID (use last 4 digits of UUID or a short ID)
-    const getEmployeeId = (empId: string) => {
-      return empId.slice(-4).toUpperCase();
-    };
+    const logoSource =
+      settings.business_logo_url_light ||
+      settings.business_logo_url ||
+      businessLogoUrl ||
+      '';
+    const wantLogoOnPdf =
+      settings.payroll_pdf_include_logo !== 'false' && !!logoSource;
 
-    // Header - Business name, pay period, and generation date
+    let titleLeft = margin;
+    let headerBottom = margin;
+
+    if (wantLogoOnPdf) {
+      const loaded = await loadImageDataForPayrollPdf(logoSource);
+      if (loaded) {
+        try {
+          const props = doc.getImageProperties(loaded.dataUrl);
+          const ratio = props.width / props.height;
+          const logoMaxH = 14;
+          const logoMaxW = 42;
+          let drawH = logoMaxH;
+          let drawW = ratio * drawH;
+          if (drawW > logoMaxW) {
+            drawW = logoMaxW;
+            drawH = drawW / ratio;
+          }
+          doc.addImage(loaded.dataUrl, loaded.format, margin, margin, drawW, drawH);
+          titleLeft = margin + drawW + 4;
+          headerBottom = Math.max(headerBottom, margin + drawH);
+        } catch {
+          /* ignore invalid image */
+        }
+      }
+    }
+
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${businessName} - PAYROLL TIMESHEET`, margin, yPos);
-    yPos += 10;
+    const headline = `${businessName} - PAYROLL TIMESHEET`;
+    const headlineMaxW = pageWidth - titleLeft - margin;
+    const headlineLines = doc.splitTextToSize(headline, Math.max(40, headlineMaxW));
+    let lineY = margin + 7;
+    headlineLines.forEach((line) => {
+      doc.text(line, titleLeft, lineY);
+      lineY += 7;
+    });
+    headerBottom = Math.max(headerBottom, lineY - 2);
+    yPos = headerBottom + 8;
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
@@ -361,14 +432,15 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
     // Calculate available width for table (page width - margins)
     const availableWidth = pageWidth - (margin * 2);
+    const centeredCell = { halign: 'center' as const, valign: 'middle' as const };
 
     autoTable(doc, {
       head: [['Employee ID', 'Employee Name', 'Date', 'Clock In', 'Clock Out', 'Hours', 'Status', 'Period Start', 'Period End']],
       body: timesheetData,
       startY: yPos,
       margin: { left: margin, right: margin },
-      styles: { fontSize: 7, cellPadding: 1.5 },
-      headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 7, cellPadding: 1.5, ...centeredCell },
+      headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', ...centeredCell },
       columnStyles: {
         0: { cellWidth: availableWidth * 0.08 }, // Employee ID
         1: { cellWidth: availableWidth * 0.15 }, // Employee Name
@@ -388,70 +460,136 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     const totalHours = allPayPeriodEntries.reduce((sum, entry) => sum + entry.hours, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL: ${(Math.round(totalHours * 4) / 4).toFixed(2)} hours`, margin, yPos);
+    doc.text(
+      `TOTAL: ${(Math.round(totalHours * 4) / 4).toFixed(2)} hours`,
+      pageWidth / 2,
+      yPos,
+      { align: 'center' }
+    );
     yPos += 15;
 
-    // Section 2: By Employee Summary
-    if (yPos > 250) {
-      doc.addPage();
-      yPos = margin;
-    }
+    doc.addPage();
+    yPos = margin;
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(35, 35, 35);
     doc.text('BY EMPLOYEE SUMMARY', margin, yPos);
-    yPos += 8;
+    yPos += 10;
 
-    const summaryData: any[] = [];
-    byEmployeeSummary.forEach(summary => {
-      summary.entries.forEach(entry => {
-        summaryData.push([
-          format(new Date(entry.clock_in), 'MM/dd/yyyy'),
-          format(new Date(entry.clock_in), 'h:mm a'),
-          format(new Date(entry.clock_out!), 'h:mm a'),
-          (Math.round(entry.hours * 4) / 4).toFixed(2),
-          entry.status === 'approved' ? 'Approved' : entry.status === 'pending_edit' ? 'Pending' : 'Active',
-        ]);
-      });
-      // Subtotal row
-      summaryData.push([
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const summarySubtotalBg: [number, number, number] = [232, 242, 255];
+    const summaryLineGray: [number, number, number] = [210, 210, 210];
+    const thinRowLine = { top: 0, left: 0, right: 0, bottom: 0.12 } as const;
+    const noLine = { top: 0, left: 0, right: 0, bottom: 0 } as const;
+
+    const employeeSummariesSorted = [...byEmployeeSummary].sort((a, b) =>
+      (a.employee.name || '').localeCompare(b.employee.name || '', undefined, { sensitivity: 'base' })
+    );
+
+    for (const summary of employeeSummariesSorted) {
+      const minBlockMm = 36;
+      if (yPos > pageHeight - margin - minBlockMm) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(35, 35, 35);
+      doc.text(
+        `Employee: ${summary.employee.name} (ID: ${getEmployeeId(summary.employee.id)})`,
+        margin,
+        yPos
+      );
+      yPos += 8;
+
+      const entryCount = summary.entries.length;
+      const bodyRows: (string | number)[][] = summary.entries.map((entry) => [
+        format(new Date(entry.clock_in), 'MM/dd/yyyy'),
+        format(new Date(entry.clock_in), 'h:mm a'),
+        format(new Date(entry.clock_out!), 'h:mm a'),
+        (Math.round(entry.hours * 4) / 4).toFixed(2),
+      ]);
+      bodyRows.push([
         `Subtotal - ${summary.employee.name}`,
         '',
         '',
         summary.totalHours.toFixed(2),
-        '',
       ]);
-    });
 
-    autoTable(doc, {
-      head: [['Date', 'Clock In', 'Clock Out', 'Hours', 'Status']],
-      body: summaryData,
-      startY: yPos,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
-      columnStyles: {
-        0: { cellWidth: availableWidth * 0.25 }, // Date
-        1: { cellWidth: availableWidth * 0.20 }, // Clock In
-        2: { cellWidth: availableWidth * 0.20 }, // Clock Out
-        3: { cellWidth: availableWidth * 0.15 }, // Hours
-        4: { cellWidth: availableWidth * 0.20 }, // Status
-      },
-      didParseCell: (data: any) => {
-        if (data.row.raw[0]?.includes('Subtotal')) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.textColor = [0, 0, 0];
-        }
-      },
-    });
+      autoTable(doc, {
+        head: [['Date', 'Clock In', 'Clock Out', 'Hours']],
+        body: bodyRows,
+        startY: yPos,
+        margin: { left: margin, right: margin },
+        theme: 'plain',
+        tableLineWidth: 0,
+        styles: {
+          fontSize: 8,
+          font: 'helvetica',
+          fontStyle: 'normal',
+          valign: 'middle',
+          fillColor: [255, 255, 255],
+          textColor: [40, 40, 40],
+          lineColor: summaryLineGray,
+          lineWidth: thinRowLine,
+          cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
+        },
+        headStyles: {
+          fillColor: primaryColor,
+          textColor: 255,
+          fontStyle: 'bold',
+          valign: 'middle',
+          lineWidth: noLine,
+          lineColor: summaryLineGray,
+        },
+        bodyStyles: {
+          fillColor: [255, 255, 255],
+        },
+        columnStyles: {
+          0: { cellWidth: availableWidth * 0.26, halign: 'left' },
+          1: { cellWidth: availableWidth * 0.22, halign: 'center' },
+          2: { cellWidth: availableWidth * 0.22, halign: 'center' },
+          3: { cellWidth: availableWidth * 0.3, halign: 'right', fontStyle: 'bold' },
+        },
+        didParseCell: (data: any) => {
+          if (data.section === 'head') {
+            if (data.column.index === 0) data.cell.styles.halign = 'left';
+            if (data.column.index === 1 || data.column.index === 2) data.cell.styles.halign = 'center';
+            if (data.column.index === 3) data.cell.styles.halign = 'right';
+            return;
+          }
+          const raw0 = data.row.raw[0];
+          const isSubtotal = typeof raw0 === 'string' && raw0.includes('Subtotal');
+          if (isSubtotal) {
+            data.cell.styles.fillColor = summarySubtotalBg;
+            data.cell.styles.textColor = [25, 25, 25];
+            data.cell.styles.fontStyle = 'bold';
+            if (data.column.index === 0) data.cell.styles.halign = 'left';
+            else if (data.column.index === 3) data.cell.styles.halign = 'right';
+            else data.cell.styles.halign = 'center';
+            data.cell.styles.lineWidth = {
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0.12,
+            };
+            return;
+          }
+          const isLastDataRow = data.row.index === entryCount - 1;
+          if (isLastDataRow) {
+            data.cell.styles.lineWidth = noLine;
+          }
+        },
+      });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
-
-    // Section 3: Pay Calculations
-    if (yPos > 250) {
-      doc.addPage();
-      yPos = margin;
+      yPos = (doc as any).lastAutoTable.finalY + 16;
+      doc.setTextColor(0, 0, 0);
     }
+
+    doc.addPage();
+    yPos = margin;
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
@@ -487,8 +625,8 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       body: payCalcData,
       startY: yPos,
       margin: { left: margin, right: margin },
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 3, ...centeredCell },
+      headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', ...centeredCell },
       columnStyles: {
         0: { cellWidth: availableWidth * 0.15 }, // Employee ID
         1: { cellWidth: availableWidth * 0.30 }, // Employee Name
@@ -664,12 +802,11 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
-                          <tr className="border-b border-border bg-red-50">
+                          <tr className="border-b border-border bg-muted">
                             <th className="text-left py-3 px-4 font-medium">Date</th>
                             <th className="text-left py-3 px-4 font-medium">Clock In</th>
                             <th className="text-left py-3 px-4 font-medium">Clock Out</th>
                             <th className="text-right py-3 px-4 font-medium">Hours</th>
-                            <th className="text-left py-3 px-4 font-medium">Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -687,15 +824,6 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                               <td className="py-3 px-4">{format(new Date(entry.clock_in), 'h:mm a')}</td>
                               <td className="py-3 px-4">{format(new Date(entry.clock_out!), 'h:mm a')}</td>
                               <td className="py-3 px-4 text-right font-semibold">{(Math.round(entry.hours * 4) / 4).toFixed(2)}</td>
-                              <td className="py-3 px-4">
-                                <span className={`px-2 py-1 rounded text-xs ${
-                                  entry.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                  entry.status === 'pending_edit' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {entry.status === 'approved' ? 'Approved' : entry.status === 'pending_edit' ? 'Pending' : 'Active'}
-                                </span>
-                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -704,7 +832,6 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                             <td className="py-3 px-4">Subtotal - {summary.employee.name}</td>
                             <td colSpan={2} className="py-3 px-4"></td>
                             <td className="py-3 px-4 text-right">{summary.totalHours.toFixed(2)}</td>
-                            <td className="py-3 px-4"></td>
                           </tr>
                         </tfoot>
                       </table>
@@ -735,7 +862,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-border bg-red-50">
+                    <tr className="border-b border-border bg-muted">
                       <th className="text-left py-3 px-4 font-medium">Employee ID</th>
                       <th className="text-left py-3 px-4 font-medium">Employee Name</th>
                       <th className="text-right py-3 px-4 font-medium">Total Hours</th>

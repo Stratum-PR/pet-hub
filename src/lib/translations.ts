@@ -3727,6 +3727,14 @@ export const translations: Translations = {
     en: 'Pay schedule saved successfully!',
     es: '¡Calendario de nómina guardado correctamente!'
   },
+  'businessSettings.payrollPdfIncludeLogo': {
+    en: 'Logo on payroll PDF',
+    es: 'Logo en PDF de nómina'
+  },
+  'businessSettings.payrollPdfIncludeLogoDescription': {
+    en: 'When enabled, your business logo appears at the top-left of the payroll report PDF (raster images only).',
+    es: 'Si está activado, el logo del negocio aparece arriba a la izquierda en el PDF de nómina (solo imágenes raster).'
+  },
 
   'transactions.status': {
     en: 'Status',
