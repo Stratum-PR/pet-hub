@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +9,11 @@ import { Settings } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
-import { dispatchStaffBirthdaysForBusiness, isStaffDobCalendarToday } from '@/lib/staffBirthdayDispatch';
+import { clearPetHubBirthdayJobLocalKey } from '@/lib/demoManagerBirthdaySync';
+import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { t, type Language } from '@/lib/translations';
@@ -131,7 +135,9 @@ interface AccountSettingsProps {
 
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
   const { user, profile } = useAuth();
+  const { businessSlug } = useParams<{ businessSlug?: string }>();
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const demoLocalOnly = useDemoLocalSettingsMode();
   const { language, setLanguage } = useLanguage();
   const [pendingLanguage, setPendingLanguage] = useState<Language>(language);
@@ -297,7 +303,10 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
 
   const handleSaveStaffBirthday = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile?.staff_id) return;
+    if (!profile?.staff_id) {
+      toast.error(t('accountSettings.staffBirthdayNeedStaffLinkBody'));
+      return;
+    }
     const dm = staffDobMonth.trim();
     const dd = staffDobDay.trim();
     const dy = staffDobYear.trim();
@@ -326,12 +335,10 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     if (error) toast.error(error.message);
     else {
       toast.success(t('accountSettings.staffBirthdaySaved'));
-      if (
-        payload.birth_month != null &&
-        payload.birth_day != null &&
-        isStaffDobCalendarToday(payload.birth_month, payload.birth_day)
-      ) {
-        await dispatchStaffBirthdaysForBusiness(businessId);
+      if (payload.birth_month != null && payload.birth_day != null && !demoBrowseOnly) {
+        const { error: bdayErr } = await dispatchStaffBirthdaysForBusiness(businessId);
+        if (bdayErr) toast.error(bdayErr);
+        else if (isDemoWorkspaceBusiness(businessId)) clearPetHubBirthdayJobLocalKey(businessId);
       }
     }
   };
@@ -443,6 +450,24 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
           </Button>
         </CardContent>
       </Card>
+
+      {!demoLocalOnly && user && !profile?.staff_id ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('accountSettings.staffBirthdayNeedStaffLinkTitle')}</CardTitle>
+            <CardDescription>{t('accountSettings.staffBirthdayNeedStaffLinkBody')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {businessSlug ? (
+              <Button asChild variant="outline">
+                <Link to={`/${businessSlug}/staff-management`}>{t('accountSettings.staffBirthdayNeedStaffLinkCta')}</Link>
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('accountSettings.staffBirthdayNeedStaffLinkBody')}</p>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {!demoLocalOnly && profile?.staff_id ? (
         <Card>

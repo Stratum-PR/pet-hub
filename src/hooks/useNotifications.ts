@@ -3,8 +3,16 @@ import { subDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { useSettings } from '@/hooks/useSupabaseData';
-import { getDemoStaffSeed, isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import {
+  buildDemoBrowseSyntheticNotifications,
+  getDemoBrowseReadIds,
+  markDemoBrowseNotificationRead,
+  markDemoBrowseNotificationsAllRead,
+} from '@/lib/demoBrowseNotifications';
+import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { syncDemoManagerBirthdayToClientToday } from '@/lib/demoManagerBirthdaySync';
 import { dispatchStaffMissingEmailReminders } from '@/lib/staffBirthdayDispatch';
 
 function localDayKey(d: Date): string {
@@ -18,12 +26,6 @@ function msUntilNextLocal6am(now = new Date()): number {
     next.setDate(next.getDate() + 1);
   }
   return Math.max(0, next.getTime() - now.getTime());
-}
-
-function isPublicDemoPath(): boolean {
-  if (typeof window === 'undefined') return false;
-  const p = window.location.pathname;
-  return p === '/demo' || p.startsWith('/demo/');
 }
 
 export type NotificationType =
@@ -83,12 +85,36 @@ function asEnabled(raw: string | null | undefined, fallback = true): boolean {
 export function useNotifications() {
   const { user, staffId } = useAuth();
   const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const { settings } = useSettings();
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
-    if (!user?.id || !businessId) {
+    if (!businessId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
+    if (demoBrowseOnly && isDemoWorkspaceBusiness(businessId)) {
+      setLoading(true);
+      const raw = buildDemoBrowseSyntheticNotifications(
+        businessId,
+        asEnabled(settings.notify_birthdays, true),
+        String(settings.business_name ?? '')
+      );
+      const readIds = getDemoBrowseReadIds(businessId);
+      const rows: NotificationRow[] = raw.map((n) => ({
+        ...n,
+        read: readIds.has(n.id),
+      }));
+      setNotifications(rows);
+      setLoading(false);
+      return;
+    }
+
+    if (!user?.id) {
       setNotifications([]);
       setLoading(false);
       return;
@@ -140,7 +166,7 @@ export function useNotifications() {
 
     setNotifications(rows);
     setLoading(false);
-  }, [user?.id, businessId]);
+  }, [user?.id, businessId, demoBrowseOnly, settings.notify_birthdays, settings.business_name]);
 
   const fetchNotificationsRef = useRef(fetchNotifications);
   fetchNotificationsRef.current = fetchNotifications;
@@ -205,7 +231,26 @@ export function useNotifications() {
 
   /** Pet month reminders, staff birthday RPC (6am local), client celebration fallbacks, manager email reminders — at most once per local calendar day per business. */
   useEffect(() => {
-    if (!user?.id || !businessId || !asEnabled(settings.notify_birthdays, true)) return;
+    if (demoBrowseOnly && businessId && isDemoWorkspaceBusiness(businessId)) return;
+
+    if (!user?.id) {
+      if (import.meta.env.DEV) {
+        console.debug(
+          '[pet-hub] Notifications / birthday jobs need a signed-in user. Browse-only /demo uses synthetic inbox rows instead.'
+        );
+      }
+      return;
+    }
+    if (!businessId) {
+      if (import.meta.env.DEV) console.debug('[pet-hub] Birthday jobs skipped: businessId not ready yet.');
+      return;
+    }
+    if (!asEnabled(settings.notify_birthdays, true)) {
+      if (import.meta.env.DEV) {
+        console.debug('[pet-hub] Birthday jobs skipped: notify_birthdays is off for this business (Settings).');
+      }
+      return;
+    }
 
     const uid = user.id;
     const storageKeyForDay = () =>
@@ -216,6 +261,11 @@ export function useNotifications() {
       const key = `pet-hub-daily-birthday-jobs:${businessId}:${localDayKey(now)}`;
       try {
         if (typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1') {
+          if (import.meta.env.DEV) {
+            console.debug(
+              `[pet-hub] Birthday jobs already ran today (${key}). In DevTools → Application → Local Storage, delete this key to re-test.`
+            );
+          }
           await fetchNotificationsRef.current();
           return;
         }
@@ -259,8 +309,11 @@ export function useNotifications() {
       const { error: rpcError } = await supabase.rpc('dispatch_staff_birthdays_for_business', {
         p_business_id: businessId,
       });
-      if (rpcError && import.meta.env.DEV) {
-        console.warn('[useNotifications] dispatch_staff_birthdays_for_business:', rpcError.message);
+      if (rpcError) {
+        console.warn(
+          '[pet-hub] dispatch_staff_birthdays_for_business failed — apply Supabase migrations (staff birthday RPC).',
+          rpcError.message
+        );
       }
 
       if (staffId) {
@@ -320,30 +373,50 @@ export function useNotifications() {
         }
       }
 
-      if (isPublicDemoPath() && isDemoWorkspaceBusiness(businessId)) {
-        const manager = getDemoStaffSeed().find(
-          (s) => s.access_role === 'manager' && s.birth_month === month && s.birth_day === day
-        );
-        if (manager) {
+      if (isDemoWorkspaceBusiness(businessId)) {
+        const { data: demoMgr, error: demoMgrErr } = await supabase
+          .from('staff')
+          .select('id, name, birth_month, birth_day, status')
+          .eq('business_id', businessId)
+          .eq('email', 'demo.manager@pethub.demo')
+          .maybeSingle();
+        const mgr = demoMgr as
+          | {
+              id: string;
+              name: string;
+              birth_month: number | null;
+              birth_day: number | null;
+              status: string | null;
+            }
+          | null;
+        const mm = mgr?.birth_month != null ? Number(mgr.birth_month) : NaN;
+        const md = mgr?.birth_day != null ? Number(mgr.birth_day) : NaN;
+        if (
+          !demoMgrErr &&
+          mgr &&
+          mgr.status === 'active' &&
+          mm === month &&
+          md === day
+        ) {
           const { data: existingCeleb } = await supabase
             .from('notifications' as any)
             .select('id')
             .eq('user_id', uid)
             .eq('business_id', businessId)
             .eq('notification_type', 'birthday_celebration')
-            .eq('staff_id', manager.id)
+            .eq('staff_id', mgr.id)
             .gte('created_at', todayStart)
             .limit(1);
           if (!existingCeleb?.length) {
-            const rawFirst = manager.name.trim().split(/\s+/)[0];
-            const firstName = rawFirst || manager.name || 'Friend';
+            const rawFirst = mgr.name.trim().split(/\s+/)[0];
+            const firstName = rawFirst || mgr.name || 'Friend';
             const businessName =
               (settings.business_name && String(settings.business_name).trim()) || 'Demo';
             await createNotification(
               "🎂 Happy Birthday! It's your special day! Click to see your birthday wishes",
               businessId,
               {
-                staffId: manager.id,
+                staffId: mgr.id,
                 type: 'birthday_celebration',
                 metadata: {
                   kind: 'employee_birthday_celebration',
@@ -365,6 +438,9 @@ export function useNotifications() {
       }
 
       await fetchNotificationsRef.current();
+      if (import.meta.env.DEV) {
+        console.debug('[pet-hub] Daily birthday job finished for business', businessId);
+      }
     };
 
     let cancelled = false;
@@ -381,20 +457,41 @@ export function useNotifications() {
       }, delay);
     };
 
-    const now = new Date();
-    if (now.getHours() >= 6) {
-      try {
-        if (typeof localStorage !== 'undefined' && localStorage.getItem(storageKeyForDay()) !== '1') {
-          void runDailyBirthdayJobs();
-        } else {
-          void fetchNotificationsRef.current();
+    void (async () => {
+      if (cancelled) return;
+      if (isDemoWorkspaceBusiness(businessId)) {
+        const sk = `pet-hub-demo-mgr-dob-sync:${businessId}:${localDayKey(new Date())}`;
+        try {
+          if (typeof localStorage !== 'undefined' && localStorage.getItem(sk) !== '1') {
+            const { ok, changed } = await syncDemoManagerBirthdayToClientToday(businessId);
+            if (ok && changed && typeof localStorage !== 'undefined') {
+              localStorage.removeItem(`pet-hub-daily-birthday-jobs:${businessId}:${localDayKey(new Date())}`);
+            }
+            if (ok && typeof localStorage !== 'undefined') localStorage.setItem(sk, '1');
+          }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        void runDailyBirthdayJobs();
       }
-    }
 
-    scheduleNext6am();
+      if (cancelled) return;
+
+      const now = new Date();
+      const runBirthdayJobsNow = isDemoWorkspaceBusiness(businessId) || now.getHours() >= 6;
+      if (runBirthdayJobsNow) {
+        try {
+          if (typeof localStorage !== 'undefined' && localStorage.getItem(storageKeyForDay()) !== '1') {
+            if (!cancelled) await runDailyBirthdayJobs();
+          } else if (!cancelled) {
+            await fetchNotificationsRef.current();
+          }
+        } catch {
+          if (!cancelled) await runDailyBirthdayJobs();
+        }
+      }
+
+      if (!cancelled) scheduleNext6am();
+    })();
 
     return () => {
       cancelled = true;
@@ -407,6 +504,7 @@ export function useNotifications() {
     settings.notify_birthdays,
     settings.business_name,
     createNotification,
+    demoBrowseOnly,
   ]);
 
   /** Managers: daily reminder for active staff missing email (6am local, independent of birthday toggle). */
@@ -469,6 +567,12 @@ export function useNotifications() {
   }, [user?.id, businessId]);
 
   const markRead = async (id: string) => {
+    if (!businessId) return;
+    if (demoBrowseOnly && isDemoWorkspaceBusiness(businessId)) {
+      markDemoBrowseNotificationRead(businessId, id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+      return;
+    }
     if (!user?.id) return;
     await supabase
       .from('notifications' as any)
@@ -480,7 +584,18 @@ export function useNotifications() {
   };
 
   const markAllRead = async () => {
-    if (!user?.id || !businessId) return;
+    if (!businessId) return;
+    if (demoBrowseOnly && isDemoWorkspaceBusiness(businessId)) {
+      setNotifications((prev) => {
+        markDemoBrowseNotificationsAllRead(
+          businessId,
+          prev.map((n) => n.id)
+        );
+        return prev.map((n) => ({ ...n, read: true }));
+      });
+      return;
+    }
+    if (!user?.id) return;
     const since = windowStartIso();
     await supabase
       .from('notifications' as any)

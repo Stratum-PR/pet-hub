@@ -7,12 +7,15 @@ export function isStaffDobCalendarToday(birthMonth: number, birthDay: number): b
 }
 
 /** Runs server-side staff birthday notifications for everyone in the business (idempotent per day). */
-export async function dispatchStaffBirthdaysForBusiness(businessId: string | null | undefined): Promise<void> {
-  if (!businessId) return;
+export async function dispatchStaffBirthdaysForBusiness(
+  businessId: string | null | undefined
+): Promise<{ error: string | null }> {
+  if (!businessId) return { error: null };
   const { error } = await supabase.rpc('dispatch_staff_birthdays_for_business', {
     p_business_id: businessId,
   });
   if (error && import.meta.env.DEV) console.warn('[dispatchStaffBirthdaysForBusiness]', error.message);
+  return { error: error?.message ?? null };
 }
 
 /** Daily reminder to managers: active staff missing email (RPC inserts per manager, deduped per local day). */
