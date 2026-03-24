@@ -4,7 +4,6 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
-
 function randomFourDigitPin(): string {
   return Math.floor(Math.random() * 10000)
     .toString()

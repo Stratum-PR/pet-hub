@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { validateCreatePayload, validateRefundPayload, validateUpdatePayload } from '@/lib/transactionValidation';
+import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
 import type {
   Transaction,
@@ -29,7 +30,7 @@ function mapRowToTransaction(row: any): Transaction {
     business_id: row.business_id,
     customer_id: row.customer_id ?? null,
     appointment_id: row.appointment_id ?? null,
-    staff_id: row.staff_id ?? null,
+    staff_id: staffRecordIdFromRow(row) ?? null,
     created_at: row.created_at,
     status: row.status,
     payment_method: row.payment_method,
@@ -94,7 +95,7 @@ export function loadDemoTransactionEntries(businessId: string): { transaction: T
 
 export function useTransactions() {
   const businessId = useBusinessId();
-  const { user } = useAuth();
+  const { user, staffId } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
   const [serverTransactions, setServerTransactions] = useState<Transaction[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -349,7 +350,7 @@ export function useTransactions() {
       business_id: businessId,
       customer_id: payload.customer_id,
       appointment_id: payload.appointment_id,
-      staff_id: user.id,
+      staff_id: staffId ?? null,
       status: payload.status,
       payment_method: payload.payment_method,
       payment_method_secondary: payload.payment_method_secondary,
@@ -550,7 +551,7 @@ export function useTransactions() {
         transaction_id: transactionId,
         amount: amountCents,
         reason,
-        staff_id: user.id,
+        staff_id: staffId ?? null,
         restock_applied: restockProductIds.length > 0,
       })
       .select()

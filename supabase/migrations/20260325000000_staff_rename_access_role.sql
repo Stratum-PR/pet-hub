@@ -631,7 +631,7 @@ BEGIN
 
   INSERT INTO public.staff (
     business_id, name, email, phone, pin, hourly_rate, role, status, access_role, user_id,
-    hire_date, created_at, updated_at
+    created_at, updated_at
   ) VALUES (
     v_new_business_id,
     COALESCE(nullif(trim(v_full_name), ''), 'Manager'),
@@ -643,7 +643,6 @@ BEGIN
     'active',
     'manager',
     v_uid,
-    now(),
     now(),
     now()
   )
@@ -684,7 +683,7 @@ BEGIN
 
     INSERT INTO public.staff (
       business_id, name, email, phone, pin, hourly_rate, role, status, access_role, user_id,
-      hire_date, created_at, updated_at
+      created_at, updated_at
     ) VALUES (
       r.bid,
       COALESCE(nullif(trim(r.fn), ''), 'Manager'),
@@ -696,7 +695,6 @@ BEGIN
       'active',
       'manager',
       r.uid,
-      now(),
       now(),
       now()
     )
