@@ -263,8 +263,8 @@ BEGIN
         'active',
         '9999',
         32.00,
-        EXTRACT(MONTH FROM CURRENT_DATE)::integer,
-        EXTRACT(DAY FROM CURRENT_DATE)::integer,
+        3,
+        24,
         EXTRACT(YEAR FROM CURRENT_DATE)::integer - 35
       ),
       (gen_random_uuid(), business_uuid, 'Juan Pérez', 'juan.perez@demo.com', '(787) 555-1111', 'groomer', 'staff', 'active', '1234', 18.00, 6, 15, EXTRACT(YEAR FROM CURRENT_DATE)::integer - 34),

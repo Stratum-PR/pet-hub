@@ -5,6 +5,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { getDemoStaffSeed, isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { dispatchStaffMissingEmailReminders } from '@/lib/staffBirthdayDispatch';
+
+function localDayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function msUntilNextLocal6am(now = new Date()): number {
+  const next = new Date(now.getTime());
+  next.setHours(6, 0, 0, 0);
+  if (now.getTime() >= next.getTime()) {
+    next.setDate(next.getDate() + 1);
+  }
+  return Math.max(0, next.getTime() - now.getTime());
+}
 
 function isPublicDemoPath(): boolean {
   if (typeof window === 'undefined') return false;
@@ -189,14 +203,30 @@ export function useNotifications() {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  /** Pet month reminders, staff birthday RPC (6am local), client celebration fallbacks, manager email reminders — at most once per local calendar day per business. */
   useEffect(() => {
     if (!user?.id || !businessId || !asEnabled(settings.notify_birthdays, true)) return;
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), day).toISOString();
+
     const uid = user.id;
-    const run = async () => {
+    const storageKeyForDay = () =>
+      `pet-hub-daily-birthday-jobs:${businessId}:${localDayKey(new Date())}`;
+
+    const runDailyBirthdayJobs = async () => {
+      const now = new Date();
+      const key = `pet-hub-daily-birthday-jobs:${businessId}:${localDayKey(now)}`;
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1') {
+          await fetchNotificationsRef.current();
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+
+      const month = now.getMonth() + 1;
+      const day = now.getDate();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), day).toISOString();
+
       const { data: pets, error: petErr } = await supabase
         .from('pets')
         .select('id, name, birth_month, birth_year')
@@ -233,7 +263,6 @@ export function useNotifications() {
         console.warn('[useNotifications] dispatch_staff_birthdays_for_business:', rpcError.message);
       }
 
-      /** Client-side celebration so the signed-in user always gets a notice when their linked staff row matches today. */
       if (staffId) {
         const { data: myStaff, error: staffRowErr } = await supabase
           .from('staff')
@@ -327,9 +356,50 @@ export function useNotifications() {
         }
       }
 
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(key, '1');
+        }
+      } catch {
+        /* ignore */
+      }
+
       await fetchNotificationsRef.current();
     };
-    run();
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleNext6am = () => {
+      if (cancelled) return;
+      const delay = msUntilNextLocal6am();
+      timeoutId = window.setTimeout(() => {
+        if (cancelled) return;
+        void runDailyBirthdayJobs().finally(() => {
+          if (!cancelled) scheduleNext6am();
+        });
+      }, delay);
+    };
+
+    const now = new Date();
+    if (now.getHours() >= 6) {
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(storageKeyForDay()) !== '1') {
+          void runDailyBirthdayJobs();
+        } else {
+          void fetchNotificationsRef.current();
+        }
+      } catch {
+        void runDailyBirthdayJobs();
+      }
+    }
+
+    scheduleNext6am();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
   }, [
     user?.id,
     staffId,
@@ -338,6 +408,65 @@ export function useNotifications() {
     settings.business_name,
     createNotification,
   ]);
+
+  /** Managers: daily reminder for active staff missing email (6am local, independent of birthday toggle). */
+  useEffect(() => {
+    if (!user?.id || !businessId) return;
+
+    const runEmailReminderJob = async () => {
+      const key = `pet-hub-daily-staff-email:${businessId}:${localDayKey(new Date())}`;
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1') {
+          await fetchNotificationsRef.current();
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+      await dispatchStaffMissingEmailReminders(businessId);
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(key, '1');
+      } catch {
+        /* ignore */
+      }
+      await fetchNotificationsRef.current();
+    };
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const scheduleNext6am = () => {
+      if (cancelled) return;
+      const delay = msUntilNextLocal6am();
+      timeoutId = window.setTimeout(() => {
+        if (cancelled) return;
+        void runEmailReminderJob().finally(() => {
+          if (!cancelled) scheduleNext6am();
+        });
+      }, delay);
+    };
+
+    const now = new Date();
+    const dayKey = `pet-hub-daily-staff-email:${businessId}:${localDayKey(now)}`;
+    if (now.getHours() >= 6) {
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(dayKey) !== '1') {
+          void runEmailReminderJob();
+        } else {
+          void fetchNotificationsRef.current();
+        }
+      } catch {
+        void runEmailReminderJob();
+      }
+    }
+
+    scheduleNext6am();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [user?.id, businessId]);
 
   const markRead = async (id: string) => {
     if (!user?.id) return;

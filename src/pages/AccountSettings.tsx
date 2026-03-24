@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { dispatchStaffBirthdaysForBusiness, isStaffDobCalendarToday } from '@/lib/staffBirthdayDispatch';
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -129,6 +131,7 @@ interface AccountSettingsProps {
 
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
   const { user, profile } = useAuth();
+  const businessId = useBusinessId();
   const demoLocalOnly = useDemoLocalSettingsMode();
   const { language, setLanguage } = useLanguage();
   const [pendingLanguage, setPendingLanguage] = useState<Language>(language);
@@ -321,7 +324,16 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     const { error } = await supabase.from('staff').update(payload as any).eq('id', profile.staff_id);
     setStaffDobSaving(false);
     if (error) toast.error(error.message);
-    else toast.success(t('accountSettings.staffBirthdaySaved'));
+    else {
+      toast.success(t('accountSettings.staffBirthdaySaved'));
+      if (
+        payload.birth_month != null &&
+        payload.birth_day != null &&
+        isStaffDobCalendarToday(payload.birth_month, payload.birth_day)
+      ) {
+        await dispatchStaffBirthdaysForBusiness(businessId);
+      }
+    }
   };
 
   const handleThemePreview = (preset: (typeof THEME_PRESETS)[0]) => {

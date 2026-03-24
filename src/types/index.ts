@@ -55,6 +55,8 @@ export interface Pet {
 /** Permission tier (separate from job title in `role`: groomer, receptionist, …). */
 export type StaffAccessRole = 'manager' | 'staff' | 'admin' | 'contractor';
 
+export type StaffCompensationType = 'hourly' | 'commission';
+
 export interface Employee {
   id: string;
   /** Present on rows from Supabase; omitted in some demo/local shapes. */
@@ -78,6 +80,15 @@ export interface Employee {
   birth_year?: number | null;
   pin_set_at?: string;
   pin_required?: boolean;
+  /** Public URL in `staff-photos` bucket (same limits as pet photos). */
+  photo_url?: string | null;
+  compensation_type?: StaffCompensationType | null;
+  /** Commission percentage when `compensation_type` is commission. */
+  commission_rate?: number | null;
+  bank_routing_number?: string | null;
+  bank_account_number?: string | null;
+  bank_name?: string | null;
+  payment_notes?: string | null;
   created_at: string;
   updated_at: string;
 }

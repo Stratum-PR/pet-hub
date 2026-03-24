@@ -677,6 +677,13 @@ export function useEmployees() {
         birth_month: (employeeData as any).birth_month ?? null,
         birth_day: (employeeData as any).birth_day ?? null,
         birth_year: (employeeData as any).birth_year ?? null,
+        photo_url: (employeeData as any).photo_url ?? null,
+        compensation_type: (employeeData as any).compensation_type ?? 'hourly',
+        commission_rate: (employeeData as any).commission_rate ?? null,
+        bank_routing_number: (employeeData as any).bank_routing_number ?? null,
+        bank_account_number: (employeeData as any).bank_account_number ?? null,
+        bank_name: (employeeData as any).bank_name ?? null,
+        payment_notes: (employeeData as any).payment_notes ?? null,
         created_at: now,
         updated_at: now,
       } as Employee;
@@ -700,11 +707,18 @@ export function useEmployees() {
       birth_month: (employeeData as any).birth_month ?? null,
       birth_day: (employeeData as any).birth_day ?? null,
       birth_year: (employeeData as any).birth_year ?? null,
+      photo_url: (employeeData as any).photo_url ?? null,
+      compensation_type: (employeeData as any).compensation_type ?? 'hourly',
+      commission_rate: (employeeData as any).commission_rate ?? null,
+      bank_routing_number: (employeeData as any).bank_routing_number ?? null,
+      bank_account_number: (employeeData as any).bank_account_number ?? null,
+      bank_name: (employeeData as any).bank_name ?? null,
+      payment_notes: (employeeData as any).payment_notes ?? null,
     };
 
     let { data, error } = await supabase.from('staff').insert(payload as any).select().single();
 
-    // If schema cache doesn't know hire_date/last_date, retry without them
+    // If schema cache doesn't know newer columns, retry with a smaller payload (legacy PostgREST cache).
     if (error?.code === 'PGRST204') {
       delete payload.hire_date;
       delete payload.last_date;
@@ -712,6 +726,13 @@ export function useEmployees() {
       delete payload.birth_day;
       delete payload.birth_year;
       delete payload.access_role;
+      delete payload.photo_url;
+      delete payload.compensation_type;
+      delete payload.commission_rate;
+      delete payload.bank_routing_number;
+      delete payload.bank_account_number;
+      delete payload.bank_name;
+      delete payload.payment_notes;
       ({ data, error } = await supabase.from('staff').insert(payload as any).select().single());
     }
 
@@ -743,6 +764,13 @@ export function useEmployees() {
         'birth_year',
         'pin_set_at',
         'pin_required',
+        'photo_url',
+        'compensation_type',
+        'commission_rate',
+        'bank_routing_number',
+        'bank_account_number',
+        'bank_name',
+        'payment_notes',
       ] as const;
       const next = { ...prev } as Employee;
       for (const key of safeFields) {
@@ -769,6 +797,13 @@ export function useEmployees() {
       'birth_year',
       'pin_set_at',
       'pin_required',
+      'photo_url',
+      'compensation_type',
+      'commission_rate',
+      'bank_routing_number',
+      'bank_account_number',
+      'bank_name',
+      'payment_notes',
     ];
     const payload: Record<string, unknown> = {};
     for (const key of safeFields) {
@@ -783,6 +818,13 @@ export function useEmployees() {
       delete payload.birth_day;
       delete payload.birth_year;
       delete payload.access_role;
+      delete payload.photo_url;
+      delete payload.compensation_type;
+      delete payload.commission_rate;
+      delete payload.bank_routing_number;
+      delete payload.bank_account_number;
+      delete payload.bank_name;
+      delete payload.payment_notes;
       ({ data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single());
     }
 

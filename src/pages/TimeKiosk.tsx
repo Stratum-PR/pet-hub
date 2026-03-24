@@ -14,7 +14,13 @@ import { useTimeKiosk } from '@/hooks/useTimeKiosk';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { ScheduleCheckWarning } from '@/components/ScheduleCheckWarning';
 import { format, differenceInSeconds } from 'date-fns';
-import { t } from '@/lib/translations';
+import { t, getLanguage } from '@/lib/translations';
+import {
+  toTitleCaseDisplayName,
+  toTitleCaseJobTitle,
+  accessRoleKioskLabel,
+  type KioskLang,
+} from '@/lib/displayFormatting';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import type { TimeEntry } from '@/types';
@@ -167,6 +173,11 @@ export function TimeKiosk() {
   }, [businessId]);
 
   const selectedBusinessLogoUrl = resolvedTheme === 'dark' ? businessLogoDarkUrl || businessLogoLightUrl : businessLogoLightUrl;
+
+  const kioskLang: KioskLang = getLanguage() === 'es' ? 'es' : 'en';
+  const kioskDisplayName = employee ? toTitleCaseDisplayName(employee.name ?? '') : '';
+  const kioskJobTitle = employee ? toTitleCaseJobTitle(employee.role ?? '') : '';
+  const kioskAccessLabel = employee ? accessRoleKioskLabel(employee.access_role, kioskLang) : '';
 
   // Auto-reset to PIN entry after success
   useEffect(() => {
@@ -704,12 +715,12 @@ export function TimeKiosk() {
             </div>
             <p className="text-muted-foreground text-lg">
               {state === 'pin_entry' && t('timeTracking.description')}
-              {state === 'employee_verified' && t('timeTracking.welcome', { name: employee?.name ?? '' })}
+              {state === 'employee_verified' && t('timeTracking.welcome', { name: kioskDisplayName })}
               {state === 'clocking' && t('timeKiosk.processing')}
               {state === 'success' &&
                 (clockResult?.action === 'clock_in'
-                  ? t('timeTracking.clockedIn', { name: employee?.name ?? '' })
-                  : t('timeTracking.clockedOut', { name: employee?.name ?? '' }))}
+                  ? t('timeTracking.clockedIn', { name: kioskDisplayName })
+                  : t('timeTracking.clockedOut', { name: kioskDisplayName }))}
             </p>
           </div>
 
@@ -819,10 +830,19 @@ export function TimeKiosk() {
               {state === 'employee_verified' && employee && (
                 <div className="space-y-6 text-center">
                   <div className="flex items-center justify-center gap-3 mb-4">
-                    <User className="w-16 h-16 text-primary" />
-                    <div>
-                      <h2 className="text-3xl font-bold">{employee.name}</h2>
-                      <p className="text-muted-foreground">{employee.role}</p>
+                    {employee.photo_url ? (
+                      <img
+                        src={employee.photo_url}
+                        alt=""
+                        className="h-20 w-20 shrink-0 rounded-full border-2 border-primary object-cover"
+                      />
+                    ) : (
+                      <User className="w-16 h-16 shrink-0 text-primary" />
+                    )}
+                    <div className="text-left">
+                      <h2 className="text-3xl font-bold">{kioskDisplayName}</h2>
+                      <p className="text-muted-foreground">{kioskJobTitle}</p>
+                      <p className="text-sm font-medium text-muted-foreground/90">{kioskAccessLabel}</p>
                     </div>
                   </div>
 
