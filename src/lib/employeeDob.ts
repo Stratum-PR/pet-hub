@@ -21,7 +21,8 @@ export function dayOptions(month: number, year: number): number[] {
 
 export function monthOptions(lang: Language): { value: number; label: string }[] {
   const loc = lang === 'es' ? 'es' : 'en';
-  const fmt = new Intl.DateTimeFormat(loc, { month: 'long' });
+  // Use UTC so month names match values 1–12 in every viewer timezone (local parsing of UTC midnight shifts the civil date behind UTC).
+  const fmt = new Intl.DateTimeFormat(loc, { month: 'long', timeZone: 'UTC' });
   return Array.from({ length: 12 }, (_, i) => ({
     value: i + 1,
     label: fmt.format(new Date(Date.UTC(2000, i, 1))),

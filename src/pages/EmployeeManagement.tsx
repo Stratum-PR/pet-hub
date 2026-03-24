@@ -35,6 +35,7 @@ import {
 import { deleteStaffPhotoFromStorage, uploadStaffPhotoDataUrl } from '@/lib/staffPhotoStorage';
 import { clearPetHubBirthdayJobLocalKey } from '@/lib/demoManagerBirthdaySync';
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 
 function resolvedAccessRole(emp: Employee): StaffAccessRole {
@@ -423,6 +424,7 @@ export function EmployeeManagement({
       const { error: bdayErr } = await dispatchStaffBirthdaysForBusiness(businessId);
       if (bdayErr) toast.error(bdayErr);
       else if (isDemoWorkspaceBusiness(businessId)) clearPetHubBirthdayJobLocalKey(businessId);
+      requestNotificationsRefetch();
     }
     closeStaffModal();
   };
