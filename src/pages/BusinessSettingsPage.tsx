@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
@@ -122,6 +123,7 @@ export function BusinessSettingsPage() {
   // Pay schedule settings (pay periods used by payroll reports).
   const [payScheduleAnchorDate, setPayScheduleAnchorDate] = useState(settings.pay_schedule_anchor_date || todayIso);
   const [payScheduleCadenceWeeks, setPayScheduleCadenceWeeks] = useState(settings.pay_schedule_cadence_weeks || '2');
+  const [payrollPdfIncludeLogo, setPayrollPdfIncludeLogo] = useState(() => settings.payroll_pdf_include_logo !== 'false');
   const [savingPaySchedule, setSavingPaySchedule] = useState(false);
 
   useEffect(() => {
@@ -137,6 +139,10 @@ export function BusinessSettingsPage() {
     setPayScheduleAnchorDate(settings.pay_schedule_anchor_date || todayIso);
     setPayScheduleCadenceWeeks(settings.pay_schedule_cadence_weeks || '2');
   }, [settings.pay_schedule_anchor_date, settings.pay_schedule_cadence_weeks, todayIso]);
+
+  useEffect(() => {
+    setPayrollPdfIncludeLogo(settings.payroll_pdf_include_logo !== 'false');
+  }, [settings.payroll_pdf_include_logo]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -388,6 +394,11 @@ export function BusinessSettingsPage() {
       const cadenceRes = await updateSetting('pay_schedule_cadence_weeks', payScheduleCadenceWeeks);
       if (!cadenceRes.ok) {
         toast.error(cadenceRes.error || t('common.genericError'));
+        return;
+      }
+      const pdfLogoRes = await updateSetting('payroll_pdf_include_logo', payrollPdfIncludeLogo ? 'true' : 'false');
+      if (!pdfLogoRes.ok) {
+        toast.error(pdfLogoRes.error || t('common.genericError'));
         return;
       }
       await refetch();
@@ -1221,6 +1232,18 @@ export function BusinessSettingsPage() {
                 <SelectItem value="4">{t('businessSettings.cadenceEvery4Weeks')}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 max-w-xl">
+            <div className="space-y-0.5">
+              <Label htmlFor="payroll-pdf-logo">{t('businessSettings.payrollPdfIncludeLogo')}</Label>
+              <p className="text-sm text-muted-foreground">{t('businessSettings.payrollPdfIncludeLogoDescription')}</p>
+            </div>
+            <Switch
+              id="payroll-pdf-logo"
+              checked={payrollPdfIncludeLogo}
+              onCheckedChange={setPayrollPdfIncludeLogo}
+            />
           </div>
 
           <Button onClick={handleSavePaySchedule} disabled={savingPaySchedule} className="gap-2">
