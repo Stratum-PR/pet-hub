@@ -60,14 +60,16 @@ export function BirthdayCelebrationModal({
 }: BirthdayCelebrationModalProps) {
   const stopRef = useRef<(() => void) | null>(null);
 
-  const celebrateAgain = useCallback(() => {
-    void confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-      zIndex: 9999,
-    });
+  const startFireworks = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    stopRef.current?.();
+    stopRef.current = runFireworksConfetti(CELEBRATION_MS);
   }, []);
+
+  const celebrateAgain = useCallback(() => {
+    startFireworks();
+  }, [startFireworks]);
 
   useEffect(() => {
     if (!open) {
@@ -75,15 +77,12 @@ export function BirthdayCelebrationModal({
       stopRef.current = null;
       return;
     }
-    const reduced =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) return;
-    stopRef.current = runFireworksConfetti(CELEBRATION_MS);
+    startFireworks();
     return () => {
       stopRef.current?.();
       stopRef.current = null;
     };
-  }, [open]);
+  }, [open, startFireworks]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
