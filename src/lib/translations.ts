@@ -817,6 +817,18 @@ export const translations: Translations = {
   },
   'accountSettings.staffBirthdaySave': { en: 'Save birthday', es: 'Guardar cumpleaños' },
   'accountSettings.staffBirthdaySaved': { en: 'Birthday saved', es: 'Cumpleaños guardado' },
+  'accountSettings.staffBirthdayNeedStaffLinkTitle': {
+    en: 'Link your account to a staff profile',
+    es: 'Vincula tu cuenta a un perfil de personal',
+  },
+  'accountSettings.staffBirthdayNeedStaffLinkBody': {
+    en: 'Your user account is not linked to a staff row yet, so your birthday cannot be saved here. Ask an admin to link your profile to your staff record, or open Staff and ensure you appear as a staff member with the same email.',
+    es: 'Tu cuenta aún no está vinculada a un registro de personal, así que no se puede guardar el cumpleaños aquí. Pide a un administrador que vincule tu perfil o revisa en Personal que existas como miembro.',
+  },
+  'accountSettings.staffBirthdayNeedStaffLinkCta': {
+    en: 'Open Staff',
+    es: 'Abrir Personal',
+  },
   'accountSettings.colorPalette': { en: 'Color palette', es: 'Paleta de colores' },
   'accountSettings.colorPaletteDescription': { en: 'Set a primary brand color (HSL values, e.g. 127 18% 47% for olive #6B8B70)', es: 'Establece un color de marca primario' },
   'accountSettings.primaryColor': { en: 'Primary color', es: 'Color primario' },
@@ -2113,6 +2125,10 @@ export const translations: Translations = {
   'employeeManagement.dobClear': {
     en: 'Clear date of birth',
     es: 'Borrar fecha de nacimiento'
+  },
+  'employeeManagement.saveStaffFailed': {
+    en: 'Could not save this staff member. Check your connection and that Supabase allows updating staff (including birth date columns).',
+    es: 'No se pudo guardar. Revisa la conexión y los permisos en Supabase.',
   },
   'employeeManagement.statusFilter': {
     en: 'Show',

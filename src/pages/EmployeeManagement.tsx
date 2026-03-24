@@ -33,10 +33,9 @@ import {
   findPuertoRicoBankByRouting,
 } from '@/lib/puertoRicoBankRouting';
 import { deleteStaffPhotoFromStorage, uploadStaffPhotoDataUrl } from '@/lib/staffPhotoStorage';
-import {
-  dispatchStaffBirthdaysForBusiness,
-  isStaffDobCalendarToday,
-} from '@/lib/staffBirthdayDispatch';
+import { clearPetHubBirthdayJobLocalKey } from '@/lib/demoManagerBirthdaySync';
+import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 
 function resolvedAccessRole(emp: Employee): StaffAccessRole {
   const a = emp.access_role;
@@ -403,21 +402,27 @@ export function EmployeeManagement({
     }
 
     if (editingEmployee) {
-      await onUpdateEmployee(editingEmployee.id, submitData);
+      const updated = await onUpdateEmployee(editingEmployee.id, submitData);
+      if (updated == null) {
+        toast.error(t('employeeManagement.saveStaffFailed'));
+        return;
+      }
     } else {
       if (submitData.pin && String(submitData.pin).length === EMPLOYEE_PIN_LENGTH) {
         submitData.pin_set_at = new Date().toISOString();
         submitData.pin_required = false;
       }
-      await onAddEmployee(submitData as Omit<Employee, 'id' | 'created_at' | 'updated_at'>);
+      const created = await onAddEmployee(submitData as Omit<Employee, 'id' | 'created_at' | 'updated_at'>);
+      if (created == null) {
+        toast.error(t('employeeManagement.saveStaffFailed'));
+        return;
+      }
     }
-    if (
-      allDob &&
-      birth_month !== null &&
-      birth_day !== null &&
-      isStaffDobCalendarToday(birth_month, birth_day)
-    ) {
-      await dispatchStaffBirthdaysForBusiness(businessId);
+    // Let the RPC decide "today" using business timezone (settings). Client local date often mismatched.
+    if (allDob && birth_month !== null && birth_day !== null && !demoBrowseOnly) {
+      const { error: bdayErr } = await dispatchStaffBirthdaysForBusiness(businessId);
+      if (bdayErr) toast.error(bdayErr);
+      else if (isDemoWorkspaceBusiness(businessId)) clearPetHubBirthdayJobLocalKey(businessId);
     }
     closeStaffModal();
   };

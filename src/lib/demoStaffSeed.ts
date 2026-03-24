@@ -12,10 +12,14 @@ export const DEMO_STAFF_IDS = {
 
 const nowIso = () => new Date().toISOString();
 
-/** Demo manager birthday fixed to March 24 (product demo / birthday notifications). */
+/** Demo manager birthday follows the viewer's local "today" (matches DB sync + notifications). */
 function demoManagerBirthdayFields() {
-  const y = new Date().getFullYear() - 35;
-  return { birth_month: 3, birth_day: 24, birth_year: y };
+  const n = new Date();
+  return {
+    birth_month: n.getMonth() + 1,
+    birth_day: n.getDate(),
+    birth_year: n.getFullYear() - 35,
+  };
 }
 
 export function isDemoWorkspaceBusiness(businessId: string | null | undefined): boolean {
