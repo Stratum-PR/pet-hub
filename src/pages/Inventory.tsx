@@ -17,7 +17,8 @@ import { Product } from '@/types/inventory';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { SearchFilter } from '@/components/SearchFilter';
 import { InventoryProductForm } from '@/components/InventoryProductForm';
-import { InventoryItemExpanded } from '@/components/InventoryItemExpanded';
+import { InventoryItemExpanded, type InventoryItemExpandedHandle } from '@/components/InventoryItemExpanded';
+import { DetailModalActionBar } from '@/components/DetailModalActionBar';
 import { BarcodeScannerModal } from '@/components/BarcodeScannerModal';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import {
@@ -87,6 +88,7 @@ export function Inventory({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const inventoryExpandedRef = useRef<InventoryItemExpandedHandle>(null);
   const pageLoadRef = usePageLoadRef();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -546,8 +548,17 @@ export function Inventory({
 
       <Dialog open={!!editProduct} onOpenChange={(open) => !open && setEditProduct(null)}>
         <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:rounded-3xl">
-          <div className="shrink-0 border-b border-border px-6 pb-4 pt-6 pr-14">
-            <DialogHeader>
+          <div className="shrink-0 px-6 pt-6">
+            {editingLive && (
+              <DetailModalActionBar
+                variant="save-delete"
+                saveLabel={t('common.save')}
+                deleteLabel={t('common.delete')}
+                onSave={() => inventoryExpandedRef.current?.save()}
+                onDelete={() => handleDeleteClick(editingLive.id)}
+              />
+            )}
+            <DialogHeader className="space-y-1 pb-4 pr-2 pt-4 text-left">
               <DialogTitle>{editingLive?.name ?? t('inventory.editProduct')}</DialogTitle>
               <DialogDescription>{t('inventory.editProductDescription')}</DialogDescription>
             </DialogHeader>
@@ -555,6 +566,8 @@ export function Inventory({
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-6 pb-6">
             {editingLive && (
               <InventoryItemExpanded
+                ref={inventoryExpandedRef}
+                hideToolbar
                 className="px-0 pb-0 pt-0 sm:px-0"
                 product={editingLive}
                 products={products}

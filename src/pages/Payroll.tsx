@@ -46,7 +46,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
 
   const openEditForEntry = (entry: TimeEntry) => {
-    setSelectedEmployeeId(entry.employee_id);
+    setSelectedEmployeeId(entry.staff_id);
     const date = startOfDay(new Date(entry.clock_in));
     setEditingDay({ date, entry });
     setEditingEntry(entry);
@@ -141,7 +141,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
              entryDate <= startOfDay(payPeriodEnd) &&
              entry.clock_out;
     }).map(entry => {
-      const employee = employees.find(e => e.id === entry.employee_id);
+      const employee = employees.find(e => e.id === entry.staff_id);
       const minutes = differenceInMinutes(new Date(entry.clock_out!), new Date(entry.clock_in));
       const hours = roundToQuarterHours(minutes / 60);
       return {
@@ -160,7 +160,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
   const payrollData = useMemo(() => {
     return employees.map(emp => {
-      const empEntries = allPayPeriodEntries.filter(entry => entry.employee_id === emp.id);
+      const empEntries = allPayPeriodEntries.filter(entry => entry.staff_id === emp.id);
       
       const totalHours = empEntries.reduce((sum, entry) => sum + entry.hours, 0);
       
@@ -183,7 +183,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
     allPayPeriodEntries.forEach(entry => {
       if (!entry.employee) return;
-      const empId = entry.employee_id;
+      const empId = entry.staff_id;
       if (!summary[empId]) {
         summary[empId] = {
           employee: entry.employee,
@@ -222,7 +222,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     
     const empEntries = timeEntries.filter(entry => {
       const entryDate = startOfDay(new Date(entry.clock_in));
-      return entry.employee_id === selectedEmployeeId && entryDate >= startOfDay(payPeriodStart) && entryDate <= startOfDay(payPeriodEnd);
+      return entry.staff_id === selectedEmployeeId && entryDate >= startOfDay(payPeriodStart) && entryDate <= startOfDay(payPeriodEnd);
     });
 
     // Group entries by day
@@ -348,7 +348,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     yPos += 8;
 
     const timesheetData = allPayPeriodEntries.map(entry => [
-      getEmployeeId(entry.employee_id),
+      getEmployeeId(entry.staff_id),
       entry.employee?.name || 'Unknown',
       format(new Date(entry.clock_in), 'MM/dd/yyyy'),
       format(new Date(entry.clock_in), 'h:mm a'),
@@ -565,7 +565,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
         {/* Payroll Timesheet Tab */}
         <TabsContent value="timesheet">
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-primary" />
@@ -593,7 +593,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                   </thead>
                   <tbody>
                     {allPayPeriodEntries.map((entry) => {
-                      const empId = entry.employee_id.slice(-4).toUpperCase();
+                      const empId = entry.staff_id.slice(-4).toUpperCase();
                       return (
                         <tr
                           key={entry.id}
@@ -642,7 +642,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
         {/* By Employee Summary Tab */}
         <TabsContent value="summary">
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-primary" />
@@ -718,7 +718,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
         {/* Pay Calculations Tab */}
         <TabsContent value="calculations">
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-primary" />
@@ -777,7 +777,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
         {/* Edit Timesheet Tab */}
         <TabsContent value="edit">
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-primary" />

@@ -150,7 +150,7 @@ export function Checkout({ appointments, clients, pets, services, onUpdateAppoin
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Client Information */}
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle>Client Information</CardTitle>
             </CardHeader>
@@ -176,7 +176,7 @@ export function Checkout({ appointments, clients, pets, services, onUpdateAppoin
           </Card>
 
           {/* Services */}
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Services</CardTitle>
@@ -263,7 +263,7 @@ export function Checkout({ appointments, clients, pets, services, onUpdateAppoin
 
         {/* Summary */}
         <div className="lg:col-span-1">
-          <Card className="shadow-sm sticky top-4">
+          <Card className="sticky top-4">
             <CardHeader>
               <CardTitle>Summary</CardTitle>
             </CardHeader>

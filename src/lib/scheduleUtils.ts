@@ -13,7 +13,7 @@ export function hasSameEmployeeOverlap(
   const start = new Date(startTime).getTime();
   const end = new Date(endTime).getTime();
   return shifts.some((s) => {
-    if (s.employee_id !== employeeId) return false;
+    if (s.staff_id !== employeeId) return false;
     if (format(new Date(s.start_time), 'yyyy-MM-dd') !== dayStr) return false;
     if (excludeShiftId && s.id === excludeShiftId) return false;
     const sStart = new Date(s.start_time).getTime();
@@ -33,7 +33,7 @@ export function hasSameEmployeeOverlapByTime(
   const start = new Date(startTime).getTime();
   const end = new Date(endTime).getTime();
   return shifts.some((s) => {
-    if (s.employee_id !== employeeId) return false;
+    if (s.staff_id !== employeeId) return false;
     if (excludeShiftId && s.id === excludeShiftId) return false;
     const sStart = new Date(s.start_time).getTime();
     const sEnd = new Date(s.end_time).getTime();

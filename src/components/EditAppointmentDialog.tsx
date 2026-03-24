@@ -70,7 +70,7 @@ export function EditAppointmentDialog({
     petId: '',
     petName: '',
     petBreed: '',
-    employeeId: '',
+    staffId: '',
     services: [] as string[],
     status: 'scheduled' as 'scheduled' | 'in-progress' | 'completed' | 'cancelled',
     price: 0,
@@ -118,7 +118,7 @@ export function EditAppointmentDialog({
           petId: appointment.pet_id || '',
           petName: pet?.name || '',
           petBreed: pet?.breed || '',
-          employeeId: appointment.employee_id || '',
+          staffId: appointment.staff_id || '',
           services: serviceNames,
           status: (appointment.status as any) || 'scheduled',
           price: appointment.price || 0,
@@ -137,7 +137,7 @@ export function EditAppointmentDialog({
           petId: '',
           petName: '',
           petBreed: '',
-          employeeId: '',
+          staffId: '',
           services: [],
           status: 'scheduled',
           price: 0,
@@ -297,7 +297,7 @@ export function EditAppointmentDialog({
 
       onUpdate(appointment.id, {
         pet_id: formData.petId,
-        employee_id: formData.employeeId && formData.employeeId !== '__unassigned__' ? formData.employeeId : null,
+        staff_id: formData.staffId && formData.staffId !== '__unassigned__' ? formData.staffId : null,
         scheduled_date: appointmentDate.toISOString(),
         service_type: serviceType,
         status: formData.status,
@@ -521,16 +521,16 @@ export function EditAppointmentDialog({
             </div>
           </div>
 
-          {/* Employee Assignment */}
+          {/* Staff assignment */}
           <div className="space-y-4 border-t pt-4">
             <div className="space-y-2">
-              <Label>Assign Employee (Optional)</Label>
+              <Label>Assign staff (optional)</Label>
               <Select
-                value={formData.employeeId || '__unassigned__'}
-                onValueChange={(value) => setFormData({ ...formData, employeeId: value === '__unassigned__' ? '' : value })}
+                value={formData.staffId || '__unassigned__'}
+                onValueChange={(value) => setFormData({ ...formData, staffId: value === '__unassigned__' ? '' : value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select an employee" />
+                  <SelectValue placeholder="Select a staff member" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>

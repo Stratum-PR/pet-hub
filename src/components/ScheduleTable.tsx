@@ -50,7 +50,7 @@ export function ScheduleTable({
       weekDays.forEach((day) => {
         const dayStr = format(day, 'yyyy-MM-dd');
         map[e.id][dayStr] = shifts.filter(
-          (s) => s.employee_id === e.id && isShiftOnDay(s, day)
+          (s) => s.staff_id === e.id && isShiftOnDay(s, day)
         );
       });
     });

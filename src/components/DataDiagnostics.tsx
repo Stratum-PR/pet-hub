@@ -11,7 +11,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import { t } from '@/lib/translations';
 
-const DEMO_BUSINESS_ID = '00000000-0000-0000-0000-000000000001';
+import { DEMO_WORKSPACE_BUSINESS_ID } from '@/lib/demoWorkspace';
 
 export function DataDiagnostics() {
   const { profile, user, business } = useAuth();
@@ -79,7 +79,7 @@ export function DataDiagnostics() {
 
       if (isDemoPath) {
         let resolvedBusiness: { id: string; name: string; email: string | null } | null = null;
-        const idForLookup = businessId || DEMO_BUSINESS_ID;
+        const idForLookup = businessId || DEMO_WORKSPACE_BUSINESS_ID;
         const { data: bRow, error: bErr } = await supabase
           .from('businesses')
           .select('id, name, email')

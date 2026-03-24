@@ -297,7 +297,7 @@ export function Appointments({
       </div>
 
       {showBookingLink && (
-        <Card className="shadow-sm animate-fade-in">
+        <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <LinkIcon className="w-5 h-5 text-primary" />
@@ -336,7 +336,7 @@ export function Appointments({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left side - Large Calendar (2/3) */}
             <div className="lg:col-span-2">
-              <Card className="shadow-sm">
+              <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
@@ -430,7 +430,7 @@ export function Appointments({
                               {dayAppointments.length > 0 ? (
                                 <div className="space-y-1.5">
                                   {dayAppointments.slice(0, 4).map(apt => {
-                                    const employee = apt.employee_id ? employees.find(e => e.id === apt.employee_id) : null;
+                                    const employee = apt.staff_id ? employees.find(e => e.id === apt.staff_id) : null;
                                     return (
                                       <div 
                                         key={apt.id} 
@@ -500,9 +500,9 @@ export function Appointments({
                                           <div className="text-sm mb-1">
                                             <span className="font-medium">Costo:</span> ${typeof appointment.price === 'number' ? appointment.price.toFixed(2) : '0.00'}
                                           </div>
-                                          {appointment.employee_id && (
+                                          {appointment.staff_id && (
                                             <div className="text-sm">
-                                              <span className="font-medium">Empleado:</span> {getEmployeeName(appointment.employee_id)}
+                                              <span className="font-medium">Empleado:</span> {getEmployeeName(appointment.staff_id)}
                                             </div>
                                           )}
                                         </div>
@@ -617,9 +617,9 @@ export function Appointments({
                                           <div className="text-sm mb-1">
                                             <span className="font-medium">Costo:</span> ${typeof appointment.price === 'number' ? appointment.price.toFixed(2) : '0.00'}
                                           </div>
-                                          {appointment.employee_id && (
+                                          {appointment.staff_id && (
                                             <div className="text-sm">
-                                              <span className="font-medium">Empleado:</span> {getEmployeeName(appointment.employee_id)}
+                                              <span className="font-medium">Empleado:</span> {getEmployeeName(appointment.staff_id)}
                                             </div>
                                           )}
                                         </div>
@@ -664,7 +664,7 @@ export function Appointments({
             {/* Right side - Today section (1/3) */}
             <div className="space-y-6">
               {/* Today Section */}
-              <Card className="shadow-sm">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="w-5 h-5 text-primary" />
@@ -864,7 +864,7 @@ export function Appointments({
                             <TableCell>{getClientName(appointment.pet_id)}</TableCell>
                             <TableCell>{getServiceName(appointment.service_id as any, appointment.service_type)}</TableCell>
                             <TableCell>${typeof appointment.price === 'number' ? appointment.price.toFixed(2) : '0.00'}</TableCell>
-                            <TableCell>{getEmployeeName(appointment.employee_id)}</TableCell>
+                            <TableCell>{getEmployeeName(appointment.staff_id)}</TableCell>
                             <TableCell>
                               <Badge className={getStatusColor(appointment.status)}>
                                 {appointment.status || 'scheduled'}

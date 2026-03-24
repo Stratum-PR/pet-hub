@@ -460,7 +460,7 @@ export function BookAppointment() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full shadow-lg">
+        <Card className="max-w-md w-full shadow-none hover:shadow-lg">
           <CardContent className="pt-6">
             <div className="text-center space-y-4">
               <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
@@ -484,7 +484,7 @@ export function BookAppointment() {
     return (
       <div className="min-h-screen bg-background py-8 px-4">
         <div className="max-w-2xl mx-auto">
-          <Card className="shadow-lg">
+          <Card className="shadow-none hover:shadow-lg">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl">Book an Appointment</CardTitle>
               <CardDescription className="text-lg">
@@ -537,7 +537,7 @@ export function BookAppointment() {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <Card className="shadow-lg">
+        <Card className="shadow-none hover:shadow-lg">
           <CardHeader className="text-center">
             <CardTitle className="text-3xl">Book an Appointment</CardTitle>
             <CardDescription className="text-lg">

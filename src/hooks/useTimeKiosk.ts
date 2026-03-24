@@ -46,7 +46,7 @@ export function useTimeKiosk() {
 
       try {
         const { data, error: err } = await supabase
-          .from('employees')
+          .from('staff')
           .select('*')
           .eq('pin', pin)
           .eq('business_id', businessId)
@@ -195,10 +195,10 @@ export function useTimeKiosk() {
       setError(null);
 
       try {
-        // Get the time entry to find employee_id
+        // Get the time entry to find staff_id
         const { data: timeEntry, error: entryErr } = await supabase
           .from('time_entries')
-          .select('employee_id')
+          .select('staff_id')
           .eq('id', timeEntryId)
           .single();
 
@@ -218,7 +218,7 @@ export function useTimeKiosk() {
           .from('time_entry_edit_requests')
           .insert({
             time_entry_id: timeEntryId,
-            employee_id: timeEntry.employee_id,
+            staff_id: timeEntry.staff_id,
             business_id: businessId,
             requested_by: user?.id || null,
             requested_changes: changes,

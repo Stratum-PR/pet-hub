@@ -1,4 +1,6 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useTheme } from 'next-themes';
+import { BorderGlow } from '@/components/BorderGlow';
 import { WoofButton } from '@/components/WoofButton';
 import { petPawSvgHtml } from '@/lib/petPawGeometry';
 import './PetAnimations.css';
@@ -155,6 +157,14 @@ const DEFAULT_CONFIG: AnimationConfig = {
 };
 
 export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<AnimationConfig> }) {
+  const { resolvedTheme } = useTheme();
+  const [glowColorTriplet, setGlowColorTriplet] = useState('262 83 58');
+
+  useEffect(() => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+    if (raw) setGlowColorTriplet(raw.replace(/,/g, ' ').replace(/\s+/g, ' ').trim());
+  }, [resolvedTheme]);
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationContainerRef = useRef<HTMLDivElement>(null);
   const animationIdRef = useRef<number>(0);
@@ -455,7 +465,25 @@ export function PetAnimations({ config = DEFAULT_CONFIG }: { config?: Partial<An
       />
 
       <div className="pointer-events-auto fixed bottom-4 right-4 z-[9999] hidden md:block max-w-[calc(100vw-2rem)]">
-        <WoofButton onWoof={handleManualTrigger} />
+        <BorderGlow
+          className="inline-grid w-max"
+          edgeSensitivity={42}
+          glowColor={glowColorTriplet}
+          backgroundColor="hsl(var(--background) / 0.92)"
+          borderRadius={9999}
+          glowRadius={28}
+          glowIntensity={0.95}
+          coneSpread={22}
+          fillOpacity={0.42}
+          colors={
+            resolvedTheme === 'dark'
+              ? ['#a78bfa', '#f472b6', '#38bdf8']
+              : ['#8b5cf6', '#e879a9', '#0ea5e9']
+          }
+          rotateGlowOnHover
+        >
+          <WoofButton onWoof={handleManualTrigger} />
+        </BorderGlow>
       </div>
     </>
   );

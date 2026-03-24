@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format, startOfDay, addDays, subDays, isSameDay } from 'date-fns';
-import { CalendarAppointment, CalendarEmployee, WaitlistEntry, CalendarFilters, CalendarView } from '@/types/calendar';
+import { CalendarAppointment, WaitlistEntry, CalendarFilters, CalendarView } from '@/types/calendar';
 import { AppointmentBookSidebar } from '@/components/AppointmentBookSidebar';
 import { AppointmentCalendarView } from '@/components/AppointmentCalendarView';
 import { DaycareCalendarView } from '@/components/DaycareCalendarView';
@@ -20,7 +20,7 @@ export function AppointmentBook() {
   const [activeTab, setActiveTab] = useState<'calendar' | 'list' | 'requests' | 'settings'>('calendar');
   const [filters, setFilters] = useState<CalendarFilters>({
     service: 'Daycare',
-    employee: 'All Rooms',
+    staff: 'All Rooms',
     view: 'day',
   });
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -72,18 +72,18 @@ export function AppointmentBook() {
       });
     }
 
-    // Filter by employee/room
+    // Filter by staff / room
     if (filters.service === 'Daycare') {
       // For daycare, filter by room if not "All Rooms"
-      if (filters.employee !== 'All Rooms') {
+      if (filters.staff !== 'All Rooms') {
         // Room filtering logic would go here when rooms are implemented
       }
     } else {
-      // For grooming, filter by employee
-      if (filters.employee !== 'All Employees' && filters.employee !== 'All Rooms') {
-        const employee = calendarEmployees.find(e => e.name === filters.employee);
-        if (employee) {
-          filtered = filtered.filter(apt => apt.employeeId === employee.id);
+      // For grooming, filter by staff member
+      if (filters.staff !== 'All Employees' && filters.staff !== 'All Rooms') {
+        const staffMember = calendarEmployees.find(e => e.name === filters.staff);
+        if (staffMember) {
+          filtered = filtered.filter(apt => apt.staffId === staffMember.id);
         }
       }
     }
@@ -112,12 +112,12 @@ export function AppointmentBook() {
   const handleFilterChange = (key: keyof CalendarFilters, value: string | CalendarView) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value };
-      // When switching service type, reset employee filter
+      // When switching service type, reset staff filter
       if (key === 'service') {
         if (value === 'Daycare') {
-          newFilters.employee = 'All Rooms';
+          newFilters.staff = 'All Rooms';
         } else {
-          newFilters.employee = 'All Employees';
+          newFilters.staff = 'All Employees';
         }
       }
       return newFilters;

@@ -63,7 +63,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: Clien
   };
 
   return (
-    <Card id="client-form" className="shadow-sm animate-fade-in">
+    <Card id="client-form" className="animate-fade-in">
       <CardHeader>
         <CardTitle>
           {isEditing ? t('form.editClient') : t('form.addNewClient')}

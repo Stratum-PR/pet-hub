@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useSearchParams, useParams, useNavigate } from 'react-router-dom';
-import { Plus, X, LayoutGrid, List, Dog, Edit, Trash2 } from 'lucide-react';
+import { Plus, X, LayoutGrid, List, Dog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientForm } from '@/components/ClientForm';
 import { ClientList } from '@/components/ClientList';
@@ -11,8 +11,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { DetailModalActionBar } from '@/components/DetailModalActionBar';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
@@ -303,6 +303,18 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           {clientDetailOpen && (
             <>
+              <DetailModalActionBar
+                editLabel={t('common.edit')}
+                deleteLabel={t('common.delete')}
+                onEdit={() => {
+                  handleEdit(clientDetailOpen);
+                  setClientDetailOpen(null);
+                }}
+                onDelete={() => {
+                  handleDeleteClick(clientDetailOpen.id);
+                  setClientDetailOpen(null);
+                }}
+              />
               <DialogHeader>
                 <DialogTitle>
                   {clientDetailOpen.first_name} {clientDetailOpen.last_name}
@@ -383,19 +395,6 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                   })()}
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => { handleEdit(clientDetailOpen); setClientDetailOpen(null); }}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => { handleDeleteClick(clientDetailOpen.id); setClientDetailOpen(null); }}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              </DialogFooter>
             </>
           )}
         </DialogContent>

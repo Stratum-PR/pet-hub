@@ -16,7 +16,7 @@ export async function fetchEmployeePinsForBusiness(
   businessId: string,
   options?: { excludeEmployeeId?: string }
 ): Promise<Set<string>> {
-  const { data, error } = await client.from('employees').select('id, pin').eq('business_id', businessId);
+  const { data, error } = await client.from('staff').select('id, pin').eq('business_id', businessId);
   if (error) throw error;
   const pins = new Set<string>();
   for (const row of data ?? []) {

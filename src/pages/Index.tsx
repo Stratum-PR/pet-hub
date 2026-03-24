@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { useMemo, useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { PageTransitionProvider, usePageTransition } from '@/contexts/PageTransitionContext';
@@ -40,6 +40,25 @@ import { isKioskLocked } from '@/lib/kioskLock';
 import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
 import { PawRevealEnter } from '@/components/PawRevealEnter';
 
+/** Old bookmarks / notifications used /employee-management; canonical URL is /staff-management. */
+function RedirectLegacyEmployeeManagement() {
+  const [searchParams] = useSearchParams();
+  const staff = searchParams.get('staff') ?? searchParams.get('employee');
+  const qs = staff ? `?staff=${encodeURIComponent(staff)}` : '';
+  return <Navigate to={`staff-management${qs}`} replace />;
+}
+
+/** Legacy URLs used .../payroll/employee/:id; canonical is .../payroll/staff/:id */
+function RedirectLegacyPayrollEmployee() {
+  const { employeeId, businessSlug } = useParams<{ employeeId: string; businessSlug?: string }>();
+  const { pathname } = useLocation();
+  if (!employeeId) return <Navigate to={businessSlug ? `/${businessSlug}/reports/payroll` : '/reports/payroll'} replace />;
+  const isTimesheet = pathname.endsWith('/timesheet');
+  const base = businessSlug ? `/${businessSlug}` : '';
+  const suffix = isTimesheet ? '/timesheet' : '';
+  return <Navigate to={`${base}/reports/payroll/staff/${employeeId}${suffix}`} replace />;
+}
+
 /** Renders Routes with displayPathname so old page stays visible while cover rolls down. */
 function TransitionRoutes({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -78,7 +97,7 @@ const Index = () => {
 
   const { clients, loading: clientsLoading, addClient, updateClient, deleteClient } = useClients();
   const { pets, loading: petsLoading, addPet, updatePet, deletePet } = usePets();
-  const { employees, loading: employeesLoading, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const { employees, loading: employeesLoading, addEmployee, updateEmployee } = useEmployees();
   const { timeEntries, clockIn, clockOut, getActiveEntry, updateTimeEntry, addTimeEntry } = useTimeEntries();
   const {
     appointments,
@@ -265,14 +284,14 @@ const Index = () => {
                 />
               }
             />
+            <Route path="employee-management" element={<RedirectLegacyEmployeeManagement />} />
             <Route
-              path="employee-management"
+              path="staff-management"
               element={
                 <EmployeeManagement
                   employees={employees}
                   onAddEmployee={addEmployee}
                   onUpdateEmployee={updateEmployee}
-                  onDeleteEmployee={deleteEmployee}
                 />
               }
             />
@@ -309,16 +328,7 @@ const Index = () => {
               }
             />
             <Route
-              path="reports/payroll/employee/:employeeId"
-              element={
-                <EmployeePayroll
-                  employees={employees}
-                  timeEntries={timeEntries}
-                />
-              }
-            />
-            <Route
-              path="reports/payroll/employee/:employeeId/timesheet"
+              path="reports/payroll/staff/:staffId/timesheet"
               element={
                 <EmployeeTimesheet
                   employees={employees}
@@ -326,6 +336,17 @@ const Index = () => {
                 />
               }
             />
+            <Route
+              path="reports/payroll/staff/:staffId"
+              element={
+                <EmployeePayroll
+                  employees={employees}
+                  timeEntries={timeEntries}
+                />
+              }
+            />
+            <Route path="reports/payroll/employee/:employeeId/timesheet" element={<RedirectLegacyPayrollEmployee />} />
+            <Route path="reports/payroll/employee/:employeeId" element={<RedirectLegacyPayrollEmployee />} />
             <Route
               path="reports/payroll/edit-requests"
               element={<TimeEditApproval />}

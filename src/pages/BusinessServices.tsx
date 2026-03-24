@@ -169,7 +169,7 @@ export function BusinessServices() {
       </div>
 
       {showForm && (
-        <Card className="shadow-sm animate-fade-in">
+        <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>
               {editingService ? t('serviceForm.editService') : t('serviceForm.addNewService')}
@@ -303,7 +303,7 @@ export function BusinessServices() {
       ) : (
         <div className="space-y-6">
           {Object.entries(servicesByCategory).map(([category, categoryServices]) => (
-            <Card key={category} className="shadow-sm">
+            <Card key={category}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Tag className="w-5 h-5 text-primary" />

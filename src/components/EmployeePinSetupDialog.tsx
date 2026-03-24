@@ -81,7 +81,7 @@ export function EmployeePinSetupDialog({
     setSaving(true);
     try {
       const { error: updateError } = await supabase
-        .from('employees')
+        .from('staff')
         .update({
           pin,
           pin_set_at: new Date().toISOString(),

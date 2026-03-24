@@ -147,7 +147,7 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
         </div>
 
       {showForm && (
-        <Card className="shadow-sm animate-fade-in">
+        <Card className="animate-fade-in">
           <CardHeader>
             <CardTitle>{editingService ? t('common.edit') + ' ' + t('services.title') : t('services.addService')}</CardTitle>
           </CardHeader>
@@ -251,7 +251,7 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
             </CardContent>
           </Card>
         ) : (
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle className="text-lg">All Services</CardTitle>
             </CardHeader>

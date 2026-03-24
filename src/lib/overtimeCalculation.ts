@@ -89,7 +89,7 @@ export function calculateEmployeeOvertime(
   weekStart: Date
 ): OvertimeCalculation {
   const employeeEntries = timeEntries.filter(
-    entry => entry.employee_id === employeeId
+    entry => entry.staff_id === employeeId
   );
   return calculateOvertime(employeeEntries, weekStart);
 }

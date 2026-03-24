@@ -442,12 +442,12 @@ export const translations: Translations = {
     es: 'Registro de Tiempo'
   },
   'nav.employees': {
-    en: 'Employees',
-    es: 'Empleados'
+    en: 'Staff',
+    es: 'Personal'
   },
   'nav.employeeInfo': {
-    en: 'Employee Info',
-    es: 'Información de Empleado'
+    en: 'Staff directory',
+    es: 'Directorio del personal'
   },
   'nav.schedule': {
     en: 'Schedule',
@@ -565,6 +565,22 @@ export const translations: Translations = {
     en: 'Birthday',
     es: 'Cumpleanos'
   },
+  'notifications.type.birthdayTeam': {
+    en: 'Team birthday',
+    es: 'Cumpleaños del equipo'
+  },
+  'notifications.type.birthdayCelebration': {
+    en: 'Your birthday',
+    es: 'Tu cumpleaños'
+  },
+  'notifications.employeeBirthdayTeam': {
+    en: "🎉 Today is {name}'s birthday!",
+    es: '🎉 ¡Hoy es el cumpleaños de {name}!'
+  },
+  'notifications.employeeBirthdayCelebrationPreview': {
+    en: '🎂 Happy Birthday, {name}! Tap to celebrate',
+    es: '🎂 ¡Feliz cumpleaños, {name}! Toca para celebrar'
+  },
   'notifications.type.general': {
     en: 'General',
     es: 'General'
@@ -658,8 +674,8 @@ export const translations: Translations = {
     es: 'Cerrar sesión'
   },
   'layout.demoLocalSettingsHint': {
-    en: 'Demo: appearance and settings apply only in this browser — nothing is saved to the database.',
-    es: 'Demo: la apariencia y los ajustes solo aplican en este navegador — no se guardan en la base de datos.',
+    en: 'DEMO: changes are not saved',
+    es: 'Modo DEMO: cambios no se guardan',
   },
   'layout.betaTooltip': {
     en: "We're still refining Pet Hub. Your feedback is welcome!",
@@ -794,6 +810,13 @@ export const translations: Translations = {
   'accountSettings.selectLanguage': { en: 'Select language', es: 'Seleccionar idioma' },
   'accountSettings.saveLanguage': { en: 'Save', es: 'Guardar' },
   'accountSettings.languageSavedRefresh': { en: 'Language saved. Refreshing to apply changes…', es: 'Idioma guardado. Actualizando para aplicar los cambios…' },
+  'accountSettings.staffBirthdayTitle': { en: 'Your birthday (staff profile)', es: 'Tu cumpleaños (perfil de personal)' },
+  'accountSettings.staffBirthdayDescription': {
+    en: 'Stored on your staff record so birthday notifications work the same as for your team.',
+    es: 'Se guarda en tu registro de personal para que las notificaciones de cumpleaños funcionen igual que para tu equipo.',
+  },
+  'accountSettings.staffBirthdaySave': { en: 'Save birthday', es: 'Guardar cumpleaños' },
+  'accountSettings.staffBirthdaySaved': { en: 'Birthday saved', es: 'Cumpleaños guardado' },
   'accountSettings.colorPalette': { en: 'Color palette', es: 'Paleta de colores' },
   'accountSettings.colorPaletteDescription': { en: 'Set a primary brand color (HSL values, e.g. 127 18% 47% for olive #6B8B70)', es: 'Establece un color de marca primario' },
   'accountSettings.primaryColor': { en: 'Primary color', es: 'Color primario' },
@@ -996,6 +1019,10 @@ export const translations: Translations = {
   'common.cancel': {
     en: 'Cancel',
     es: 'Cancelar'
+  },
+  'common.clear': {
+    en: 'Clear',
+    es: 'Borrar'
   },
   'common.na': {
     en: 'N/A',
@@ -1727,6 +1754,26 @@ export const translations: Translations = {
     en: 'vs last month',
     es: 'vs mes pasado'
   },
+  'dashboard.vsPreviousWeek': {
+    en: 'vs previous week',
+    es: 'vs semana anterior'
+  },
+  'dashboard.vsPrevious30Days': {
+    en: 'vs previous 30 days',
+    es: 'vs 30 días anteriores'
+  },
+  'dashboard.vsPrevious90Days': {
+    en: 'vs previous 90 days',
+    es: 'vs 90 días anteriores'
+  },
+  'dashboard.vsPreviousYear': {
+    en: 'vs previous year',
+    es: 'vs año anterior'
+  },
+  'dashboard.vsPreviousPeriod': {
+    en: 'vs previous period',
+    es: 'vs período anterior'
+  },
   'dashboard.todaysAppointments': {
     en: "Today's Appointments",
     es: 'Citas de Hoy'
@@ -1968,28 +2015,60 @@ export const translations: Translations = {
     es: 'Agrega, edita y administra los miembros de tu equipo'
   },
   'employeeManagement.addEmployee': {
-    en: 'Add Employee',
-    es: 'Agregar Empleado'
+    en: 'Add staff member',
+    es: 'Agregar miembro del personal'
   },
   'employeeManagement.editEmployee': {
-    en: 'Edit Employee',
-    es: 'Editar Empleado'
+    en: 'Edit staff member',
+    es: 'Editar miembro del personal'
   },
   'employeeManagement.addNewEmployee': {
-    en: 'Add New Employee',
-    es: 'Agregar Nuevo Empleado'
+    en: 'Add new staff member',
+    es: 'Agregar nuevo miembro del personal'
   },
   'employeeManagement.noEmployeesYet': {
-    en: 'No employees yet. Add your first employee above!',
-    es: 'Aún no hay empleados. ¡Agrega tu primer empleado arriba!'
+    en: 'No staff yet. Add your first team member above!',
+    es: 'Aún no hay personal. ¡Agrega a tu primer miembro del equipo arriba!'
   },
   'employeeManagement.deleteEmployee': {
-    en: 'Delete Employee',
-    es: 'Eliminar Empleado'
+    en: 'End employment',
+    es: 'Finalizar empleo'
+  },
+  'employeeManagement.jobTitle': {
+    en: 'Job title',
+    es: 'Puesto'
   },
   'employeeManagement.deleteConfirm': {
-    en: 'Are you sure you want to delete this employee? This action cannot be undone.',
-    es: '¿Estás seguro de que quieres eliminar este empleado? Esta acción no se puede deshacer.'
+    en: 'They will be moved to Inactive and kept on file — not permanently deleted.',
+    es: 'Pasarán a Inactivos y se conservarán en el sistema; no se borran del todo.'
+  },
+  'employeeManagement.removeEmployeeDialogTitle': {
+    en: 'End employment',
+    es: 'Finalizar empleo'
+  },
+  'employeeManagement.removeEmployeeDialogIntro': {
+    en: 'Staff are never permanently deleted. Enter their last working day; they will be moved to Inactive and remain in your records.',
+    es: 'El personal no se elimina por completo. Indica el último día laboral; pasará a Inactivo y seguirá en tus registros.'
+  },
+  'employeeManagement.removeLastWorkingDateLabel': {
+    en: 'Last working day',
+    es: 'Último día laboral'
+  },
+  'employeeManagement.removeFutureInactiveWarning': {
+    en: 'That date is still in the future. They will be moved to Inactive now and stay listed there until after that day. They should not be treated as active staff in the meantime.',
+    es: 'Esa fecha aún no ha pasado. La persona pasará a Inactiva ahora y seguirá en esa lista hasta después de ese día. No debe tratarse como personal activo mientras tanto.'
+  },
+  'employeeManagement.removePastInactiveNote': {
+    en: 'Last working day is today or in the past: they are moved to Inactive immediately and stay in the Inactive list with this date saved.',
+    es: 'Si el último día es hoy o ya pasó: pasan a Inactivos de inmediato y permanecen en esa lista con esta fecha guardada.'
+  },
+  'employeeManagement.removeNoPermanentDeletionNote': {
+    en: 'Nothing is permanently removed. Use the Inactive filter to see former staff, payroll history, and details.',
+    es: 'Nada se borra del todo. Usa el filtro Inactivos para ver ex personal, historial y datos.'
+  },
+  'employeeManagement.removeConfirmAction': {
+    en: 'Move to inactive',
+    es: 'Pasar a inactivo'
   },
   'employeeManagement.pinLabel': {
     en: '4-digit PIN',
@@ -2002,6 +2081,110 @@ export const translations: Translations = {
   'employeeManagement.pinMissingError': {
     en: 'Could not assign a PIN. Try generating again.',
     es: 'No se pudo asignar un PIN. Intenta generar de nuevo.'
+  },
+  'employeeManagement.dateOfBirthLabel': {
+    en: 'Date of birth',
+    es: 'Fecha de nacimiento'
+  },
+  'employeeManagement.dobDay': {
+    en: 'Day',
+    es: 'Día'
+  },
+  'employeeManagement.dobMonth': {
+    en: 'Month',
+    es: 'Mes'
+  },
+  'employeeManagement.dobYear': {
+    en: 'Year',
+    es: 'Año'
+  },
+  'employeeManagement.dobPlaceholder': {
+    en: 'Select…',
+    es: 'Elegir…'
+  },
+  'employeeManagement.dobIncomplete': {
+    en: 'Please complete day, month, and year for date of birth, or clear all three fields.',
+    es: 'Completa día, mes y año de nacimiento, o deja los tres vacíos.'
+  },
+  'employeeManagement.dobInvalid': {
+    en: 'That date of birth is not valid for the calendar (check month length and leap years).',
+    es: 'Esa fecha de nacimiento no es válida (revisa días del mes y años bisiestos).'
+  },
+  'employeeManagement.dobClear': {
+    en: 'Clear date of birth',
+    es: 'Borrar fecha de nacimiento'
+  },
+  'employeeManagement.statusFilter': {
+    en: 'Show',
+    es: 'Mostrar'
+  },
+  'employeeManagement.filterActive': {
+    en: 'Active employees',
+    es: 'Empleados activos'
+  },
+  'employeeManagement.filterInactive': {
+    en: 'Inactive employees',
+    es: 'Empleados inactivos'
+  },
+  'employeeManagement.showDetails': {
+    en: 'Show details',
+    es: 'Ver detalles'
+  },
+  'employeeManagement.hideDetails': {
+    en: 'Hide details',
+    es: 'Ocultar detalles'
+  },
+  'employeeManagement.detailsHint': {
+    en: 'Open details for date of birth, PIN, and actions',
+    es: 'Abre los detalles para fecha de nacimiento, PIN y acciones'
+  },
+  'employeeManagement.hiredOn': {
+    en: 'Hired on {date}',
+    es: 'Contratación: {date}'
+  },
+  'employeeManagement.tenureToDate': {
+    en: 'Tenure: {tenure}',
+    es: 'Antigüedad: {tenure}'
+  },
+  'employeeManagement.lastWorkingDay': {
+    en: 'Last working day: {date}',
+    es: 'Último día laboral: {date}'
+  },
+  'employeeManagement.timeWithCompany': {
+    en: 'Time with company: {tenure}',
+    es: 'Tiempo en la empresa: {tenure}'
+  },
+  'employeeManagement.hireDateMissing': {
+    en: 'Hire date not set',
+    es: 'Sin fecha de contratación'
+  },
+  'employeeManagement.lastDateMissing': {
+    en: 'Last day not set',
+    es: 'Sin fecha de salida'
+  },
+  'employeeManagement.noInactiveEmployees': {
+    en: 'No inactive employees.',
+    es: 'No hay empleados inactivos.'
+  },
+  'employeeManagement.noActiveEmployees': {
+    en: 'No active employees.',
+    es: 'No hay empleados activos.'
+  },
+  'birthdayModal.title': {
+    en: '🎉 Happy Birthday, {name}! 🎉',
+    es: '🎉 ¡Feliz cumpleaños, {name}! 🎉'
+  },
+  'birthdayModal.body': {
+    en: 'Wishing you a wonderful year ahead filled with joy, success, and amazing moments!',
+    es: 'Te deseamos un año maravilloso lleno de alegría, éxitos y momentos increíbles.'
+  },
+  'birthdayModal.fromTeam': {
+    en: 'From your team at {company}',
+    es: 'De tu equipo en {company}'
+  },
+  'birthdayModal.celebrateAgain': {
+    en: 'Celebrate again',
+    es: 'Celebrar de nuevo'
   },
   'employeePinSetup.title': {
     en: 'Set clock PIN',
@@ -3133,8 +3316,8 @@ export const translations: Translations = {
     es: 'Total'
   },
   'employeePayroll.employeeInformation': {
-    en: 'Employee Information',
-    es: 'Información del empleado'
+    en: 'Staff information',
+    es: 'Información del personal'
   },
   'employeePayroll.employee.name': {
     en: 'Name',

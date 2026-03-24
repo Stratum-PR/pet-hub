@@ -88,7 +88,7 @@ export function Payment() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Payment Form */}
         <div className="lg:col-span-2">
-          <Card className="shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle>Payment Method</CardTitle>
             </CardHeader>
@@ -198,7 +198,7 @@ export function Payment() {
 
         {/* Summary */}
         <div className="lg:col-span-1">
-          <Card className="shadow-sm sticky top-4">
+          <Card className="sticky top-4">
             <CardHeader>
               <CardTitle>Payment Summary</CardTitle>
             </CardHeader>

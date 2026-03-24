@@ -52,29 +52,42 @@ export interface Pet {
   } | null;
 }
 
+/** Permission tier (separate from job title in `role`: groomer, receptionist, …). */
+export type StaffAccessRole = 'manager' | 'staff' | 'admin' | 'contractor';
+
 export interface Employee {
   id: string;
+  /** Present on rows from Supabase; omitted in some demo/local shapes. */
+  business_id?: string;
   name: string;
   email: string;
   phone: string;
   pin: string;
   hourly_rate: number;
+  /** Job title / position label */
   role: string;
+  access_role?: StaffAccessRole | null;
+  /** Linked auth user for manager/staff with login */
+  user_id?: string | null;
   status: 'active' | 'inactive';
   hire_date?: string;
   last_date?: string;
-  /** Employee birthday (used for birthday notifications). */
+  /** Birthday (staff notifications). */
   birth_month?: number | null;
   birth_day?: number | null;
+  birth_year?: number | null;
   pin_set_at?: string;
   pin_required?: boolean;
   created_at: string;
   updated_at: string;
 }
 
+/** Preferred alias for UI copy and new code */
+export type StaffMember = Employee;
+
 export interface TimeEntry {
   id: string;
-  employee_id: string;
+  staff_id: string;
   business_id?: string;
   clock_in: string;
   clock_out?: string;
@@ -93,7 +106,7 @@ export interface TimeEntry {
 export interface TimeEntryEditRequest {
   id: string;
   time_entry_id: string;
-  employee_id: string;
+  staff_id: string;
   business_id: string;
   requested_by?: string;
   requested_changes: Record<string, any>;
@@ -109,7 +122,7 @@ export interface TimeEntryEditRequest {
 export interface EmployeeShift {
   id: string;
   business_id: string;
-  employee_id: string;
+  staff_id: string;
   start_time: string;
   end_time: string;
   notes?: string;
@@ -120,7 +133,7 @@ export interface EmployeeShift {
 export interface Appointment {
   id: string;
   pet_id: string;
-  employee_id?: string;
+  staff_id?: string;
   scheduled_date: string;
   service_type: string;
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';

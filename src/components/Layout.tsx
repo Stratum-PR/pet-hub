@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Menu, LogOut, Bell } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +31,11 @@ import { PageTransition } from '@/components/PageTransition';
 import { usePageTransition } from '@/contexts/PageTransitionContext';
 import { cn } from '@/lib/utils';
 import { getNotificationPath } from '@/lib/notificationNavigation';
+import {
+  getBirthdayCelebrationFromNotification,
+  getNotificationDisplayMessage,
+} from '@/lib/notificationDisplay';
+import { BirthdayCelebrationModal } from '@/components/BirthdayCelebrationModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -55,6 +60,7 @@ function getPageTitle(pathname: string, businessSlug: string | undefined): strin
     pets: t('nav.pets'),
     appointments: t('nav.appointments'),
     inventory: t('nav.inventory'),
+    'staff-management': t('nav.employeeInfo'),
     'employee-management': t('nav.employeeInfo'),
     'employee-schedule': t('nav.schedule'),
     'time-tracking': t('nav.timeTracking'),
@@ -82,6 +88,11 @@ export function Layout({ children, settings }: LayoutProps) {
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+  const [birthdayModalPayload, setBirthdayModalPayload] = useState<{
+    firstName: string;
+    businessName: string;
+  } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(getSidebarCollapsed);
   const pageTransition = usePageTransition();
   const isRevealing = pageTransition?.isRevealing ?? false;
@@ -137,6 +148,18 @@ export function Layout({ children, settings }: LayoutProps) {
     return () => document.body.classList.remove('menu-open');
   }, [mobileMenuOpen]);
 
+  useEffect(() => {
+    const h = (e: Event) => {
+      const ce = e as CustomEvent<{ firstName: string; businessName: string }>;
+      if (ce.detail?.firstName && ce.detail?.businessName) {
+        setBirthdayModalPayload(ce.detail);
+        setBirthdayModalOpen(true);
+      }
+    };
+    window.addEventListener('pet-hub-open-birthday-modal', h as EventListener);
+    return () => window.removeEventListener('pet-hub-open-birthday-modal', h as EventListener);
+  }, []);
+
   const isImpersonating = typeof window !== 'undefined' && sessionStorage.getItem('is_impersonating') === 'true';
   const showAdminHeader = isAdmin && isImpersonating;
   const pageTitle = getPageTitle(location.pathname, businessSlug);
@@ -148,6 +171,9 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const [displayTitle, setDisplayTitle] = useState(pageTitle);
   const [prevTitle, setPrevTitle] = useState<string | null>(null);
+  /** Wider of old/new title so the in-flow probe sizes the absolute title stack; keeps BETA beside the text, not at column edge. */
+  const titleLayoutProbe =
+    prevTitle != null && prevTitle.length > displayTitle.length ? prevTitle : displayTitle;
 
   useEffect(() => {
     if (pageTitle === displayTitle && !prevTitle) return;
@@ -172,6 +198,23 @@ export function Layout({ children, settings }: LayoutProps) {
   const recentUnread = notifications.filter((n) => !n.read).slice(0, 7);
   const recentNotifications = notificationTab === 'unread' ? recentUnread : recentAll;
 
+  const handleNotificationActivate = useCallback(
+    async (n: (typeof notifications)[0]) => {
+      await markRead(n.id);
+      const raw = n.notification_type?.trim().toLowerCase();
+      if (raw === 'birthday_celebration') {
+        const d = getBirthdayCelebrationFromNotification(n);
+        if (d) {
+          setBirthdayModalPayload(d);
+          setBirthdayModalOpen(true);
+          return;
+        }
+      }
+      navigate(getNotificationPath(n, businessSlug));
+    },
+    [markRead, navigate, businessSlug]
+  );
+
   return (
     <>
     <div className="h-screen overflow-hidden flex flex-col bg-background">
@@ -195,10 +238,20 @@ export function Layout({ children, settings }: LayoutProps) {
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
           {/* Transparent header — blends with page background */}
           <header
-            className="shrink-0 flex items-center justify-between gap-4 px-4 py-2 lg:px-6 bg-transparent"
-            style={{ minHeight: '52px' }}
+            className={cn(
+              'shrink-0 items-center px-4 py-2 lg:px-6 bg-transparent',
+              demoLocalOnly
+                ? 'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 gap-y-1.5 py-2.5 sm:gap-x-3 sm:py-3'
+                : 'flex justify-between gap-4'
+            )}
+            style={{ minHeight: demoLocalOnly ? 56 : 52 }}
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div
+              className={cn(
+                'flex items-center gap-2 min-w-0 sm:gap-3',
+                demoLocalOnly ? 'w-full' : 'flex-1'
+              )}
+            >
               <Button
                 variant="ghost"
                 size="icon"
@@ -207,34 +260,61 @@ export function Layout({ children, settings }: LayoutProps) {
               >
                 <Menu className="w-5 h-5" />
               </Button>
-              <div className="relative h-8 min-w-0 flex-1 overflow-hidden flex items-center">
-                {prevTitle && (
-                  <div
-                    className="absolute inset-0 flex items-center animate-fade-out-up text-lg font-semibold"
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="relative h-8 min-w-0 max-w-[min(calc(100vw-11rem),22rem)] sm:max-w-[min(calc(100vw-13rem),26rem)]">
+                  <span
+                    className="invisible block select-none truncate whitespace-nowrap text-lg font-semibold"
                     aria-hidden
                   >
-                    <span className="truncate w-full min-w-0">{prevTitle}</span>
-                  </div>
-                )}
-                <h1
-                  className={`absolute inset-0 flex items-center text-lg font-semibold ${prevTitle ? 'opacity-0 animate-fade-in-up' : ''}`}
-                >
-                  <span className="truncate w-full min-w-0">{displayTitle}</span>
-                </h1>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="shrink-0 cursor-default rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                    BETA
+                    {titleLayoutProbe}
                   </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  {t('layout.betaTooltip')}
-                </TooltipContent>
-              </Tooltip>
+                  <div className="absolute inset-0 overflow-hidden">
+                    {prevTitle && (
+                      <div
+                        className="absolute inset-0 flex items-center animate-fade-out-up text-lg font-semibold"
+                        aria-hidden
+                      >
+                        <span className="min-w-0 truncate">{prevTitle}</span>
+                      </div>
+                    )}
+                    <h1
+                      className={`absolute inset-0 m-0 flex items-center text-lg font-semibold ${prevTitle ? 'opacity-0 animate-fade-in-up' : ''}`}
+                    >
+                      <span className="min-w-0 truncate">{displayTitle}</span>
+                    </h1>
+                  </div>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="shrink-0 cursor-default rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      BETA
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    {t('layout.betaTooltip')}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            {demoLocalOnly ? (
+              <div className="col-start-2 flex justify-center self-center px-1 sm:px-2">
+                <span
+                  className="max-w-[min(92vw,20rem)] bg-white px-3 py-1.5 text-center text-xs font-bold leading-snug text-amber-950 sm:max-w-[22rem] sm:px-4 sm:py-2 sm:text-sm dark:bg-white dark:text-amber-950"
+                  role="status"
+                  aria-label={t('layout.demoLocalSettingsHint')}
+                >
+                  {t('layout.demoLocalSettingsHint')}
+                </span>
+              </div>
+            ) : null}
+
+            <div
+              className={cn(
+                'flex items-center gap-2 shrink-0',
+                demoLocalOnly && 'col-start-3 justify-self-end justify-end'
+              )}
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative" aria-label={t('nav.notifications')}>
@@ -297,25 +377,21 @@ export function Layout({ children, settings }: LayoutProps) {
                           key={n.id}
                           role="button"
                           tabIndex={0}
-                          onClick={async () => {
-                            await markRead(n.id);
-                            navigate(getNotificationPath(n, businessSlug));
-                          }}
+                          onClick={() => void handleNotificationActivate(n)}
                           onKeyDown={(e) => {
                             if (e.key !== 'Enter' && e.key !== ' ') return;
                             e.preventDefault();
-                            void (async () => {
-                              await markRead(n.id);
-                              navigate(getNotificationPath(n, businessSlug));
-                            })();
+                            void handleNotificationActivate(n);
                           }}
                           className={cn(
                             'mb-1 flex w-full items-start justify-between gap-3 rounded-md px-3 py-2 text-left hover:bg-muted/60',
-                            !n.read && 'bg-primary/[0.07]'
+                            !n.read && 'bg-primary/[0.07]',
+                            n.notification_type?.trim().toLowerCase() === 'birthday_celebration' &&
+                              'ring-2 ring-amber-400/50 bg-gradient-to-r from-amber-500/12 to-fuchsia-500/10'
                           )}
                         >
                           <p className={cn('line-clamp-2 text-sm text-foreground', !n.read && 'font-semibold')}>
-                            {n.message}
+                            {getNotificationDisplayMessage(n)}
                           </p>
                         </div>
                       ))
@@ -404,15 +480,6 @@ export function Layout({ children, settings }: LayoutProps) {
             </div>
           </header>
 
-          {demoLocalOnly && (
-            <div
-              className="shrink-0 border-b border-border/60 bg-muted/50 px-4 py-1.5 text-center text-xs text-muted-foreground"
-              role="status"
-            >
-              {t('layout.demoLocalSettingsHint')}
-            </div>
-          )}
-
           {!showAdminHeader && <ImpersonationBanner />}
 
           <main
@@ -491,6 +558,17 @@ export function Layout({ children, settings }: LayoutProps) {
     </div>
     {/* Outside overflow-hidden root so fixed paw overlays aren’t clipped mid-viewport */}
     <PetAnimations />
+    {birthdayModalPayload && (
+      <BirthdayCelebrationModal
+        open={birthdayModalOpen}
+        onOpenChange={(open) => {
+          setBirthdayModalOpen(open);
+          if (!open) setBirthdayModalPayload(null);
+        }}
+        firstName={birthdayModalPayload.firstName}
+        businessName={birthdayModalPayload.businessName}
+      />
+    )}
     </>
   );
 }

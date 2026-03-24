@@ -16,7 +16,13 @@ interface EmployeeTimesheetProps {
 }
 
 export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetProps) {
-  const { employeeId } = useParams<{ employeeId: string }>();
+  const { staffId, employeeId, businessSlug } = useParams<{
+    staffId?: string;
+    employeeId?: string;
+    businessSlug?: string;
+  }>();
+  const staffRecordId = staffId ?? employeeId;
+  const pathPrefix = businessSlug ? `/${businessSlug}` : '';
   const navigate = useNavigate();
   const location = useLocation();
   const { settings, loading: settingsLoading } = useSettings();
@@ -27,7 +33,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
     return startDateISO ? parseISO(startDateISO) : new Date();
   });
 
-  const employee = employees.find(emp => emp.id === employeeId);
+  const employee = employees.find(emp => emp.id === staffRecordId);
   const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
   const anchorDateISO = settings.pay_schedule_anchor_date || new Date().toISOString().slice(0, 10);
 
@@ -55,7 +61,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
 
     const empEntries = timeEntries.filter(entry => {
       const entryDate = startOfDay(new Date(entry.clock_in));
-      return entry.employee_id === employee.id && entryDate >= startOfDay(payPeriodStart) && entryDate <= startOfDay(payPeriodEnd) && entry.clock_out;
+      return entry.staff_id === employee.id && entryDate >= startOfDay(payPeriodStart) && entryDate <= startOfDay(payPeriodEnd) && entry.clock_out;
     });
 
     // Calculate daily totals for each day in the pay period
@@ -111,7 +117,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
         <div>
           <Button
             variant="ghost"
-            onClick={() => navigate('/reports/payroll')}
+            onClick={() => navigate(`${pathPrefix}/reports/payroll`)}
             className="mb-4"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
@@ -133,7 +139,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
       <div>
         <Button
           variant="ghost"
-          onClick={() => navigate('/reports/payroll')}
+          onClick={() => navigate(`${pathPrefix}/reports/payroll`)}
           className="mb-4"
         >
           <ChevronLeft className="w-4 h-4 mr-2" />
@@ -171,7 +177,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
       </div>
 
       {/* Pay Period Summary */}
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />
@@ -227,7 +233,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
       </Card>
 
       {/* Timesheet Details Table */}
-      <Card className="shadow-sm">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-primary" />

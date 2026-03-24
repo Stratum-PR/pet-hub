@@ -646,7 +646,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
   const vaccinationStatusColor = getVaccinationStatusColor(calculatedVaccinationStatus);
 
   return (
-    <Card className="shadow-sm animate-fade-in transition-all duration-300" id="pet-form">
+    <Card className="animate-fade-in transition-all duration-300" id="pet-form">
       <CardHeader>
         <CardTitle>{isEditing ? 'Editar Mascota' : 'Agregar Nueva Mascota'}</CardTitle>
       </CardHeader>

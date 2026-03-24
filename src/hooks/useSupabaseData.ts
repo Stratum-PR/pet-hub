@@ -5,6 +5,7 @@ import { Client, Pet, Employee, TimeEntry, EmployeeShift, Appointment, Service }
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
+import { getDemoStaffSeed, getDemoStaffShiftsForRange, isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import {
   DEFAULT_PRIMARY_COLOR_HSL,
@@ -621,17 +622,26 @@ export function useEmployees() {
     }
     setError(null);
     let empQuery = supabase
-      .from('employees')
+      .from('staff')
       .select('*')
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     if (isDemoRoute()) empQuery = empQuery.range(0, DEMO_CAP_EMPLOYEES - 1);
     const { data, error: err } = await empQuery;
     if (err) {
-      setError(err.message ?? 'Failed to load employees');
+      if (isDemoRoute() && isDemoWorkspaceBusiness(businessId)) {
+        setError(null);
+        setEmployees(getDemoStaffSeed());
+      } else {
+        setError(err.message ?? 'Failed to load employees');
+      }
     } else if (data) {
       setError(null);
-      setEmployees(data as Employee[]);
+      if (isDemoRoute() && isDemoWorkspaceBusiness(businessId) && data.length === 0) {
+        setEmployees(getDemoStaffSeed());
+      } else {
+        setEmployees(data as Employee[]);
+      }
     }
     setLoading(false);
   };
@@ -659,11 +669,13 @@ export function useEmployees() {
         pin: employeeData.pin,
         hourly_rate: employeeData.hourly_rate,
         role: employeeData.role,
+        access_role: (employeeData as any).access_role ?? 'staff',
         status: employeeData.status,
         hire_date: (employeeData as any).hire_date ?? null,
         last_date: (employeeData as any).last_date ?? null,
         birth_month: (employeeData as any).birth_month ?? null,
         birth_day: (employeeData as any).birth_day ?? null,
+        birth_year: (employeeData as any).birth_year ?? null,
         created_at: now,
         updated_at: now,
       } as Employee;
@@ -680,14 +692,16 @@ export function useEmployees() {
       pin: employeeData.pin,
       hourly_rate: employeeData.hourly_rate,
       role: employeeData.role,
+      access_role: (employeeData as any).access_role ?? 'staff',
       status: employeeData.status,
       hire_date: (employeeData as any).hire_date ?? null,
       last_date: (employeeData as any).last_date ?? null,
       birth_month: (employeeData as any).birth_month ?? null,
       birth_day: (employeeData as any).birth_day ?? null,
+      birth_year: (employeeData as any).birth_year ?? null,
     };
 
-    let { data, error } = await supabase.from('employees').insert(payload as any).select().single();
+    let { data, error } = await supabase.from('staff').insert(payload as any).select().single();
 
     // If schema cache doesn't know hire_date/last_date, retry without them
     if (error?.code === 'PGRST204') {
@@ -695,7 +709,9 @@ export function useEmployees() {
       delete payload.last_date;
       delete payload.birth_month;
       delete payload.birth_day;
-      ({ data, error } = await supabase.from('employees').insert(payload as any).select().single());
+      delete payload.birth_year;
+      delete payload.access_role;
+      ({ data, error } = await supabase.from('staff').insert(payload as any).select().single());
     }
 
     if (!error && data) {
@@ -717,11 +733,13 @@ export function useEmployees() {
         'pin',
         'hourly_rate',
         'role',
+        'access_role',
         'status',
         'hire_date',
         'last_date',
         'birth_month',
         'birth_day',
+        'birth_year',
         'pin_set_at',
         'pin_required',
       ] as const;
@@ -741,11 +759,13 @@ export function useEmployees() {
       'pin',
       'hourly_rate',
       'role',
+      'access_role',
       'status',
       'hire_date',
       'last_date',
       'birth_month',
       'birth_day',
+      'birth_year',
       'pin_set_at',
       'pin_required',
     ];
@@ -754,13 +774,15 @@ export function useEmployees() {
       if (key in employeeData) payload[key] = (employeeData as any)[key];
     }
 
-    let { data, error } = await supabase.from('employees').update(payload as any).eq('id', id).select().single();
+    let { data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single();
     if (error?.code === 'PGRST204') {
       delete payload.hire_date;
       delete payload.last_date;
       delete payload.birth_month;
       delete payload.birth_day;
-      ({ data, error } = await supabase.from('employees').update(payload as any).eq('id', id).select().single());
+      delete payload.birth_year;
+      delete payload.access_role;
+      ({ data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single());
     }
 
     if (!error && data) {
@@ -777,7 +799,7 @@ export function useEmployees() {
       return true;
     }
     const { error } = await supabase
-      .from('employees')
+      .from('staff')
       .delete()
       .eq('id', id);
     
@@ -789,13 +811,18 @@ export function useEmployees() {
   };
 
   const verifyPin = async (pin: string) => {
+    if (isDemoRoute() && isDemoWorkspaceBusiness(businessId)) {
+      const list = employees.length > 0 ? employees : getDemoStaffSeed();
+      const hit = list.find((e) => e.pin === pin && e.status === 'active');
+      return hit ?? null;
+    }
     const { data, error } = await supabase
-      .from('employees')
+      .from('staff')
       .select('*')
       .eq('pin', pin)
       .eq('status', 'active')
       .maybeSingle();
-    
+
     if (!error && data) {
       return data as Employee;
     }
@@ -819,7 +846,7 @@ export function useTimeEntries() {
     }
     setError(null);
     const { data: employees } = await supabase
-      .from('employees')
+      .from('staff')
       .select('id')
       .eq('business_id', businessId);
     if (!employees || employees.length === 0) {
@@ -830,7 +857,7 @@ export function useTimeEntries() {
     let timeQuery = supabase
       .from('time_entries')
       .select('*')
-      .in('employee_id', employeeIds)
+      .in('staff_id', employeeIds)
       .order('clock_in', { ascending: false });
     if (isDemoRoute()) timeQuery = timeQuery.range(0, DEMO_CAP_TIME_ENTRIES - 1);
     const { data, error: err } = await timeQuery;
@@ -867,7 +894,7 @@ export function useTimeEntries() {
     if (demoBrowseOnly) {
       const row = {
         id: uuidv4(),
-        employee_id: employeeId,
+        staff_id: employeeId,
         clock_in: new Date().toISOString(),
         clock_out: null,
       } as TimeEntry;
@@ -876,7 +903,7 @@ export function useTimeEntries() {
     }
     const { data, error } = await supabase
       .from('time_entries')
-      .insert({ id: uuidv4(), employee_id: employeeId })
+      .insert({ id: uuidv4(), staff_id: employeeId })
       .select()
       .single();
     
@@ -911,7 +938,7 @@ export function useTimeEntries() {
   };
 
   const getActiveEntry = (employeeId: string) => {
-    return timeEntries.find(t => t.employee_id === employeeId && !t.clock_out);
+    return timeEntries.find(t => t.staff_id === employeeId && !t.clock_out);
   };
 
   const updateTimeEntry = async (id: string, entryData: Partial<TimeEntry>) => {
@@ -938,7 +965,7 @@ export function useTimeEntries() {
 
   const addTimeEntry = async (employeeId: string, clockIn: string, clockOut?: string) => {
     const entryData: any = {
-      employee_id: employeeId,
+      staff_id: employeeId,
       clock_in: clockIn,
     };
     if (clockOut) {
@@ -981,12 +1008,12 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
     }
     setError(null);
     let query = supabase
-      .from('employee_shifts')
+      .from('staff_shifts')
       .select('*')
       .eq('business_id', businessId)
       .order('start_time', { ascending: true });
     if (options?.employeeId) {
-      query = query.eq('employee_id', options.employeeId);
+      query = query.eq('staff_id', options.employeeId);
     }
     if (options?.dateRange) {
       const { start, end } = options.dateRange;
@@ -996,10 +1023,20 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
     }
     const { data, error: shiftErr } = await query;
     if (shiftErr) {
-      setError(shiftErr.message ?? 'Failed to load shifts');
+      if (isDemoRoute() && isDemoWorkspaceBusiness(businessId)) {
+        setError(null);
+        setShifts(getDemoStaffShiftsForRange(options?.dateRange, options?.employeeId));
+      } else {
+        setError(shiftErr.message ?? 'Failed to load shifts');
+      }
     } else if (data) {
       setError(null);
-      setShifts((data as EmployeeShift[]) ?? []);
+      const rows = (data as EmployeeShift[]) ?? [];
+      if (isDemoRoute() && isDemoWorkspaceBusiness(businessId) && rows.length === 0) {
+        setShifts(getDemoStaffShiftsForRange(options?.dateRange, options?.employeeId));
+      } else {
+        setShifts(rows);
+      }
     }
     setLoading(false);
   };
@@ -1014,13 +1051,13 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
     fetchShifts();
   }, [businessId, options?.employeeId, options?.dateRange?.start?.toISOString(), options?.dateRange?.end?.toISOString()]);
 
-  const addShift = async (payload: { employee_id: string; start_time: string; end_time: string; notes?: string }) => {
+  const addShift = async (payload: { staff_id: string; start_time: string; end_time: string; notes?: string }) => {
     if (!businessId) return null;
     if (demoBrowseOnly) {
       const row: EmployeeShift = {
         id: uuidv4(),
         business_id: businessId,
-        employee_id: payload.employee_id,
+        staff_id: payload.staff_id,
         start_time: payload.start_time,
         end_time: payload.end_time,
         notes: payload.notes ?? '',
@@ -1031,11 +1068,11 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       return row;
     }
     const { data, error: err } = await supabase
-      .from('employee_shifts')
+      .from('staff_shifts')
       .insert({
         id: uuidv4(),
         business_id: businessId,
-        employee_id: payload.employee_id,
+        staff_id: payload.staff_id,
         start_time: payload.start_time,
         end_time: payload.end_time,
         notes: payload.notes ?? '',
@@ -1061,7 +1098,7 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       return data;
     }
     const { data, error: err } = await supabase
-      .from('employee_shifts')
+      .from('staff_shifts')
       .update(payload)
       .eq('id', id)
       .select()
@@ -1079,7 +1116,7 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       setShifts((prev) => prev.filter((s) => s.id !== id));
       return true;
     }
-    const { error: err } = await supabase.from('employee_shifts').delete().eq('id', id);
+    const { error: err } = await supabase.from('staff_shifts').delete().eq('id', id);
     if (!err) {
       setShifts((prev) => prev.filter((s) => s.id !== id));
       return true;
