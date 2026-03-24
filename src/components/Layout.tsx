@@ -36,6 +36,8 @@ import {
   getNotificationDisplayMessage,
 } from '@/lib/notificationDisplay';
 import { BirthdayCelebrationModal } from '@/components/BirthdayCelebrationModal';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -82,6 +84,7 @@ export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { businessSlug } = useParams();
+  const businessId = useBusinessId();
   const { isAdmin, profile } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
   const { notifications, markRead, markAllRead } = useNotifications();
@@ -109,18 +112,15 @@ export function Layout({ children, settings }: LayoutProps) {
     if (mobileMenuOpen) setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Apply dynamic colors
+  // Apply dynamic colors + persist for next refresh (noop if already set — avoids loader animation hitch).
   useEffect(() => {
-    const root = document.documentElement;
-    if (settings.primary_color) {
-      const primaryValue = settings.primary_color.replace(/hsl\(|\)/g, '').trim();
-      root.style.setProperty('--primary', primaryValue);
+    if (settings.primary_color && settings.secondary_color) {
+      applyPrimarySecondaryToDocument(settings.primary_color, settings.secondary_color);
     }
-    if (settings.secondary_color) {
-      const secondaryValue = settings.secondary_color.replace(/hsl\(|\)/g, '').trim();
-      root.style.setProperty('--secondary', secondaryValue);
+    if (businessId && settings.primary_color && settings.secondary_color) {
+      writeCachedBusinessTheme(businessId, settings.primary_color, settings.secondary_color);
     }
-  }, [settings.primary_color, settings.secondary_color]);
+  }, [businessId, settings.primary_color, settings.secondary_color]);
 
   const handleLogout = async () => {
     try {
@@ -436,34 +436,22 @@ export function Layout({ children, settings }: LayoutProps) {
                     </>
                   )}
                   <DropdownMenuItem asChild>
-                    <Link
-                      to={`${settingsBase}/account`}
-                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
-                    >
+                    <Link to={`${settingsBase}/account`}>
                       {t('nav.accountSettings')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link
-                      to={`${settingsBase}/business`}
-                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
-                    >
+                    <Link to={`${settingsBase}/business`}>
                       {t('nav.businessSettings')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link
-                      to={`${settingsBase}/booking`}
-                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
-                    >
+                    <Link to={`${settingsBase}/booking`}>
                       {t('nav.bookingSettings')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link
-                      to={`${settingsBase}/billing`}
-                      onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
-                    >
+                    <Link to={`${settingsBase}/billing`}>
                       {t('nav.subscription')}
                     </Link>
                   </DropdownMenuItem>

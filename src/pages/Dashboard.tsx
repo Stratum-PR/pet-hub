@@ -597,7 +597,8 @@ export function Dashboard({
    */
   const dashboardCoreReady =
     Boolean(businessId) && !dataLoading && !transactionsLoading;
-  const [pawLifted, setPawLifted] = useState(false);
+  /** Start lifted when core data is already ready (e.g. return visit) so PawLoadedContent does not play enter+leave back-to-back. */
+  const [pawLifted, setPawLifted] = useState(dashboardCoreReady);
   const [chartEnterKey, setChartEnterKey] = useState(0);
   /** Ignore transient `businessId === null` (slug/auth races) so the paw overlay does not flash off/on. */
   const lastNonNullBusinessIdRef = useRef<string | null>(null);
