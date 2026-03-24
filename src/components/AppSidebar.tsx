@@ -124,14 +124,7 @@ export function AppSidebar({
     const active = isActive(path);
     const collapsedNav = collapsed && !mobile;
     return (
-      <Link
-        to={to}
-        className={linkClass(active, collapsedNav)}
-        onClick={() => {
-          // Quick, short pet animation on navigation (feels more intentional).
-          window.dispatchEvent(new Event('pet-quick-trigger'));
-        }}
-      >
+      <Link to={to} className={linkClass(active, collapsedNav)}>
         <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
           <Icon className="h-5 w-5 shrink-0" />
         </span>
@@ -216,10 +209,7 @@ export function AppSidebar({
         {collapsed && !mobile ? (
           <>
             <DropdownMenu open={employeesOpen} onOpenChange={setEmployeesOpen}>
-              <div
-                onMouseEnter={() => setEmployeesOpen(true)}
-                onMouseLeave={() => setEmployeesOpen(false)}
-              >
+              <div className="w-full">
                 <DropdownMenuTrigger asChild>
                   <button className={cn('w-full', linkClass(staffNavSectionActive, true))}>
                     <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
@@ -230,10 +220,7 @@ export function AppSidebar({
                 <DropdownMenuContent side="right" align="start" className="w-48">
                   {employeeItems.map((item) => (
                     <DropdownMenuItem key={item.path} asChild>
-                      <Link
-                        to={`${basePath}/${item.path}`}
-                        onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}
-                      >
+                      <Link to={`${basePath}/${item.path}`}>
                         {t(item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey)}
                       </Link>
                     </DropdownMenuItem>
@@ -242,10 +229,7 @@ export function AppSidebar({
               </div>
             </DropdownMenu>
             <DropdownMenu open={reportsOpen} onOpenChange={setReportsOpen}>
-              <div
-                onMouseEnter={() => setReportsOpen(true)}
-                onMouseLeave={() => setReportsOpen(false)}
-              >
+              <div className="w-full">
                 <DropdownMenuTrigger asChild>
                   <button className={cn('w-full', linkClass(location.pathname.includes('reports'), true))}>
                     <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
@@ -256,7 +240,7 @@ export function AppSidebar({
                 <DropdownMenuContent side="right" align="start" className="w-48">
                   {reportsItems.map((item) => (
                     <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`} onClick={() => window.dispatchEvent(new Event('pet-quick-trigger'))}>
+                      <Link to={`${basePath}/${item.path}`}>
                         {t(item.labelKey)}
                       </Link>
                     </DropdownMenuItem>
@@ -268,10 +252,7 @@ export function AppSidebar({
         ) : (
           <>
         <Collapsible open={employeesOpen} onOpenChange={setEmployeesOpen}>
-          <div
-            onMouseEnter={() => setEmployeesOpen(true)}
-            onMouseLeave={() => setEmployeesOpen(false)}
-          >
+          <div className="w-full">
             <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(staffNavSectionActive))}>
               <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
                 <UserCog className="h-5 w-5 shrink-0" />
@@ -290,10 +271,7 @@ export function AppSidebar({
         </Collapsible>
 
         <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
-          <div
-            onMouseEnter={() => setReportsOpen(true)}
-            onMouseLeave={() => setReportsOpen(false)}
-          >
+          <div className="w-full">
             <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('reports')))}>
               <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
                 <BarChart3 className="h-5 w-5 shrink-0" />

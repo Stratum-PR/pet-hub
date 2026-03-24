@@ -12,6 +12,11 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
+/** No staged paw: `Index` shows the business-themed loader: avoids default `--primary` paw then a second themed paw on refresh. */
+function BusinessAuthHold({ label }: { label: string }) {
+  return <div className="fixed inset-0 z-50 bg-background" aria-busy="true" aria-label={label} />;
+}
+
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const { user, isAdmin, loading, profile, business } = useAuth();
   const navigate = useNavigate();
@@ -167,7 +172,9 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (loading && !isPublicBusinessRoute) {
-    // Show pet-themed loading screen for post-login
+    if (businessSlug) {
+      return <BusinessAuthHold label="Loading" />;
+    }
     if (showPostLoginLoading && user) {
       return (
         <PostLoginLoading
@@ -182,14 +189,20 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   }
   
   if (!user && !isPublicBusinessRoute) {
-    // If we haven't checked session yet, show loading
     if (!sessionChecked || loading) {
-      return <PawStagedLoadingFullscreen label="Verifying authentication" />;
+      return businessSlug ? (
+        <BusinessAuthHold label="Verifying authentication" />
+      ) : (
+        <PawStagedLoadingFullscreen label="Verifying authentication" />
+      );
     }
-    
-    // If session exists but user isn't set yet, show loading (AuthContext is catching up)
+
     if (hasSession === true) {
-      return <PawStagedLoadingFullscreen label="Loading user session" />;
+      return businessSlug ? (
+        <BusinessAuthHold label="Loading user session" />
+      ) : (
+        <PawStagedLoadingFullscreen label="Loading user session" />
+      );
     }
     
     // No session found
@@ -210,7 +223,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (businessSlug && user && profile != null && profile.business_id == null && !requireAdmin && !clientLinkChecked) {
-    return <PawStagedLoadingFullscreen label="Verifying access" />;
+    return <BusinessAuthHold label="Verifying access" />;
   }
 
   return <>{children}</>;

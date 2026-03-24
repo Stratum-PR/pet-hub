@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Client, Pet, Employee, TimeEntry, EmployeeShift, Appointment, Service } from '@/types';
@@ -11,6 +11,11 @@ import {
   DEFAULT_PRIMARY_COLOR_HSL,
   DEFAULT_SECONDARY_COLOR_HSL,
 } from '@/lib/defaultThemeColors';
+import {
+  applyPrimarySecondaryToDocument,
+  readCachedBusinessTheme,
+  writeCachedBusinessTheme,
+} from '@/lib/businessThemeCss';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 
 /** When true, data hooks cap rows to avoid loading thousands of rows on demo (e.g. seed appointments until March 2026). */
@@ -1584,10 +1589,19 @@ export function useSettings() {
   });
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
+  const settingsFetchGeneration = useRef(0);
+
+  /** Before paint: restore cached theme so the first loader frame matches the account (no olive flash). */
+  useLayoutEffect(() => {
+    if (!businessId) return;
+    const cached = readCachedBusinessTheme(businessId);
+    if (cached) applyPrimarySecondaryToDocument(cached.primary, cached.secondary);
+  }, [businessId]);
 
   const fetchSettings = async () => {
     if (!businessId) return;
     const mergeLocalDemo = isUnauthenticatedDemoPath(pathname) && !user;
+    const fetchGen = ++settingsFetchGeneration.current;
 
     setLoading(true);
     const { data: business } = await supabase
@@ -1674,6 +1688,7 @@ export function useSettings() {
         }
       : defaults;
 
+    let nextSettings: Settings;
     if (mergeLocalDemo) {
       const blob = loadDemoStored(businessId);
       const keys = [
@@ -1704,17 +1719,27 @@ export function useSettings() {
         if (v === '') continue;
         (merged as Record<string, unknown>)[k] = v as string | null;
       }
-      setSettings(merged);
+      nextSettings = merged;
     } else {
-      setSettings(baseFromDb);
+      nextSettings = baseFromDb;
     }
+
+    if (fetchGen !== settingsFetchGeneration.current) return;
+
+    if (businessId) {
+      applyPrimarySecondaryToDocument(nextSettings.primary_color, nextSettings.secondary_color);
+      writeCachedBusinessTheme(businessId, nextSettings.primary_color, nextSettings.secondary_color);
+    }
+    setSettings(nextSettings);
     setLoading(false);
   };
 
+  // `demoLocalOnly` already depends on `user` for /demo; omitting `user?.id` avoids a second fetch
+  // when auth hydrates (same businessId) — that was restarting the settings loader / paw animation.
   useEffect(() => {
-    if (!businessId) return; // wait for businessId to resolve
+    if (!businessId) return;
     fetchSettings();
-  }, [businessId, demoLocalOnly, pathname, user?.id]);
+  }, [businessId, demoLocalOnly, pathname]);
 
   const settingsKeyToColumn: Record<string, string> = {
     business_name: 'business_name',
