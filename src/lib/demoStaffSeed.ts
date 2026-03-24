@@ -12,13 +12,10 @@ export const DEMO_STAFF_IDS = {
 
 const nowIso = () => new Date().toISOString();
 
-function todayBirthdayFields() {
-  const d = new Date();
-  return {
-    birth_month: d.getMonth() + 1,
-    birth_day: d.getDate(),
-    birth_year: d.getFullYear() - 35,
-  };
+/** Demo manager birthday fixed to March 24 (product demo / birthday notifications). */
+function demoManagerBirthdayFields() {
+  const y = new Date().getFullYear() - 35;
+  return { birth_month: 3, birth_day: 24, birth_year: y };
 }
 
 export function isDemoWorkspaceBusiness(businessId: string | null | undefined): boolean {
@@ -28,7 +25,7 @@ export function isDemoWorkspaceBusiness(businessId: string | null | undefined): 
 /** In-memory demo staff when `/demo` Supabase `staff` table is empty or unreachable. */
 export function getDemoStaffSeed(): Employee[] {
   const ts = nowIso();
-  const b = todayBirthdayFields();
+  const b = demoManagerBirthdayFields();
   const managerName = t('layout.demoUserName');
   return [
     {

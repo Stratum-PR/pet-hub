@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Edit, Trash2, Eye, EyeOff, Users, Clock, Lock, RotateCcw, RefreshCw, X } from 'lucide-react';
+import { Plus, Eye, EyeOff, Users, Clock, Lock, RotateCcw, RefreshCw, X, Upload, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -25,6 +25,18 @@ import { dayOptions, isValidEmployeeDob, monthOptions, yearOptions } from '@/lib
 import { EMPLOYEE_PIN_LENGTH } from '@/lib/pinLengths';
 import { generateUniqueEmployeePin } from '@/lib/employeePin';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
+import { toast } from 'sonner';
+import { localYmdToTimestamptzIso, timestamptzToDateInputValue } from '@/lib/localDateInput';
+import {
+  PUERTO_RICO_BANK_ROUTING,
+  normalizeRoutingDigits,
+  findPuertoRicoBankByRouting,
+} from '@/lib/puertoRicoBankRouting';
+import { deleteStaffPhotoFromStorage, uploadStaffPhotoDataUrl } from '@/lib/staffPhotoStorage';
+import {
+  dispatchStaffBirthdaysForBusiness,
+  isStaffDobCalendarToday,
+} from '@/lib/staffBirthdayDispatch';
 
 function resolvedAccessRole(emp: Employee): StaffAccessRole {
   const a = emp.access_role;
@@ -137,7 +149,7 @@ export function EmployeeManagement({
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showPin, setShowPin] = useState<Record<string, boolean>>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -158,27 +170,32 @@ export function EmployeeManagement({
     birth_month: '',
     birth_day: '',
     birth_year: '',
+    photo_url: null as string | null,
+    compensation_type: 'hourly' as 'hourly' | 'commission',
+    commission_rate: '' as number | '',
+    bank_routing_number: '',
+    bank_account_number: '',
+    bank_name: '',
+    payment_notes: '',
   });
+  const [originalStaffPhotoUrl, setOriginalStaffPhotoUrl] = useState<string | null>(null);
+  const [staffPhotoUploading, setStaffPhotoUploading] = useState(false);
+  const staffPhotoInputRef = useRef<HTMLInputElement>(null);
   const [showPinInForm, setShowPinInForm] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive'>('active');
-  const [detailEmployee, setDetailEmployee] = useState<Employee | null>(null);
 
   const filteredEmployees = useMemo(
     () => employees.filter((e) => e.status === statusFilter),
     [employees, statusFilter]
   );
 
-  const detailEmployeeLive = useMemo(() => {
-    if (!detailEmployee) return null;
-    return employees.find((e) => e.id === detailEmployee.id) ?? detailEmployee;
-  }, [detailEmployee, employees]);
-
   useEffect(() => {
-    setDetailEmployee(null);
+    setStaffModalOpen(false);
+    setEditingEmployee(null);
   }, [statusFilter]);
 
   useEffect(() => {
-    if (!showAddForm || !businessId) return;
+    if (!staffModalOpen || !businessId) return;
     if (editingEmployee) {
       const p = editingEmployee.pin;
       if (typeof p === 'string' && new RegExp(`^\\d{${EMPLOYEE_PIN_LENGTH}}$`).test(p)) return;
@@ -197,7 +214,7 @@ export function EmployeeManagement({
     return () => {
       cancelled = true;
     };
-  }, [showAddForm, businessId, editingEmployee?.id, editingEmployee?.pin]);
+  }, [staffModalOpen, businessId, editingEmployee?.id, editingEmployee?.pin]);
 
   const handleGenerateFormPin = useCallback(async () => {
     if (!businessId) return;
@@ -225,11 +242,45 @@ export function EmployeeManagement({
       birth_month: '',
       birth_day: '',
       birth_year: '',
+      photo_url: null,
+      compensation_type: 'hourly',
+      commission_rate: '',
+      bank_routing_number: '',
+      bank_account_number: '',
+      bank_name: '',
+      payment_notes: '',
     });
+    setOriginalStaffPhotoUrl(null);
     setShowPinInForm(false);
+    if (staffPhotoInputRef.current) staffPhotoInputRef.current.value = '';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const closeStaffModal = () => {
+    setStaffModalOpen(false);
+    setEditingEmployee(null);
+    resetForm();
+  };
+
+  const handleStaffPhotoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('common.genericError'));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(t('employeeManagement.profilePhotoHint'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = reader.result as string;
+      setFormData((fd) => ({ ...fd, photo_url: dataUrl }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!new RegExp(`^\\d{${EMPLOYEE_PIN_LENGTH}}$`).test(formData.pin)) {
@@ -237,21 +288,29 @@ export function EmployeeManagement({
       return;
     }
 
-    // Unformat phone number before saving
-    const submitData: any = {
-      ...formData,
-      phone: unformatPhoneNumber(formData.phone),
-    };
-    // Convert date strings to ISO format or null
-    if (submitData.hire_date) {
-      submitData.hire_date = new Date(submitData.hire_date).toISOString();
-    } else {
-      submitData.hire_date = null;
+    const emailTrim = String(formData.email ?? '').trim();
+    if (!emailTrim) {
+      toast.warning(t('employeeManagement.emailActivationWarning'));
     }
-    if (submitData.last_date) {
-      submitData.last_date = new Date(submitData.last_date).toISOString();
-    } else {
-      submitData.last_date = null;
+
+    const routingDigits = normalizeRoutingDigits(formData.bank_routing_number);
+    if (formData.bank_routing_number.trim() && routingDigits.length !== 9) {
+      alert(t('employeeManagement.routingInvalid'));
+      return;
+    }
+
+    const hireIso = formData.hire_date ? localYmdToTimestamptzIso(formData.hire_date) : null;
+    const lastIso =
+      formData.status === 'inactive' && formData.last_date
+        ? localYmdToTimestamptzIso(formData.last_date)
+        : null;
+    if (formData.hire_date && !hireIso) {
+      alert(t('common.genericError'));
+      return;
+    }
+    if (formData.status === 'inactive' && formData.last_date && !lastIso) {
+      alert(t('common.genericError'));
+      return;
     }
 
     const dm = String(formData.birth_month ?? '').trim();
@@ -263,6 +322,9 @@ export function EmployeeManagement({
       alert(t('employeeManagement.dobIncomplete'));
       return;
     }
+    let birth_month: number | null = null;
+    let birth_day: number | null = null;
+    let birth_year: number | null = null;
     if (allDob) {
       const month = parseInt(dm, 10);
       const day = parseInt(dd, 10);
@@ -271,43 +333,98 @@ export function EmployeeManagement({
         alert(t('employeeManagement.dobInvalid'));
         return;
       }
-      submitData.birth_month = month;
-      submitData.birth_day = day;
-      submitData.birth_year = year;
-    } else {
-      submitData.birth_month = null;
-      submitData.birth_day = null;
-      submitData.birth_year = null;
+      birth_month = month;
+      birth_day = day;
+      birth_year = year;
     }
 
-    // If PIN is being set/changed by manager, set pin_set_at timestamp
-    // This marks the PIN as set (whether by manager or employee)
-    if (submitData.pin && submitData.pin.length === EMPLOYEE_PIN_LENGTH) {
+    let finalPhotoUrl: string | null = formData.photo_url;
+
+    if (!demoBrowseOnly && businessId) {
+      const hadHttpOriginal =
+        originalStaffPhotoUrl &&
+        originalStaffPhotoUrl.startsWith('http') &&
+        !originalStaffPhotoUrl.startsWith('data:');
+      const replacingOrRemoving =
+        !formData.photo_url ||
+        (formData.photo_url.startsWith('data:image/') && hadHttpOriginal);
+      if (hadHttpOriginal && replacingOrRemoving) {
+        await deleteStaffPhotoFromStorage(supabase, originalStaffPhotoUrl);
+      }
+      if (formData.photo_url?.startsWith('data:image/')) {
+        setStaffPhotoUploading(true);
+        const up = await uploadStaffPhotoDataUrl(supabase, businessId, formData.photo_url);
+        setStaffPhotoUploading(false);
+        if ('error' in up) {
+          toast.error(up.error);
+          return;
+        }
+        finalPhotoUrl = up.publicUrl;
+      } else if (!formData.photo_url && hadHttpOriginal) {
+        finalPhotoUrl = null;
+      }
+    } else if (demoBrowseOnly) {
+      finalPhotoUrl = formData.photo_url;
+    }
+
+    const commission_rate =
+      formData.compensation_type === 'commission' && formData.commission_rate !== ''
+        ? Number(formData.commission_rate)
+        : null;
+
+    const submitData: Record<string, unknown> = {
+      name: formData.name.trim(),
+      email: emailTrim,
+      phone: unformatPhoneNumber(formData.phone),
+      pin: formData.pin,
+      hourly_rate: Number(formData.hourly_rate),
+      role: formData.role,
+      status: formData.status,
+      hire_date: hireIso,
+      last_date: formData.status === 'inactive' ? lastIso : null,
+      birth_month,
+      birth_day,
+      birth_year,
+      photo_url: finalPhotoUrl,
+      compensation_type: formData.compensation_type,
+      commission_rate,
+      bank_routing_number: routingDigits || null,
+      bank_account_number: formData.bank_account_number.trim() || null,
+      bank_name: formData.bank_name.trim() || null,
+      payment_notes: formData.payment_notes.trim() || null,
+    };
+
+    if (submitData.pin && String(submitData.pin).length === EMPLOYEE_PIN_LENGTH) {
       const isNewPin = !editingEmployee || editingEmployee.pin !== submitData.pin;
       if (isNewPin) {
         submitData.pin_set_at = new Date().toISOString();
-        submitData.pin_required = false; // PIN is now set, no longer required
+        submitData.pin_required = false;
       }
     }
 
     if (editingEmployee) {
-      onUpdateEmployee(editingEmployee.id, submitData);
-      setEditingEmployee(null);
+      await onUpdateEmployee(editingEmployee.id, submitData);
     } else {
-      // For new employees, if PIN is provided, set pin_set_at
-      if (submitData.pin && submitData.pin.length === EMPLOYEE_PIN_LENGTH) {
+      if (submitData.pin && String(submitData.pin).length === EMPLOYEE_PIN_LENGTH) {
         submitData.pin_set_at = new Date().toISOString();
         submitData.pin_required = false;
       }
-      onAddEmployee(submitData);
+      await onAddEmployee(submitData as Omit<Employee, 'id' | 'created_at' | 'updated_at'>);
     }
-    resetForm();
-    setShowAddForm(false);
+    if (
+      allDob &&
+      birth_month !== null &&
+      birth_day !== null &&
+      isStaffDobCalendarToday(birth_month, birth_day)
+    ) {
+      await dispatchStaffBirthdaysForBusiness(businessId);
+    }
+    closeStaffModal();
   };
 
   const handleEdit = (employee: Employee) => {
-    setDetailEmployee(null);
     setEditingEmployee(employee);
+    setOriginalStaffPhotoUrl(employee.photo_url ?? null);
     setFormData({
       name: employee.name,
       email: employee.email,
@@ -316,14 +433,26 @@ export function EmployeeManagement({
       hourly_rate: employee.hourly_rate,
       role: employee.role,
       status: employee.status,
-      hire_date: employee.hire_date ? new Date(employee.hire_date).toISOString().split('T')[0] : '',
-      last_date: employee.last_date ? new Date(employee.last_date).toISOString().split('T')[0] : '',
+      hire_date: timestamptzToDateInputValue(employee.hire_date),
+      last_date: timestamptzToDateInputValue(employee.last_date),
       birth_month: employee.birth_month != null ? String(employee.birth_month) : '',
       birth_day: employee.birth_day != null ? String(employee.birth_day) : '',
       birth_year: employee.birth_year != null ? String(employee.birth_year) : '',
+      photo_url: employee.photo_url ?? null,
+      compensation_type:
+        employee.compensation_type === 'commission' ? 'commission' : 'hourly',
+      commission_rate:
+        employee.commission_rate != null && !Number.isNaN(Number(employee.commission_rate))
+          ? Number(employee.commission_rate)
+          : '',
+      bank_routing_number: employee.bank_routing_number ?? '',
+      bank_account_number: employee.bank_account_number ?? '',
+      bank_name: employee.bank_name ?? '',
+      payment_notes: employee.payment_notes ?? '',
     });
     setShowPinInForm(false);
-    setShowAddForm(true);
+    setStaffModalOpen(true);
+    if (staffPhotoInputRef.current) staffPhotoInputRef.current.value = '';
   };
 
   // Deep link from notifications: ?staff=id (legacy ?employee=id)
@@ -353,9 +482,7 @@ export function EmployeeManagement({
   };
 
   const handleCancel = () => {
-    setShowAddForm(false);
-    setEditingEmployee(null);
-    resetForm();
+    closeStaffModal();
   };
 
   const togglePinVisibility = (id: string) => {
@@ -376,13 +503,18 @@ export function EmployeeManagement({
   const handleConfirmRemove = async () => {
     if (!employeeToDelete || !removeLastWorkingDate) return;
     if (!parseYmdLocal(removeLastWorkingDate)) return;
-    await onUpdateEmployee(employeeToDelete, {
+    const lastIso = localYmdToTimestamptzIso(removeLastWorkingDate);
+    if (!lastIso) return;
+    const removedId = employeeToDelete;
+    const closeEditor = removedId === editingEmployee?.id;
+    await onUpdateEmployee(removedId, {
       status: 'inactive',
-      last_date: removeLastWorkingDate,
+      last_date: lastIso,
     });
     setEmployeeToDelete(null);
     setRemoveLastWorkingDate('');
     setDeleteDialogOpen(false);
+    if (closeEditor) closeStaffModal();
   };
 
   const handlePinSetup = (employee: Employee) => {
@@ -400,6 +532,10 @@ export function EmployeeManagement({
   const mForDays =
     Number.isFinite(birthMonthNum) && birthMonthNum >= 1 && birthMonthNum <= 12 ? birthMonthNum : 1;
   const dayChoices = useMemo(() => dayOptions(mForDays, yForDays), [mForDays, yForDays]);
+
+  const modalEmployeeLive = editingEmployee
+    ? employees.find((e) => e.id === editingEmployee.id) ?? editingEmployee
+    : null;
 
   const clampBirthDay = (month: number, year: number, dayStr: string) => {
     const dim = dayOptions(month, year).length;
@@ -497,25 +633,97 @@ export function EmployeeManagement({
         <Button
           type="button"
           onClick={() => {
+            if (staffModalOpen) {
+              closeStaffModal();
+              return;
+            }
             setEditingEmployee(null);
             resetForm();
-            setShowAddForm(!showAddForm);
+            setStaffModalOpen(true);
           }}
           className="flex shrink-0 items-center gap-2 shadow-sm"
         >
-          {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {showAddForm ? t('common.cancel') : t('employeeManagement.addEmployee')}
+          {staffModalOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {staffModalOpen ? t('common.cancel') : t('employeeManagement.addEmployee')}
         </Button>
       </div>
 
-      {showAddForm && (
-        <Card className="animate-fade-in">
-          <CardHeader>
-            <CardTitle>{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Dialog open={staffModalOpen} onOpenChange={(open) => !open && handleCancel()}>
+        <DialogContent className="flex h-[min(92vh,900px)] w-[calc(100vw-1.5rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+          <div className="shrink-0 space-y-3 border-b border-border px-4 py-4 sm:px-6">
+            <div className="flex flex-wrap items-center justify-end gap-2 pr-8 sm:pr-10">
+              <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
+                {t('common.cancel')}
+              </Button>
+              <DetailModalActionBar
+                className="border-0 pb-0"
+                variant="save-delete"
+                submitFormId="staff-editor-form"
+                saveLabel={t('common.save')}
+                disabledSave={staffPhotoUploading}
+                deleteLabel={t('employeeManagement.deleteEmployee')}
+                onDelete={
+                  editingEmployee ? () => handleDeleteClick(editingEmployee.id) : undefined
+                }
+              />
+            </div>
+            <DialogHeader className="space-y-1 text-left">
+              <DialogTitle className="text-xl font-semibold">
+                {editingEmployee
+                  ? t('employeeManagement.editEmployee')
+                  : t('employeeManagement.addNewEmployee')}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            <form id="staff-editor-form" onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>{t('employeeManagement.profilePhoto')}</Label>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
+                      {formData.photo_url ? (
+                        <img src={formData.photo_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <UserRound className="h-10 w-10 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        ref={staffPhotoInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={handleStaffPhotoFile}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => staffPhotoInputRef.current?.click()}
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        {t('employeeManagement.profilePhoto')}
+                      </Button>
+                      {formData.photo_url ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            setFormData({ ...formData, photo_url: null });
+                            if (staffPhotoInputRef.current) staffPhotoInputRef.current.value = '';
+                          }}
+                        >
+                          {t('employeeManagement.removePhoto')}
+                        </Button>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">{t('employeeManagement.profilePhotoHint')}</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label>Full Name</Label>
                   <Input
@@ -531,9 +739,9 @@ export function EmployeeManagement({
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
                     placeholder="jane@example.com"
                   />
+                  <p className="text-xs text-muted-foreground">{t('employeeManagement.emailOptionalHint')}</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Phone</Label>
@@ -556,16 +764,16 @@ export function EmployeeManagement({
                     >
                       {showPinInForm ? (
                         <>
-                          <EyeOff className="w-3 h-3 mr-1" /> Hide
+                          <EyeOff className="mr-1 h-3 w-3" /> Hide
                         </>
                       ) : (
                         <>
-                          <Eye className="w-3 h-3 mr-1" /> Show
+                          <Eye className="mr-1 h-3 w-3" /> Show
                         </>
                       )}
                     </Button>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
                       readOnly
                       className="font-mono tracking-widest sm:flex-1"
@@ -579,11 +787,33 @@ export function EmployeeManagement({
                       placeholder="…"
                       aria-label={t('employeeManagement.pinLabel')}
                     />
-                    <Button type="button" variant="outline" className="shrink-0" onClick={() => void handleGenerateFormPin()}>
-                      <RefreshCw className="w-4 h-4 mr-2" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      onClick={() => void handleGenerateFormPin()}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
                       {t('employeeManagement.generatePin')}
                     </Button>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('employeeManagement.compensationType')}</Label>
+                  <Select
+                    value={formData.compensation_type}
+                    onValueChange={(value: 'hourly' | 'commission') =>
+                      setFormData({ ...formData, compensation_type: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">{t('employeeManagement.compensationHourly')}</SelectItem>
+                      <SelectItem value="commission">{t('employeeManagement.compensationCommission')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Hourly Rate ($)</Label>
@@ -593,9 +823,29 @@ export function EmployeeManagement({
                     step="0.50"
                     value={formData.hourly_rate}
                     onChange={(e) => setFormData({ ...formData, hourly_rate: Number(e.target.value) })}
-                    required
+                    required={formData.compensation_type === 'hourly'}
+                    disabled={formData.compensation_type === 'commission'}
                   />
                 </div>
+                {formData.compensation_type === 'commission' && (
+                  <div className="space-y-2">
+                    <Label>{t('employeeManagement.commissionRate')}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={formData.commission_rate === '' ? '' : formData.commission_rate}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          commission_rate: e.target.value === '' ? '' : Number(e.target.value),
+                        })
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label>{t('employeeManagement.jobTitle')}</Label>
                   <Select
@@ -617,7 +867,9 @@ export function EmployeeManagement({
                   <Label>Status</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value: 'active' | 'inactive') => setFormData({ ...formData, status: value })}
+                    onValueChange={(value: 'active' | 'inactive') =>
+                      setFormData({ ...formData, status: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -627,6 +879,111 @@ export function EmployeeManagement({
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-4 rounded-lg border border-border p-4 md:col-span-2">
+                  <p className="text-sm font-medium text-foreground">{t('employeeManagement.paymentSection')}</p>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>{t('employeeManagement.routingNumber')}</Label>
+                      <Select
+                        value={
+                          PUERTO_RICO_BANK_ROUTING.some((b) => b.routing === formData.bank_routing_number)
+                            ? formData.bank_routing_number
+                            : '__custom'
+                        }
+                        onValueChange={(v) => {
+                          if (v === '__custom') {
+                            setFormData((fd) => ({ ...fd, bank_routing_number: '', bank_name: '' }));
+                          } else {
+                            const b = PUERTO_RICO_BANK_ROUTING.find((x) => x.routing === v);
+                            if (b) {
+                              setFormData((fd) => ({
+                                ...fd,
+                                bank_routing_number: b.routing,
+                                bank_name: b.name,
+                              }));
+                            }
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('employeeManagement.routingNumber')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__custom">{t('employeeManagement.routingCustom')}</SelectItem>
+                          {PUERTO_RICO_BANK_ROUTING.map((b) => (
+                            <SelectItem key={b.routing} value={b.routing}>
+                              {b.name} — {b.routing}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-xs text-muted-foreground">
+                        {t('employeeManagement.routingNumberManual')}
+                      </Label>
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={formData.bank_routing_number}
+                        onChange={(e) => {
+                          const digits = normalizeRoutingDigits(e.target.value);
+                          const match = findPuertoRicoBankByRouting(digits);
+                          setFormData((fd) => ({
+                            ...fd,
+                            bank_routing_number: digits,
+                            bank_name: match ? match.name : fd.bank_name,
+                          }));
+                        }}
+                        onBlur={() => {
+                          const match = findPuertoRicoBankByRouting(
+                            normalizeRoutingDigits(formData.bank_routing_number)
+                          );
+                          if (match) {
+                            setFormData((fd) => ({ ...fd, bank_name: match.name }));
+                          }
+                        }}
+                        placeholder="021502011"
+                        maxLength={11}
+                      />
+                      {findPuertoRicoBankByRouting(normalizeRoutingDigits(formData.bank_routing_number)) ? (
+                        <p className="text-xs text-muted-foreground">
+                          {t('employeeManagement.routingMatched')}:{' '}
+                          {
+                            findPuertoRicoBankByRouting(
+                              normalizeRoutingDigits(formData.bank_routing_number)
+                            )?.name
+                          }
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('employeeManagement.bankName')}</Label>
+                      <Input
+                        value={formData.bank_name}
+                        onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                        placeholder="Banco Popular"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('employeeManagement.accountNumber')}</Label>
+                      <Input
+                        value={formData.bank_account_number}
+                        onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
+                        autoComplete="off"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>{t('employeeManagement.paymentNotes')}</Label>
+                      <Input
+                        value={formData.payment_notes}
+                        onChange={(e) => setFormData({ ...formData, payment_notes: e.target.value })}
+                        placeholder=""
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <div className="flex flex-wrap items-end justify-between gap-2">
@@ -734,18 +1091,83 @@ export function EmployeeManagement({
                   </div>
                 )}
               </div>
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="shadow-sm">
-                  {editingEmployee ? t('common.edit') + ' ' + t('nav.employees') : t('employeeManagement.addEmployee')}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleCancel}>
-                  Cancel
-                </Button>
-              </div>
+
+              {modalEmployeeLive ? (
+                <div className="mt-6 space-y-3 border-t border-border pt-4">
+                  {modalEmployeeLive.status === 'active' && modalEmployeeLive.hire_date ? (
+                    <div className="rounded-md border border-border bg-muted/15 px-3 py-2 text-sm text-muted-foreground">
+                      {t('employeeManagement.tenureToDate', {
+                        tenure: (() => {
+                          const { y, m, d } = calendarDiffYMD(
+                            atLocalDay(modalEmployeeLive.hire_date!),
+                            todayLocal
+                          );
+                          return formatTenureYMD(y, m, d, lang);
+                        })(),
+                      })}
+                    </div>
+                  ) : null}
+                  {modalEmployeeLive.status === 'inactive' &&
+                  modalEmployeeLive.hire_date &&
+                  modalEmployeeLive.last_date ? (
+                    <div className="rounded-md border border-border bg-muted/15 px-3 py-2 text-sm text-muted-foreground">
+                      {t('employeeManagement.timeWithCompany', {
+                        tenure: (() => {
+                          const { y, m, d } = calendarDiffYMD(
+                            atLocalDay(modalEmployeeLive.hire_date!),
+                            atLocalDay(modalEmployeeLive.last_date!)
+                          );
+                          return formatTenureYMD(y, m, d, lang);
+                        })(),
+                      })}
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {modalEmployeeLive.pin_set_at ? (
+                      <Badge variant="outline" className="text-xs">
+                        PIN set {new Date(modalEmployeeLive.pin_set_at).toLocaleDateString()}
+                      </Badge>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        className="text-xs"
+                        onClick={() => handlePinSetup(modalEmployeeLive)}
+                      >
+                        <Lock className="mr-1 h-3 w-3" />
+                        Set PIN
+                      </Button>
+                    )}
+                    {modalEmployeeLive.pin_set_at ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        className="text-xs text-muted-foreground"
+                        onClick={() => handlePinReset(modalEmployeeLive.id)}
+                      >
+                        <RotateCcw className="mr-1 h-3 w-3" />
+                        Reset PIN
+                      </Button>
+                    ) : null}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    className="flex w-full items-center gap-2 sm:w-auto"
+                    onClick={() => handleViewTimesheet(modalEmployeeLive.id)}
+                  >
+                    <Clock className="h-4 w-4" />
+                    {t('timesheet.title')}
+                  </Button>
+                </div>
+              ) : null}
             </form>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {filteredEmployees.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -754,15 +1176,26 @@ export function EmployeeManagement({
               <CardContent className="p-0">
                 <button
                   type="button"
-                  className="flex w-full flex-col gap-1.5 p-4 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  onClick={() => setDetailEmployee(employee)}
+                  className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  onClick={() => handleEdit(employee)}
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold">{employee.name}</h3>
-                    <JobTitleBadge employee={employee} />
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                    {employee.photo_url ? (
+                      <img src={employee.photo_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <UserRound className="h-7 w-7" />
+                      </div>
+                    )}
                   </div>
-                  <p className="break-all text-sm text-muted-foreground">{employee.email}</p>
-                  <p className="text-sm text-muted-foreground">{formatPhoneNumber(employee.phone)}</p>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold">{employee.name}</h3>
+                      <JobTitleBadge employee={employee} />
+                    </div>
+                    <p className="break-all text-sm text-muted-foreground">{employee.email}</p>
+                    <p className="text-sm text-muted-foreground">{formatPhoneNumber(employee.phone)}</p>
+                  </div>
                 </button>
               </CardContent>
             </Card>
@@ -784,187 +1217,6 @@ export function EmployeeManagement({
           No {statusFilter} staff match this filter.
         </p>
       ) : null}
-
-      <Dialog open={!!detailEmployeeLive} onOpenChange={(open) => !open && setDetailEmployee(null)}>
-        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
-          {detailEmployeeLive && (
-            <>
-              <DetailModalActionBar
-                editLabel={t('common.edit')}
-                deleteLabel={t('employeeManagement.deleteEmployee')}
-                onEdit={() => {
-                  handleEdit(detailEmployeeLive);
-                  setDetailEmployee(null);
-                }}
-                onDelete={() => {
-                  handleDeleteClick(detailEmployeeLive.id);
-                  setDetailEmployee(null);
-                }}
-              />
-              <DialogHeader>
-                <DialogTitle className="flex flex-wrap items-center gap-2 text-left">
-                  <span>{detailEmployeeLive.name}</span>
-                  <JobTitleBadge employee={detailEmployeeLive} />
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  <span className="font-medium text-foreground">Email:</span> {detailEmployeeLive.email}
-                </p>
-                <p>
-                  <span className="font-medium text-foreground">Phone:</span>{' '}
-                  {formatPhoneNumber(detailEmployeeLive.phone)}
-                </p>
-                <p>
-                  <span className="font-medium text-foreground">Rate:</span> $
-                  {detailEmployeeLive.hourly_rate}/hr
-                </p>
-                {detailEmployeeLive.status === 'active' ? (
-                  <>
-                    {detailEmployeeLive.hire_date ? (
-                      <>
-                        <p>
-                          {t('employeeManagement.hiredOn', {
-                            date: formatEmployeeLocaleDate(detailEmployeeLive.hire_date, lang),
-                          })}
-                        </p>
-                        <p>
-                          {t('employeeManagement.tenureToDate', {
-                            tenure: (() => {
-                              const { y, m, d } = calendarDiffYMD(
-                                atLocalDay(detailEmployeeLive.hire_date!),
-                                todayLocal
-                              );
-                              return formatTenureYMD(y, m, d, lang);
-                            })(),
-                          })}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="italic">{t('employeeManagement.hireDateMissing')}</p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {detailEmployeeLive.last_date ? (
-                      <p>
-                        {t('employeeManagement.lastWorkingDay', {
-                          date: formatEmployeeLocaleDate(detailEmployeeLive.last_date, lang),
-                        })}
-                      </p>
-                    ) : (
-                      <p className="italic">{t('employeeManagement.lastDateMissing')}</p>
-                    )}
-                    {detailEmployeeLive.hire_date && detailEmployeeLive.last_date ? (
-                      <p>
-                        {t('employeeManagement.timeWithCompany', {
-                          tenure: (() => {
-                            const { y, m, d } = calendarDiffYMD(
-                              atLocalDay(detailEmployeeLive.hire_date!),
-                              atLocalDay(detailEmployeeLive.last_date!)
-                            );
-                            return formatTenureYMD(y, m, d, lang);
-                          })(),
-                        })}
-                      </p>
-                    ) : null}
-                  </>
-                )}
-                {detailEmployeeLive.birth_month != null &&
-                  detailEmployeeLive.birth_day != null &&
-                  detailEmployeeLive.birth_year != null && (
-                    <p>
-                      <span className="font-medium text-foreground">
-                        {t('employeeManagement.dateOfBirthLabel')}:
-                      </span>{' '}
-                      {new Date(
-                        detailEmployeeLive.birth_year,
-                        detailEmployeeLive.birth_month - 1,
-                        detailEmployeeLive.birth_day
-                      ).toLocaleDateString(lang === 'es' ? 'es' : 'en', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  )}
-                {detailEmployeeLive.birth_month != null &&
-                  detailEmployeeLive.birth_day != null &&
-                  detailEmployeeLive.birth_year == null && (
-                    <p>
-                      <span className="font-medium text-foreground">
-                        {t('employeeManagement.dateOfBirthLabel')}:
-                      </span>{' '}
-                      {detailEmployeeLive.birth_month}/{detailEmployeeLive.birth_day}
-                    </p>
-                  )}
-                <div className="space-y-2 border-t border-border pt-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-foreground">
-                      PIN:{' '}
-                      {showPin[detailEmployeeLive.id]
-                        ? detailEmployeeLive.pin
-                        : '•'.repeat(EMPLOYEE_PIN_LENGTH)}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      type="button"
-                      onClick={() => togglePinVisibility(detailEmployeeLive.id)}
-                    >
-                      {showPin[detailEmployeeLive.id] ? (
-                        <EyeOff className="h-3 w-3" />
-                      ) : (
-                        <Eye className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                  {(detailEmployeeLive as any).pin_set_at ? (
-                    <Badge variant="outline" className="text-xs">
-                      PIN set{' '}
-                      {new Date((detailEmployeeLive as any).pin_set_at).toLocaleDateString()}
-                    </Badge>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      className="text-xs"
-                      onClick={() => handlePinSetup(detailEmployeeLive)}
-                    >
-                      <Lock className="mr-1 h-3 w-3" />
-                      Set PIN
-                    </Button>
-                  )}
-                  {(detailEmployeeLive as any).pin_set_at && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      className="text-xs text-muted-foreground"
-                      onClick={() => handlePinReset(detailEmployeeLive.id)}
-                    >
-                      <RotateCcw className="mr-1 h-3 w-3" />
-                      Reset PIN
-                    </Button>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  className="mt-1 flex w-full items-center gap-2"
-                  onClick={() => handleViewTimesheet(detailEmployeeLive.id)}
-                >
-                  <Clock className="h-4 w-4" />
-                  {t('timesheet.title')}
-                </Button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {employees.length === 0 ? (
         <Card>

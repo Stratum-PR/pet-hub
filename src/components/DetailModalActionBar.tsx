@@ -9,6 +9,8 @@ export type DetailModalActionBarProps = {
   onEdit?: () => void;
   onDelete?: () => void;
   onSave?: () => void;
+  /** When set with variant save-delete, Save is type="submit" for this form id (no onSave). */
+  submitFormId?: string;
   editLabel?: string;
   deleteLabel?: string;
   saveLabel?: string;
@@ -27,6 +29,7 @@ export function DetailModalActionBar({
   onEdit,
   onDelete,
   onSave,
+  submitFormId,
   editLabel,
   deleteLabel,
   saveLabel,
@@ -37,11 +40,12 @@ export function DetailModalActionBar({
   const primary =
     variant === 'save-delete' ? (
       <Button
-        type="button"
+        type={submitFormId ? 'submit' : 'button'}
+        form={submitFormId}
         variant="default"
         size="sm"
         className="h-9 gap-1.5 px-3 shadow-sm"
-        onClick={onSave}
+        onClick={submitFormId ? undefined : onSave}
         disabled={disabledSave}
       >
         <Save className="h-4 w-4 shrink-0" />

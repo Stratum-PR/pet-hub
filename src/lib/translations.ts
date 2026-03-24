@@ -2154,6 +2154,30 @@ export const translations: Translations = {
     en: 'Time with company: {tenure}',
     es: 'Tiempo en la empresa: {tenure}'
   },
+  'employeeManagement.accessRoleLabel': {
+    en: 'Access role',
+    es: 'Rol de acceso'
+  },
+  'employeeManagement.fieldHireDate': {
+    en: 'Hire date',
+    es: 'Fecha de contratación'
+  },
+  'employeeManagement.fieldStatus': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'employeeManagement.statusActiveShort': {
+    en: 'Active',
+    es: 'Activo'
+  },
+  'employeeManagement.statusInactiveShort': {
+    en: 'Inactive',
+    es: 'Inactivo'
+  },
+  'employeeManagement.lastDateFieldLabel': {
+    en: 'Last date (end of employment)',
+    es: 'Último día laboral'
+  },
   'employeeManagement.hireDateMissing': {
     en: 'Hire date not set',
     es: 'Sin fecha de contratación'
@@ -2161,6 +2185,78 @@ export const translations: Translations = {
   'employeeManagement.lastDateMissing': {
     en: 'Last day not set',
     es: 'Sin fecha de salida'
+  },
+  'employeeManagement.emailActivationWarning': {
+    en: 'No email on file. Every team member needs an email to activate their login and receive account invites. You can add one later.',
+    es: 'Sin correo electrónico. Cada miembro del equipo necesita un correo para activar su acceso e invitaciones. Puedes agregarlo después.'
+  },
+  'employeeManagement.emailOptionalHint': {
+    en: 'Recommended for invites and login activation.',
+    es: 'Recomendado para invitaciones y activación de acceso.'
+  },
+  'employeeManagement.profilePhoto': {
+    en: 'Profile photo',
+    es: 'Foto de perfil'
+  },
+  'employeeManagement.profilePhotoHint': {
+    en: 'JPEG, PNG, WebP or GIF, up to 5 MB (same as pet photos).',
+    es: 'JPEG, PNG, WebP o GIF, hasta 5 MB (igual que fotos de mascotas).'
+  },
+  'employeeManagement.removePhoto': {
+    en: 'Remove photo',
+    es: 'Quitar foto'
+  },
+  'employeeManagement.compensationType': {
+    en: 'Compensation',
+    es: 'Compensación'
+  },
+  'employeeManagement.compensationHourly': {
+    en: 'Hourly',
+    es: 'Por hora'
+  },
+  'employeeManagement.compensationCommission': {
+    en: 'Commission',
+    es: 'Comisión'
+  },
+  'employeeManagement.commissionRate': {
+    en: 'Commission rate (% of sales)',
+    es: 'Porcentaje de comisión (% de ventas)'
+  },
+  'employeeManagement.paymentSection': {
+    en: 'Payment & bank (direct deposit)',
+    es: 'Pago y banco (depósito directo)'
+  },
+  'employeeManagement.bankName': {
+    en: 'Bank name',
+    es: 'Nombre del banco'
+  },
+  'employeeManagement.routingNumber': {
+    en: 'Routing (ABA) number',
+    es: 'Número de ruta (ABA)'
+  },
+  'employeeManagement.routingCustom': {
+    en: 'Custom (enter routing below)',
+    es: 'Personalizado (ingrese la ruta abajo)'
+  },
+  'employeeManagement.routingNumberManual': {
+    en: 'Routing number (9 digits)',
+    es: 'Número de ruta (9 dígitos)'
+  },
+  'employeeManagement.routingMatched': {
+    en: 'Matched bank',
+    es: 'Banco detectado'
+  },
+  'employeeManagement.accountNumber': {
+    en: 'Account number',
+    es: 'Número de cuenta'
+  },
+  'employeeManagement.paymentNotes': {
+    en: 'Payment notes',
+    es: 'Notas de pago'
+  },
+  'employeeManagement.routingInvalid': {
+    en: 'Routing number must be 9 digits (or leave blank).',
+    es: 'El número de ruta debe tener 9 dígitos (o déjelo vacío).'
   },
   'employeeManagement.noInactiveEmployees': {
     en: 'No inactive employees.',
