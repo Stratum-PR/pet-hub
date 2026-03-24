@@ -721,10 +721,18 @@ export function useEmployees() {
       payment_notes: (employeeData as any).payment_notes ?? null,
     };
 
+    const birthForFollowUpInsert: Record<string, unknown> = {};
+    if ('birth_month' in payload) birthForFollowUpInsert.birth_month = payload.birth_month;
+    if ('birth_day' in payload) birthForFollowUpInsert.birth_day = payload.birth_day;
+    if ('birth_year' in payload) birthForFollowUpInsert.birth_year = payload.birth_year;
+    const hadBirthKeysInInsert = Object.keys(birthForFollowUpInsert).length > 0;
+
     let { data, error } = await supabase.from('staff').insert(payload as any).select().single();
 
     // If schema cache doesn't know newer columns, retry with a smaller payload (legacy PostgREST cache).
+    let didStripInsertForPgrst204 = false;
     if (error?.code === 'PGRST204') {
+      didStripInsertForPgrst204 = true;
       delete payload.hire_date;
       delete payload.last_date;
       delete payload.birth_month;
@@ -739,6 +747,23 @@ export function useEmployees() {
       delete payload.bank_name;
       delete payload.payment_notes;
       ({ data, error } = await supabase.from('staff').insert(payload as any).select().single());
+    }
+
+    if (!error && data && didStripInsertForPgrst204 && hadBirthKeysInInsert) {
+      const { data: data2, error: err2 } = await supabase
+        .from('staff')
+        .update(birthForFollowUpInsert as any)
+        .eq('id', (data as { id: string }).id)
+        .select()
+        .single();
+      if (!err2 && data2) {
+        data = data2;
+      } else if (err2) {
+        if (import.meta.env.DEV) {
+          console.error('[useEmployees] addEmployee birth follow-up error:', err2.message, err2.code, err2.details);
+        }
+        return null;
+      }
     }
 
     if (!error && data) {
@@ -815,8 +840,16 @@ export function useEmployees() {
       if (key in employeeData) payload[key] = (employeeData as any)[key];
     }
 
+    const birthForFollowUpUpdate: Record<string, unknown> = {};
+    if ('birth_month' in payload) birthForFollowUpUpdate.birth_month = payload.birth_month;
+    if ('birth_day' in payload) birthForFollowUpUpdate.birth_day = payload.birth_day;
+    if ('birth_year' in payload) birthForFollowUpUpdate.birth_year = payload.birth_year;
+    const hadBirthKeysInUpdate = Object.keys(birthForFollowUpUpdate).length > 0;
+
     let { data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single();
+    let didStripUpdateForPgrst204 = false;
     if (error?.code === 'PGRST204') {
+      didStripUpdateForPgrst204 = true;
       delete payload.hire_date;
       delete payload.last_date;
       delete payload.birth_month;
@@ -830,7 +863,30 @@ export function useEmployees() {
       delete payload.bank_account_number;
       delete payload.bank_name;
       delete payload.payment_notes;
-      ({ data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single());
+      if (Object.keys(payload).length > 0) {
+        ({ data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single());
+      } else {
+        const sel = await supabase.from('staff').select().eq('id', id).single();
+        data = sel.data;
+        error = sel.error;
+      }
+    }
+
+    if (!error && data && didStripUpdateForPgrst204 && hadBirthKeysInUpdate) {
+      const { data: data2, error: err2 } = await supabase
+        .from('staff')
+        .update(birthForFollowUpUpdate as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (!err2 && data2) {
+        data = data2;
+      } else if (err2) {
+        if (import.meta.env.DEV) {
+          console.error('[useEmployees] updateEmployee birth follow-up error:', err2.message, err2.code, err2.details);
+        }
+        return null;
+      }
     }
 
     if (!error && data) {
