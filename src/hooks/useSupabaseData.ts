@@ -11,6 +11,7 @@ import {
   DEFAULT_PRIMARY_COLOR_HSL,
   DEFAULT_SECONDARY_COLOR_HSL,
 } from '@/lib/defaultThemeColors';
+import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 
 /** When true, data hooks cap rows to avoid loading thousands of rows on demo (e.g. seed appointments until March 2026). */
 function isDemoRoute(): boolean {
@@ -798,10 +799,7 @@ export function useEmployees() {
       setEmployees(employees.filter((e) => e.id !== id));
       return true;
     }
-    const { error } = await supabase
-      .from('staff')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('staff').delete().eq('id', id);
     
     if (!error) {
       setEmployees(employees.filter(e => e.id !== id));
@@ -811,6 +809,7 @@ export function useEmployees() {
   };
 
   const verifyPin = async (pin: string) => {
+    if (!businessId) return null;
     if (isDemoRoute() && isDemoWorkspaceBusiness(businessId)) {
       const list = employees.length > 0 ? employees : getDemoStaffSeed();
       const hit = list.find((e) => e.pin === pin && e.status === 'active');
@@ -819,6 +818,7 @@ export function useEmployees() {
     const { data, error } = await supabase
       .from('staff')
       .select('*')
+      .eq('business_id', businessId)
       .eq('pin', pin)
       .eq('status', 'active')
       .maybeSingle();
@@ -845,10 +845,7 @@ export function useTimeEntries() {
       return;
     }
     setError(null);
-    const { data: employees } = await supabase
-      .from('staff')
-      .select('id')
-      .eq('business_id', businessId);
+    const { data: employees } = await supabase.from('staff').select('id').eq('business_id', businessId);
     if (!employees || employees.length === 0) {
       setLoading(false);
       return;
@@ -865,7 +862,11 @@ export function useTimeEntries() {
       setError(err.message ?? 'Failed to load time entries');
     } else if (data) {
       setError(null);
-      setTimeEntries(data as TimeEntry[]);
+      const normalized = (data as TimeEntry[]).map((te) => {
+        const sid = staffRecordIdFromRow(te);
+        return sid ? ({ ...te, staff_id: sid } as TimeEntry) : te;
+      });
+      setTimeEntries(normalized);
     }
     setLoading(false);
   };
@@ -1031,7 +1032,10 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       }
     } else if (data) {
       setError(null);
-      const rows = (data as EmployeeShift[]) ?? [];
+      const rows = ((data as EmployeeShift[]) ?? []).map((s) => {
+        const sid = staffRecordIdFromRow(s);
+        return sid ? ({ ...s, staff_id: sid } as EmployeeShift) : s;
+      });
       if (isDemoRoute() && isDemoWorkspaceBusiness(businessId) && rows.length === 0) {
         setShifts(getDemoStaffShiftsForRange(options?.dateRange, options?.employeeId));
       } else {
@@ -1067,21 +1071,21 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       );
       return row;
     }
-    const { data, error: err } = await supabase
-      .from('staff_shifts')
-      .insert({
-        id: uuidv4(),
-        business_id: businessId,
-        staff_id: payload.staff_id,
-        start_time: payload.start_time,
-        end_time: payload.end_time,
-        notes: payload.notes ?? '',
-      })
-      .select()
-      .single();
+    const insertRow: Record<string, unknown> = {
+      id: uuidv4(),
+      business_id: businessId,
+      staff_id: payload.staff_id,
+      start_time: payload.start_time,
+      end_time: payload.end_time,
+      notes: payload.notes ?? '',
+    };
+    const { data, error: err } = await supabase.from('staff_shifts').insert(insertRow).select().single();
     if (!err && data) {
-      setShifts((prev) => [...prev, data as EmployeeShift].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
-      return data as EmployeeShift;
+      const raw = data as EmployeeShift;
+      const sid = staffRecordIdFromRow(raw);
+      const row = (sid ? { ...raw, staff_id: sid } : raw) as EmployeeShift;
+      setShifts((prev) => [...prev, row].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
+      return row;
     }
     if (import.meta.env.DEV) console.error('[useEmployeeShifts] addShift error:', err?.message);
     return null;
@@ -1104,8 +1108,13 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       .select()
       .single();
     if (!err && data) {
-      setShifts((prev) => prev.map((s) => (s.id === id ? (data as EmployeeShift) : s)).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
-      return data as EmployeeShift;
+      const raw = data as EmployeeShift;
+      const sid = staffRecordIdFromRow(raw);
+      const normalized = (sid ? { ...raw, staff_id: sid } : raw) as EmployeeShift;
+      setShifts((prev) =>
+        prev.map((s) => (s.id === id ? normalized : s)).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+      );
+      return normalized;
     }
     if (import.meta.env.DEV) console.error('[useEmployeeShifts] updateShift error:', err?.message);
     throw new Error(err?.message ?? 'Failed to update shift');
@@ -1174,12 +1183,16 @@ export function useAppointments() {
         
         if (!fallbackError && fallbackData) {
           setError(null);
-          const convertedAppointments = fallbackData.map((apt: any) => ({
-            ...apt,
-            scheduled_date: apt.appointment_date 
-              ? `${apt.appointment_date}T${apt.start_time || '00:00:00'}` 
-              : apt.scheduled_date || new Date().toISOString(),
-          }));
+          const convertedAppointments = fallbackData.map((apt: any) => {
+            const staff_id = staffRecordIdFromRow(apt) ?? apt.staff_id;
+            return {
+              ...apt,
+              staff_id,
+              scheduled_date: apt.appointment_date
+                ? `${apt.appointment_date}T${apt.start_time || '00:00:00'}`
+                : apt.scheduled_date || new Date().toISOString(),
+            };
+          });
           setAppointments(convertedAppointments as Appointment[]);
           setLoading(false);
           return;
@@ -1188,12 +1201,16 @@ export function useAppointments() {
     } else if (data) {
       setError(null);
       if (import.meta.env.DEV) console.log('[useAppointments] Fetched', data.length, 'appointments');
-      const convertedAppointments = data.map((apt: any) => ({
-        ...apt,
-        scheduled_date: apt.appointment_date 
-          ? `${apt.appointment_date}T${apt.start_time || '00:00:00'}` 
-          : apt.scheduled_date || new Date().toISOString(),
-      }));
+      const convertedAppointments = data.map((apt: any) => {
+        const staff_id = staffRecordIdFromRow(apt) ?? apt.staff_id;
+        return {
+          ...apt,
+          staff_id,
+          scheduled_date: apt.appointment_date
+            ? `${apt.appointment_date}T${apt.start_time || '00:00:00'}`
+            : apt.scheduled_date || new Date().toISOString(),
+        };
+      });
       setAppointments(convertedAppointments as Appointment[]);
     } else {
       if (import.meta.env.DEV) console.warn('[useAppointments] No data returned');

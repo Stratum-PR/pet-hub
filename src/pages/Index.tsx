@@ -97,7 +97,14 @@ const Index = () => {
 
   const { clients, loading: clientsLoading, addClient, updateClient, deleteClient } = useClients();
   const { pets, loading: petsLoading, addPet, updatePet, deletePet } = usePets();
-  const { employees, loading: employeesLoading, addEmployee, updateEmployee } = useEmployees();
+  const {
+    employees,
+    loading: employeesLoading,
+    error: employeesError,
+    refetch: refetchEmployees,
+    addEmployee,
+    updateEmployee,
+  } = useEmployees();
   const { timeEntries, clockIn, clockOut, getActiveEntry, updateTimeEntry, addTimeEntry } = useTimeEntries();
   const {
     appointments,
@@ -290,6 +297,9 @@ const Index = () => {
               element={
                 <EmployeeManagement
                   employees={employees}
+                  loading={employeesLoading}
+                  loadError={employeesError}
+                  onRetryLoad={() => void refetchEmployees()}
                   onAddEmployee={addEmployee}
                   onUpdateEmployee={updateEmployee}
                 />

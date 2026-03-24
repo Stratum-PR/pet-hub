@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
 import type { Employee, TimeEntry, TimeEntryEditRequest } from '@/types';
 import { useGeolocation, GeolocationPosition } from './useGeolocation';
-
 export interface ClockInOutResult {
   success: boolean;
   action: 'clock_in' | 'clock_out';

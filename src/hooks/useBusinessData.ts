@@ -8,6 +8,7 @@ import {
   validateServicePayload,
   validateAppointmentPayload,
 } from '@/lib/businessValidation';
+import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 
 function uuidv4(): string {
   if (typeof crypto !== 'undefined') {
@@ -530,7 +531,11 @@ export function useAppointments() {
     } else if (data) {
       setError(null);
       if (import.meta.env.DEV) console.log('[useAppointments] Fetched', data.length, 'appointments');
-      setAppointments(data as any);
+      const withStaff = (data as any[]).map((apt) => {
+        const staff_id = staffRecordIdFromRow(apt) ?? apt.staff_id;
+        return { ...apt, staff_id };
+      });
+      setAppointments(withStaff as any);
     }
     setLoading(false);
   };

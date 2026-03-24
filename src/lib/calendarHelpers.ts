@@ -2,6 +2,7 @@ import { format, parse, isSameDay } from 'date-fns';
 import { CalendarAppointment, CalendarStaff, APPOINTMENT_COLORS } from '@/types/calendar';
 import { Appointment, Pet, Service } from '@/hooks/useBusinessData';
 import { Employee } from '@/types';
+import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 
 /**
  * Convert database employees to calendar employees
@@ -79,7 +80,8 @@ export function convertAppointmentsToCalendar(
       const aptAny = apt as any;
       const pet = aptAny.pets || pets.find(p => p.id === apt.pet_id);
       const service = aptAny.services || services.find(s => s.id === apt.service_id);
-      const employee = apt.staff_id ? employees.find(e => e.id === apt.staff_id) : null;
+      const staffRef = staffRecordIdFromRow(apt) ?? apt.staff_id;
+      const employee = staffRef ? employees.find((e) => e.id === staffRef) : null;
       
       // Get service color or default
       const serviceColor = (service as any)?.color || APPOINTMENT_COLORS.blue;
@@ -132,7 +134,7 @@ export function convertAppointmentsToCalendar(
         startTime,
         endTime: endTime as string,
         color: serviceColor,
-        staffId: employee?.id || apt.staff_id || '',
+        staffId: employee?.id || staffRef || '',
         staffName: employee?.name || 'Unassigned',
         hasAlert: false,
         notes: apt.notes || undefined,

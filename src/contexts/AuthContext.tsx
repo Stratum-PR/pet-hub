@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Profile, Business } from '@/lib/auth';
 import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
+import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 
 interface AuthContextType {
   user: User | null;
@@ -39,7 +40,11 @@ async function fetchProfile(userId: string): Promise<Profile> {
     .eq('id', userId)
     .single();
   if (error || !data) throw error ?? new Error('Profile not found');
-  return data as Profile;
+  const base = data as Profile;
+  return {
+    ...base,
+    staff_id: staffRecordIdFromRow(data) ?? base.staff_id ?? null,
+  };
 }
 
 async function fetchBusiness(businessId: string): Promise<Business> {

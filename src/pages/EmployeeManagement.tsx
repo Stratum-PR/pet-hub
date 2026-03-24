@@ -115,15 +115,22 @@ function formatEmployeeLocaleDate(iso: string | undefined, lang: string): string
 
 interface EmployeeManagementProps {
   employees: Employee[];
+  /** When the staff list query fails (RLS, network, etc.) */
+  loadError?: string | null;
+  onRetryLoad?: () => void;
+  /** While true, avoid showing the “no staff” empty-state */
+  loading?: boolean;
   onAddEmployee: (employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => void;
   onUpdateEmployee: (id: string, employee: Partial<Employee>) => void | Promise<unknown>;
 }
 
 export function EmployeeManagement({ 
   employees, 
+  loadError,
+  onRetryLoad,
+  loading = false,
   onAddEmployee, 
   onUpdateEmployee, 
-  onDeleteEmployee 
 }: EmployeeManagementProps) {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
@@ -451,6 +458,21 @@ export function EmployeeManagement({
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {loadError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <p className="font-medium">Could not load staff</p>
+          <p className="mt-1 text-destructive/90">{loadError}</p>
+          {onRetryLoad && (
+            <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => onRetryLoad()}>
+              Try again
+            </Button>
+          )}
+        </div>
+      ) : null}
+
       <div
         className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
         data-page-toolbar
@@ -746,6 +768,21 @@ export function EmployeeManagement({
             </Card>
           ))}
         </div>
+      ) : !loading && !loadError && employees.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            <p>No staff members returned for this business.</p>
+            <p className="mt-3 text-left leading-relaxed">
+              If people already exist in Supabase, check that each row&apos;s <code className="rounded bg-muted px-1">business_id</code>{' '}
+              matches your account&apos;s business (same UUID as in <code className="rounded bg-muted px-1">profiles.business_id</code>
+              ). Row Level Security only shows staff for your profile&apos;s business.
+            </p>
+          </CardContent>
+        </Card>
+      ) : !loading && !loadError && employees.length > 0 ? (
+        <p className="text-center text-sm text-muted-foreground py-8">
+          No {statusFilter} staff match this filter.
+        </p>
       ) : null}
 
       <Dialog open={!!detailEmployeeLive} onOpenChange={(open) => !open && setDetailEmployee(null)}>
