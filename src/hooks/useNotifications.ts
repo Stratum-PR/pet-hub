@@ -19,6 +19,61 @@ function localDayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Calendar Y-M-D for `date` in `timeZone` (IANA), matching `dispatch_staff_birthdays_for_business` (business settings TZ). */
+function getCalendarYmdInZone(
+  date: Date,
+  timeZone: string | null | undefined
+): { year: number; month: number; day: number } {
+  const tz = (timeZone && String(timeZone).trim()) || 'America/New_York';
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const y = Number(parts.find((p) => p.type === 'year')?.value);
+    const mo = Number(parts.find((p) => p.type === 'month')?.value);
+    const d = Number(parts.find((p) => p.type === 'day')?.value);
+    if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(d)) {
+      return { year: y, month: mo, day: d };
+    }
+  } catch {
+    /* invalid TZ */
+  }
+  return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+}
+
+/** UTC instant for the first 00:00:00 on civil date y-m-d in `timeZone` (dedup `gte(created_at, …)`). */
+function zonedDayStartUtcIso(y: number, m: number, d: number, timeZone: string | null | undefined): string {
+  const tz = (timeZone && String(timeZone).trim()) || 'America/New_York';
+  const matchesMidnight = (tMs: number) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date(tMs));
+    const py = Number(parts.find((p) => p.type === 'year')?.value);
+    const pm = Number(parts.find((p) => p.type === 'month')?.value);
+    const pd = Number(parts.find((p) => p.type === 'day')?.value);
+    const ph = Number(parts.find((p) => p.type === 'hour')?.value);
+    const pmin = Number(parts.find((p) => p.type === 'minute')?.value);
+    const ps = Number(parts.find((p) => p.type === 'second')?.value);
+    return py === y && pm === m && pd === d && ph === 0 && pmin === 0 && ps === 0;
+  };
+  const anchor = Date.UTC(y, m - 1, d, 0, 0, 0);
+  for (let h = -36; h <= 36; h++) {
+    const t = anchor + h * 3600000;
+    if (matchesMidnight(t)) return new Date(t).toISOString();
+  }
+  return new Date(anchor).toISOString();
+}
+
 function msUntilNextLocal6am(now = new Date()): number {
   const next = new Date(now.getTime());
   next.setHours(6, 0, 0, 0);
@@ -229,7 +284,7 @@ export function useNotifications() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  /** Pet month reminders, staff birthday RPC (6am local), client celebration fallbacks, manager email reminders — at most once per local calendar day per business. */
+  /** Pet month reminders, staff birthday RPC + client fallbacks (business TZ), manager email reminders — at most once per browser-local calendar day per business; retries same day if RPC fails. */
   useEffect(() => {
     if (demoBrowseOnly && businessId && isDemoWorkspaceBusiness(businessId)) return;
 
@@ -273,9 +328,9 @@ export function useNotifications() {
         /* ignore */
       }
 
-      const month = now.getMonth() + 1;
-      const day = now.getDate();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), day).toISOString();
+      const bizTz = settings.timezone;
+      const { year: bizYear, month, day } = getCalendarYmdInZone(now, bizTz);
+      const todayStart = zonedDayStartUtcIso(bizYear, month, day, bizTz);
 
       const { data: pets, error: petErr } = await supabase
         .from('pets')
@@ -297,7 +352,7 @@ export function useNotifications() {
           if (existing && existing.length > 0) continue;
           const ageText =
             typeof p.birth_year === 'number' && Number.isFinite(p.birth_year)
-              ? ` (${Math.max(0, now.getFullYear() - p.birth_year)} yrs)`
+              ? ` (${Math.max(0, bizYear - p.birth_year)} yrs)`
               : '';
           await createNotification(`Birthday month reminder: ${p.name}${ageText}.`, businessId, {
             petId: p.id,
@@ -429,12 +484,15 @@ export function useNotifications() {
         }
       }
 
-      try {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(key, '1');
+      // Do not mark the day "done" if the RPC failed; otherwise we never retry staff/team birthday inserts until tomorrow.
+      if (!rpcError) {
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, '1');
+          }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
 
       await fetchNotificationsRef.current();
@@ -476,18 +534,14 @@ export function useNotifications() {
 
       if (cancelled) return;
 
-      const now = new Date();
-      const runBirthdayJobsNow = isDemoWorkspaceBusiness(businessId) || now.getHours() >= 6;
-      if (runBirthdayJobsNow) {
-        try {
-          if (typeof localStorage !== 'undefined' && localStorage.getItem(storageKeyForDay()) !== '1') {
-            if (!cancelled) await runDailyBirthdayJobs();
-          } else if (!cancelled) {
-            await fetchNotificationsRef.current();
-          }
-        } catch {
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(storageKeyForDay()) !== '1') {
           if (!cancelled) await runDailyBirthdayJobs();
+        } else if (!cancelled) {
+          await fetchNotificationsRef.current();
         }
+      } catch {
+        if (!cancelled) await runDailyBirthdayJobs();
       }
 
       if (!cancelled) scheduleNext6am();
@@ -503,6 +557,7 @@ export function useNotifications() {
     businessId,
     settings.notify_birthdays,
     settings.business_name,
+    settings.timezone,
     createNotification,
     demoBrowseOnly,
   ]);
