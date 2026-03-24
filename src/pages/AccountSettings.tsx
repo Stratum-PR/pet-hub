@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { clearPetHubBirthdayJobLocalKey } from '@/lib/demoManagerBirthdaySync';
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
@@ -339,6 +340,7 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
         const { error: bdayErr } = await dispatchStaffBirthdaysForBusiness(businessId);
         if (bdayErr) toast.error(bdayErr);
         else if (isDemoWorkspaceBusiness(businessId)) clearPetHubBirthdayJobLocalKey(businessId);
+        requestNotificationsRefetch();
       }
     }
   };

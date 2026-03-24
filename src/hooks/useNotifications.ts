@@ -13,6 +13,7 @@ import {
 } from '@/lib/demoBrowseNotifications';
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { syncDemoManagerBirthdayToClientToday } from '@/lib/demoManagerBirthdaySync';
+import { PET_HUB_REFETCH_NOTIFICATIONS } from '@/lib/notificationRefetch';
 import { dispatchStaffMissingEmailReminders } from '@/lib/staffBirthdayDispatch';
 
 function localDayKey(d: Date): string {
@@ -283,6 +284,14 @@ export function useNotifications() {
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  useEffect(() => {
+    const onRefetch = () => {
+      void fetchNotificationsRef.current();
+    };
+    window.addEventListener(PET_HUB_REFETCH_NOTIFICATIONS, onRefetch);
+    return () => window.removeEventListener(PET_HUB_REFETCH_NOTIFICATIONS, onRefetch);
+  }, []);
 
   /** Pet month reminders, staff birthday RPC + client fallbacks (business TZ), manager email reminders — at most once per browser-local calendar day per business; retries same day if RPC fails. */
   useEffect(() => {

@@ -14,7 +14,7 @@ export async function dispatchStaffBirthdaysForBusiness(
   const { error } = await supabase.rpc('dispatch_staff_birthdays_for_business', {
     p_business_id: businessId,
   });
-  if (error && import.meta.env.DEV) console.warn('[dispatchStaffBirthdaysForBusiness]', error.message);
+  if (error) console.warn('[dispatchStaffBirthdaysForBusiness]', error.message);
   return { error: error?.message ?? null };
 }
 
