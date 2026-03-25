@@ -41,7 +41,7 @@ export function getDemoStaffSeed(): Employee[] {
       pin: '9999',
       hourly_rate: 32,
       role: 'Manager',
-      access_role: 'manager',
+      access_role: 'admin',
       status: 'active',
       birth_month: b.birth_month,
       birth_day: b.birth_day,

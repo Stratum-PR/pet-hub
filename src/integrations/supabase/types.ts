@@ -53,10 +53,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "appointments_employee_id_fkey"
+            foreignKeyName: "appointments_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
-            referencedRelation: "employees"
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
           {
@@ -101,41 +101,92 @@ export type Database = {
         }
         Relationships: []
       }
-      employees: {
+      staff: {
         Row: {
-          created_at: string
-          email: string
-          hourly_rate: number
           id: string
+          business_id: string
           name: string
+          email: string
           phone: string
           pin: string
+          hourly_rate: number
           role: string
+          access_role: string
           status: string
+          hire_date: string | null
+          last_date: string | null
+          birth_month: number | null
+          birth_day: number | null
+          birth_year: number | null
+          pin_set_at: string | null
+          pin_required: boolean | null
+          user_id: string | null
+          photo_url: string | null
+          compensation_type: string | null
+          commission_rate: number | null
+          bank_routing_number: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          payment_notes: string | null
+          created_at: string
           updated_at: string
         }
         Insert: {
-          created_at?: string
-          email: string
-          hourly_rate?: number
           id?: string
+          business_id: string
           name: string
+          email?: string
           phone: string
           pin: string
+          hourly_rate?: number
           role?: string
+          access_role?: string
           status?: string
+          hire_date?: string | null
+          last_date?: string | null
+          birth_month?: number | null
+          birth_day?: number | null
+          birth_year?: number | null
+          pin_set_at?: string | null
+          pin_required?: boolean | null
+          user_id?: string | null
+          photo_url?: string | null
+          compensation_type?: string | null
+          commission_rate?: number | null
+          bank_routing_number?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          payment_notes?: string | null
+          created_at?: string
           updated_at?: string
         }
         Update: {
-          created_at?: string
-          email?: string
-          hourly_rate?: number
           id?: string
+          business_id?: string
           name?: string
+          email?: string
           phone?: string
           pin?: string
+          hourly_rate?: number
           role?: string
+          access_role?: string
           status?: string
+          hire_date?: string | null
+          last_date?: string | null
+          birth_month?: number | null
+          birth_day?: number | null
+          birth_year?: number | null
+          pin_set_at?: string | null
+          pin_required?: boolean | null
+          user_id?: string | null
+          photo_url?: string | null
+          compensation_type?: string | null
+          commission_rate?: number | null
+          bank_routing_number?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          payment_notes?: string | null
+          created_at?: string
           updated_at?: string
         }
         Relationships: []
@@ -271,10 +322,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "time_entries_employee_id_fkey"
+            foreignKeyName: "time_entries_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
-            referencedRelation: "employees"
+            referencedRelation: "staff"
             referencedColumns: ["id"]
           },
         ]

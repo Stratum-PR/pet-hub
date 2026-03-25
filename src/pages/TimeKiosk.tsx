@@ -30,6 +30,7 @@ import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths'
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
+import { useSettings } from '@/hooks/useSupabaseData';
 
 type KioskState = 'pin_entry' | 'employee_verified' | 'clocking' | 'success' | 'error' | 'off_schedule_warning';
 
@@ -58,6 +59,8 @@ export function TimeKiosk() {
   const [managerPinResetOpen, setManagerPinResetOpen] = useState(false);
   const canResetKioskManagerPin = useCanResetKioskManagerPin();
   const { loading: authLoading } = useAuth();
+  const { settings } = useSettings();
+  const kioskWarnOffSchedule = settings.kiosk_warn_off_schedule !== 'false';
   const managerPinGateFetchGen = useRef(0);
   const [businessResolveTimedOut, setBusinessResolveTimedOut] = useState(false);
 
@@ -410,8 +413,11 @@ export function TimeKiosk() {
           setClockedInDuration(null);
         }
         
-        // Check if off-schedule warning
-        if (result.warning === 'off_schedule' || result.is_off_schedule) {
+        // Optional off-schedule prompt (business setting); time entry is already recorded.
+        if (
+          kioskWarnOffSchedule &&
+          (result.warning === 'off_schedule' || result.is_off_schedule)
+        ) {
           setState('off_schedule_warning');
         } else {
           setState('success');
@@ -435,7 +441,7 @@ export function TimeKiosk() {
         resetToPinEntry();
       }, 3000);
     }
-  }, [employee, clockInOut, getCurrentLocation, resetToPinEntry, t]);
+  }, [employee, clockInOut, getCurrentLocation, resetToPinEntry, t, kioskWarnOffSchedule]);
 
   const handleContinueOffSchedule = useCallback(() => {
     setState('success');

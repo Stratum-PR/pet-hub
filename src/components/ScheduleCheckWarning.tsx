@@ -1,13 +1,13 @@
 /**
- * Schedule Check Warning Component
- * Displays warning when employee clocks in off-schedule
+ * Informational panel when employee clocks in outside a scheduled shift (optional per business).
  */
 
-import { AlertTriangle, Calendar, Clock } from 'lucide-react';
+import { Info, Calendar, Clock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { format } from 'date-fns';
+import { t } from '@/lib/translations';
 
 interface ScheduleCheckWarningProps {
   scheduleInfo?: {
@@ -21,68 +21,49 @@ interface ScheduleCheckWarningProps {
   onCancel: () => void;
 }
 
-export function ScheduleCheckWarning({
-  scheduleInfo,
-  onContinue,
-  onCancel,
-}: ScheduleCheckWarningProps) {
+export function ScheduleCheckWarning({ scheduleInfo, onContinue, onCancel }: ScheduleCheckWarningProps) {
   const hasShift = scheduleInfo?.shift_start && scheduleInfo?.shift_end;
 
   return (
     <div className="space-y-4">
-      <Alert variant="warning" className="border-yellow-500">
-        <AlertTriangle className="h-5 w-5 text-yellow-600" />
-        <AlertTitle className="text-lg">Off-Schedule Clock In</AlertTitle>
-        <AlertDescription className="mt-2">
-          You are clocking in outside your scheduled shift time.
-        </AlertDescription>
+      <Alert variant="default" className="border-primary/25 bg-muted/40">
+        <Info className="h-5 w-5 text-primary" />
+        <AlertTitle className="text-lg text-foreground">{t('scheduleCheck.title')}</AlertTitle>
+        <AlertDescription className="mt-2 text-muted-foreground">{t('scheduleCheck.body')}</AlertDescription>
       </Alert>
 
       {hasShift && (
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Calendar className="w-5 h-5 text-muted-foreground" />
-              <h3 className="font-semibold">Your Scheduled Shift</h3>
+            <div className="mb-4 flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <h3 className="font-semibold">{t('scheduleCheck.shiftReference')}</h3>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
+                <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {scheduleInfo.shift_start &&
-                    format(new Date(scheduleInfo.shift_start), 'h:mm a')}
-                  {' - '}
-                  {scheduleInfo.shift_end &&
-                    format(new Date(scheduleInfo.shift_end), 'h:mm a')}
+                  {scheduleInfo.shift_start && format(new Date(scheduleInfo.shift_start), 'h:mm a')}
+                  {' – '}
+                  {scheduleInfo.shift_end && format(new Date(scheduleInfo.shift_end), 'h:mm a')}
                 </span>
               </div>
               <div className="text-sm text-muted-foreground">
-                {scheduleInfo.shift_start &&
-                  format(new Date(scheduleInfo.shift_start), 'EEEE, MMMM d, yyyy')}
+                {scheduleInfo.shift_start && format(new Date(scheduleInfo.shift_start), 'EEEE, MMMM d, yyyy')}
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <div className="flex gap-4 justify-center pt-4">
-        <Button
-          size="lg"
-          variant="outline"
-          onClick={onCancel}
-          className="px-8"
-        >
-          Cancel
+      <div className="flex justify-center gap-4 pt-4">
+        <Button size="lg" variant="outline" onClick={onCancel} className="px-8">
+          {t('scheduleCheck.cancel')}
         </Button>
-        <Button
-          size="lg"
-          onClick={onContinue}
-          className="px-8"
-        >
-          Continue Anyway
+        <Button size="lg" variant="default" onClick={onContinue} className="px-8">
+          {t('scheduleCheck.continue')}
         </Button>
       </div>
     </div>
   );
 }
-

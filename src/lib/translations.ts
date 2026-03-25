@@ -1483,6 +1483,10 @@ export const translations: Translations = {
     en: 'SKU is required',
     es: 'El SKU es obligatorio'
   },
+  'inventory.validationSkuDuplicate': {
+    en: 'SKU is already in use',
+    es: 'El SKU ya está en uso'
+  },
   'inventory.validationNegativeStock': {
     en: 'Stock quantity cannot be negative',
     es: 'La cantidad en stock no puede ser negativa'
@@ -2079,9 +2083,29 @@ export const translations: Translations = {
     en: 'End employment',
     es: 'Finalizar empleo'
   },
+  'employeeManagement.reactivateEmployee': {
+    en: 'Reactivate employee',
+    es: 'Reactivar empleado'
+  },
   'employeeManagement.jobTitle': {
     en: 'Job title',
     es: 'Puesto'
+  },
+  'employeeManagement.addJobTitle': {
+    en: 'Add job title',
+    es: 'Agregar puesto'
+  },
+  'employeeManagement.newJobTitlePlaceholder': {
+    en: 'New job title (e.g. Assistant Manager)',
+    es: 'Nuevo puesto (ej. Asistente de gerente)'
+  },
+  'employeeManagement.manageJobTitles': {
+    en: 'Manage job titles',
+    es: 'Administrar puestos'
+  },
+  'employeeManagement.removeJobTitle': {
+    en: 'Remove',
+    es: 'Eliminar'
   },
   'employeeManagement.deleteConfirm': {
     en: 'They will be moved to Inactive and kept on file — not permanently deleted.',
@@ -2114,6 +2138,22 @@ export const translations: Translations = {
   'employeeManagement.removeConfirmAction': {
     en: 'Move to inactive',
     es: 'Pasar a inactivo'
+  },
+  'employeeManagement.reactivateEmployeeDialogTitle': {
+    en: 'Reactivate employee',
+    es: 'Reactivar empleado'
+  },
+  'employeeManagement.reactivateEmployeeDialogIntro': {
+    en: 'Enter their new start date. They will be moved back to Active and their last working day will be cleared.',
+    es: 'Indica su nueva fecha de inicio. Se moverá a Activo y se borrará su último día laboral.'
+  },
+  'employeeManagement.reactivateStartDateLabel': {
+    en: 'New start date',
+    es: 'Nueva fecha de inicio'
+  },
+  'employeeManagement.reactivateConfirmAction': {
+    en: 'Reactivate',
+    es: 'Reactivar'
   },
   'employeeManagement.pinLabel': {
     en: '4-digit PIN',
@@ -2206,6 +2246,46 @@ export const translations: Translations = {
   'employeeManagement.accessRoleLabel': {
     en: 'Access role',
     es: 'Rol de acceso'
+  },
+  'employeeManagement.accessRoleHint': {
+    en: 'Who can open manager-only screens (separate from job title above).',
+    es: 'Quién puede abrir pantallas solo para gerentes (aparte del puesto de arriba).'
+  },
+  'employeeManagement.accessRoleManager': {
+    en: 'Manager',
+    es: 'Gerente'
+  },
+  'employeeManagement.accessRoleStaff': {
+    en: 'Staff',
+    es: 'Equipo'
+  },
+  'employeeManagement.accessRoleAdmin': {
+    en: 'Admin',
+    es: 'Administrador'
+  },
+  'employeeManagement.accessRoleContractor': {
+    en: 'Contractor',
+    es: 'Contratista'
+  },
+  'employeeManagement.lastManagerGuard': {
+    en: 'You cannot remove the only manager’s access for this business. Promote another manager first.',
+    es: 'No puede quitar el acceso de gerente al único gerente. Promueva a otro gerente primero.'
+  },
+  'employeeManagement.lastAdminGuard': {
+    en: 'You cannot remove the only administrator for this business. Assign another admin first.',
+    es: 'No puede quitar al único administrador. Asigne otro administrador primero.'
+  },
+  'employeeManagement.accessRoleManagersCannotAssignAdmin': {
+    en: 'Only an administrator can assign the admin access role.',
+    es: 'Solo un administrador puede asignar el rol de acceso administrador.'
+  },
+  'employeeManagement.accessRoleReadOnlyHint': {
+    en: 'Only administrators and managers can change access roles.',
+    es: 'Solo administradores y gerentes pueden cambiar los roles de acceso.'
+  },
+  'employeeManagement.accessRoleCurrentAdmin': {
+    en: 'Administrator (current)',
+    es: 'Administrador (actual)'
   },
   'employeeManagement.fieldHireDate': {
     en: 'Hire date',
@@ -3218,6 +3298,27 @@ export const translations: Translations = {
     es: 'Ir al panel'
   },
 
+  'scheduleCheck.title': {
+    en: 'Outside your scheduled shift',
+    es: 'Fuera del turno programado'
+  },
+  'scheduleCheck.body': {
+    en: 'You are clocking in at a time that does not match a shift on your schedule. Your time will still be recorded normally; it will simply be tagged as outside the scheduled window. If you have a shift on file, it is shown below for reference.',
+    es: 'Estás fichando en un horario que no coincide con un turno en tu agenda. Tu tiempo se registrará igual; solo se marcará como fuera de la ventana programada. Si hay un turno registrado, aparece abajo como referencia.'
+  },
+  'scheduleCheck.shiftReference': {
+    en: 'Scheduled shift on file',
+    es: 'Turno registrado'
+  },
+  'scheduleCheck.cancel': {
+    en: 'Cancel',
+    es: 'Cancelar'
+  },
+  'scheduleCheck.continue': {
+    en: 'Clock in',
+    es: 'Fichar entrada'
+  },
+
   'kioskManager.accessTitle': {
     en: 'Manager Access',
     es: 'Acceso de Gerente'
@@ -3767,6 +3868,18 @@ export const translations: Translations = {
   'businessSettings.payrollPdfIncludeLogoDescription': {
     en: 'When enabled, your business logo appears at the top-left of the payroll report PDF (raster images only).',
     es: 'Si está activado, el logo del negocio aparece arriba a la izquierda en el PDF de nómina (solo imágenes raster).'
+  },
+  'businessSettings.kioskWarnOffSchedule': {
+    en: 'Punch clock: off-schedule notice',
+    es: 'Reloj de fichaje: aviso fuera de turno'
+  },
+  'businessSettings.kioskWarnOffScheduleDescription': {
+    en: 'When on, employees see a short notice if they clock in outside their scheduled shift (time is still saved). Turn off if you do not use schedules or prefer not to show this message.',
+    es: 'Si está activo, los empleados ven un aviso breve si fichan fuera del turno programado (el tiempo se guarda igual). Desactívalo si no usas horarios o no quieres este mensaje.'
+  },
+  'businessSettings.kioskWarnOffScheduleEnabledLabel': {
+    en: 'Show off-schedule notice on punch clock',
+    es: 'Mostrar aviso de fuera de turno en el reloj'
   },
 
   'transactions.status': {

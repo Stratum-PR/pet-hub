@@ -18,7 +18,12 @@ import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { t, type Language } from '@/lib/translations';
-import { dayOptions, isValidEmployeeDob, monthOptions, yearOptions } from '@/lib/employeeDob';
+import {
+  employeeBirthPartsToDateInput,
+  employeeDobInputBounds,
+  isValidEmployeeDob,
+  parseEmployeeDobDateInput,
+} from '@/lib/employeeDob';
 import {
   DEFAULT_PRIMARY_COLOR_HSL,
   DEFAULT_SECONDARY_COLOR_HSL,
@@ -167,29 +172,12 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
   const [notifyBirthdays, setNotifyBirthdays] = useState(settings.notify_birthdays !== 'false');
   const [notifyGeneral, setNotifyGeneral] = useState(settings.notify_general !== 'false');
   const [savingNotifications, setSavingNotifications] = useState(false);
-  const [staffDobMonth, setStaffDobMonth] = useState('');
-  const [staffDobDay, setStaffDobDay] = useState('');
-  const [staffDobYear, setStaffDobYear] = useState('');
+  const [staffDobDate, setStaffDobDate] = useState('');
   const [staffDobLoading, setStaffDobLoading] = useState(false);
   const [staffDobSaving, setStaffDobSaving] = useState(false);
   const primaryColorInputRef = useRef<HTMLInputElement | null>(null);
   const secondaryColorInputRef = useRef<HTMLInputElement | null>(null);
-
-  const monthChoices = useMemo(() => monthOptions(language), [language]);
-  const yearChoices = useMemo(() => yearOptions(), []);
-  const birthYearNum = parseInt(staffDobYear, 10);
-  const birthMonthNum = parseInt(staffDobMonth, 10);
-  const yForDays = Number.isFinite(birthYearNum) ? birthYearNum : 2000;
-  const mForDays =
-    Number.isFinite(birthMonthNum) && birthMonthNum >= 1 && birthMonthNum <= 12 ? birthMonthNum : 1;
-  const dayChoices = useMemo(() => dayOptions(mForDays, yForDays), [mForDays, yForDays]);
-
-  const clampBirthDay = (month: number, year: number, dayStr: string) => {
-    const dim = dayOptions(month, year).length;
-    const d = parseInt(dayStr, 10);
-    if (!Number.isFinite(d)) return '';
-    return String(Math.min(Math.max(1, d), dim));
-  };
+  const staffDobBounds = useMemo(() => employeeDobInputBounds(), []);
 
   useEffect(() => {
     if (demoLocalOnly || !profile?.staff_id) return;
@@ -203,9 +191,9 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
         .maybeSingle();
       if (!cancelled) {
         if (!error && data) {
-          setStaffDobMonth(data.birth_month != null ? String(data.birth_month) : '');
-          setStaffDobDay(data.birth_day != null ? String(data.birth_day) : '');
-          setStaffDobYear(data.birth_year != null ? String(data.birth_year) : '');
+          setStaffDobDate(
+            employeeBirthPartsToDateInput(data.birth_month, data.birth_day, data.birth_year)
+          );
         }
         setStaffDobLoading(false);
       }
@@ -308,22 +296,17 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
       toast.error(t('accountSettings.staffBirthdayNeedStaffLinkBody'));
       return;
     }
-    const dm = staffDobMonth.trim();
-    const dd = staffDobDay.trim();
-    const dy = staffDobYear.trim();
-    const anyDob = dm || dd || dy;
-    const allDob = dm && dd && dy;
-    if (anyDob && !allDob) {
-      toast.error(t('employeeManagement.dobIncomplete'));
-      return;
-    }
+    const dobTrim = staffDobDate.trim();
     let payload: { birth_month: number | null; birth_day: number | null; birth_year: number | null };
-    if (!allDob) {
+    if (!dobTrim) {
       payload = { birth_month: null, birth_day: null, birth_year: null };
     } else {
-      const month = parseInt(dm, 10);
-      const day = parseInt(dd, 10);
-      const year = parseInt(dy, 10);
+      const parts = parseEmployeeDobDateInput(dobTrim);
+      if (!parts) {
+        toast.error(t('employeeManagement.dobInvalid'));
+        return;
+      }
+      const { day, month, year } = parts;
       if (!isValidEmployeeDob(day, month, year)) {
         toast.error(t('employeeManagement.dobInvalid'));
         return;
@@ -489,84 +472,19 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs"
-                    onClick={() => {
-                      setStaffDobMonth('');
-                      setStaffDobDay('');
-                      setStaffDobYear('');
-                    }}
+                    onClick={() => setStaffDobDate('')}
                   >
                     {t('employeeManagement.dobClear')}
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobMonth')}</Label>
-                    <Select
-                      value={staffDobMonth || undefined}
-                      onValueChange={(v) => {
-                        const month = parseInt(v, 10);
-                        const y = parseInt(staffDobYear, 10) || 2000;
-                        const nextDay = staffDobDay ? clampBirthDay(month, y, staffDobDay) : staffDobDay;
-                        setStaffDobMonth(v);
-                        setStaffDobDay(nextDay);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {monthChoices.map((mo) => (
-                          <SelectItem key={mo.value} value={String(mo.value)}>
-                            {mo.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobDay')}</Label>
-                    <Select
-                      value={staffDobDay || undefined}
-                      onValueChange={(v) => setStaffDobDay(v)}
-                      disabled={!staffDobMonth}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dayChoices.map((d) => (
-                          <SelectItem key={d} value={String(d)}>
-                            {d}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobYear')}</Label>
-                    <Select
-                      value={staffDobYear || undefined}
-                      onValueChange={(v) => {
-                        const year = parseInt(v, 10);
-                        const month = parseInt(staffDobMonth, 10) || 1;
-                        const nextDay = staffDobDay ? clampBirthDay(month, year, staffDobDay) : staffDobDay;
-                        setStaffDobYear(v);
-                        setStaffDobDay(nextDay);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        {yearChoices.map((y) => (
-                          <SelectItem key={y} value={String(y)}>
-                            {y}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <Input
+                  type="date"
+                  min={staffDobBounds.min}
+                  max={staffDobBounds.max}
+                  value={staffDobDate}
+                  onChange={(e) => setStaffDobDate(e.target.value)}
+                  className="max-w-xs"
+                />
                 <Button type="submit" disabled={staffDobSaving}>
                   {staffDobSaving ? t('common.saving') : t('accountSettings.staffBirthdaySave')}
                 </Button>

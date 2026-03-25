@@ -1,6 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Client, Pet, Employee, TimeEntry, EmployeeShift, Appointment, Service } from '@/types';
 import { useBusinessId } from './useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
@@ -615,6 +617,120 @@ export function usePets() {
   return { pets, loading, error, refetch, addPet, updatePet, deletePet };
 }
 
+/** Columns sometimes unknown to PostgREST cache (PGRST204); stripped then applied in a follow-up update. */
+const PGRST204_STRIP_KEYS = [
+  'hire_date',
+  'last_date',
+  'birth_month',
+  'birth_day',
+  'birth_year',
+  'access_role',
+  'photo_url',
+  'compensation_type',
+  'commission_rate',
+  'bank_routing_number',
+  'bank_account_number',
+  'bank_name',
+  'payment_notes',
+] as const;
+
+function snapshotStripFollowUp(payload: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of PGRST204_STRIP_KEYS) {
+    if (key in payload) out[key] = payload[key];
+  }
+  return out;
+}
+
+function stripPgrst204KeysFromPayload(payload: Record<string, unknown>): void {
+  for (const key of PGRST204_STRIP_KEYS) {
+    delete payload[key];
+  }
+}
+
+type StaffWriteClient = SupabaseClient<Database>;
+
+/** Parse column name from PostgREST PGRST204 body, e.g. ... 'bank_account_number' column of 'staff' ... */
+function parsePgrst204UnknownColumn(message: string): string | null {
+  const m = /Could not find the '([^']+)' column/.exec(message);
+  return m ? m[1] : null;
+}
+
+/**
+ * After a successful insert/update without strip keys, apply strip keys one batch at a time.
+ * If PostgREST schema cache still omits some columns, PGRST204 names them — drop those keys and retry
+ * until the batch succeeds or only unknown columns remain (then return last error).
+ */
+async function staffApplyStripFollowUp(
+  client: StaffWriteClient,
+  staffId: string,
+  stripFollowUp: Record<string, unknown>
+): Promise<{ data: Employee | null; fatalError: { code?: string; message: string } | null }> {
+  const follow: Record<string, unknown> = { ...stripFollowUp };
+  let lastData: Employee | null = null;
+
+  while (Object.keys(follow).length > 0) {
+    const { data: row, error: followErr } = await client
+      .from('staff')
+      .update(follow as any)
+      .eq('id', staffId)
+      .select()
+      .single();
+
+    if (!followErr && row) {
+      lastData = row as Employee;
+      break;
+    }
+
+    if (followErr?.code === 'PGRST204') {
+      const col = parsePgrst204UnknownColumn(followErr.message);
+      if (col && Object.prototype.hasOwnProperty.call(follow, col)) {
+        delete follow[col];
+        continue;
+      }
+      let removed = false;
+      for (let i = PGRST204_STRIP_KEYS.length - 1; i >= 0; i--) {
+        const key = PGRST204_STRIP_KEYS[i];
+        if (key in follow) {
+          delete follow[key];
+          removed = true;
+          break;
+        }
+      }
+      if (!removed) {
+        return {
+          data: null,
+          fatalError: { code: followErr.code, message: followErr.message },
+        };
+      }
+      continue;
+    }
+
+    return {
+      data: null,
+      fatalError: {
+        code: followErr?.code,
+        message: followErr?.message ?? 'Follow-up update failed',
+      },
+    };
+  }
+
+  return { data: lastData, fatalError: null };
+}
+
+/** Set on failed staff insert/update; read with `consumeLastStaffWriteError` (e.g. UI toast). Not logged: PII. */
+let lastStaffWriteError: { code?: string; message: string; hint?: string } | null = null;
+
+export function consumeLastStaffWriteError(): { code?: string; message: string; hint?: string } | null {
+  const out = lastStaffWriteError;
+  lastStaffWriteError = null;
+  return out;
+}
+
+function setLastStaffWriteError(err: { code?: string; message: string; hint?: string } | null) {
+  lastStaffWriteError = err;
+}
+
 export function useEmployees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -664,6 +780,7 @@ export function useEmployees() {
   }, [businessId]);
 
   const addEmployee = async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => {
+    setLastStaffWriteError(null);
     if (!businessId) return null;
     if (demoBrowseOnly) {
       const now = new Date().toISOString();
@@ -722,11 +839,8 @@ export function useEmployees() {
       payment_notes: (employeeData as any).payment_notes ?? null,
     };
 
-    const birthForFollowUpInsert: Record<string, unknown> = {};
-    if ('birth_month' in payload) birthForFollowUpInsert.birth_month = payload.birth_month;
-    if ('birth_day' in payload) birthForFollowUpInsert.birth_day = payload.birth_day;
-    if ('birth_year' in payload) birthForFollowUpInsert.birth_year = payload.birth_year;
-    const hadBirthKeysInInsert = Object.keys(birthForFollowUpInsert).length > 0;
+    const stripFollowUpInsert = snapshotStripFollowUp(payload);
+    const hadStripFollowUpInsert = Object.keys(stripFollowUpInsert).length > 0;
 
     let { data, error } = await supabase.from('staff').insert(payload as any).select().single();
 
@@ -734,36 +848,19 @@ export function useEmployees() {
     let didStripInsertForPgrst204 = false;
     if (error?.code === 'PGRST204') {
       didStripInsertForPgrst204 = true;
-      delete payload.hire_date;
-      delete payload.last_date;
-      delete payload.birth_month;
-      delete payload.birth_day;
-      delete payload.birth_year;
-      delete payload.access_role;
-      delete payload.photo_url;
-      delete payload.compensation_type;
-      delete payload.commission_rate;
-      delete payload.bank_routing_number;
-      delete payload.bank_account_number;
-      delete payload.bank_name;
-      delete payload.payment_notes;
+      stripPgrst204KeysFromPayload(payload);
       ({ data, error } = await supabase.from('staff').insert(payload as any).select().single());
     }
 
-    if (!error && data && didStripInsertForPgrst204 && hadBirthKeysInInsert) {
-      const { data: data2, error: err2 } = await supabase
-        .from('staff')
-        .update(birthForFollowUpInsert as any)
-        .eq('id', (data as { id: string }).id)
-        .select()
-        .single();
-      if (!err2 && data2) {
-        data = data2;
-      } else if (err2) {
-        if (import.meta.env.DEV) {
-          console.error('[useEmployees] addEmployee birth follow-up error:', err2.message, err2.code, err2.details);
-        }
+    if (!error && data && didStripInsertForPgrst204 && hadStripFollowUpInsert) {
+      const fr = await staffApplyStripFollowUp(supabase, (data as { id: string }).id, stripFollowUpInsert);
+      if (fr.fatalError) {
+        console.error('[useEmployees] addEmployee strip follow-up error:', fr.fatalError.message, fr.fatalError.code);
+        setLastStaffWriteError(fr.fatalError);
         return null;
+      }
+      if (fr.data) {
+        data = fr.data;
       }
     }
 
@@ -771,11 +868,19 @@ export function useEmployees() {
       setEmployees([data as Employee, ...employees]);
       return data;
     }
-    if (error && import.meta.env.DEV) console.error('[useEmployees] addEmployee error:', error.message, error.code, error.details);
+    if (error) {
+      console.error('[useEmployees] addEmployee error:', error.message, error.code, error.details);
+      setLastStaffWriteError({
+        code: error.code,
+        message: error.message,
+        hint: typeof error.hint === 'string' ? error.hint : undefined,
+      });
+    }
     return null;
   };
 
   const updateEmployee = async (id: string, employeeData: Partial<Employee>) => {
+    setLastStaffWriteError(null);
     if (demoBrowseOnly) {
       const prev = employees.find((e) => e.id === id);
       if (!prev) return null;
@@ -841,29 +946,14 @@ export function useEmployees() {
       if (key in employeeData) payload[key] = (employeeData as any)[key];
     }
 
-    const birthForFollowUpUpdate: Record<string, unknown> = {};
-    if ('birth_month' in payload) birthForFollowUpUpdate.birth_month = payload.birth_month;
-    if ('birth_day' in payload) birthForFollowUpUpdate.birth_day = payload.birth_day;
-    if ('birth_year' in payload) birthForFollowUpUpdate.birth_year = payload.birth_year;
-    const hadBirthKeysInUpdate = Object.keys(birthForFollowUpUpdate).length > 0;
+    const stripFollowUpUpdate = snapshotStripFollowUp(payload);
+    const hadStripFollowUpUpdate = Object.keys(stripFollowUpUpdate).length > 0;
 
     let { data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single();
     let didStripUpdateForPgrst204 = false;
     if (error?.code === 'PGRST204') {
       didStripUpdateForPgrst204 = true;
-      delete payload.hire_date;
-      delete payload.last_date;
-      delete payload.birth_month;
-      delete payload.birth_day;
-      delete payload.birth_year;
-      delete payload.access_role;
-      delete payload.photo_url;
-      delete payload.compensation_type;
-      delete payload.commission_rate;
-      delete payload.bank_routing_number;
-      delete payload.bank_account_number;
-      delete payload.bank_name;
-      delete payload.payment_notes;
+      stripPgrst204KeysFromPayload(payload);
       if (Object.keys(payload).length > 0) {
         ({ data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single());
       } else {
@@ -873,20 +963,15 @@ export function useEmployees() {
       }
     }
 
-    if (!error && data && didStripUpdateForPgrst204 && hadBirthKeysInUpdate) {
-      const { data: data2, error: err2 } = await supabase
-        .from('staff')
-        .update(birthForFollowUpUpdate as any)
-        .eq('id', id)
-        .select()
-        .single();
-      if (!err2 && data2) {
-        data = data2;
-      } else if (err2) {
-        if (import.meta.env.DEV) {
-          console.error('[useEmployees] updateEmployee birth follow-up error:', err2.message, err2.code, err2.details);
-        }
+    if (!error && data && didStripUpdateForPgrst204 && hadStripFollowUpUpdate) {
+      const fr = await staffApplyStripFollowUp(supabase, id, stripFollowUpUpdate);
+      if (fr.fatalError) {
+        console.error('[useEmployees] updateEmployee strip follow-up error:', fr.fatalError.message, fr.fatalError.code);
+        setLastStaffWriteError(fr.fatalError);
         return null;
+      }
+      if (fr.data) {
+        data = fr.data;
       }
     }
 
@@ -894,7 +979,16 @@ export function useEmployees() {
       setEmployees(employees.map(e => e.id === id ? data as Employee : e));
       return data;
     }
-    if (error && import.meta.env.DEV) console.error('[useEmployees] updateEmployee error:', error.message, error.code, error.details);
+    if (error) {
+      console.error('[useEmployees] updateEmployee error:', error.message, error.code, error.details);
+      setLastStaffWriteError({
+        code: error.code,
+        message: error.message,
+        hint: typeof error.hint === 'string' ? error.hint : undefined,
+      });
+    } else if (!data) {
+      setLastStaffWriteError({ message: 'Update completed but no row was returned (check RLS SELECT).' });
+    }
     return null;
   };
 
@@ -1611,6 +1705,8 @@ export interface Settings {
   notify_general: string;
   /** When 'true', include the business logo on payroll PDF exports (top-left on first page). */
   payroll_pdf_include_logo: string;
+  /** When 'true', punch clock shows an informational prompt when clock-in is outside scheduled shift. */
+  kiosk_warn_off_schedule: string;
 }
 
 function isUnauthenticatedDemoPath(pathname: string): boolean {
@@ -1670,7 +1766,7 @@ export function useSettings() {
     // Prefer full settings row, but fall back gracefully if newer columns
     // (e.g. timezone/logo variants) haven't been migrated in this environment yet.
     const fullSelect =
-      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo';
+      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule';
     const legacySelect =
       'business_name, business_hours, primary_color, secondary_color, business_logo_url, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
 
@@ -1719,6 +1815,7 @@ export function useSettings() {
       notify_birthdays: 'true',
       notify_general: 'true',
       payroll_pdf_include_logo: 'true',
+      kiosk_warn_off_schedule: 'true',
     };
 
     const baseFromDb = !error && row
@@ -1742,6 +1839,7 @@ export function useSettings() {
           notify_birthdays: row.notify_birthdays ?? defaults.notify_birthdays,
           notify_general: row.notify_general ?? defaults.notify_general,
           payroll_pdf_include_logo: row.payroll_pdf_include_logo ?? defaults.payroll_pdf_include_logo,
+          kiosk_warn_off_schedule: row.kiosk_warn_off_schedule ?? defaults.kiosk_warn_off_schedule,
         }
       : defaults;
 
@@ -1768,6 +1866,7 @@ export function useSettings() {
         'notify_birthdays',
         'notify_general',
         'payroll_pdf_include_logo',
+        'kiosk_warn_off_schedule',
       ] as const;
       const merged = { ...baseFromDb } as Settings;
       for (const k of keys) {
@@ -1818,6 +1917,7 @@ export function useSettings() {
     notify_birthdays: 'notify_birthdays',
     notify_general: 'notify_general',
     payroll_pdf_include_logo: 'payroll_pdf_include_logo',
+    kiosk_warn_off_schedule: 'kiosk_warn_off_schedule',
   };
 
   const updateSetting = async (key: string, value: string | null): Promise<{ ok: boolean; error?: string }> => {
@@ -1879,6 +1979,7 @@ export function useSettings() {
       'notify_birthdays',
       'notify_general',
       'payroll_pdf_include_logo',
+      'kiosk_warn_off_schedule',
     ] as const;
     for (const k of keys) {
       const v = newSettings[k];

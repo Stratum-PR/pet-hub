@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Eye, EyeOff, Users, Clock, Lock, RotateCcw, RefreshCw, X, Upload, UserRound } from 'lucide-react';
+import { Plus, Eye, EyeOff, Users, Clock, RotateCcw, RefreshCw, X, Upload, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,14 +14,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { DetailModalActionBar } from '@/components/DetailModalActionBar';
-import { Badge } from '@/components/ui/badge';
 import { Employee, StaffAccessRole } from '@/types';
-import { EmployeePinSetupDialog } from '@/components/EmployeePinSetupDialog';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { t, getLanguage } from '@/lib/translations';
-import { dayOptions, isValidEmployeeDob, monthOptions, yearOptions } from '@/lib/employeeDob';
+import {
+  employeeBirthPartsToDateInput,
+  employeeDobInputBounds,
+  isValidEmployeeDob,
+  parseEmployeeDobDateInput,
+} from '@/lib/employeeDob';
 import { EMPLOYEE_PIN_LENGTH } from '@/lib/pinLengths';
 import { generateUniqueEmployeePin } from '@/lib/employeePin';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
@@ -37,6 +40,8 @@ import { clearPetHubBirthdayJobLocalKey } from '@/lib/demoManagerBirthdaySync';
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
+import { consumeLastStaffWriteError } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 
 function resolvedAccessRole(emp: Employee): StaffAccessRole {
   const a = emp.access_role;
@@ -147,7 +152,18 @@ export function EmployeeManagement({
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const businessId = useBusinessId();
+  const { staffId, isAdmin: isSuperAdmin } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
+
+  const myStaffAccessRole = useMemo((): StaffAccessRole | null => {
+    if (!staffId) return null;
+    const me = employees.find((e) => e.id === staffId);
+    return me ? resolvedAccessRole(me) : null;
+  }, [staffId, employees]);
+
+  const canEditStaffAccessRoles =
+    isSuperAdmin || myStaffAccessRole === 'admin' || myStaffAccessRole === 'manager';
+  const canAssignAdminAccessRole = isSuperAdmin || myStaffAccessRole === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -155,8 +171,9 @@ export function EmployeeManagement({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
   const [removeLastWorkingDate, setRemoveLastWorkingDate] = useState('');
-  const [pinSetupDialogOpen, setPinSetupDialogOpen] = useState(false);
-  const [employeeForPinSetup, setEmployeeForPinSetup] = useState<Employee | null>(null);
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [employeeToReactivate, setEmployeeToReactivate] = useState<string | null>(null);
+  const [reactivateStartDate, setReactivateStartDate] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -164,12 +181,11 @@ export function EmployeeManagement({
     pin: '',
     hourly_rate: 15,
     role: 'groomer',
+    access_role: 'staff' as StaffAccessRole,
     status: 'active' as 'active' | 'inactive',
     hire_date: '',
     last_date: '',
-    birth_month: '',
-    birth_day: '',
-    birth_year: '',
+    dob_date: '',
     photo_url: null as string | null,
     compensation_type: 'hourly' as 'hourly' | 'commission',
     commission_rate: '' as number | '',
@@ -236,12 +252,11 @@ export function EmployeeManagement({
       pin: '',
       hourly_rate: 15,
       role: 'groomer',
+      access_role: 'staff',
       status: 'active',
       hire_date: '',
       last_date: '',
-      birth_month: '',
-      birth_day: '',
-      birth_year: '',
+      dob_date: '',
       photo_url: null,
       compensation_type: 'hourly',
       commission_rate: '',
@@ -313,22 +328,17 @@ export function EmployeeManagement({
       return;
     }
 
-    const dm = String(formData.birth_month ?? '').trim();
-    const dd = String(formData.birth_day ?? '').trim();
-    const dy = String(formData.birth_year ?? '').trim();
-    const anyDob = dm || dd || dy;
-    const allDob = dm && dd && dy;
-    if (anyDob && !allDob) {
-      alert(t('employeeManagement.dobIncomplete'));
-      return;
-    }
+    const dobTrim = String(formData.dob_date ?? '').trim();
     let birth_month: number | null = null;
     let birth_day: number | null = null;
     let birth_year: number | null = null;
-    if (allDob) {
-      const month = parseInt(dm, 10);
-      const day = parseInt(dd, 10);
-      const year = parseInt(dy, 10);
+    if (dobTrim) {
+      const parts = parseEmployeeDobDateInput(dobTrim);
+      if (!parts) {
+        alert(t('employeeManagement.dobInvalid'));
+        return;
+      }
+      const { day, month, year } = parts;
       if (!isValidEmployeeDob(day, month, year)) {
         alert(t('employeeManagement.dobInvalid'));
         return;
@@ -336,6 +346,44 @@ export function EmployeeManagement({
       birth_month = month;
       birth_day = day;
       birth_year = year;
+    }
+    const allDob = birth_month !== null && birth_day !== null && birth_year !== null;
+
+    const activeAdmins = employees.filter(
+      (e) => e.status === 'active' && resolvedAccessRole(e) === 'admin'
+    );
+    const editingWasAdmin = editingEmployee && resolvedAccessRole(editingEmployee) === 'admin';
+    if (
+      editingWasAdmin &&
+      formData.access_role !== 'admin' &&
+      activeAdmins.length === 1 &&
+      activeAdmins[0]?.id === editingEmployee!.id
+    ) {
+      toast.error(t('employeeManagement.lastAdminGuard'));
+      return;
+    }
+
+    const activeManagers = employees.filter(
+      (e) => e.status === 'active' && resolvedAccessRole(e) === 'manager'
+    );
+    const editingWasManager = editingEmployee && resolvedAccessRole(editingEmployee) === 'manager';
+    if (
+      editingWasManager &&
+      formData.access_role !== 'manager' &&
+      activeManagers.length === 1 &&
+      activeManagers[0]?.id === editingEmployee!.id
+    ) {
+      toast.error(t('employeeManagement.lastManagerGuard'));
+      return;
+    }
+
+    if (
+      myStaffAccessRole === 'manager' &&
+      !isSuperAdmin &&
+      formData.access_role === 'admin'
+    ) {
+      toast.error(t('employeeManagement.accessRoleManagersCannotAssignAdmin'));
+      return;
     }
 
     let finalPhotoUrl: string | null = formData.photo_url;
@@ -379,6 +427,7 @@ export function EmployeeManagement({
       pin: formData.pin,
       hourly_rate: Number(formData.hourly_rate),
       role: formData.role,
+      access_role: formData.access_role,
       status: formData.status,
       hire_date: hireIso,
       last_date: formData.status === 'inactive' ? lastIso : null,
@@ -394,6 +443,10 @@ export function EmployeeManagement({
       payment_notes: formData.payment_notes.trim() || null,
     };
 
+    if (!canEditStaffAccessRoles) {
+      delete submitData.access_role;
+    }
+
     if (submitData.pin && String(submitData.pin).length === EMPLOYEE_PIN_LENGTH) {
       const isNewPin = !editingEmployee || editingEmployee.pin !== submitData.pin;
       if (isNewPin) {
@@ -405,7 +458,12 @@ export function EmployeeManagement({
     if (editingEmployee) {
       const updated = await onUpdateEmployee(editingEmployee.id, submitData);
       if (updated == null) {
-        toast.error(t('employeeManagement.saveStaffFailed'));
+        const det = consumeLastStaffWriteError();
+        toast.error(
+          det
+            ? `${t('employeeManagement.saveStaffFailed')} (${det.code ?? 'error'}: ${det.message})`
+            : t('employeeManagement.saveStaffFailed')
+        );
         return;
       }
     } else {
@@ -415,7 +473,12 @@ export function EmployeeManagement({
       }
       const created = await onAddEmployee(submitData as Omit<Employee, 'id' | 'created_at' | 'updated_at'>);
       if (created == null) {
-        toast.error(t('employeeManagement.saveStaffFailed'));
+        const det = consumeLastStaffWriteError();
+        toast.error(
+          det
+            ? `${t('employeeManagement.saveStaffFailed')} (${det.code ?? 'error'}: ${det.message})`
+            : t('employeeManagement.saveStaffFailed')
+        );
         return;
       }
     }
@@ -439,12 +502,11 @@ export function EmployeeManagement({
       pin: employee.pin,
       hourly_rate: employee.hourly_rate,
       role: employee.role,
+      access_role: resolvedAccessRole(employee),
       status: employee.status,
       hire_date: timestamptzToDateInputValue(employee.hire_date),
       last_date: timestamptzToDateInputValue(employee.last_date),
-      birth_month: employee.birth_month != null ? String(employee.birth_month) : '',
-      birth_day: employee.birth_day != null ? String(employee.birth_day) : '',
-      birth_year: employee.birth_year != null ? String(employee.birth_year) : '',
+      dob_date: employeeBirthPartsToDateInput(employee.birth_month, employee.birth_day, employee.birth_year),
       photo_url: employee.photo_url ?? null,
       compensation_type:
         employee.compensation_type === 'commission' ? 'commission' : 'hourly',
@@ -507,6 +569,17 @@ export function EmployeeManagement({
     setDeleteDialogOpen(true);
   };
 
+  const handleReactivateClick = (id: string) => {
+    setEmployeeToReactivate(id);
+    const emp = employees.find((e) => e.id === id);
+    const pref =
+      emp?.hire_date != null && String(emp.hire_date).length > 0
+        ? new Date(emp.hire_date).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+    setReactivateStartDate(pref);
+    setReactivateDialogOpen(true);
+  };
+
   const handleConfirmRemove = async () => {
     if (!employeeToDelete || !removeLastWorkingDate) return;
     if (!parseYmdLocal(removeLastWorkingDate)) return;
@@ -524,32 +597,29 @@ export function EmployeeManagement({
     if (closeEditor) closeStaffModal();
   };
 
-  const handlePinSetup = (employee: Employee) => {
-    setEmployeeForPinSetup(employee);
-    setPinSetupDialogOpen(true);
+  const handleConfirmReactivate = async () => {
+    if (!employeeToReactivate || !reactivateStartDate) return;
+    if (!parseYmdLocal(reactivateStartDate)) return;
+    const hireIso = localYmdToTimestamptzIso(reactivateStartDate);
+    if (!hireIso) return;
+    const reactivatedId = employeeToReactivate;
+    await onUpdateEmployee(reactivatedId, {
+      status: 'active',
+      hire_date: hireIso,
+      last_date: null as any,
+    });
+    setEmployeeToReactivate(null);
+    setReactivateStartDate('');
+    setReactivateDialogOpen(false);
   };
 
   const lang = getLanguage();
   const todayLocal = atLocalDay(new Date());
-  const monthChoices = useMemo(() => monthOptions(lang), [lang]);
-  const yearChoices = useMemo(() => yearOptions(), []);
-  const birthYearNum = parseInt(formData.birth_year, 10);
-  const birthMonthNum = parseInt(formData.birth_month, 10);
-  const yForDays = Number.isFinite(birthYearNum) ? birthYearNum : 2000;
-  const mForDays =
-    Number.isFinite(birthMonthNum) && birthMonthNum >= 1 && birthMonthNum <= 12 ? birthMonthNum : 1;
-  const dayChoices = useMemo(() => dayOptions(mForDays, yForDays), [mForDays, yForDays]);
+  const dobInputBounds = employeeDobInputBounds();
 
   const modalEmployeeLive = editingEmployee
     ? employees.find((e) => e.id === editingEmployee.id) ?? editingEmployee
     : null;
-
-  const clampBirthDay = (month: number, year: number, dayStr: string) => {
-    const dim = dayOptions(month, year).length;
-    const d = parseInt(dayStr, 10);
-    if (!Number.isFinite(d)) return '';
-    return String(Math.min(Math.max(1, d), dim));
-  };
 
   const handlePinReset = async (employeeId: string) => {
     if (!businessId) return;
@@ -590,13 +660,6 @@ export function EmployeeManagement({
     } catch (err) {
       alert('Failed to reset PIN. Please try again.');
     }
-  };
-
-  const handlePinSetupSuccess = () => {
-    if (employeeForPinSetup) {
-      onUpdateEmployee(employeeForPinSetup.id, {});
-    }
-    setEmployeeForPinSetup(null);
   };
 
   return (
@@ -670,8 +733,17 @@ export function EmployeeManagement({
                 disabledSave={staffPhotoUploading}
                 deleteLabel={t('employeeManagement.deleteEmployee')}
                 onDelete={
-                  editingEmployee ? () => handleDeleteClick(editingEmployee.id) : undefined
+                  editingEmployee && modalEmployeeLive?.status === 'active'
+                    ? () => handleDeleteClick(editingEmployee.id)
+                    : undefined
                 }
+                onAux={
+                  editingEmployee && modalEmployeeLive?.status === 'inactive'
+                    ? () => handleReactivateClick(editingEmployee.id)
+                    : undefined
+                }
+                auxLabel={t('employeeManagement.reactivateEmployee')}
+                auxIcon={<RotateCcw className="h-4 w-4 shrink-0" />}
               />
             </div>
             <DialogHeader className="space-y-1 text-left">
@@ -780,10 +852,10 @@ export function EmployeeManagement({
                       )}
                     </Button>
                   </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <Input
                       readOnly
-                      className="font-mono tracking-widest sm:flex-1"
+                      className="font-mono tracking-widest sm:min-w-[8rem] sm:flex-1"
                       value={
                         !formData.pin
                           ? ''
@@ -803,7 +875,24 @@ export function EmployeeManagement({
                       <RefreshCw className="mr-2 h-4 w-4" />
                       {t('employeeManagement.generatePin')}
                     </Button>
+                    {editingEmployee && modalEmployeeLive?.pin_set_at ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 text-xs text-muted-foreground"
+                        onClick={() => void handlePinReset(modalEmployeeLive.id)}
+                      >
+                        <RotateCcw className="mr-1 h-3 w-3" />
+                        Reset PIN
+                      </Button>
+                    ) : null}
                   </div>
+                  {editingEmployee && modalEmployeeLive?.pin_set_at ? (
+                    <p className="text-xs text-muted-foreground">
+                      PIN set {new Date(modalEmployeeLive.pin_set_at).toLocaleDateString()}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-2">
                   <Label>{t('employeeManagement.compensationType')}</Label>
@@ -855,20 +944,54 @@ export function EmployeeManagement({
                 )}
                 <div className="space-y-2">
                   <Label>{t('employeeManagement.jobTitle')}</Label>
-                  <Select
+                  <Input
                     value={formData.role}
-                    onValueChange={(value) => setFormData({ ...formData, role: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="groomer">Groomer</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="receptionist">Receptionist</SelectItem>
-                      <SelectItem value="bather">Bather</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    placeholder="Groomer"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('employeeManagement.accessRoleLabel')}</Label>
+                  {canEditStaffAccessRoles ? (
+                    <Select
+                      value={formData.access_role}
+                      onValueChange={(value: StaffAccessRole) =>
+                        setFormData({ ...formData, access_role: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {!canAssignAdminAccessRole && formData.access_role === 'admin' ? (
+                          <SelectItem value="admin" disabled>
+                            {t('employeeManagement.accessRoleCurrentAdmin')}
+                          </SelectItem>
+                        ) : null}
+                        <SelectItem value="manager">{t('employeeManagement.accessRoleManager')}</SelectItem>
+                        <SelectItem value="staff">{t('employeeManagement.accessRoleStaff')}</SelectItem>
+                        <SelectItem value="contractor">{t('employeeManagement.accessRoleContractor')}</SelectItem>
+                        {canAssignAdminAccessRole ? (
+                          <SelectItem value="admin">{t('employeeManagement.accessRoleAdmin')}</SelectItem>
+                        ) : null}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="text-sm text-foreground">
+                      {formData.access_role === 'admin'
+                        ? t('employeeManagement.accessRoleAdmin')
+                        : formData.access_role === 'manager'
+                          ? t('employeeManagement.accessRoleManager')
+                          : formData.access_role === 'contractor'
+                            ? t('employeeManagement.accessRoleContractor')
+                            : t('employeeManagement.accessRoleStaff')}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {canEditStaffAccessRoles
+                      ? t('employeeManagement.accessRoleHint')
+                      : t('employeeManagement.accessRoleReadOnlyHint')}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Status</Label>
@@ -1000,84 +1123,19 @@ export function EmployeeManagement({
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() =>
-                        setFormData({ ...formData, birth_month: '', birth_day: '', birth_year: '' })
-                      }
+                      onClick={() => setFormData({ ...formData, dob_date: '' })}
                     >
                       {t('employeeManagement.dobClear')}
                     </Button>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobMonth')}</Label>
-                      <Select
-                        value={formData.birth_month || undefined}
-                        onValueChange={(v) => {
-                          const month = parseInt(v, 10);
-                          const y = parseInt(formData.birth_year, 10) || 2000;
-                          const nextDay = formData.birth_day
-                            ? clampBirthDay(month, y, formData.birth_day)
-                            : formData.birth_day;
-                          setFormData({ ...formData, birth_month: v, birth_day: nextDay });
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {monthChoices.map((mo) => (
-                            <SelectItem key={mo.value} value={String(mo.value)}>
-                              {mo.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobDay')}</Label>
-                      <Select
-                        value={formData.birth_day || undefined}
-                        onValueChange={(v) => setFormData({ ...formData, birth_day: v })}
-                        disabled={!formData.birth_month}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {dayChoices.map((d) => (
-                            <SelectItem key={d} value={String(d)}>
-                              {d}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">{t('employeeManagement.dobYear')}</Label>
-                      <Select
-                        value={formData.birth_year || undefined}
-                        onValueChange={(v) => {
-                          const year = parseInt(v, 10);
-                          const month = parseInt(formData.birth_month, 10) || 1;
-                          const nextDay = formData.birth_day
-                            ? clampBirthDay(month, year, formData.birth_day)
-                            : formData.birth_day;
-                          setFormData({ ...formData, birth_year: v, birth_day: nextDay });
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('employeeManagement.dobPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-60">
-                          {yearChoices.map((y) => (
-                            <SelectItem key={y} value={String(y)}>
-                              {y}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <Input
+                    type="date"
+                    min={dobInputBounds.min}
+                    max={dobInputBounds.max}
+                    value={formData.dob_date}
+                    onChange={(e) => setFormData({ ...formData, dob_date: e.target.value })}
+                    className="max-w-xs"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Hire Date</Label>
@@ -1129,36 +1187,6 @@ export function EmployeeManagement({
                       })}
                     </div>
                   ) : null}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {modalEmployeeLive.pin_set_at ? (
-                      <Badge variant="outline" className="text-xs">
-                        PIN set {new Date(modalEmployeeLive.pin_set_at).toLocaleDateString()}
-                      </Badge>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        className="text-xs"
-                        onClick={() => handlePinSetup(modalEmployeeLive)}
-                      >
-                        <Lock className="mr-1 h-3 w-3" />
-                        Set PIN
-                      </Button>
-                    )}
-                    {modalEmployeeLive.pin_set_at ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        className="text-xs text-muted-foreground"
-                        onClick={() => handlePinReset(modalEmployeeLive.id)}
-                      >
-                        <RotateCcw className="mr-1 h-3 w-3" />
-                        Reset PIN
-                      </Button>
-                    ) : null}
-                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1308,15 +1336,48 @@ export function EmployeeManagement({
         </DialogContent>
       </Dialog>
 
-      {employeeForPinSetup && (
-        <EmployeePinSetupDialog
-          open={pinSetupDialogOpen}
-          onOpenChange={setPinSetupDialogOpen}
-          employeeId={employeeForPinSetup.id}
-          employeeName={employeeForPinSetup.name}
-          onSuccess={handlePinSetupSuccess}
-        />
-      )}
+      <Dialog
+        open={reactivateDialogOpen}
+        onOpenChange={(open) => {
+          setReactivateDialogOpen(open);
+          if (!open) {
+            setEmployeeToReactivate(null);
+            setReactivateStartDate('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('employeeManagement.reactivateEmployeeDialogTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>{t('employeeManagement.reactivateEmployeeDialogIntro')}</p>
+            <div className="space-y-2">
+              <Label htmlFor="reactivate-start-date">{t('employeeManagement.reactivateStartDateLabel')}</Label>
+              <Input
+                id="reactivate-start-date"
+                type="date"
+                value={reactivateStartDate}
+                onChange={(e) => setReactivateStartDate(e.target.value)}
+                className="max-w-[14rem]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setReactivateDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="button"
+              disabled={!parseYmdLocal(reactivateStartDate)}
+              onClick={() => void handleConfirmReactivate()}
+            >
+              {t('employeeManagement.reactivateConfirmAction')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
