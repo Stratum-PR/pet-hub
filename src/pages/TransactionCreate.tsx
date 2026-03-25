@@ -127,11 +127,25 @@ export function TransactionCreate() {
   const effectiveAmountTendered = amountTendered === '' ? totalCents / 100 : Number(amountTendered || 0);
   const changeCents = paymentMethod === 'cash' && (amountTendered !== '' || totalCents > 0) ? Math.max(0, toCents(effectiveAmountTendered) - totalCents) : 0;
 
-  const prevTotalRef = useRef(0);
+  /** Cents last written by auto-sync; used so we can bump the field when tax/tip loads without clobbering manual edits. */
+  const autoSyncTotalCentsRef = useRef<number | null>(null);
   useEffect(() => {
-    if (totalCents > 0 && prevTotalRef.current === 0) setAmountTendered((totalCents / 100).toFixed(2));
-    prevTotalRef.current = totalCents;
-  }, [totalCents]);
+    if (paymentMethod !== 'cash') return;
+    if (totalCents <= 0) {
+      setAmountTendered('');
+      autoSyncTotalCentsRef.current = null;
+      return;
+    }
+    setAmountTendered((prev) => {
+      const parsed = prev === '' ? null : toCents(Number(prev));
+      const ref = autoSyncTotalCentsRef.current;
+      if (prev === '' || (parsed != null && ref != null && parsed === ref)) {
+        autoSyncTotalCentsRef.current = totalCents;
+        return (totalCents / 100).toFixed(2);
+      }
+      return prev;
+    });
+  }, [totalCents, paymentMethod]);
 
   const addService = (serviceId: string, name: string, priceDollars: number, qty: number = 1) => {
     const up = Math.round(priceDollars * 100);
@@ -432,13 +446,14 @@ export function TransactionCreate() {
           {paymentMethod === 'cash' && (
             <div className="space-y-2">
               <Label>{t('transactions.amountTendered')} ($)</Label>
+              <p className="text-xs text-muted-foreground">{t('transactions.amountTenderedIncludesTaxTip')}</p>
               <Input
                 type="number"
                 min={0}
                 step={0.01}
                 value={amountTendered}
                 onChange={(e) => setAmountTendered(e.target.value)}
-                placeholder={fromCents(totalCents).toFixed(2)}
+                placeholder={totalCents > 0 ? fromCents(totalCents).toFixed(2) : undefined}
               />
               {changeCents > 0 && (
                 <p className="text-sm text-muted-foreground">
