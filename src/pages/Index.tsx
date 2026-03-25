@@ -28,6 +28,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { DataDiagnostics } from '@/components/DataDiagnostics';
 import { AccountSettings } from '@/pages/AccountSettings';
 import { BusinessSettingsPage } from '@/pages/BusinessSettingsPage';
@@ -52,7 +53,8 @@ function RedirectLegacyEmployeeManagement() {
 
 /** Legacy URLs used .../payroll/employee/:id; canonical is .../payroll/staff/:id */
 function RedirectLegacyPayrollEmployee() {
-  const { employeeId, businessSlug } = useParams<{ employeeId: string; businessSlug?: string }>();
+  const { employeeId } = useParams<{ employeeId: string; businessSlug?: string }>();
+  const businessSlug = useResolvedBusinessSlug();
   const { pathname } = useLocation();
   if (!employeeId) return <Navigate to={businessSlug ? `/${businessSlug}/reports/payroll` : '/reports/payroll'} replace />;
   const isTimesheet = pathname.endsWith('/timesheet');
@@ -78,7 +80,7 @@ const Index = () => {
   const { business } = useAuth();
   useCanonicalSlugRedirect(business);
   const navigate = useNavigate();
-  const { businessSlug } = useParams<{ businessSlug?: string }>();
+  const businessSlug = useResolvedBusinessSlug();
   const location = useLocation();
 
   // When locked, employees should only see the time kiosk (and any navigation attempt is redirected).

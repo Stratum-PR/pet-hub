@@ -6,7 +6,7 @@ import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { validateCreatePayload, validateRefundPayload, validateUpdatePayload } from '@/lib/transactionValidation';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
-import { staffIdForBusinessOrNull } from '@/lib/staffFkGuard';
+import { profileIdForTransactionFkOrNull } from '@/lib/staffFkGuard';
 import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import type {
@@ -25,6 +25,8 @@ export type FetchTransactionByIdResult =
   | { ok: true; transaction: Transaction; lineItems: TransactionLineItem[] }
   | { ok: false; notFound: true }
   | { ok: false; error: string };
+
+export type UpdateTransactionResult = { ok: true } | { ok: false; error: string };
 
 function mapRowToTransaction(row: any): Transaction {
   return {
@@ -97,7 +99,7 @@ export function loadDemoTransactionEntries(businessId: string): { transaction: T
 
 export function useTransactions() {
   const businessId = useBusinessId();
-  const { user, staffId } = useAuth();
+  const { user } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
   const [serverTransactions, setServerTransactions] = useState<Transaction[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -348,7 +350,7 @@ export function useTransactions() {
 
     if (!user?.id) return { data: null, error: 'You must be signed in to create a transaction.' };
 
-    const effectiveStaffId = await staffIdForBusinessOrNull(staffId, businessId);
+    const effectiveStaffId = await profileIdForTransactionFkOrNull(user.id, businessId);
 
     const txnPayload = {
       business_id: businessId,
@@ -444,65 +446,87 @@ export function useTransactions() {
       return true;
     }
     const { data: current } = await supabase.from('transactions' as any).select('status').eq('id', id).eq('business_id', businessId).single();
-    const { error } = await supabase.from('transactions' as any).update({ status, updated_at: new Date().toISOString() }).eq('id', id).eq('business_id', businessId);
-    if (!error) {
-      setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
-      if (user?.id && current?.status !== status) {
-        await supabase.from('transaction_history' as any).insert({
-          transaction_id: id,
-          business_id: businessId,
-          changed_by_user_id: user.id,
-          change_summary: [{ field: 'status', old_value: current?.status, new_value: status }],
-        });
-      }
-      return true;
+    const { data: updatedRow, error } = await supabase
+      .from('transactions' as any)
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('business_id', businessId)
+      .select('id')
+      .maybeSingle();
+    if (error) {
+      if (import.meta.env.DEV) console.error('[useTransactions] updateTransactionStatus', error);
+      return false;
     }
-    return false;
+    if (!updatedRow) return false;
+    setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+    if (user?.id && current?.status !== status) {
+      await supabase.from('transaction_history' as any).insert({
+        transaction_id: id,
+        business_id: businessId,
+        changed_by_user_id: user.id,
+        change_summary: [{ field: 'status', old_value: current?.status, new_value: status }],
+      });
+    }
+    return true;
   };
 
   type TransactionUpdatePatch = Partial<Pick<Transaction, 'payment_method' | 'payment_method_secondary' | 'total' | 'amount_tendered' | 'change_given' | 'notes' | 'status'>>;
 
-  const updateTransaction = async (id: string, patch: TransactionUpdatePatch): Promise<boolean> => {
-    if (!businessId) return false;
+  const updateTransaction = async (id: string, patch: TransactionUpdatePatch): Promise<UpdateTransactionResult> => {
+    if (!businessId) return { ok: false, error: 'No business selected.' };
     const validation = validateUpdatePayload(patch as any);
-    if (!validation.valid) return false;
+    if (!validation.valid) return { ok: false, error: validation.error };
     if (id.startsWith('local-') && isDemoLocalMode()) {
       setLocalDemoEntries((prev) =>
         prev.map((e) =>
           e.transaction.id === id ? { ...e, transaction: { ...e.transaction, ...patch } } : e
         )
       );
-      return true;
+      return { ok: true };
     }
     if (demoBrowseOnly) {
       setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-      return true;
+      return { ok: true };
     }
     const { data: current } = await supabase.from('transactions' as any).select('payment_method, payment_method_secondary, total, amount_tendered, change_given, notes, status').eq('id', id).eq('business_id', businessId).single();
     const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
-    const { error } = await supabase.from('transactions' as any).update(payload).eq('id', id).eq('business_id', businessId);
-    if (!error) {
-      setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-      if (current) {
-        const summary: { field: string; old_value: unknown; new_value: unknown }[] = [];
-        const keys = ['payment_method', 'payment_method_secondary', 'total', 'amount_tendered', 'change_given', 'notes', 'status'] as const;
-        for (const k of keys) {
-          if (k in patch && (current as any)[k] !== (patch as any)[k]) {
-            summary.push({ field: k, old_value: (current as any)[k], new_value: (patch as any)[k] });
-          }
-        }
-        if (summary.length > 0) {
-          await supabase.from('transaction_history' as any).insert({
-            transaction_id: id,
-            business_id: businessId,
-            changed_by_user_id: user?.id ?? null,
-            change_summary: summary,
-          });
+    const { data: updatedRow, error } = await supabase
+      .from('transactions' as any)
+      .update(payload)
+      .eq('id', id)
+      .eq('business_id', businessId)
+      .select('id')
+      .maybeSingle();
+    if (error) {
+      if (import.meta.env.DEV) console.error('[useTransactions] updateTransaction', error);
+      return { ok: false, error: error.message || 'Failed to update transaction.' };
+    }
+    if (!updatedRow) {
+      return {
+        ok: false,
+        error: 'Could not update this transaction. It may have been removed or your account may not have permission to edit it.',
+      };
+    }
+    setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    if (current) {
+      const summary: { field: string; old_value: unknown; new_value: unknown }[] = [];
+      const keys = ['payment_method', 'payment_method_secondary', 'total', 'amount_tendered', 'change_given', 'notes', 'status'] as const;
+      for (const k of keys) {
+        if (k in patch && (current as any)[k] !== (patch as any)[k]) {
+          summary.push({ field: k, old_value: (current as any)[k], new_value: (patch as any)[k] });
         }
       }
-      return true;
+      if (summary.length > 0) {
+        const { error: histErr } = await supabase.from('transaction_history' as any).insert({
+          transaction_id: id,
+          business_id: businessId,
+          changed_by_user_id: user?.id ?? null,
+          change_summary: summary,
+        });
+        if (histErr && import.meta.env.DEV) console.warn('[useTransactions] transaction_history insert', histErr);
+      }
     }
-    return false;
+    return { ok: true };
   };
 
   const createRefund = async (
@@ -543,7 +567,7 @@ export function useTransactions() {
     const { data: txn, error: txnErr } = await supabase.from('transactions' as any).select('*').eq('id', transactionId).eq('business_id', businessId).single();
     if (txnErr || !txn) return { data: null, error: txnErr?.message ?? 'Transaction not found.' };
 
-    const refundStaffId = await staffIdForBusinessOrNull(staffId, businessId);
+    const refundStaffId = await profileIdForTransactionFkOrNull(user.id, businessId);
 
     const { data: productItems } = await supabase.from('transaction_line_items' as any).select('*').eq('transaction_id', transactionId).eq('type', 'product');
     const items = (productItems ?? []) as any[];

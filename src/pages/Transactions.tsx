@@ -128,9 +128,9 @@ export function Transactions() {
 
   const handleMarkAsPaid = async (e: React.MouseEvent, txn: (typeof rawTransactions)[0]) => {
     e.stopPropagation();
-    const ok = await updateTransaction(txn.id, { amount_tendered: txn.total, status: 'paid', change_given: 0 });
-    if (ok) toast.success(t('transactions.markedAsPaid') ?? 'Marked as paid');
-    else toast.error(t('common.genericError'));
+    const result = await updateTransaction(txn.id, { amount_tendered: txn.total, status: 'paid', change_given: 0 });
+    if (result.ok) toast.success(t('transactions.markedAsPaid') ?? 'Marked as paid');
+    else toast.error(result.error || t('common.genericError'));
   };
 
   const filtered = rawTransactions.filter((txn) => {

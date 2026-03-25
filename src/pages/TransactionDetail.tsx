@@ -277,20 +277,20 @@ export function TransactionDetail() {
     const amountTendered = editAmountTendered === '' ? null : Math.round(parseFloat(editAmountTendered || '0') * 100);
     const amountPaid = amountTendered ?? 0;
     const status = getPaymentStatusFromAmount(amountPaid, totalCents);
-    const ok = await updateTransaction(transactionId, {
+    const editResult = await updateTransaction(transactionId, {
       payment_method: editPaymentMethod as Transaction['payment_method'],
       total: totalCents,
       amount_tendered: amountTendered,
       notes: editNotes.trim() || null,
       status,
     });
-    if (ok) {
+    if (editResult.ok) {
       setTransaction((t) => t ? { ...t, payment_method: editPaymentMethod as Transaction['payment_method'], total: totalCents, amount_tendered: amountTendered, notes: editNotes.trim() || null, status } : null);
       setEditOpen(false);
       if (transactionId) fetchTransactionHistory(transactionId).then(setHistoryEntries);
       toast.success(t('common.saved'));
     } else {
-      toast.error(t('common.genericError'));
+      toast.error(editResult.error || t('common.genericError'));
     }
   };
 
@@ -394,12 +394,12 @@ export function TransactionDetail() {
 
   const handleMarkAsPaid = async () => {
     if (!transactionId || !transaction) return;
-    const ok = await updateTransaction(transactionId, {
+    const markPaidResult = await updateTransaction(transactionId, {
       amount_tendered: transaction.total,
       status: 'paid',
       change_given: 0,
     });
-    if (ok) {
+    if (markPaidResult.ok) {
       setTransaction((t) => (t ? { ...t, amount_tendered: transaction.total, status: 'paid' } : null));
       // Show "Marked as paid" in history immediately and keep it visible
       const optimisticEntry: import('@/types/transactions').TransactionHistoryEntry = {
@@ -430,7 +430,7 @@ export function TransactionDetail() {
           return entries;
         });
       }, 600);
-    } else toast.error(t('common.genericError'));
+    } else toast.error(markPaidResult.error || t('common.genericError'));
   };
 
   return (

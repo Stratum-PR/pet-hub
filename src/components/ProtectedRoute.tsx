@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { setLastRoute } from '@/lib/authRouting';
 import { PostLoginLoading } from '@/components/PostLoginLoading';
@@ -168,6 +168,16 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     checkSession();
   }, [user, loading, isPublicBusinessRoute]);
 
+  // Session storage says we're signed in but AuthContext never got a user (stale tab, refresh race, etc.) — don't leave a blank screen forever.
+  useEffect(() => {
+    if (isPublicBusinessRoute || user) return;
+    if (!sessionChecked || hasSession !== true) return;
+    const t = window.setTimeout(() => {
+      navigate('/', { replace: true });
+    }, 12000);
+    return () => window.clearTimeout(t);
+  }, [isPublicBusinessRoute, user, sessionChecked, hasSession, navigate]);
+
   // For public business routes (demo, Pet Esthetic), always render children without auth UI states
   if (isPublicBusinessRoute) {
     return <>{children}</>;
@@ -207,12 +217,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       );
     }
     
-    // No session found
-    return (
-      <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
-        Not authenticated. Please go to <a href="/login">/login</a> to sign in.
-      </div>
-    );
+    // No session — send to marketing home instead of a dead-end / blank-feeling page
+    return <Navigate to="/" replace />;
   }
   if (requireAdmin && !isAdmin) {
     if (import.meta.env.DEV) console.warn('[ProtectedRoute] Blocked admin route render', location.pathname);

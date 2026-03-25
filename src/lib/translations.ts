@@ -742,6 +742,10 @@ export const translations: Translations = {
   'transactions.payment': { en: 'Payment', es: 'Pago' },
   'transactions.paymentMethod': { en: 'Payment method', es: 'Método de pago' },
   'transactions.amountTendered': { en: 'Amount tendered', es: 'Monto entregado' },
+  'transactions.amountTenderedIncludesTaxTip': {
+    en: 'Default matches total due below (subtotal after discount, tax, and tip).',
+    es: 'Por defecto coincide con el total inferior (subtotal tras descuento, impuesto y propina).',
+  },
   'transactions.changeDue': { en: 'Change due', es: 'Cambio' },
   'transactions.notes': { en: 'Notes', es: 'Notas' },
   'transactions.notesPlaceholder': { en: 'Optional internal note', es: 'Nota interna opcional' },

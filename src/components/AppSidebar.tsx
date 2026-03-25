@@ -1,4 +1,5 @@
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import {
   LayoutDashboard,
   Users,
@@ -90,7 +91,7 @@ export function AppSidebar({
   navbarLogoSizePx = 80,
   mobile,
 }: AppSidebarProps) {
-  const { businessSlug } = useParams();
+  const businessSlug = useResolvedBusinessSlug();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { role } = useAuth();

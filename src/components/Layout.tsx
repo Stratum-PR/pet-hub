@@ -1,4 +1,5 @@
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { Menu, LogOut, Bell } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useCallback } from 'react';
@@ -84,7 +85,7 @@ function getPageTitle(pathname: string, businessSlug: string | undefined): strin
 export function Layout({ children, settings }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { businessSlug } = useParams();
+  const businessSlug = useResolvedBusinessSlug();
   const businessId = useBusinessId();
   const { isAdmin, profile } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
