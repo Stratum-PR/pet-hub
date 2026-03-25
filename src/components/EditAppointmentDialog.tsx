@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { BusinessClient, Pet, Service, Appointment } from '@/hooks/useBusinessData';
 import { Employee } from '@/types';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { ensureAppointmentServiceIds } from '@/lib/appointmentServiceResolution';
 import { t } from '@/lib/translations';
 
 // Time slots in 24-hour format for internal use
@@ -58,6 +60,7 @@ export function EditAppointmentDialog({
   onUpdate,
   onSuccess,
 }: EditAppointmentDialogProps) {
+  const businessId = useBusinessId();
   const normalizedClients: BusinessClient[] = Array.isArray(clients) ? clients : [];
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -100,11 +103,18 @@ export function EditAppointmentDialog({
           timeStr = '09:00';
         }
         
-        // Parse services from service_type string - handle null/undefined
-        let serviceNames: string[] = [];
+        // Parse services: prefer catalog id, then service_type labels
+        const serviceNames: string[] = [];
         try {
+          const sid = (appointment as { service_id?: string | null }).service_id;
+          if (sid) {
+            const svc = services.find((s) => s.id === sid);
+            if (svc) serviceNames.push(svc.name);
+          }
           if (appointment.service_type) {
-            serviceNames = appointment.service_type.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            for (const part of appointment.service_type.split(',').map((s) => s.trim()).filter(Boolean)) {
+              if (!serviceNames.includes(part)) serviceNames.push(part);
+            }
           }
         } catch (e) {
           console.error('Error parsing services:', e);
@@ -147,7 +157,7 @@ export function EditAppointmentDialog({
         setSelectedTime('09:00');
       }
     }
-  }, [appointment, open, pets, clients]);
+  }, [appointment, open, pets, clients, services]);
 
   // Fetch existing appointments for the selected date (excluding current appointment)
   useEffect(() => {
@@ -289,19 +299,32 @@ export function EditAppointmentDialog({
       const [hours, minutes] = selectedTime.split(':');
       const appointmentDate = setMinutes(setHours(selectedDate, parseInt(hours)), parseInt(minutes));
       
-      const serviceType = formData.services.join(', ');
-      const estimatedPrice = formData.services.reduce((total, serviceName) => {
-        const service = services.find(s => s.name === serviceName);
-        return total + (service?.price || 0);
-      }, 0);
+      const biz = businessId ?? (appointment as { business_id?: string }).business_id;
+      if (!biz) {
+        alert('Business not loaded. Please refresh and try again.');
+        setLoading(false);
+        return;
+      }
+
+      const svcRes = await ensureAppointmentServiceIds(
+        biz,
+        formData.services,
+        services.map((s) => ({ id: s.id, name: s.name, price: s.price }))
+      );
+      if (!svcRes.ok) {
+        alert(svcRes.error);
+        setLoading(false);
+        return;
+      }
 
       onUpdate(appointment.id, {
         pet_id: formData.petId,
         staff_id: formData.staffId && formData.staffId !== '__unassigned__' ? formData.staffId : null,
         scheduled_date: appointmentDate.toISOString(),
-        service_type: serviceType,
+        service_id: svcRes.primaryServiceId,
+        service_type: svcRes.serviceType,
         status: formData.status,
-        price: estimatedPrice,
+        price: formData.price,
         notes: formData.notes,
       });
 

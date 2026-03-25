@@ -123,19 +123,27 @@ export function BusinessAppointments() {
   const handleUpdateAppointment = async (id: string, appointmentData: any) => {
     // Convert to new schema format
     const updateData: any = {};
-    
-    if (appointmentData.appointment_date) {
+
+    if (appointmentData.scheduled_date) {
+      const d = new Date(appointmentData.scheduled_date);
+      updateData.scheduled_date = appointmentData.scheduled_date;
+      updateData.appointment_date = format(d, 'yyyy-MM-dd');
+      updateData.start_time = format(d, 'HH:mm');
+    } else if (appointmentData.appointment_date) {
       updateData.appointment_date = format(appointmentData.appointment_date, 'yyyy-MM-dd');
     }
     if (appointmentData.start_time) updateData.start_time = appointmentData.start_time;
     if (appointmentData.end_time) updateData.end_time = appointmentData.end_time;
     if (appointmentData.client_id) updateData.client_id = appointmentData.client_id;
     if (appointmentData.pet_id) updateData.pet_id = appointmentData.pet_id;
-    if (appointmentData.service_id) updateData.service_id = appointmentData.service_id;
+    if (appointmentData.service_id !== undefined) updateData.service_id = appointmentData.service_id;
+    if (appointmentData.service_type !== undefined) updateData.service_type = appointmentData.service_type;
     if (appointmentData.status) updateData.status = appointmentData.status;
     if (appointmentData.total_price !== undefined) updateData.total_price = appointmentData.total_price;
+    if (appointmentData.price !== undefined) updateData.price = appointmentData.price;
+    if (appointmentData.staff_id !== undefined) updateData.staff_id = appointmentData.staff_id;
     if (appointmentData.notes !== undefined) updateData.notes = appointmentData.notes;
-    
+
     await updateAppointment(id, updateData);
     setEditDialogOpen(false);
     setEditingAppointment(null);

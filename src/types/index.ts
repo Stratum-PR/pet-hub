@@ -144,8 +144,15 @@ export interface EmployeeShift {
 export interface Appointment {
   id: string;
   pet_id: string;
-  staff_id?: string;
+  /** Optional: staff assigned to perform the service. */
+  staff_id?: string | null;
+  /** Staff row linked to the user who created the booking (analytics / attribution). */
+  booked_by_staff_id?: string | null;
+  /** Primary catalog service; should be set for POS and reporting. */
+  service_id?: string | null;
+  client_id?: string | null;
   scheduled_date: string;
+  appointment_date?: string;
   service_type: string;
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
   price: number;

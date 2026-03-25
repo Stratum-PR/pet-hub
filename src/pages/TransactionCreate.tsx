@@ -51,7 +51,13 @@ export function TransactionCreate() {
   // Prefill from appointment when opened via ?appointmentId=...
   useEffect(() => {
     if (!urlAppointmentId || prefilledFromAppointment.current || appointments.length === 0) return;
-    const apt = appointments.find((a: { id: string }) => a.id === urlAppointmentId) as { client_id?: string; service_id?: string; total_price?: number; price?: number } | undefined;
+    const apt = appointments.find((a: { id: string }) => a.id === urlAppointmentId) as {
+      client_id?: string;
+      service_id?: string | null;
+      service_type?: string | null;
+      total_price?: number;
+      price?: number;
+    } | undefined;
     if (!apt) return;
     prefilledFromAppointment.current = true;
     const clientId = (apt as { client_id?: string }).client_id ?? null;
@@ -59,23 +65,37 @@ export function TransactionCreate() {
     setAppointmentId(urlAppointmentId);
     const priceDollars = Number((apt as { total_price?: number }).total_price ?? (apt as { price?: number }).price ?? 0);
     const unitPriceCents = Math.round(priceDollars * 100);
-    const serviceId = (apt as { service_id?: string }).service_id;
+    const serviceId = apt.service_id ?? null;
+    const serviceTypeFirst = String(apt.service_type ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .find(Boolean);
+
     let name: string;
     let refId: string;
     let up: number;
+
     if (serviceId) {
       const svc = services.find((s: { id: string }) => s.id === serviceId);
       if (svc) {
         name = svc.name;
         refId = svc.id;
         up = Math.round(Number(svc.price) * 100);
+      } else if (serviceTypeFirst) {
+        name = serviceTypeFirst;
+        refId = serviceId;
+        up = unitPriceCents;
       } else {
-        name = `Appointment ${urlAppointmentId.slice(0, 8)}`;
-        refId = 'appointment';
+        name = 'Service';
+        refId = serviceId;
         up = unitPriceCents;
       }
+    } else if (serviceTypeFirst) {
+      name = serviceTypeFirst;
+      refId = 'service_type';
+      up = unitPriceCents;
     } else {
-      name = `Appointment ${urlAppointmentId.slice(0, 8)}`;
+      name = 'Service';
       refId = 'appointment';
       up = unitPriceCents;
     }

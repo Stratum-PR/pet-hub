@@ -6,6 +6,7 @@ import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { validateCreatePayload, validateRefundPayload, validateUpdatePayload } from '@/lib/transactionValidation';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
+import { staffIdForBusinessOrNull } from '@/lib/staffFkGuard';
 import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import type {
@@ -347,11 +348,13 @@ export function useTransactions() {
 
     if (!user?.id) return { data: null, error: 'You must be signed in to create a transaction.' };
 
+    const effectiveStaffId = await staffIdForBusinessOrNull(staffId, businessId);
+
     const txnPayload = {
       business_id: businessId,
       customer_id: payload.customer_id,
       appointment_id: payload.appointment_id,
-      staff_id: staffId ?? null,
+      staff_id: effectiveStaffId,
       status: payload.status,
       payment_method: payload.payment_method,
       payment_method_secondary: payload.payment_method_secondary,
@@ -540,6 +543,8 @@ export function useTransactions() {
     const { data: txn, error: txnErr } = await supabase.from('transactions' as any).select('*').eq('id', transactionId).eq('business_id', businessId).single();
     if (txnErr || !txn) return { data: null, error: txnErr?.message ?? 'Transaction not found.' };
 
+    const refundStaffId = await staffIdForBusinessOrNull(staffId, businessId);
+
     const { data: productItems } = await supabase.from('transaction_line_items' as any).select('*').eq('transaction_id', transactionId).eq('type', 'product');
     const items = (productItems ?? []) as any[];
     const productRefIds = items.map((i) => i.reference_id).filter(Boolean);
@@ -552,7 +557,7 @@ export function useTransactions() {
         transaction_id: transactionId,
         amount: amountCents,
         reason,
-        staff_id: staffId ?? null,
+        staff_id: refundStaffId,
         restock_applied: restockProductIds.length > 0,
       })
       .select()

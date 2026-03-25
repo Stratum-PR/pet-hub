@@ -15,6 +15,9 @@ import { DOG_BREEDS } from '@/lib/dogBreeds';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { BusinessClient, Pet, Service } from '@/hooks/useBusinessData';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useAuth } from '@/contexts/AuthContext';
+import { ensureAppointmentServiceIds } from '@/lib/appointmentServiceResolution';
+import { staffIdForBusinessOrNull } from '@/lib/staffFkGuard';
 import { t } from '@/lib/translations';
 
 const CAT_BREEDS = [
@@ -92,6 +95,7 @@ export function BookingFormDialog({
   onAddAppointment,
 }: BookingFormDialogProps) {
   const businessId = useBusinessId();
+  const { staffId } = useAuth();
   // Defensive defaults: during demo/public mode or while data hooks are loading,
   // these can be temporarily undefined. Avoid runtime crashes.
   const safeClients: BusinessClient[] = Array.isArray(clients) ? clients : [];
@@ -225,6 +229,10 @@ export function BookingFormDialog({
       alert('Please fill in all required fields');
       return;
     }
+    if (!businessId) {
+      alert('Business not loaded. Please refresh and try again.');
+      return;
+    }
 
     setLoading(true);
 
@@ -286,14 +294,24 @@ export function BookingFormDialog({
         const [hours, minutes] = selectedTime.split(':');
         const appointmentDate = setMinutes(setHours(selectedDate, parseInt(hours)), parseInt(minutes));
         
-        const serviceType = formData.services.join(', ');
-        const estimatedPrice = formData.services.reduce((total, serviceName) => {
-          const service = services.find(s => s.name === serviceName);
-          return total + (service?.price || 0);
-        }, 0);
+        const svcResolve = await ensureAppointmentServiceIds(
+          businessId,
+          formData.services,
+          safeServices.map((s) => ({ id: s.id, name: s.name, price: s.price }))
+        );
+        if (!svcResolve.ok) {
+          alert(svcResolve.error);
+          setLoading(false);
+          return;
+        }
 
-        // Find the primary service ID
-        const primaryService = safeServices.find(s => formData.services.includes(s.name));
+        const { data: priceRows } = await supabase
+          .from('services')
+          .select('price')
+          .in('id', svcResolve.serviceIds);
+        const estimatedPrice = (priceRows ?? []).reduce((sum, r) => sum + Number((r as { price?: number }).price ?? 0), 0);
+
+        const bookedByStaffId = await staffIdForBusinessOrNull(staffId, businessId);
 
         const { data: newAppointment, error } = await supabase
           .from('appointments')
@@ -302,15 +320,16 @@ export function BookingFormDialog({
             business_id: businessId,
             client_id: clientId,
             pet_id: petId,
-            service_id: primaryService?.id || null,
+            service_id: svcResolve.primaryServiceId,
             appointment_date: format(selectedDate, 'yyyy-MM-dd'),
             start_time: selectedTime,
             scheduled_date: appointmentDate.toISOString(),
-            service_type: serviceType,
+            service_type: svcResolve.serviceType,
             status: 'scheduled',
             total_price: estimatedPrice,
             price: estimatedPrice,
-            notes: formData.notes || `Client: ${formData.clientName}\nPet: ${formData.petName}\nServices: ${serviceType}`,
+            booked_by_staff_id: bookedByStaffId,
+            notes: formData.notes || `Client: ${formData.clientName}\nPet: ${formData.petName}\nServices: ${svcResolve.serviceType}`,
           })
           .select()
           .single();
