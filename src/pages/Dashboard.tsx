@@ -88,8 +88,12 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 }
 
 function isGenericServiceLineLabel(name: string): boolean {
-  const s = name.trim().toLowerCase();
-  return s === '' || s === 'service';
+  const t = name.trim();
+  const s = t.toLowerCase();
+  if (s === '' || s === 'service') return true;
+  // Legacy POS fallback label from TransactionCreate — treat like generic so appointment/catalog names apply.
+  if (/^appointment\s+[0-9a-f]{8}$/i.test(t)) return true;
+  return false;
 }
 
 /**
