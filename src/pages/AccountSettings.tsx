@@ -140,7 +140,7 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshAuth } = useAuth();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
@@ -172,12 +172,20 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
   const [notifyBirthdays, setNotifyBirthdays] = useState(settings.notify_birthdays !== 'false');
   const [notifyGeneral, setNotifyGeneral] = useState(settings.notify_general !== 'false');
   const [savingNotifications, setSavingNotifications] = useState(false);
+  const [preferAdminDashboardOnLogin, setPreferAdminDashboardOnLogin] = useState(
+    !!profile?.prefer_admin_dashboard_on_login
+  );
+  const [savingLoginPreference, setSavingLoginPreference] = useState(false);
   const [staffDobDate, setStaffDobDate] = useState('');
   const [staffDobLoading, setStaffDobLoading] = useState(false);
   const [staffDobSaving, setStaffDobSaving] = useState(false);
   const primaryColorInputRef = useRef<HTMLInputElement | null>(null);
   const secondaryColorInputRef = useRef<HTMLInputElement | null>(null);
   const staffDobBounds = useMemo(() => employeeDobInputBounds(), []);
+
+  useEffect(() => {
+    setPreferAdminDashboardOnLogin(!!profile?.prefer_admin_dashboard_on_login);
+  }, [profile?.prefer_admin_dashboard_on_login]);
 
   useEffect(() => {
     if (demoLocalOnly || !profile?.staff_id) return;
@@ -395,6 +403,48 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                 <dd className="mt-1 font-medium text-foreground">{t('accountSettings.demoProfileEmailValue')}</dd>
               </div>
             </dl>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!demoLocalOnly && profile?.is_super_admin ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Admin sign-in</CardTitle>
+            <CardDescription>
+              Choose where you land after signing in. You can always open the Admin Dashboard from the app.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Open Admin Dashboard after sign-in</p>
+                <p className="text-xs text-muted-foreground">
+                  When off, sign-in opens your business workspace first (if you have one assigned).
+                </p>
+              </div>
+              <Switch
+                checked={preferAdminDashboardOnLogin}
+                disabled={savingLoginPreference}
+                onCheckedChange={async (checked) => {
+                  if (!user?.id) return;
+                  setPreferAdminDashboardOnLogin(checked);
+                  setSavingLoginPreference(true);
+                  const { error } = await supabase
+                    .from('profiles')
+                    .update({ prefer_admin_dashboard_on_login: checked } as Record<string, unknown>)
+                    .eq('id', user.id);
+                  setSavingLoginPreference(false);
+                  if (error) {
+                    toast.error(error.message);
+                    setPreferAdminDashboardOnLogin(!checked);
+                    return;
+                  }
+                  await refreshAuth();
+                  toast.success('Sign-in preference saved');
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
       ) : null}

@@ -50,11 +50,6 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     // IMPORTANT: Do NOT auto-redirect; just let the UI render a message.
     // Auto-redirects combined with async auth hydration can cause loops.
 
-    if (requireAdmin && !isAdmin) {
-      if (import.meta.env.DEV) console.warn('[ProtectedRoute] Admin route accessed by non-admin', location.pathname);
-      navigate('/', { replace: true });
-      return;
-    }
   }, [loading, user, isAdmin, requireAdmin, location.pathname, location.search, navigate, isPublicBusinessRoute]);
 
   // Persist last route for refresh/new tab restores (never store landing/login)
@@ -221,13 +216,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     return <Navigate to="/" replace />;
   }
   if (requireAdmin && !isAdmin) {
-    if (import.meta.env.DEV) console.warn('[ProtectedRoute] Blocked admin route render', location.pathname);
-    return (
-      <div style={{ padding: 16, fontFamily: 'ui-sans-serif, system-ui' }}>
-        <h2 style={{ color: '#dc2626', marginBottom: 8 }}>Access Denied</h2>
-        <p>You do not have permission to access this page.</p>
-      </div>
-    );
+    return <Navigate to="/" replace />;
   }
 
   if (businessSlug && user && profile != null && profile.business_id == null && !requireAdmin && !clientLinkChecked) {

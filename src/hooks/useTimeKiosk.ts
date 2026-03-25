@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
 import type { Employee, TimeEntry, TimeEntryEditRequest } from '@/types';
 import { useGeolocation, GeolocationPosition } from './useGeolocation';
+import { useFeatureRollout } from './useFeatureRollout';
 export interface ClockInOutResult {
   success: boolean;
   action: 'clock_in' | 'clock_out';
@@ -29,6 +30,7 @@ export interface ScheduleCheckResult {
 
 export function useTimeKiosk() {
   const businessId = useBusinessId();
+  const { viewerTier, isSuperAdmin } = useFeatureRollout();
   const { getCurrentLocation } = useGeolocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +147,7 @@ export function useTimeKiosk() {
           p_latitude: geolocation?.latitude || null,
           p_longitude: geolocation?.longitude || null,
           p_location_name: locationName,
+          ...(isSuperAdmin ? { p_support_feature_tier: viewerTier } : {}),
         });
 
         if (err) {
@@ -170,7 +173,7 @@ export function useTimeKiosk() {
         };
       }
     },
-    [businessId, getCurrentLocation]
+    [businessId, getCurrentLocation, isSuperAdmin, viewerTier]
   );
 
   /**

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
-import { Menu, LogOut, Bell } from 'lucide-react';
+import { Menu, LogOut, Bell, LayoutDashboard } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import {
 import { Settings as SettingsType } from '@/hooks/useSupabaseData';
 import { t } from '@/lib/translations';
 import { signOut } from '@/lib/auth';
-import { setDemoMode } from '@/lib/authRouting';
+import { setDemoMode, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -38,6 +38,10 @@ import {
 } from '@/lib/notificationDisplay';
 import { BirthdayCelebrationModal } from '@/components/BirthdayCelebrationModal';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useFeatureRollout } from '@/hooks/useFeatureRollout';
+import { SupportImpersonationDialogContent } from '@/components/SupportImpersonationDialog';
+import { SupportSessionBanner } from '@/components/SupportSessionBanner';
+import type { RolloutTier } from '@/lib/featureRollout';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 
@@ -88,11 +92,13 @@ export function Layout({ children, settings }: LayoutProps) {
   const businessSlug = useResolvedBusinessSlug();
   const businessId = useBusinessId();
   const { isAdmin, profile } = useAuth();
+  const { viewerTier, setViewerTier, isSuperAdmin } = useFeatureRollout();
   const { setTheme, resolvedTheme } = useTheme();
   const { notifications, markRead, markAllRead } = useNotifications();
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [supportImpersonationOpen, setSupportImpersonationOpen] = useState(false);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   const [birthdayModalPayload, setBirthdayModalPayload] = useState<{
     firstName: string;
@@ -428,7 +434,15 @@ export function Layout({ children, settings }: LayoutProps) {
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent
+                  align="end"
+                  className={cn(
+                    'w-56',
+                    isSuperAdmin &&
+                      !onDemoWorkspace &&
+                      'w-[min(100vw-2rem,22rem)] max-h-[min(85vh,36rem)] overflow-y-auto'
+                  )}
+                >
                   {onDemoWorkspace && (
                     <>
                       <DropdownMenuLabel className="text-xs font-normal text-muted-foreground leading-snug">
@@ -436,6 +450,54 @@ export function Layout({ children, settings }: LayoutProps) {
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
                     </>
+                  )}
+                  {isSuperAdmin && !onDemoWorkspace && (
+                    <>
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        {t('layout.featurePreviewChannel')}
+                      </DropdownMenuLabel>
+                      <div className="flex gap-1 px-2 pb-2">
+                        {(['production', 'staged', 'development'] as const).map((tier: RolloutTier) => (
+                          <Button
+                            key={tier}
+                            type="button"
+                            size="sm"
+                            variant={viewerTier === tier ? 'default' : 'outline'}
+                            className="h-8 flex-1 px-1 text-[10px] leading-tight"
+                            onClick={() => setViewerTier(tier)}
+                          >
+                            {tier === 'production'
+                              ? t('layout.tierProduction')
+                              : tier === 'staged'
+                                ? t('layout.tierStaged')
+                                : t('layout.tierDevelopment')}
+                          </Button>
+                        ))}
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          setSupportImpersonationOpen(true);
+                        }}
+                      >
+                        {t('layout.supportSignInAsUser')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  {isSuperAdmin && !onDemoWorkspace && (
+                    <DropdownMenuItem
+                      className="flex items-center gap-2 cursor-pointer"
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        setAuthContext(AUTH_CONTEXTS.ADMIN);
+                        navigate('/admin');
+                      }}
+                    >
+                      <LayoutDashboard className="w-4 h-4 shrink-0" />
+                      {t('nav.adminHome')}
+                    </DropdownMenuItem>
                   )}
                   <DropdownMenuItem asChild>
                     <Link to={`${settingsBase}/account`}>
@@ -471,6 +533,7 @@ export function Layout({ children, settings }: LayoutProps) {
           </header>
 
           {!showAdminHeader && <ImpersonationBanner />}
+          {!showAdminHeader && <SupportSessionBanner />}
 
           <main
             className={cn(
@@ -528,6 +591,11 @@ export function Layout({ children, settings }: LayoutProps) {
           />
         </SheetContent>
       </Sheet>
+
+      <SupportImpersonationDialogContent
+        open={supportImpersonationOpen}
+        onOpenChange={setSupportImpersonationOpen}
+      />
 
       <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <DialogContent>

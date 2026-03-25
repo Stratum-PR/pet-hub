@@ -19,7 +19,6 @@ import { SignupSuccess } from "@/pages/SignupSuccess";
 import { ClientPlaceholder } from "@/pages/ClientPlaceholder";
 import Index from "@/pages/Index";
 import { AdminDashboard } from "@/pages/AdminDashboard";
-import { AdminBusinessDetail } from "@/pages/AdminBusinessDetail";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
@@ -68,6 +67,9 @@ const App = () => (
                 }
               />
 
+              {/* Impersonation (must be before /admin/* so the splat does not consume this path) */}
+              <Route path="/admin/impersonate/:token" element={<ImpersonateHandler />} />
+
               {/* Admin Portal Routes */}
               <Route
                 path="/admin/*"
@@ -75,17 +77,10 @@ const App = () => (
                   <ProtectedRoute requireAdmin>
                     <Routes>
                       <Route path="/" element={<AdminDashboard />} />
-                      <Route path="/businesses/:id" element={<AdminBusinessDetail />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </ProtectedRoute>
                 }
-              />
-
-              {/* Impersonation Handler */}
-              <Route
-                path="/admin/impersonate/:token"
-                element={<ImpersonateHandler />}
               />
 
               {/* 404 */}

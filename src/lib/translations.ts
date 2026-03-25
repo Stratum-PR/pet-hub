@@ -641,6 +641,10 @@ export const translations: Translations = {
     en: 'User',
     es: 'Usuario'
   },
+  'nav.adminHome': {
+    en: 'Admin home',
+    es: 'Inicio de administración',
+  },
   'nav.accountSettings': {
     en: 'Account Settings',
     es: 'Configuración de cuenta'
@@ -696,6 +700,118 @@ export const translations: Translations = {
   'layout.demoSignedInWorkspaceHint': {
     en: 'This is a shared demo workspace: sample pets, appointments, and sales so you can explore the product safely. Nothing you change here is tied to a real business. Use Log out when you are done to leave the demo and return to the main site.',
     es: 'Este es un espacio demo compartido: mascotas, citas y ventas de ejemplo para que explores el producto con seguridad. Nada de lo que cambies aquí pertenece a un negocio real. Usa Cerrar sesión cuando termines para salir del demo y volver al sitio principal.',
+  },
+  'layout.featurePreviewChannel': {
+    en: 'Feature preview (super admin)',
+    es: 'Vista previa de funciones (super admin)',
+  },
+  'layout.tierProduction': {
+    en: 'Prod',
+    es: 'Prod',
+  },
+  'layout.tierStaged': {
+    en: 'Staged',
+    es: 'Staged',
+  },
+  'layout.tierDevelopment': {
+    en: 'Dev',
+    es: 'Dev',
+  },
+  'layout.supportSignInAsUser': {
+    en: 'Support: sign in as user…',
+    es: 'Soporte: iniciar sesión como usuario…',
+  },
+  'layout.supportDialogTitle': {
+    en: 'Support sign-in',
+    es: 'Inicio de sesión de soporte',
+  },
+  'layout.supportDialogDescription': {
+    en: 'You will receive a full session as the selected account (same data access as that user). Choose a business first, then a person with a linked login.',
+    es: 'Obtendrás una sesión completa de la cuenta seleccionada (mismo acceso a datos que ese usuario). Elige un negocio y luego una persona con inicio de sesión vinculado.',
+  },
+  'layout.supportBusiness': {
+    en: 'Business',
+    es: 'Negocio',
+  },
+  'layout.supportPickBusiness': {
+    en: 'Search business…',
+    es: 'Buscar negocio…',
+  },
+  'layout.supportTestAsMode': {
+    en: 'Test as',
+    es: 'Probar como',
+  },
+  'layout.supportModeRole': {
+    en: 'Role',
+    es: 'Rol',
+  },
+  'layout.supportModeUser': {
+    en: 'User',
+    es: 'Usuario',
+  },
+  'layout.supportAccessRole': {
+    en: 'Access role',
+    es: 'Rol de acceso',
+  },
+  'layout.supportAccessRoleAny': {
+    en: 'Any',
+    es: 'Cualquiera',
+  },
+  'layout.supportAccessRoleHint': {
+    en: 'Leave as Any to list everyone with a linked login; pick a role to narrow the list.',
+    es: 'Deje en Cualquiera para ver a todos con inicio de sesión vinculado; elija un rol para filtrar.',
+  },
+  'layout.supportErrorDetails': {
+    en: 'Error details (select text or use Copy)',
+    es: 'Detalles del error (selecciona el texto o usa Copiar)',
+  },
+  'layout.supportCopyDetails': {
+    en: 'Copy',
+    es: 'Copiar',
+  },
+  'layout.supportCopied': {
+    en: 'Copied to clipboard',
+    es: 'Copiado al portapapeles',
+  },
+  'layout.supportInvokeFailedShort': {
+    en: 'Support sign-in failed — see details below.',
+    es: 'Error al iniciar sesión de soporte — vea los detalles abajo.',
+  },
+  'layout.supportPickStaff': {
+    en: 'Staff member',
+    es: 'Miembro del equipo',
+  },
+  'layout.supportSearchStaff': {
+    en: 'Search staff…',
+    es: 'Buscar personal…',
+  },
+  'layout.supportStartSession': {
+    en: 'Start support session',
+    es: 'Iniciar sesión de soporte',
+  },
+  'layout.supportNoLinkedLogin': {
+    en: 'No staff in this business have a linked login.',
+    es: 'Nadie en este negocio tiene inicio de sesión vinculado.',
+  },
+  'layout.supportStaffFilterEmpty': {
+    en: 'No staff match this filter — try “Any” or another role.',
+    es: 'Nadie coincide con el filtro — prueba “Cualquiera” u otro rol.',
+  },
+  'layout.supportSessionBanner': {
+    en: 'Support view: you are signed in as',
+    es: 'Vista de soporte: has iniciado sesión como',
+  },
+  'layout.supportExitSession': {
+    en: 'Exit support view',
+    es: 'Salir de vista de soporte',
+  },
+  'layout.supportNeedBusiness': {
+    en: 'Select a business first.',
+    es: 'Selecciona un negocio primero.',
+  },
+  'layout.supportNeedStaff': {
+    en: 'Select a staff member with a linked account.',
+    es: 'Selecciona un miembro del equipo con cuenta vinculada.',
   },
   'layout.demoProfileMenuHint': {
     en: 'You are not signed in. This is a read-only tour with sample data.',

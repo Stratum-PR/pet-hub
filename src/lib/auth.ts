@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { clearAuthContext } from '@/lib/authRouting';
+import { clearSupportSessionMarkers } from '@/lib/supportSession';
 
 export interface Profile {
   id: string;
@@ -8,6 +9,8 @@ export interface Profile {
   avatar_url: string | null;
   is_super_admin: boolean;
   business_id: string | null;
+  /** When true, super admins land on /admin after sign-in instead of their business portal. */
+  prefer_admin_dashboard_on_login?: boolean;
   role?: 'super_admin' | 'manager' | 'employee' | 'client';
   /** When set, links this profile to a `staff` row for "My schedule" and clock in/out */
   staff_id?: string | null;
@@ -171,6 +174,9 @@ export async function requireSuperAdmin() {
  * Sign out the current user
  */
 export async function signOut() {
+  if (typeof window !== 'undefined') {
+    clearSupportSessionMarkers();
+  }
   // Clear impersonation first (before sign out)
   if (isImpersonating()) {
     if (typeof window !== 'undefined') {
