@@ -38,6 +38,7 @@ import {
 import { BirthdayCelebrationModal } from '@/components/BirthdayCelebrationModal';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
+import { isPublicDemoPath } from '@/lib/demoWorkspace';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -124,7 +125,7 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const handleLogout = async () => {
     try {
-      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/demo')) {
+      if (typeof window !== 'undefined' && isPublicDemoPath(window.location.pathname)) {
         setDemoMode(false);
       }
       setTheme('light');

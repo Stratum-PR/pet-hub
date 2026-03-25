@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,14 @@ import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { isDemoMode } from '@/lib/authRouting';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  isPublicSlugTakenByOtherBusiness,
+  isReservedPublicSlug,
+  isValidPublicSlugFormat,
+  normalizePublicSlugInput,
+  slugifyBusinessBase,
+} from '@/lib/businessSlug';
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
 import { Download, Plus, Trash2, Upload, ZoomIn, ZoomOut, X } from 'lucide-react';
@@ -38,6 +47,16 @@ import {
   parseBusinessHours,
   serializeBusinessHours,
 } from '@/lib/businessHours';
+import { cn } from '@/lib/utils';
+
+type PublicSlugCheckStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'current'
+  | 'taken'
+  | 'invalid'
+  | 'reserved';
 
 interface TaxRow {
   id: string | null;
@@ -68,6 +87,10 @@ function isPuertoRicoTaxSetup(rows: { label: string; rate: number }[]): boolean 
 
 export function BusinessSettingsPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { businessSlug: routeBusinessSlug } = useParams<{ businessSlug?: string }>();
+  const queryClient = useQueryClient();
+  const { business } = useAuth();
   const businessId = useBusinessId();
   const demoLocalOnly = useDemoLocalSettingsMode();
   const { settings, updateSetting, refetch } = useSettings();
@@ -116,6 +139,8 @@ export function BusinessSettingsPage() {
   const [defaultLowStock, setDefaultLowStock] = useState(settings.default_low_stock_threshold || '5');
   const [exporting, setExporting] = useState(false);
   const [businessName, setBusinessName] = useState(settings.business_name || '');
+  const [publicSlug, setPublicSlug] = useState(business?.slug?.trim() || '');
+  const [publicSlugCheck, setPublicSlugCheck] = useState<PublicSlugCheckStatus>('idle');
   const [hoursPerDay, setHoursPerDay] = useState<Record<DayKey, DayHours>>(() => parseBusinessHours(settings.business_hours));
   const [savingBusinessInfo, setSavingBusinessInfo] = useState(false);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -134,6 +159,52 @@ export function BusinessSettingsPage() {
     setBusinessName(settings.business_name || '');
     setHoursPerDay(parseBusinessHours(settings.business_hours));
   }, [settings.business_name, settings.business_hours]);
+
+  useEffect(() => {
+    setPublicSlug(business?.slug?.trim() || '');
+  }, [business?.slug]);
+
+  useEffect(() => {
+    if (demoLocalOnly || !businessId) {
+      setPublicSlugCheck('idle');
+      return;
+    }
+    const raw = publicSlug.trim();
+    if (!raw) {
+      setPublicSlugCheck('idle');
+      return;
+    }
+    const normalized = normalizePublicSlugInput(raw);
+    if (!isValidPublicSlugFormat(normalized)) {
+      setPublicSlugCheck('invalid');
+      return;
+    }
+    if (isReservedPublicSlug(normalized)) {
+      setPublicSlugCheck('reserved');
+      return;
+    }
+    const currentSlug = business?.slug?.trim() ?? '';
+    if (normalized === currentSlug) {
+      setPublicSlugCheck('current');
+      return;
+    }
+
+    setPublicSlugCheck('checking');
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const taken = await isPublicSlugTakenByOtherBusiness(supabase, normalized, businessId);
+        if (cancelled) return;
+        setPublicSlugCheck(taken ? 'taken' : 'available');
+      } catch {
+        if (!cancelled) setPublicSlugCheck('idle');
+      }
+    }, 420);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [publicSlug, businessId, business?.slug, demoLocalOnly]);
 
   useEffect(() => {
     setPayScheduleAnchorDate(settings.pay_schedule_anchor_date || todayIso);
@@ -333,15 +404,46 @@ export function BusinessSettingsPage() {
         toast.success(t('businessSettings.businessInfoSaved'));
         return;
       }
+      const nameTrimmed = businessName.trim() || '';
+      const nextSlug = normalizePublicSlugInput(publicSlug.trim());
+      if (!isValidPublicSlugFormat(nextSlug)) {
+        throw new Error(t('businessSettings.slugInvalid'));
+      }
+      if (isReservedPublicSlug(nextSlug)) {
+        throw new Error(t('businessSettings.slugReserved'));
+      }
+      if (await isPublicSlugTakenByOtherBusiness(supabase, nextSlug, businessId)) {
+        throw new Error(t('businessSettings.slugTaken'));
+      }
+      const prevSlug = business?.slug?.trim() || null;
+      if (prevSlug && prevSlug !== nextSlug) {
+        const { error: aliasErr } = await supabase.from('business_slug_aliases').insert({
+          old_slug: prevSlug,
+          business_id: businessId,
+        });
+        if (aliasErr && (aliasErr as { code?: string }).code !== '23505' && import.meta.env.DEV) {
+          console.warn('[BusinessSettings] slug alias', aliasErr);
+        }
+      }
       const { error: bizError } = await supabase
         .from('businesses')
         .update({
-          name: businessName.trim() || undefined,
+          name: nameTrimmed || undefined,
+          slug: nextSlug,
           phone: businessPhone.trim() || undefined,
           updated_at: new Date().toISOString(),
         })
         .eq('id', businessId);
       if (bizError) throw bizError;
+      setPublicSlug(nextSlug);
+      await queryClient.invalidateQueries({ queryKey: ['business', businessId] });
+      if (routeBusinessSlug && nextSlug !== routeBusinessSlug) {
+        const prefix = `/${routeBusinessSlug}`;
+        const suffix = location.pathname.startsWith(prefix)
+          ? location.pathname.slice(prefix.length)
+          : '/settings/business';
+        navigate(`/${nextSlug}${suffix}${location.search}${location.hash}`, { replace: true });
+      }
       const nameRes = await updateSetting('business_name', businessName.trim() || '');
       if (!nameRes.ok) throw new Error(nameRes.error);
       const hoursRes = await updateSetting('business_hours', serializeBusinessHours(hoursPerDay));
@@ -364,7 +466,12 @@ export function BusinessSettingsPage() {
       );
       toast.success(t('businessSettings.businessInfoSaved'));
     } catch (e: any) {
-      toast.error(e?.message || t('common.genericError'));
+      const code = e?.code as string | undefined;
+      if (code === '23505') {
+        toast.error(t('businessSettings.slugTaken'));
+      } else {
+        toast.error(e?.message || t('common.genericError'));
+      }
     } finally {
       setSavingBusinessInfo(false);
     }
@@ -719,6 +826,68 @@ export function BusinessSettingsPage() {
                 <Label htmlFor="business-name">{t('businessSettings.businessName')}</Label>
                 <Input id="business-name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Business name" />
               </div>
+              {!demoLocalOnly && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex-1 min-w-[200px] space-y-2">
+                      <Label htmlFor="business-public-slug">{t('businessSettings.publicUrl')}</Label>
+                      <Input
+                        id="business-public-slug"
+                        value={publicSlug}
+                        onChange={(e) => setPublicSlug(e.target.value)}
+                        placeholder="my-grooming-salon"
+                        autoComplete="off"
+                        spellCheck={false}
+                        className={cn(
+                          publicSlugCheck === 'taken' && 'border-destructive focus-visible:ring-destructive',
+                          (publicSlugCheck === 'available' || publicSlugCheck === 'current') &&
+                            'border-emerald-600/60 dark:border-emerald-500/50',
+                          (publicSlugCheck === 'invalid' || publicSlugCheck === 'reserved') &&
+                            'border-destructive focus-visible:ring-destructive',
+                        )}
+                        aria-invalid={
+                          publicSlugCheck === 'taken' ||
+                          publicSlugCheck === 'invalid' ||
+                          publicSlugCheck === 'reserved'
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">{t('businessSettings.publicUrlHint')}</p>
+                      {publicSlug.trim() !== '' && publicSlugCheck !== 'idle' && (
+                        <p
+                          className={cn(
+                            'text-xs',
+                            publicSlugCheck === 'checking' && 'text-muted-foreground',
+                            (publicSlugCheck === 'available' || publicSlugCheck === 'current') &&
+                              'text-emerald-600 dark:text-emerald-500',
+                            (publicSlugCheck === 'taken' ||
+                              publicSlugCheck === 'invalid' ||
+                              publicSlugCheck === 'reserved') &&
+                              'text-destructive',
+                          )}
+                          role="status"
+                          aria-live="polite"
+                        >
+                          {publicSlugCheck === 'checking' && t('businessSettings.slugCheckChecking')}
+                          {publicSlugCheck === 'available' && t('businessSettings.slugCheckAvailable')}
+                          {publicSlugCheck === 'current' && t('businessSettings.slugCheckCurrent')}
+                          {publicSlugCheck === 'taken' && t('businessSettings.slugTaken')}
+                          {publicSlugCheck === 'invalid' && t('businessSettings.slugCheckInvalidShort')}
+                          {publicSlugCheck === 'reserved' && t('businessSettings.slugCheckReservedShort')}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => setPublicSlug(slugifyBusinessBase(businessName))}
+                    >
+                      {t('businessSettings.slugSuggestFromName')}
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="business-phone">{t('businessSettings.phone')}</Label>
                 <Input id="business-phone" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} placeholder="(787) 555-5555" />
@@ -874,7 +1043,17 @@ export function BusinessSettingsPage() {
                   </div>
                 </div>
               </div>
-              <Button onClick={handleSaveBusinessInfo} disabled={savingBusinessInfo}>
+              <Button
+                onClick={handleSaveBusinessInfo}
+                disabled={
+                  savingBusinessInfo ||
+                  (!demoLocalOnly &&
+                    (publicSlugCheck === 'checking' ||
+                      publicSlugCheck === 'taken' ||
+                      publicSlugCheck === 'invalid' ||
+                      publicSlugCheck === 'reserved'))
+                }
+              >
                 {savingBusinessInfo ? t('common.saving') : t('common.save')}
               </Button>
             </div>

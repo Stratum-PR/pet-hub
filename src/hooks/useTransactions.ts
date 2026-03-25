@@ -7,6 +7,7 @@ import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
 import { validateCreatePayload, validateRefundPayload, validateUpdatePayload } from '@/lib/transactionValidation';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
+import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import type {
   Transaction,
   TransactionLineItem,
@@ -63,7 +64,7 @@ function mapRowToLineItem(row: any): TransactionLineItem {
 
 function isDemoLocalMode(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.location.pathname.startsWith('/demo');
+  return isPublicDemoPath(window.location.pathname);
 }
 
 const DEMO_TX_STORAGE_KEY = 'pet-hub-demo-transactions';

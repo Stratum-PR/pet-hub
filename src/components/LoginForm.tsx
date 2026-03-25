@@ -25,6 +25,7 @@ import {
 import type { Business } from '@/lib/auth';
 import { t } from '@/lib/translations';
 import { getBusinessClientLink, ensureBusinessClientLink } from '@/lib/businessClientLink';
+import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -140,7 +141,7 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
       clearAuthContext();
       setDemoMode(true);
       toast.success('Bienvenido al demo de Pet Hub');
-      onLoginSuccess('/demo/dashboard');
+      onLoginSuccess(`/${DEMO_WORKSPACE_SLUG}/dashboard`);
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,7 @@ import { SplashAuthModal } from '@/components/SplashAuthModal';
 import { LoginForm } from '@/components/LoginForm';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES, getPublicBaseUrl } from '@/config/discoverable-routes';
+import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { FAQ_ENTRIES } from '@/content/discoverable-content';
 import {
   Accordion,
@@ -220,7 +221,7 @@ export function Landing() {
                       {t(key)}
                     </Button>
                   ))}
-                  <Link to="/demo/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} onClick={() => setMobileMenuOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start">
                       {t('landing.viewDemo')}
                     </Button>
@@ -357,7 +358,7 @@ export function Landing() {
               {t('landing.startFreeTrial')}
               <ArrowRight className="w-4 h-4" />
             </Button>
-            <Link to="/demo/dashboard" className="w-full sm:w-auto">
+            <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
               <Button
                 variant="outline"
                 className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-8 sm:py-4 text-sm sm:text-base font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"

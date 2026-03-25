@@ -8,6 +8,7 @@ import { LoginForm } from '@/components/LoginForm';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 import { useBusinessBySlug } from '@/hooks/useBusinessBySlug';
+import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 
 const LOGIN_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/login')!;
 
@@ -15,6 +16,7 @@ export function Login() {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const { business, businessId } = useBusinessBySlug();
+  useCanonicalSlugRedirect(business);
   useLanguage(); // Force re-render on language change
 
   return (

@@ -1,5 +1,6 @@
 import type { Business } from '@/lib/auth';
 import { clearAllDemoStoredSettings } from '@/lib/demoLocalSettings';
+import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 
 export const DEMO_LANGUAGE_STORAGE_KEY = 'pet-hub-demo-language';
 const DEMO_THEME_STORAGE_KEY = 'pet-hub-theme-demo';
@@ -15,6 +16,8 @@ export type AuthContextType = (typeof AUTH_CONTEXTS)[keyof typeof AUTH_CONTEXTS]
 
 function slugify(input: string) {
   return input
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
     .trim()
     .toLowerCase()
     .replace(/['"]/g, '')
@@ -82,8 +85,11 @@ export function getDefaultRoute(opts: {
   business: Business | null;
 }): string {
   if (opts.isAdmin) return '/admin';
-  if (isDemoMode()) return '/demo/dashboard';
-  const slug = getBusinessSlugFromSession() || (opts.business?.slug || (opts.business?.name ? slugify(opts.business.name) : null));
+  if (isDemoMode()) return `/${DEMO_WORKSPACE_SLUG}/dashboard`;
+  const slug =
+    getBusinessSlugFromSession() ||
+    opts.business?.slug ||
+    (opts.business?.name ? slugify(opts.business.name) : null);
   if (slug) return `/${slug}/dashboard`;
   return '/login';
 }
