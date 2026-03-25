@@ -5,6 +5,8 @@ import { t } from '@/lib/translations';
 import type { Employee, EmployeeShift } from '@/types';
 import { cn } from '@/lib/utils';
 import { getShiftColor } from '@/lib/scheduleColors';
+import { formatHours1Decimal, scheduledHoursBetween } from '@/lib/scheduleHours';
+import { Plus } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -28,7 +30,8 @@ function isShiftOnDay(shift: EmployeeShift, day: Date): boolean {
 function formatShiftRange(shift: EmployeeShift): string {
   const start = format(new Date(shift.start_time), 'h:mm a');
   const end = format(new Date(shift.end_time), 'h:mm a');
-  return `${start} – ${end}`;
+  const hours = scheduledHoursBetween(shift.start_time, shift.end_time);
+  return `${start} – ${end} (${formatHours1Decimal(hours)})`;
 }
 
 export function ScheduleTable({
@@ -57,6 +60,18 @@ export function ScheduleTable({
     return map;
   }, [shifts, activeEmployees, weekDays]);
 
+  const totalHoursByEmployee = useMemo(() => {
+    const weekDaySet = new Set(weekDays.map((d) => format(d, 'yyyy-MM-dd')));
+    const totals: Record<string, number> = {};
+    activeEmployees.forEach((e) => (totals[e.id] = 0));
+    shifts.forEach((s) => {
+      const dayStr = format(new Date(s.start_time), 'yyyy-MM-dd');
+      if (!weekDaySet.has(dayStr)) return;
+      totals[s.staff_id] = (totals[s.staff_id] ?? 0) + scheduledHoursBetween(s.start_time, s.end_time);
+    });
+    return totals;
+  }, [shifts, activeEmployees, weekDays]);
+
   return (
     <Card>
       <CardHeader>
@@ -66,7 +81,7 @@ export function ScheduleTable({
         </p>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto lg:overflow-x-visible">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
@@ -89,6 +104,9 @@ export function ScheduleTable({
                     <div>{format(day, 'd')}</div>
                   </th>
                 ))}
+                <th className="text-center p-2 font-semibold min-w-[92px]">
+                  {t('schedule.totalHours')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -118,7 +136,7 @@ export function ScheduleTable({
                       <td
                         key={dayStr}
                         className={cn(
-                          'p-2 align-top cursor-pointer border-r border-border min-w-[100px] max-w-[140px]',
+                          'p-2 align-top cursor-pointer border-r border-border min-w-[100px] max-w-[140px] relative group',
                           'transition-colors',
                           isEmpty
                             ? 'hover:bg-muted/50'
@@ -134,6 +152,24 @@ export function ScheduleTable({
                           // else: multiple shifts handled via popover
                         }}
                       >
+                        {!isEmpty && (
+                          <button
+                            type="button"
+                            className={cn(
+                              'absolute top-1 right-1 rounded-sm p-1',
+                              'opacity-0 group-hover:opacity-100 transition-opacity',
+                              'bg-background/70 hover:bg-background border border-border',
+                              'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary'
+                            )}
+                            aria-label={t('schedule.clickToAdd')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAddShift(employee.id, dayStr);
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {isEmpty ? (
                           <span className="text-muted-foreground text-xs italic block py-1">
                             {t('schedule.clickToAdd')}
@@ -173,6 +209,13 @@ export function ScheduleTable({
                                     {formatShiftRange(shift)}
                                   </button>
                                 ))}
+                                <button
+                                  type="button"
+                                  className="text-left px-2 py-1.5 rounded hover:bg-muted text-sm font-medium"
+                                  onClick={() => onAddShift(employee.id, dayStr)}
+                                >
+                                  + {t('schedule.clickToAdd')}
+                                </button>
                               </div>
                             </PopoverContent>
                           </Popover>
@@ -180,6 +223,9 @@ export function ScheduleTable({
                       </td>
                     );
                   })}
+                  <td className="p-2 text-center font-medium whitespace-nowrap">
+                    {formatHours1Decimal(totalHoursByEmployee[employee.id] ?? 0)}
+                  </td>
                 </tr>
               ))}
             </tbody>

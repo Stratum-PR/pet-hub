@@ -219,10 +219,10 @@ export function Layout({ children, settings }: LayoutProps) {
 
   return (
     <>
-    <div className="h-screen overflow-hidden flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
       {showAdminHeader && <AdminImpersonationHeader />}
 
-      <div className="flex flex-1 min-h-0 overflow-hidden" style={{ paddingTop: showAdminHeader ? 48 : 0 }}>
+      <div className="flex flex-1" style={{ paddingTop: showAdminHeader ? 48 : 0 }}>
         {/* Desktop sidebar: floating pill, detached from edge */}
         <div className="hidden lg:flex flex-col shrink-0 h-full pt-4 pb-4 pl-5">
           <AppSidebar
@@ -237,7 +237,7 @@ export function Layout({ children, settings }: LayoutProps) {
         </div>
 
         {/* Main area: only this content scrolls when page is long */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Transparent header — blends with page background */}
           <header
             className={cn(
@@ -474,8 +474,8 @@ export function Layout({ children, settings }: LayoutProps) {
 
           <main
             className={cn(
-              'flex-1 min-h-0 container mx-auto px-4 flex flex-col',
-              isHelpPage ? 'overflow-hidden py-3 min-h-0' : 'overflow-y-auto overflow-x-hidden py-6'
+              'flex-1 container mx-auto px-4 flex flex-col',
+              isHelpPage ? 'overflow-hidden py-3' : 'overflow-x-hidden py-6'
             )}
           >
             <PageTransition>
