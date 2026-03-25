@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { isPublicDemoPath } from '@/lib/demoWorkspace';
 
-/** URL is the public demo workspace (`/demo` or `/demo/...`). */
+/** URL is the public demo workspace (legacy `/demo` or canonical demo slug). */
 export function isDemoBrowseOnlyPath(pathname: string): boolean {
-  return pathname === '/demo' || pathname.startsWith('/demo/');
+  return isPublicDemoPath(pathname);
 }
 
 /** Logged-out visitor on `/demo/*` — must not call Supabase writes; use in-memory / local state only. */

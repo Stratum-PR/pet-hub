@@ -854,6 +854,35 @@ export const translations: Translations = {
 
   'businessSettings.description': { en: 'Tax, receipts, payment, and business data', es: 'Impuestos, recibos, pago y datos del negocio' },
   'businessSettings.businessName': { en: 'Business name', es: 'Nombre del negocio' },
+  'businessSettings.publicUrl': { en: 'Public URL', es: 'URL pública' },
+  'businessSettings.publicUrlHint': {
+    en: 'Used in your portal link: yoursite.com/{slug}/… Letters, numbers, and hyphens only. Changing this updates shared links.',
+    es: 'Se usa en el enlace del portal: tudominio.com/{slug}/… Solo letras, números y guiones. Al cambiarla se actualizan los enlaces compartidos.',
+  },
+  'businessSettings.slugSuggestFromName': { en: 'Suggest from name', es: 'Sugerir según el nombre' },
+  'businessSettings.slugInvalid': {
+    en: 'Use 2–80 characters: lowercase letters, numbers, and single hyphens (no spaces or special characters).',
+    es: 'Usa 2–80 caracteres: letras minúsculas, números y guiones simples (sin espacios ni caracteres especiales).',
+  },
+  'businessSettings.slugReserved': {
+    en: 'This URL is reserved. Please choose a different one.',
+    es: 'Esta URL está reservada. Elige otra.',
+  },
+  'businessSettings.slugTaken': {
+    en: 'Another business already uses this URL. Try a variation.',
+    es: 'Otro negocio ya usa esta URL. Prueba una variación.',
+  },
+  'businessSettings.slugCheckChecking': { en: 'Checking availability…', es: 'Comprobando disponibilidad…' },
+  'businessSettings.slugCheckAvailable': { en: 'This URL is available.', es: 'Esta URL está disponible.' },
+  'businessSettings.slugCheckCurrent': { en: 'This is your current URL.', es: 'Esta es tu URL actual.' },
+  'businessSettings.slugCheckInvalidShort': {
+    en: 'Use 2–80 characters: lowercase letters, numbers, and hyphens only.',
+    es: 'Usa 2–80 caracteres: solo minúsculas, números y guiones.',
+  },
+  'businessSettings.slugCheckReservedShort': {
+    en: 'This URL is reserved for the app.',
+    es: 'Esta URL está reservada para la aplicación.',
+  },
   'businessSettings.businessHours': { en: 'Business hours', es: 'Horario' },
   'businessSettings.phone': { en: 'Phone', es: 'Teléfono' },
   'businessSettings.address': { en: 'Address', es: 'Dirección' },

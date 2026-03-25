@@ -26,6 +26,8 @@ import { useClients, usePets, useEmployees, useTimeEntries, useAppointments, use
 import { useInventory } from '@/hooks/useInventory';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 import { DataDiagnostics } from '@/components/DataDiagnostics';
 import { AccountSettings } from '@/pages/AccountSettings';
 import { BusinessSettingsPage } from '@/pages/BusinessSettingsPage';
@@ -73,6 +75,8 @@ function TransitionRoutes({ children }: { children: React.ReactNode }) {
 
 const Index = () => {
   const businessId = useBusinessId();
+  const { business } = useAuth();
+  useCanonicalSlugRedirect(business);
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const location = useLocation();

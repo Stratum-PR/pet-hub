@@ -15,6 +15,7 @@ import { Building2, User } from 'lucide-react';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 import { useBusinessBySlug } from '@/hooks/useBusinessBySlug';
+import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 import { ensureBusinessClientLink } from '@/lib/businessClientLink';
 
 const REGISTER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/registrarse')!;
@@ -36,6 +37,7 @@ export function Register() {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const { business, businessId } = useBusinessBySlug();
+  useCanonicalSlugRedirect(business);
   const { refreshAuth } = useAuth();
   const [signupType, setSignupType] = useState<SignupType | null>(null);
   const [step, setStep] = useState(1);

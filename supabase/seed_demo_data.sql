@@ -3,7 +3,7 @@
 -- ============================================
 -- Run this in Supabase SQL Editor to populate demo business with sample data
 -- Business ID: 00000000-0000-0000-0000-000000000001
--- Business Name: "Demo" (slug: "demo")
+-- Business Name: "Demo" — canonical slug is demo-000001 (slugify + last 6 hex of id)
 
 -- ============================================
 -- 1. UPDATE DEMO BUSINESS NAME TO "Demo"

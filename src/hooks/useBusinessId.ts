@@ -4,7 +4,8 @@ import { getBusinessSlugFromSession } from '@/lib/authRouting';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { DEMO_WORKSPACE_BUSINESS_ID } from '@/lib/demoWorkspace';
+import { DEMO_WORKSPACE_BUSINESS_ID, isPublicDemoPath } from '@/lib/demoWorkspace';
+import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
 
 /**
  * Hook to get the active business ID (supports impersonation)
@@ -20,7 +21,7 @@ export function useBusinessId(): string | null {
 
   useEffect(() => {
     // Special case: public demo route, allow reading demo business data even without profile
-    const isDemoRoute = location.pathname.startsWith('/demo');
+    const isDemoRoute = isPublicDemoPath(location.pathname);
     if (isDemoRoute) {
       console.log('[useBusinessId] Using DEMO business id for public demo route', {
         path: location.pathname,
@@ -75,13 +76,9 @@ export function useBusinessId(): string | null {
 
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('slug', slug)
-        .maybeSingle();
-      if (cancelled || error) return;
-      if (data?.id) setSlugResolvedId(data.id);
+      const biz = await fetchBusinessByPublicSlug(supabase, slug);
+      if (cancelled || !biz?.id) return;
+      setSlugResolvedId(biz.id);
     })();
     return () => { cancelled = true; };
   }, [businessId, slugFromRoute]);

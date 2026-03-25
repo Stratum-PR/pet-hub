@@ -39,7 +39,7 @@ export function ImpersonateHandler() {
       // Get business name
       const { data: business, error: businessError } = await supabase
         .from('businesses')
-        .select('id, name')
+        .select('id, name, slug')
         .eq('id', data)
         .single();
 
@@ -50,12 +50,7 @@ export function ImpersonateHandler() {
       // Set impersonation in sessionStorage
       setImpersonation(business.id, business.name);
 
-      // Redirect to business dashboard with slug URL
-      const slug = business.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '');
-
+      const slug = business.slug?.trim();
       toast.success(`Impersonating ${business.name}`);
       if (slug) {
         navigate(`/${slug}/dashboard`);

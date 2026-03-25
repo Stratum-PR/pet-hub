@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { DEMO_WORKSPACE_SLUG } from "@/lib/demoWorkspace";
+import { DemoLegacyRedirect } from "@/components/DemoLegacyRedirect";
 import { DemoAwareThemeProvider } from "@/components/DemoAwareThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -47,6 +49,10 @@ const App = () => (
                   Clients should log in through their business slug (/:businessSlug/login). */}
               <Route path="/cliente" element={<Navigate to="/login" replace />} />
               <Route path="/signup/success" element={<SignupSuccess />} />
+
+              {/* Legacy public demo paths → canonical slug */}
+              <Route path="/demo" element={<Navigate to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} replace />} />
+              <Route path="/demo/*" element={<DemoLegacyRedirect />} />
 
               {/* Business-scoped client login/register (multi-business pet owner linking) */}
               <Route path="/:businessSlug/login" element={<Login />} />

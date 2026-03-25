@@ -6,6 +6,8 @@ import { PostLoginLoading } from '@/components/PostLoginLoading';
 import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
 import { supabase } from '@/integrations/supabase/client';
 import { getBusinessClientLink } from '@/lib/businessClientLink';
+import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
+import { isPublicDemoPath } from '@/lib/demoWorkspace';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -29,7 +31,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const [clientLinkChecked, setClientLinkChecked] = useState(false);
   const [clientLinkAllowed, setClientLinkAllowed] = useState<boolean | null>(null);
 
-  const isDemoRoute = location.pathname.startsWith('/demo');
+  const isDemoRoute = isPublicDemoPath(location.pathname);
   // Only the demo portal is public; all real business portals (including Pet Esthetic)
   // must go through normal auth so their data is tied to the logged-in profile/business_id.
   const isPublicBusinessRoute = isDemoRoute && !requireAdmin;
@@ -79,7 +81,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     let cancelled = false;
     (async () => {
       try {
-        const { data: biz } = await supabase.from('businesses').select('id').eq('slug', businessSlug).maybeSingle();
+        const biz = await fetchBusinessByPublicSlug(supabase, businessSlug);
         if (cancelled || !biz?.id) {
           setClientLinkChecked(true);
           if (!biz?.id) setClientLinkAllowed(false);

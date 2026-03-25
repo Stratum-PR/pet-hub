@@ -17,11 +17,12 @@ import {
   writeCachedBusinessTheme,
 } from '@/lib/businessThemeCss';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
+import { isPublicDemoPath } from '@/lib/demoWorkspace';
 
 /** When true, data hooks cap rows to avoid loading thousands of rows on demo (e.g. seed appointments until March 2026). */
 function isDemoRoute(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.location.pathname.startsWith('/demo');
+  return isPublicDemoPath(window.location.pathname);
 }
 
 const DEMO_CAP_APPOINTMENTS = 300;
@@ -1613,7 +1614,7 @@ export interface Settings {
 }
 
 function isUnauthenticatedDemoPath(pathname: string): boolean {
-  return pathname === '/demo' || pathname.startsWith('/demo/');
+  return isPublicDemoPath(pathname);
 }
 
 export function useSettings() {

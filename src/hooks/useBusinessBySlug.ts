@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Business } from '@/lib/auth';
+import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
 
 /**
  * Resolve business by slug from route (e.g. /:businessSlug/login).
@@ -16,13 +17,7 @@ export function useBusinessBySlug() {
     enabled: !!slug,
     queryFn: async (): Promise<Business | null> => {
       if (!slug) return null;
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('slug', slug)
-        .maybeSingle();
-      if (error || !data) return null;
-      return data as Business;
+      return fetchBusinessByPublicSlug(supabase, slug);
     },
     staleTime: 5 * 60 * 1000,
   });

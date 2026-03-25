@@ -9,7 +9,7 @@ const PUBLIC_FIRST_SEGMENTS = new Set([
   'auth',
   'cliente',
   'signup',
-  'demo', // optional: allow indexing demo for marketing
+  'demo',
 ]);
 
 /**
