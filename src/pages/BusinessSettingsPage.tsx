@@ -149,6 +149,7 @@ export function BusinessSettingsPage() {
   const [payScheduleAnchorDate, setPayScheduleAnchorDate] = useState(settings.pay_schedule_anchor_date || todayIso);
   const [payScheduleCadenceWeeks, setPayScheduleCadenceWeeks] = useState(settings.pay_schedule_cadence_weeks || '2');
   const [payrollPdfIncludeLogo, setPayrollPdfIncludeLogo] = useState(() => settings.payroll_pdf_include_logo !== 'false');
+  const [kioskWarnOffSchedule, setKioskWarnOffSchedule] = useState(() => settings.kiosk_warn_off_schedule !== 'false');
   const [savingPaySchedule, setSavingPaySchedule] = useState(false);
 
   useEffect(() => {
@@ -214,6 +215,10 @@ export function BusinessSettingsPage() {
   useEffect(() => {
     setPayrollPdfIncludeLogo(settings.payroll_pdf_include_logo !== 'false');
   }, [settings.payroll_pdf_include_logo]);
+
+  useEffect(() => {
+    setKioskWarnOffSchedule(settings.kiosk_warn_off_schedule !== 'false');
+  }, [settings.kiosk_warn_off_schedule]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -487,6 +492,18 @@ export function BusinessSettingsPage() {
     }
     setDefaultLowStock(v);
     toast.success(t('businessSettings.lowStockSaved'));
+  };
+
+  const handleKioskWarnOffScheduleChange = async (checked: boolean) => {
+    if (!businessId) return;
+    const prev = kioskWarnOffSchedule;
+    setKioskWarnOffSchedule(checked);
+    const res = await updateSetting('kiosk_warn_off_schedule', checked ? 'true' : 'false');
+    if (!res.ok) {
+      setKioskWarnOffSchedule(prev);
+      toast.error(res.error || t('common.genericError'));
+      return;
+    }
   };
 
   const handleSavePaySchedule = async () => {
@@ -1438,6 +1455,24 @@ export function BusinessSettingsPage() {
         </p>
       ) : (
         <div id="kiosk-manager-pin" className="space-y-6 scroll-mt-24">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('businessSettings.kioskWarnOffSchedule')}</CardTitle>
+              <CardDescription>{t('businessSettings.kioskWarnOffScheduleDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="kiosk-warn-off-schedule">{t('businessSettings.kioskWarnOffScheduleEnabledLabel')}</Label>
+                </div>
+                <Switch
+                  id="kiosk-warn-off-schedule"
+                  checked={kioskWarnOffSchedule}
+                  onCheckedChange={handleKioskWarnOffScheduleChange}
+                />
+              </div>
+            </CardContent>
+          </Card>
           <KioskManagerPinSettings />
           <GeofencingSettings />
         </div>

@@ -259,7 +259,7 @@ BEGIN
         'demo.manager@pethub.demo',
         '(787) 555-0000',
         'Manager',
-        'manager',
+        'admin',
         'active',
         '9999',
         32.00,

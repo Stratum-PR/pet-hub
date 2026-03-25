@@ -1,6 +1,7 @@
 import { Edit, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import type { ReactNode } from 'react';
 
 export type DetailModalActionBarProps = {
   className?: string;
@@ -9,14 +10,19 @@ export type DetailModalActionBarProps = {
   onEdit?: () => void;
   onDelete?: () => void;
   onSave?: () => void;
+  onAux?: () => void;
   /** When set with variant save-delete, Save is type="submit" for this form id (no onSave). */
   submitFormId?: string;
   editLabel?: string;
   deleteLabel?: string;
   saveLabel?: string;
+  auxLabel?: string;
+  auxIcon?: ReactNode;
+  auxVariant?: 'default' | 'outline' | 'secondary' | 'ghost';
   disabledEdit?: boolean;
   disabledDelete?: boolean;
   disabledSave?: boolean;
+  disabledAux?: boolean;
 };
 
 /**
@@ -29,13 +35,18 @@ export function DetailModalActionBar({
   onEdit,
   onDelete,
   onSave,
+  onAux,
   submitFormId,
   editLabel,
   deleteLabel,
   saveLabel,
+  auxLabel,
+  auxIcon,
+  auxVariant = 'outline',
   disabledEdit,
   disabledDelete,
   disabledSave,
+  disabledAux,
 }: DetailModalActionBarProps) {
   const primary =
     variant === 'save-delete' ? (
@@ -73,6 +84,19 @@ export function DetailModalActionBar({
       )}
     >
       {primary}
+      {onAux ? (
+        <Button
+          type="button"
+          variant={auxVariant}
+          size="sm"
+          className="h-9 gap-1.5 border-border/80 bg-background/80 px-3 backdrop-blur-sm"
+          onClick={onAux}
+          disabled={disabledAux}
+        >
+          {auxIcon}
+          {auxLabel ?? 'Action'}
+        </Button>
+      ) : null}
       {onDelete ? (
         <Button
           type="button"

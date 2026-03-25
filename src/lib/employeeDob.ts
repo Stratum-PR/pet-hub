@@ -1,7 +1,10 @@
 import type { Language } from '@/lib/translations';
 
-const MIN_YEAR = 1940;
-const MAX_YEAR = 2010;
+export const EMPLOYEE_DOB_MIN_YEAR = 1940;
+export const EMPLOYEE_DOB_MAX_YEAR = 2010;
+
+const MIN_YEAR = EMPLOYEE_DOB_MIN_YEAR;
+const MAX_YEAR = EMPLOYEE_DOB_MAX_YEAR;
 
 export function yearOptions(): number[] {
   const out: number[] = [];
@@ -37,4 +40,33 @@ export function isValidEmployeeDob(day: number, month: number, year: number): bo
   const dim = daysInMonth(year, month);
   if (day < 1 || day > dim) return false;
   return true;
+}
+
+/** `YYYY-MM-DD` for `<input type="date" />` min/max attributes. */
+export function employeeDobInputBounds(): { min: string; max: string } {
+  return { min: `${MIN_YEAR}-01-01`, max: `${MAX_YEAR}-12-31` };
+}
+
+/** Parse HTML date input value into calendar parts. */
+export function parseEmployeeDobDateInput(
+  ymd: string
+): { day: number; month: number; year: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return null;
+  const year = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  const day = parseInt(m[3], 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  return { year, month, day };
+}
+
+/** Build `YYYY-MM-DD` from DB parts for a date input; empty string if incomplete or invalid. */
+export function employeeBirthPartsToDateInput(
+  month: number | null | undefined,
+  day: number | null | undefined,
+  year: number | null | undefined
+): string {
+  if (month == null || day == null || year == null) return '';
+  if (!isValidEmployeeDob(day, month, year)) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }

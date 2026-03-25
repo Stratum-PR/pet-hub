@@ -51,7 +51,7 @@ export function buildDemoBrowseSyntheticNotifications(
   metadata?: unknown;
 }> {
   if (!isDemoWorkspaceBusiness(businessId) || !notifyBirthdaysEnabled) return [];
-  const mgr = getDemoStaffSeed().find((s) => s.access_role === 'manager');
+  const mgr = getDemoStaffSeed().find((s) => s.access_role === 'admin' || s.access_role === 'manager');
   if (!mgr) return [];
   const n = new Date();
   if (mgr.birth_month !== n.getMonth() + 1 || mgr.birth_day !== n.getDate()) return [];

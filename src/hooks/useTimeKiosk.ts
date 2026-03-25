@@ -81,6 +81,7 @@ export function useTimeKiosk() {
 
       try {
         const timeToCheck = clockTime || new Date();
+        // RPC param name is legacy (`p_employee_id`); value is the `staff.id` UUID.
         const { data, error: err } = await supabase.rpc(
           'check_employee_schedule',
           {
