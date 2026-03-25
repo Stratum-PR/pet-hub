@@ -1,6 +1,7 @@
 import type { Business } from '@/lib/auth';
 import { clearAllDemoStoredSettings } from '@/lib/demoLocalSettings';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
+import { supabase } from '@/integrations/supabase/client';
 
 export const DEMO_LANGUAGE_STORAGE_KEY = 'pet-hub-demo-language';
 const DEMO_THEME_STORAGE_KEY = 'pet-hub-theme-demo';
@@ -50,6 +51,16 @@ export function setBusinessSlugForSession(business: Business | null) {
   if (slug) sessionStorage.setItem('business_slug', slug);
 }
 
+/** `/:slug/dashboard` from the business row only (ignores session slug). */
+export function getBusinessDashboardPath(business: Business | null): string | null {
+  if (!business) return null;
+  const fromSlug = business.slug?.trim() || null;
+  const fromName = business.name ? slugify(business.name) : null;
+  const slug = fromSlug || fromName;
+  if (!slug) return null;
+  return `/${slug}/dashboard`;
+}
+
 export function getBusinessSlugFromSession(): string | null {
   if (typeof window === 'undefined') return null;
   return sessionStorage.getItem('business_slug');
@@ -92,6 +103,40 @@ export function getDefaultRoute(opts: {
     (opts.business?.name ? slugify(opts.business.name) : null);
   if (slug) return `/${slug}/dashboard`;
   return '/login';
+}
+
+/** Isolated query so a missing DB column cannot break the whole profile fetch used for login redirect. */
+export async function fetchPreferAdminDashboardOnLogin(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('prefer_admin_dashboard_on_login')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error || !data) return false;
+  return !!(data as { prefer_admin_dashboard_on_login?: boolean }).prefer_admin_dashboard_on_login;
+}
+
+/**
+ * Where super admins should land after sign-in.
+ * Default: business portal when `business_id` + business row exist and preference is off.
+ */
+export function resolveSuperAdminLoginDestination(opts: {
+  preferAdminDashboard: boolean;
+  businessId: string | null;
+  business: Business | null;
+}): string {
+  if (opts.preferAdminDashboard || !opts.businessId || !opts.business) {
+    setAuthContext(AUTH_CONTEXTS.ADMIN);
+    return '/admin';
+  }
+  setAuthContext(AUTH_CONTEXTS.BUSINESS);
+  setBusinessSlugForSession(opts.business);
+  const route = getDefaultRoute({ isAdmin: false, business: opts.business });
+  if (route === '/login') {
+    setAuthContext(AUTH_CONTEXTS.ADMIN);
+    return '/admin';
+  }
+  return route;
 }
 
 export function getLastRoute(): string | null {

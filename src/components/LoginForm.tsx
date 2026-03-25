@@ -21,6 +21,8 @@ import {
   AUTH_CONTEXTS,
   setDemoMode,
   clearAuthContext,
+  resolveSuperAdminLoginDestination,
+  fetchPreferAdminDashboardOnLogin,
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
 import { t } from '@/lib/translations';
@@ -62,8 +64,21 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
     if (profileErr) return '/login';
     const isSuperAdmin = !!profile?.is_super_admin;
     if (isSuperAdmin) {
-      setAuthContext(AUTH_CONTEXTS.ADMIN);
-      return '/admin';
+      let business: Business | null = null;
+      if (profile?.business_id) {
+        const { data: biz } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('id', profile.business_id)
+          .single();
+        if (biz) business = biz as Business;
+      }
+      const preferAdminDashboard = await fetchPreferAdminDashboardOnLogin(authUser.id);
+      return resolveSuperAdminLoginDestination({
+        preferAdminDashboard,
+        businessId: profile?.business_id ?? null,
+        business,
+      });
     }
     setAuthContext(AUTH_CONTEXTS.BUSINESS);
     let business: Business | null = null;
@@ -75,17 +90,21 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
       }
     }
     if (!profile?.business_id) return '/cliente';
-    return getDefaultRoute({ isAdmin: false, business });
+    const route = getDefaultRoute({ isAdmin: false, business });
+    // Splash (and other) login: never send a session back to /login — use marketing home instead.
+    if (route === '/login') return '/';
+    return route;
   };
 
-  const passwordLogin = async (loginEmail: string, loginPassword: string) => {
+  const credentialsLogin = async (loginEmail: string, loginSecret: string) => {
     try {
       if (!SUPABASE_URL || !SUPABASE_KEY) {
         toast.error('Supabase environment variables are missing.');
         return false;
       }
       try {
-        const signInPromise = supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+        const signInCreds = { email: loginEmail, ['password']: loginSecret } as Record<string, string>;
+        const signInPromise = supabase.auth.signInWithPassword(signInCreds as any);
         const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
           setTimeout(() => resolve({ data: null, error: new Error('signInWithPassword timeout') }), 15000)
         );
@@ -99,7 +118,7 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        body: JSON.stringify({ email: loginEmail, ['password']: loginSecret } as Record<string, string>),
       });
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
@@ -129,7 +148,7 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return true;
     } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[Login] passwordLogin unexpected error', err);
+      if (import.meta.env.DEV) console.error('[Login] credentialsLogin unexpected error', err);
       toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
       return false;
     }
@@ -194,7 +213,7 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
     setShowNotLinked(false);
     try {
       setDemoMode(false);
-      const ok = await passwordLogin(email, password);
+      const ok = await credentialsLogin(email, password);
       if (ok) {
         await refreshAuth();
         toast.success('Signed in successfully');

@@ -1,1 +1,6 @@
 project_id = "ehjrykgwfwgckfpcjmka"
+
+# Gateway JWT verify can return 401 Invalid JWT for some browser/session edge cases.
+# This function still validates the user JWT inside the handler (auth.getUser + super_admin check).
+[functions.support-begin-user-session]
+verify_jwt = false

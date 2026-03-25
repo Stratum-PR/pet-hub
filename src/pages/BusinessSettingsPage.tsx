@@ -24,6 +24,7 @@ import {
   slugifyBusinessBase,
 } from '@/lib/businessSlug';
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
+import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
 import { Download, Plus, Trash2, Upload, ZoomIn, ZoomOut, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -94,6 +95,7 @@ export function BusinessSettingsPage() {
   const businessId = useBusinessId();
   const demoLocalOnly = useDemoLocalSettingsMode();
   const { settings, updateSetting, refetch } = useSettings();
+  const { isFeatureVisible } = useFeatureRollout();
 
   // Punch clock / deep links: scroll to kiosk manager PIN when navigating with #kiosk-manager-pin
   useEffect(() => {
@@ -1474,7 +1476,7 @@ export function BusinessSettingsPage() {
             </CardContent>
           </Card>
           <KioskManagerPinSettings />
-          <GeofencingSettings />
+          {isFeatureVisible('geofencing') ? <GeofencingSettings /> : null}
         </div>
       )}
 

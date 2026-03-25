@@ -7,6 +7,8 @@ import {
   setAuthContext,
   setBusinessSlugForSession,
   AUTH_CONTEXTS,
+  resolveSuperAdminLoginDestination,
+  fetchPreferAdminDashboardOnLogin,
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
 
@@ -88,8 +90,22 @@ export function AuthCallback() {
         .maybeSingle();
 
       if (profile?.is_super_admin) {
-        setAuthContext(AUTH_CONTEXTS.ADMIN);
-        if (!cancelled) navigate('/admin', { replace: true });
+        let business: Business | null = null;
+        if (profile.business_id) {
+          const { data: biz } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', profile.business_id)
+            .single();
+          if (biz) business = biz as Business;
+        }
+        const preferAdminDashboard = await fetchPreferAdminDashboardOnLogin(session.user.id);
+        const route = resolveSuperAdminLoginDestination({
+          preferAdminDashboard,
+          businessId: profile.business_id ?? null,
+          business,
+        });
+        if (!cancelled) navigate(route, { replace: true });
         return;
       }
 
@@ -107,7 +123,10 @@ export function AuthCallback() {
       }
 
       setAuthContext(AUTH_CONTEXTS.BUSINESS);
-      const route = getDefaultRoute({ isAdmin: false, business });
+      let route = getDefaultRoute({ isAdmin: false, business });
+      if (route === '/login' && profile?.business_id) {
+        route = '/';
+      }
       if (route === '/login' && profile && !profile.business_id) {
         navigate('/cliente', { replace: true });
         return;
