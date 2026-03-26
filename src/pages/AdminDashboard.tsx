@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FeatureSettingsTable } from '@/components/FeatureSettingsTable';
 
 const PROFILE_ROLES = ['client', 'employee', 'manager', 'super_admin'] as const;
 
@@ -351,6 +352,15 @@ export function AdminDashboard() {
                   </table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FeatureSettingsTable />
             </CardContent>
           </Card>
         </main>

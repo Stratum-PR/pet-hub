@@ -27,6 +27,7 @@ import { useInventory } from '@/hooks/useInventory';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { DataDiagnostics } from '@/components/DataDiagnostics';
@@ -82,6 +83,27 @@ const Index = () => {
   const navigate = useNavigate();
   const businessSlug = useResolvedBusinessSlug();
   const location = useLocation();
+  const { isFeatureVisible } = useFeatureRollout();
+  const accountSettingsVisible = isFeatureVisible('account_settings');
+  const appointmentsVisible = isFeatureVisible('appointments');
+  const appointmentBookVisible = isFeatureVisible('appointment_book');
+  const inventoryVisible = isFeatureVisible('inventory');
+  const paymentsVisible = isFeatureVisible('payments');
+  const transactionsListVisible = isFeatureVisible('transactions_list');
+  const transactionCreateVisible = isFeatureVisible('transaction_create');
+  const transactionDetailVisible = isFeatureVisible('transaction_detail');
+  const bookingSettingsVisible = isFeatureVisible('booking_settings');
+  const routeGateSnapshot = {
+    appointments: isFeatureVisible('appointments'),
+    appointment_book: isFeatureVisible('appointment_book'),
+    inventory: isFeatureVisible('inventory'),
+    transactions_list: isFeatureVisible('transactions_list'),
+    transaction_create: isFeatureVisible('transaction_create'),
+    transaction_detail: isFeatureVisible('transaction_detail'),
+    payments: isFeatureVisible('payments'),
+    booking_settings: isFeatureVisible('booking_settings'),
+    barcode_lookup: isFeatureVisible('barcode_lookup'),
+  };
 
   // When locked, employees should only see the time kiosk (and any navigation attempt is redirected).
   const [kioskLocked, setKioskLockedState] = useState(isKioskLocked());
@@ -252,37 +274,45 @@ const Index = () => {
             <Route
               path="appointments"
               element={
-                <Appointments
-                  appointments={appointments}
-                  pets={pets}
-                  clients={clients}
-                  employees={employees}
-                  services={services}
-                  onAddAppointment={addAppointment}
-                  onUpdateAppointment={updateAppointmentWithNotification}
-                  onDeleteAppointment={deleteAppointment}
-                  onRefreshAppointments={refetchAppointments}
-                />
+                appointmentsVisible ? (
+                  <Appointments
+                    appointments={appointments}
+                    pets={pets}
+                    clients={clients}
+                    employees={employees}
+                    services={services}
+                    onAddAppointment={addAppointment}
+                    onUpdateAppointment={updateAppointmentWithNotification}
+                    onDeleteAppointment={deleteAppointment}
+                    onRefreshAppointments={refetchAppointments}
+                  />
+                ) : (
+                  <Navigate to="dashboard" replace />
+                )
               }
             />
             <Route
               path="appt-book"
-              element={<AppointmentBook />}
+              element={appointmentBookVisible ? <AppointmentBook /> : <Navigate to="dashboard" replace />}
             />
             <Route
               path="inventory"
               element={
-                <Inventory
-                  loading={inventoryLoading}
-                  products={products}
-                  defaultLowStockThreshold={parseInt(settings.default_low_stock_threshold || '5', 10) || 5}
-                  stockMovements={stockMovements}
-                  onAddProduct={addProduct}
-                  onUpdateProduct={updateProductWithNotification}
-                  onDeleteProduct={deleteProduct}
-                  onAdjustStock={adjustStock}
-                  onUploadProductPhoto={uploadProductPhoto}
-                />
+                inventoryVisible ? (
+                  <Inventory
+                    loading={inventoryLoading}
+                    products={products}
+                    defaultLowStockThreshold={parseInt(settings.default_low_stock_threshold || '5', 10) || 5}
+                    stockMovements={stockMovements}
+                    onAddProduct={addProduct}
+                    onUpdateProduct={updateProductWithNotification}
+                    onDeleteProduct={deleteProduct}
+                    onAdjustStock={adjustStock}
+                    onUploadProductPhoto={uploadProductPhoto}
+                  />
+                ) : (
+                  <Navigate to="dashboard" replace />
+                )
               }
             />
             <Route
@@ -409,16 +439,37 @@ const Index = () => {
             />
             <Route
               path="payment"
-              element={<Payment />}
+              element={paymentsVisible ? <Payment /> : <Navigate to="dashboard" replace />}
             />
-            <Route path="transactions" element={<Transactions />} />
-            <Route path="transactions/new" element={<TransactionCreate />} />
-            <Route path="transactions/:transactionId" element={<TransactionDetail />} />
+            <Route
+              path="transactions"
+              element={transactionsListVisible ? <Transactions /> : <Navigate to="dashboard" replace />}
+            />
+            <Route
+              path="transactions/new"
+              element={transactionCreateVisible ? <TransactionCreate /> : <Navigate to="../dashboard" replace />}
+            />
+            <Route
+              path="transactions/:transactionId"
+              element={transactionDetailVisible ? <TransactionDetail /> : <Navigate to="../dashboard" replace />}
+            />
             <Route path="settings" element={<SettingsLayout />}>
-              <Route index element={<Navigate to="account" replace />} />
-              <Route path="account" element={<AccountSettings settings={settings} onSaveSettings={saveAllSettings} />} />
+              <Route index element={<Navigate to={accountSettingsVisible ? 'account' : 'business'} replace />} />
+              <Route
+                path="account"
+                element={
+                  accountSettingsVisible ? (
+                    <AccountSettings settings={settings} onSaveSettings={saveAllSettings} />
+                  ) : (
+                    <Navigate to="../business" replace />
+                  )
+                }
+              />
               <Route path="business" element={<BusinessSettingsPage />} />
-              <Route path="booking" element={<BookingSettings />} />
+              <Route
+                path="booking"
+                element={bookingSettingsVisible ? <BookingSettings /> : <Navigate to="../business" replace />}
+              />
               <Route path="billing" element={<Billing />} />
             </Route>
             <Route path="help" element={<Help />} />

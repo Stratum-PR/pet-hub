@@ -112,7 +112,8 @@ export function useTimeKiosk() {
   const clockInOut = useCallback(
     async (
       pin: string,
-      location?: GeolocationPosition
+      location?: GeolocationPosition,
+      skipGeolocationFetch?: boolean
     ): Promise<ClockInOutResult | null> => {
       if (!businessId) {
         setError('Business ID not found');
@@ -125,7 +126,7 @@ export function useTimeKiosk() {
       try {
         // Get geolocation if not provided
         let geolocation: GeolocationPosition | undefined = location;
-        if (!geolocation) {
+        if (!geolocation && !skipGeolocationFetch) {
           try {
             geolocation = await getCurrentLocation();
           } catch (geoErr) {
@@ -152,6 +153,7 @@ export function useTimeKiosk() {
 
         if (err) {
           setError(err.message);
+          setLoading(false);
           return {
             success: false,
             action: 'clock_in',

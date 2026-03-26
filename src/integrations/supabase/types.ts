@@ -101,6 +101,82 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_catalog: {
+        Row: {
+          created_at: string
+          display_name: string
+          feature_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          feature_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          feature_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      feature_rollout: {
+        Row: {
+          feature_key: string
+          min_tier: string
+          updated_at: string
+        }
+        Insert: {
+          feature_key: string
+          min_tier: string
+          updated_at?: string
+        }
+        Update: {
+          feature_key?: string
+          min_tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_rollout_feature_key_fk"
+            columns: ["feature_key"]
+            isOneToOne: true
+            referencedRelation: "feature_catalog"
+            referencedColumns: ["feature_key"]
+          },
+        ]
+      }
+      feature_visibility_rules: {
+        Row: {
+          feature_key: string
+          roles: string[]
+          subscription_tiers: string[]
+          updated_at: string
+        }
+        Insert: {
+          feature_key: string
+          roles?: string[]
+          subscription_tiers?: string[]
+          updated_at?: string
+        }
+        Update: {
+          feature_key?: string
+          roles?: string[]
+          subscription_tiers?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_visibility_rules_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: true
+            referencedRelation: "feature_catalog"
+            referencedColumns: ["feature_key"]
+          },
+        ]
+      }
       staff: {
         Row: {
           id: string

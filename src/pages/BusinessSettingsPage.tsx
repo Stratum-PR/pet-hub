@@ -1476,7 +1476,9 @@ export function BusinessSettingsPage() {
             </CardContent>
           </Card>
           <KioskManagerPinSettings />
-          {isFeatureVisible('geofencing') ? <GeofencingSettings /> : null}
+          {isFeatureVisible('geofencing_settings') || isFeatureVisible('geofencing') ? (
+            <GeofencingSettings />
+          ) : null}
         </div>
       )}
 

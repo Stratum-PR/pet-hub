@@ -29,10 +29,9 @@ import { useTheme } from 'next-themes';
 import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import { useSettings } from '@/hooks/useSupabaseData';
 
-type KioskState = 'pin_entry' | 'employee_verified' | 'clocking' | 'success' | 'error' | 'off_schedule_warning';
+type KioskState = 'pin_entry' | 'employee_verified' | 'success' | 'error' | 'off_schedule_warning';
 
 type ManagerPinGate = 'loading' | 'configured' | 'missing';
 
@@ -248,7 +247,7 @@ export function TimeKiosk() {
             .eq('staff_id', emp.id)
             .eq('business_id', businessId)
             .is('clock_out', null)
-            .eq('status', 'active')
+            .in('status', ['active', 'approved'])
             .order('clock_in', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -383,14 +382,17 @@ export function TimeKiosk() {
   const handleClockAction = useCallback(async () => {
     if (!employee) return;
 
-    setState('clocking');
     setErrorMessage(null);
 
     try {
       // Get geolocation
       let location;
       try {
-        location = await getCurrentLocation();
+        const geolocationTimeoutMs = 1500;
+        const timeoutPromise = new Promise<undefined>((resolve) => {
+          window.setTimeout(() => resolve(undefined), geolocationTimeoutMs);
+        });
+        location = await Promise.race([getCurrentLocation(), timeoutPromise]);
       } catch (geoErr) {
         // Continue without geolocation
         if (import.meta.env.DEV) {
@@ -398,7 +400,7 @@ export function TimeKiosk() {
         }
       }
 
-      const result = await clockInOut(employee.pin, location);
+      const result = await clockInOut(employee.pin, location, true);
       
       if (result?.success) {
         setClockResult(result);
@@ -904,12 +906,6 @@ export function TimeKiosk() {
                       {t('timeKiosk.cancel')}
                     </Button>
                   </div>
-                </div>
-              )}
-
-              {state === 'clocking' && (
-                <div className="relative flex min-h-[240px] flex-col items-center py-12">
-                  <PawStagedLoadingArea label={t('timeKiosk.processing')} size="lg" />
                 </div>
               )}
 
