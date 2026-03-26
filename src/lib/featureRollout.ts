@@ -2,7 +2,13 @@ export const SUPPORT_FEATURE_VIEW_TIER_KEY = 'support_feature_view_tier';
 
 export type RolloutTier = 'production' | 'staged' | 'development';
 
-export type FeatureKey = 'geofencing';
+export type FeatureKey = string;
+
+export type FeatureRole = 'client' | 'employee' | 'manager' | 'super_admin';
+
+export const FEATURE_ROLES: FeatureRole[] = ['client', 'employee', 'manager', 'super_admin'];
+export const FEATURE_SUBSCRIPTION_TIERS = ['standard', 'basic', 'growth', 'pro', 'enterprise'] as const;
+export type FeatureSubscriptionTier = (typeof FEATURE_SUBSCRIPTION_TIERS)[number];
 
 const TIER_ORDER: Record<RolloutTier, number> = {
   production: 0,
@@ -29,4 +35,15 @@ export function setStoredSupportViewTier(tier: RolloutTier): void {
 
 export function tierVisibleForViewer(featureMin: RolloutTier, viewer: RolloutTier): boolean {
   return TIER_ORDER[featureMin] <= TIER_ORDER[viewer];
+}
+
+export function normalizeRolloutTierLabel(v: string): RolloutTier {
+  const x = v.toLowerCase().trim();
+  if (x === 'staging' || x === 'staged') return 'staged';
+  if (x === 'development' || x === 'dev') return 'development';
+  return 'production';
+}
+
+export function normalizeFeatureKey(displayName: string): string {
+  return displayName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }

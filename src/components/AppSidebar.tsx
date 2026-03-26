@@ -32,9 +32,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { t } from '@/lib/translations';
 import { cn } from '@/lib/utils';
 
@@ -91,12 +92,26 @@ export function AppSidebar({
   navbarLogoSizePx = 80,
   mobile,
 }: AppSidebarProps) {
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
   const businessSlug = useResolvedBusinessSlug();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { role } = useAuth();
+  const { isFeatureVisible } = useFeatureRollout();
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+
+  const featureGateSnapshot = {
+    appointments: isFeatureVisible('appointments'),
+    appointment_book: isFeatureVisible('appointment_book'),
+    inventory: isFeatureVisible('inventory'),
+    transactions_list: isFeatureVisible('transactions_list'),
+    barcode_lookup: isFeatureVisible('barcode_lookup'),
+    booking_settings: isFeatureVisible('booking_settings'),
+    payments: isFeatureVisible('payments'),
+    transaction_create: isFeatureVisible('transaction_create'),
+    transaction_detail: isFeatureVisible('transaction_detail'),
+  };
 
   const scheduleLabelKey = role === 'employee' ? 'nav.mySchedule' : 'nav.schedule';
 
@@ -134,14 +149,29 @@ export function AppSidebar({
     );
   };
 
+  const visibleMainNavItems = mainNavItems.filter((item) => {
+    if (item.path === 'appointments') return isFeatureVisible('appointments');
+    if (item.path === 'appt-book') return isFeatureVisible('appointment_book');
+    if (item.path === 'inventory') return isFeatureVisible('inventory');
+    if (item.path === 'transactions') return isFeatureVisible('transactions_list');
+    return true;
+  });
+
+  useEffect(() => {
+    const width = sidebarRef.current?.getBoundingClientRect().width ?? null;
+  }, [collapsed, mobile, visibleMainNavItems, location.pathname]);
+
   return (
     <div
+      ref={sidebarRef}
       className={cn(
         'flex h-full flex-col overflow-hidden transition-all duration-300',
         mobile
           ? 'w-full bg-sidebar border-sidebar-border'
-          : 'h-[calc(100%-0px)] rounded-xl w-[72px] min-w-[72px] shadow-sm border-0 flex-shrink-0 bg-sidebar backdrop-blur-md dark:backdrop-blur-none',
-        !mobile && !collapsed && 'w-60 min-w-[240px]'
+          : cn(
+              'h-[calc(100%-0px)] rounded-xl shadow-sm border-0 flex-shrink-0 bg-sidebar backdrop-blur-md dark:backdrop-blur-none',
+              collapsed ? 'w-[72px] min-w-[72px]' : 'w-60 min-w-[240px]'
+            )
       )}
     >
       {/* Logo + collapse */}
@@ -203,7 +233,7 @@ export function AppSidebar({
       </div>
 
       <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-1 space-y-0.5', isPill ? (collapsed ? 'px-3 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
-        {mainNavItems.map((item) => (
+        {visibleMainNavItems.map((item) => (
           <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
         ))}
 

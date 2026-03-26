@@ -767,12 +767,12 @@ export function Dashboard({
 
       {/* Stats row: cards left→right top→bottom */}
       <div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4" data-transition-containers>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4" data-transition-containers>
           {/* Card 1: Top selling — same row height as client-type / KPI cards (no fixed aspect) */}
           <DashboardStaggerItem
             key={`dsk-${chartEnterKey}-1`}
             index={1}
-            className="min-w-0 sm:col-span-2 lg:col-span-3 xl:col-span-2 h-full min-h-0"
+            className="min-w-0 sm:col-span-2 lg:col-span-2 h-full min-h-0"
           >
           <Link
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
@@ -856,7 +856,7 @@ export function Dashboard({
           <DashboardStaggerItem
             key={`dsk-${chartEnterKey}-2`}
             index={2}
-            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
+            className="min-w-0 sm:col-span-1 lg:col-span-1 h-full min-h-0"
           >
           <Link
             to={businessSlug ? `/${businessSlug}/clients` : '/clients'}
@@ -960,7 +960,7 @@ export function Dashboard({
           <DashboardStaggerItem
             key={`dsk-${chartEnterKey}-3`}
             index={3}
-            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
+            className="min-w-0 sm:col-span-1 lg:col-span-1 h-full min-h-0"
           >
           <Link
             to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
@@ -981,7 +981,7 @@ export function Dashboard({
           <DashboardStaggerItem
             key={`dsk-${chartEnterKey}-4`}
             index={4}
-            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
+            className="min-w-0 sm:col-span-1 lg:col-span-1 h-full min-h-0"
           >
           <Link
             to={businessSlug ? `/${businessSlug}/staff-management` : '/staff-management'}
@@ -1003,7 +1003,7 @@ export function Dashboard({
           <DashboardStaggerItem
             key={`dsk-${chartEnterKey}-5`}
             index={5}
-            className="min-w-0 sm:col-span-1 lg:col-span-1 xl:col-span-1 h-full min-h-0"
+            className="min-w-0 sm:col-span-1 lg:col-span-1 h-full min-h-0"
           >
           <Link
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}

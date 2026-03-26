@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { Menu, LogOut, Bell, LayoutDashboard } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -87,12 +87,14 @@ function getPageTitle(pathname: string, businessSlug: string | undefined): strin
 }
 
 export function Layout({ children, settings }: LayoutProps) {
+  const layoutRootRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const businessSlug = useResolvedBusinessSlug();
   const businessId = useBusinessId();
   const { isAdmin, profile } = useAuth();
-  const { viewerTier, setViewerTier, isSuperAdmin } = useFeatureRollout();
+  const { viewerTier, setViewerTier, isSuperAdmin, isFeatureVisible } = useFeatureRollout();
   const { setTheme, resolvedTheme } = useTheme();
   const { notifications, markRead, markAllRead } = useNotifications();
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
@@ -109,6 +111,8 @@ export function Layout({ children, settings }: LayoutProps) {
   const isRevealing = pageTransition?.isRevealing ?? false;
   const demoLocalOnly = useDemoLocalSettingsMode();
   const onDemoWorkspace = isDemoBrowseOnlyPath(location.pathname);
+  const accountSettingsVisibleByFeatureGate = isFeatureVisible('account_settings');
+  const bookingSettingsVisibleByFeatureGate = isFeatureVisible('booking_settings');
 
   const setCollapsed = (value: boolean) => {
     setSidebarCollapsedState(value);
@@ -223,12 +227,17 @@ export function Layout({ children, settings }: LayoutProps) {
     [markRead, navigate, businessSlug]
   );
 
+  useEffect(() => {
+    const rootWidth = layoutRootRef.current?.getBoundingClientRect().width ?? null;
+    const contentWidth = contentRef.current?.getBoundingClientRect().width ?? null;
+  }, [location.pathname, sidebarCollapsed, showAdminHeader, demoLocalOnly]);
+
   return (
     <>
     <div className="min-h-screen flex flex-col bg-background">
       {showAdminHeader && <AdminImpersonationHeader />}
 
-      <div className="flex flex-1" style={{ paddingTop: showAdminHeader ? 48 : 0 }}>
+      <div ref={layoutRootRef} className="flex flex-1" style={{ paddingTop: showAdminHeader ? 48 : 0 }}>
         {/* Desktop sidebar: floating pill, detached from edge */}
         <div className="hidden lg:flex flex-col shrink-0 h-full pt-4 pb-4 pl-5">
           <AppSidebar
@@ -243,7 +252,7 @@ export function Layout({ children, settings }: LayoutProps) {
         </div>
 
         {/* Main area: only this content scrolls when page is long */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div ref={contentRef} className="flex-1 flex flex-col min-w-0">
           {/* Transparent header — blends with page background */}
           <header
             className={cn(
@@ -499,21 +508,25 @@ export function Layout({ children, settings }: LayoutProps) {
                       {t('nav.adminHome')}
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link to={`${settingsBase}/account`}>
-                      {t('nav.accountSettings')}
-                    </Link>
-                  </DropdownMenuItem>
+                  {accountSettingsVisibleByFeatureGate && (
+                    <DropdownMenuItem asChild>
+                      <Link to={`${settingsBase}/account`}>
+                        {t('nav.accountSettings')}
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to={`${settingsBase}/business`}>
                       {t('nav.businessSettings')}
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to={`${settingsBase}/booking`}>
-                      {t('nav.bookingSettings')}
-                    </Link>
-                  </DropdownMenuItem>
+                  {bookingSettingsVisibleByFeatureGate && (
+                    <DropdownMenuItem asChild>
+                      <Link to={`${settingsBase}/booking`}>
+                        {t('nav.bookingSettings')}
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to={`${settingsBase}/billing`}>
                       {t('nav.subscription')}
@@ -537,7 +550,7 @@ export function Layout({ children, settings }: LayoutProps) {
 
           <main
             className={cn(
-              'flex-1 container mx-auto px-4 flex flex-col',
+              'flex-1 w-full px-4 lg:px-6 flex flex-col',
               isHelpPage ? 'overflow-hidden py-3' : 'overflow-x-hidden py-6'
             )}
           >
