@@ -1707,6 +1707,8 @@ export interface Settings {
   payroll_pdf_include_logo: string;
   /** When 'true', punch clock shows an informational prompt when clock-in is outside scheduled shift. */
   kiosk_warn_off_schedule: string;
+  /** When 'true', employees see Punch clock in the sidebar and may open time kiosk from their own phones. */
+  allow_employee_mobile_punch: string;
 }
 
 function isUnauthenticatedDemoPath(pathname: string): boolean {
@@ -1739,6 +1741,8 @@ export function useSettings() {
     notify_birthdays: 'true',
     notify_general: 'true',
     payroll_pdf_include_logo: 'true',
+    kiosk_warn_off_schedule: 'true',
+    allow_employee_mobile_punch: 'false',
   });
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
@@ -1766,7 +1770,7 @@ export function useSettings() {
     // Prefer full settings row, but fall back gracefully if newer columns
     // (e.g. timezone/logo variants) haven't been migrated in this environment yet.
     const fullSelect =
-      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule';
+      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule, allow_employee_mobile_punch';
     const legacySelect =
       'business_name, business_hours, primary_color, secondary_color, business_logo_url, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
 
@@ -1816,6 +1820,7 @@ export function useSettings() {
       notify_general: 'true',
       payroll_pdf_include_logo: 'true',
       kiosk_warn_off_schedule: 'true',
+      allow_employee_mobile_punch: 'false',
     };
 
     const baseFromDb = !error && row
@@ -1840,6 +1845,8 @@ export function useSettings() {
           notify_general: row.notify_general ?? defaults.notify_general,
           payroll_pdf_include_logo: row.payroll_pdf_include_logo ?? defaults.payroll_pdf_include_logo,
           kiosk_warn_off_schedule: row.kiosk_warn_off_schedule ?? defaults.kiosk_warn_off_schedule,
+          allow_employee_mobile_punch:
+            row.allow_employee_mobile_punch ?? defaults.allow_employee_mobile_punch,
         }
       : defaults;
 
@@ -1867,6 +1874,7 @@ export function useSettings() {
         'notify_general',
         'payroll_pdf_include_logo',
         'kiosk_warn_off_schedule',
+        'allow_employee_mobile_punch',
       ] as const;
       const merged = { ...baseFromDb } as Settings;
       for (const k of keys) {
@@ -1918,6 +1926,7 @@ export function useSettings() {
     notify_general: 'notify_general',
     payroll_pdf_include_logo: 'payroll_pdf_include_logo',
     kiosk_warn_off_schedule: 'kiosk_warn_off_schedule',
+    allow_employee_mobile_punch: 'allow_employee_mobile_punch',
   };
 
   const updateSetting = async (key: string, value: string | null): Promise<{ ok: boolean; error?: string }> => {
@@ -1980,6 +1989,7 @@ export function useSettings() {
       'notify_general',
       'payroll_pdf_include_logo',
       'kiosk_warn_off_schedule',
+      'allow_employee_mobile_punch',
     ] as const;
     for (const k of keys) {
       const v = newSettings[k];

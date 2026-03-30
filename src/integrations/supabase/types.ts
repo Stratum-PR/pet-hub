@@ -267,6 +267,53 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_invites: {
+        Row: {
+          id: string
+          business_id: string
+          staff_id: string
+          email: string
+          token: string
+          invited_by: string
+          status: string
+          created_at: string
+          expires_at: string
+          accepted_at: string | null
+        }
+        Insert: {
+          id?: string
+          business_id: string
+          staff_id: string
+          email: string
+          token?: string
+          invited_by: string
+          status?: string
+          created_at?: string
+          expires_at?: string
+          accepted_at?: string | null
+        }
+        Update: {
+          id?: string
+          business_id?: string
+          staff_id?: string
+          email?: string
+          token?: string
+          invited_by?: string
+          status?: string
+          created_at?: string
+          expires_at?: string
+          accepted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_invites_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           age: number
@@ -411,7 +458,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validate_staff_invite: {
+        Args: {
+          invite_token: string
+        }
+        Returns: {
+          id: string
+          email: string
+          status: string
+          expires_at: string
+          business_id: string
+          business_name: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

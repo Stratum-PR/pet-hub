@@ -78,10 +78,12 @@ function TransitionRoutes({ children }: { children: React.ReactNode }) {
 
 const Index = () => {
   const businessId = useBusinessId();
-  const { business } = useAuth();
+  const { business, role, profile } = useAuth();
+  const staffId = profile?.staff_id ?? null;
   useCanonicalSlugRedirect(business);
   const navigate = useNavigate();
   const businessSlug = useResolvedBusinessSlug();
+
   const location = useLocation();
   const { isFeatureVisible } = useFeatureRollout();
   const accountSettingsVisible = isFeatureVisible('account_settings');
@@ -213,6 +215,39 @@ const Index = () => {
     return result;
   };
 
+  useEffect(() => {
+    if (role !== 'employee' || !businessSlug || kioskLocked || settingsLoading) return;
+
+    const allowMobilePunch = settings.allow_employee_mobile_punch === 'true';
+    const raw = location.pathname.replace(new RegExp(`^/${businessSlug}/?`), '').replace(/\/$/, '');
+
+    const staffPrefix = staffId ? `reports/payroll/staff/${staffId}` : '';
+    const allowed =
+      raw === 'clients' ||
+      raw === 'pets' ||
+      raw === 'staff-management' ||
+      raw === 'employee-schedule' ||
+      (allowMobilePunch && raw === 'time-kiosk') ||
+      (!!staffId && (raw === `${staffPrefix}/timesheet` || raw === staffPrefix)) ||
+      raw === 'help' ||
+      raw === 'notifications' ||
+      (accountSettingsVisible && (raw === 'settings/account' || raw === 'settings'));
+
+    if (!allowed) {
+      navigate(`/${businessSlug}/clients`, { replace: true });
+    }
+  }, [
+    role,
+    businessSlug,
+    kioskLocked,
+    settingsLoading,
+    location.pathname,
+    settings.allow_employee_mobile_punch,
+    staffId,
+    accountSettingsVisible,
+    navigate,
+  ]);
+
   return (
     <Routes>
       {/* All routes for a business with layout; parent route provides :businessSlug */}
@@ -226,23 +261,26 @@ const Index = () => {
             <PawRevealEnter className="flex min-h-0 min-w-0 flex-1 flex-col">
             <Layout settings={settings}>
               <TransitionRoutes>
-              {/* Default dashboard */}
               <Route
                 path=""
-                element={<Navigate to="dashboard" replace />}
+                element={<Navigate to={role === 'employee' ? 'clients' : 'dashboard'} replace />}
               />
             <Route
               path="dashboard"
               element={
-                <Dashboard
-                  clients={clients}
-                  pets={pets}
-                  employees={employees}
-                  appointments={appointments}
-                  products={products}
-                  defaultLowStockThreshold={defaultLow}
-                  dataLoading={dashboardDataLoading}
-                />
+                role === 'employee' ? (
+                  <Navigate to="clients" replace />
+                ) : (
+                  <Dashboard
+                    clients={clients}
+                    pets={pets}
+                    employees={employees}
+                    appointments={appointments}
+                    products={products}
+                    defaultLowStockThreshold={defaultLow}
+                    dataLoading={dashboardDataLoading}
+                  />
+                )
               }
             />
             <Route
@@ -454,23 +492,55 @@ const Index = () => {
               element={transactionDetailVisible ? <TransactionDetail /> : <Navigate to="../dashboard" replace />}
             />
             <Route path="settings" element={<SettingsLayout />}>
-              <Route index element={<Navigate to={accountSettingsVisible ? 'account' : 'business'} replace />} />
+              <Route
+                index
+                element={
+                  <Navigate
+                    to={
+                      role === 'employee'
+                        ? accountSettingsVisible
+                          ? 'account'
+                          : '../clients'
+                        : accountSettingsVisible
+                          ? 'account'
+                          : 'business'
+                    }
+                    replace
+                  />
+                }
+              />
               <Route
                 path="account"
                 element={
                   accountSettingsVisible ? (
                     <AccountSettings settings={settings} onSaveSettings={saveAllSettings} />
+                  ) : role === 'employee' ? (
+                    <Navigate to="../clients" replace />
                   ) : (
                     <Navigate to="../business" replace />
                   )
                 }
               />
-              <Route path="business" element={<BusinessSettingsPage />} />
+              <Route
+                path="business"
+                element={role === 'employee' ? <Navigate to="../clients" replace /> : <BusinessSettingsPage />}
+              />
               <Route
                 path="booking"
-                element={bookingSettingsVisible ? <BookingSettings /> : <Navigate to="../business" replace />}
+                element={
+                  role === 'employee' ? (
+                    <Navigate to="../clients" replace />
+                  ) : bookingSettingsVisible ? (
+                    <BookingSettings />
+                  ) : (
+                    <Navigate to="../business" replace />
+                  )
+                }
               />
-              <Route path="billing" element={<Billing />} />
+              <Route
+                path="billing"
+                element={role === 'employee' ? <Navigate to="../clients" replace /> : <Billing />}
+              />
             </Route>
             <Route path="help" element={<Help />} />
             <Route path="notifications" element={<Notifications />} />

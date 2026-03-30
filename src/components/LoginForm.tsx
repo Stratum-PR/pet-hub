@@ -25,6 +25,7 @@ import {
   fetchPreferAdminDashboardOnLogin,
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
+import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
 import { t } from '@/lib/translations';
 import { getBusinessClientLink, ensureBusinessClientLink } from '@/lib/businessClientLink';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
@@ -58,7 +59,7 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
     const authUser = userRes.user;
     const { data: profile, error: profileErr } = await supabase
       .from('profiles' as any)
-      .select('is_super_admin,business_id')
+      .select('is_super_admin,business_id,role')
       .eq('id', authUser.id)
       .maybeSingle();
     if (profileErr) return '/login';
@@ -79,6 +80,18 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
         businessId: profile?.business_id ?? null,
         business,
       });
+    }
+    if (profile?.role === 'employee') {
+      setAuthContext(AUTH_CONTEXTS.BUSINESS);
+      let employeeBiz: Business | null = null;
+      if (profile.business_id) {
+        const { data: b } = await supabase.from('businesses').select('*').eq('id', profile.business_id).single();
+        if (b) {
+          employeeBiz = b as Business;
+          setBusinessSlugForSession(employeeBiz);
+        }
+      }
+      return getEmployeePostLoginPath(employeeBiz);
     }
     setAuthContext(AUTH_CONTEXTS.BUSINESS);
     let business: Business | null = null;

@@ -23,6 +23,10 @@ import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
 import { NoIndexForProtectedRoutes } from "@/components/NoIndexForProtectedRoutes";
+import AcceptInvitation from "@/pages/employee/AcceptInvitation";
+import EmployeeProfile from "@/pages/employee/EmployeeProfile";
+import { EmployeeLegacyRedirect } from "@/pages/employee/EmployeeLegacyRedirect";
+import { EmployeePortalRoute } from "@/components/employee/EmployeePortalRoute";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +52,11 @@ const App = () => (
                   Clients should log in through their business slug (/:businessSlug/login). */}
               <Route path="/cliente" element={<Navigate to="/login" replace />} />
               <Route path="/signup/success" element={<SignupSuccess />} />
+              <Route path="/employee/accept-invitation" element={<AcceptInvitation />} />
+              <Route path="/employee/hub" element={<EmployeeLegacyRedirect />} />
+              <Route element={<EmployeePortalRoute />}>
+                <Route path="/employee/profile" element={<EmployeeProfile />} />
+              </Route>
 
               {/* Legacy public demo paths → canonical slug */}
               <Route path="/demo" element={<Navigate to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} replace />} />

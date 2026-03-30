@@ -50,10 +50,20 @@ interface LayoutProps {
   settings: SettingsType;
 }
 
-function getPageTitle(pathname: string, businessSlug: string | undefined): string {
+function getPageTitle(
+  pathname: string,
+  businessSlug: string | undefined,
+  role?: string | null,
+): string {
   const base = businessSlug ? `/${businessSlug}` : '';
   const path = pathname.replace(base, '') || '/';
   const segment = path.split('/').filter(Boolean)[0] || 'dashboard';
+  if (segment === 'staff-management' && role === 'employee') {
+    return t('nav.myStaffProfile');
+  }
+  if (segment === 'employee-schedule' && role === 'employee') {
+    return t('nav.mySchedule');
+  }
   if (segment === 'settings') {
     const sub = path.split('/').filter(Boolean)[1];
     if (sub === 'account') return t('nav.accountSettings');
@@ -93,7 +103,7 @@ export function Layout({ children, settings }: LayoutProps) {
   const navigate = useNavigate();
   const businessSlug = useResolvedBusinessSlug();
   const businessId = useBusinessId();
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, profile, role } = useAuth();
   const { viewerTier, setViewerTier, isSuperAdmin, isFeatureVisible } = useFeatureRollout();
   const { setTheme, resolvedTheme } = useTheme();
   const { notifications, markRead, markAllRead } = useNotifications();
@@ -174,7 +184,7 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const isImpersonating = typeof window !== 'undefined' && sessionStorage.getItem('is_impersonating') === 'true';
   const showAdminHeader = isAdmin && isImpersonating;
-  const pageTitle = getPageTitle(location.pathname, businessSlug);
+  const pageTitle = getPageTitle(location.pathname, businessSlug, role);
   const isHelpPage = /\/help\/?$/.test(location.pathname);
   const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
   /** Match `/:businessSlug/dashboard` without relying on `useParams` (avoids missed triggers). */
@@ -247,6 +257,7 @@ export function Layout({ children, settings }: LayoutProps) {
             businessLogoUrl={logoToShow}
             navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
             navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}
+            allowEmployeeMobilePunch={settings.allow_employee_mobile_punch === 'true'}
             mobile={false}
           />
         </div>
@@ -515,23 +526,27 @@ export function Layout({ children, settings }: LayoutProps) {
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link to={`${settingsBase}/business`}>
-                      {t('nav.businessSettings')}
-                    </Link>
-                  </DropdownMenuItem>
-                  {bookingSettingsVisibleByFeatureGate && (
-                    <DropdownMenuItem asChild>
-                      <Link to={`${settingsBase}/booking`}>
-                        {t('nav.bookingSettings')}
-                      </Link>
-                    </DropdownMenuItem>
+                  {role !== 'employee' && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link to={`${settingsBase}/business`}>
+                          {t('nav.businessSettings')}
+                        </Link>
+                      </DropdownMenuItem>
+                      {bookingSettingsVisibleByFeatureGate && (
+                        <DropdownMenuItem asChild>
+                          <Link to={`${settingsBase}/booking`}>
+                            {t('nav.bookingSettings')}
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem asChild>
+                        <Link to={`${settingsBase}/billing`}>
+                          {t('nav.subscription')}
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link to={`${settingsBase}/billing`}>
-                      {t('nav.subscription')}
-                    </Link>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setLogoutDialogOpen(true)}
@@ -600,6 +615,7 @@ export function Layout({ children, settings }: LayoutProps) {
             businessLogoUrl={logoToShow}
             navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
             navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}
+            allowEmployeeMobilePunch={settings.allow_employee_mobile_punch === 'true'}
             mobile={true}
           />
         </SheetContent>

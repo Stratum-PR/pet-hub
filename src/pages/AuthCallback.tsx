@@ -11,6 +11,7 @@ import {
   fetchPreferAdminDashboardOnLogin,
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
+import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
 
 const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
 const PENDING_MANAGER_TIER = 'pending_manager_tier';
@@ -85,7 +86,7 @@ export function AuthCallback() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_super_admin, business_id')
+        .select('is_super_admin, business_id, role')
         .eq('id', session.user.id)
         .maybeSingle();
 
@@ -106,6 +107,24 @@ export function AuthCallback() {
           business,
         });
         if (!cancelled) navigate(route, { replace: true });
+        return;
+      }
+
+      if (profile?.role === 'employee') {
+        let business: Business | null = null;
+        if (profile.business_id) {
+          const { data: biz } = await supabase
+            .from('businesses')
+            .select('*')
+            .eq('id', profile.business_id)
+            .single();
+          if (biz) {
+            business = biz as Business;
+            setBusinessSlugForSession(business);
+          }
+        }
+        setAuthContext(AUTH_CONTEXTS.BUSINESS);
+        if (!cancelled) navigate(getEmployeePostLoginPath(business), { replace: true });
         return;
       }
 

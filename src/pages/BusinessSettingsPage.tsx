@@ -152,6 +152,9 @@ export function BusinessSettingsPage() {
   const [payScheduleCadenceWeeks, setPayScheduleCadenceWeeks] = useState(settings.pay_schedule_cadence_weeks || '2');
   const [payrollPdfIncludeLogo, setPayrollPdfIncludeLogo] = useState(() => settings.payroll_pdf_include_logo !== 'false');
   const [kioskWarnOffSchedule, setKioskWarnOffSchedule] = useState(() => settings.kiosk_warn_off_schedule !== 'false');
+  const [allowEmployeeMobilePunch, setAllowEmployeeMobilePunch] = useState(
+    () => settings.allow_employee_mobile_punch === 'true',
+  );
   const [savingPaySchedule, setSavingPaySchedule] = useState(false);
 
   useEffect(() => {
@@ -221,6 +224,10 @@ export function BusinessSettingsPage() {
   useEffect(() => {
     setKioskWarnOffSchedule(settings.kiosk_warn_off_schedule !== 'false');
   }, [settings.kiosk_warn_off_schedule]);
+
+  useEffect(() => {
+    setAllowEmployeeMobilePunch(settings.allow_employee_mobile_punch === 'true');
+  }, [settings.allow_employee_mobile_punch]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -503,6 +510,18 @@ export function BusinessSettingsPage() {
     const res = await updateSetting('kiosk_warn_off_schedule', checked ? 'true' : 'false');
     if (!res.ok) {
       setKioskWarnOffSchedule(prev);
+      toast.error(res.error || t('common.genericError'));
+      return;
+    }
+  };
+
+  const handleAllowEmployeeMobilePunchChange = async (checked: boolean) => {
+    if (!businessId) return;
+    const prev = allowEmployeeMobilePunch;
+    setAllowEmployeeMobilePunch(checked);
+    const res = await updateSetting('allow_employee_mobile_punch', checked ? 'true' : 'false');
+    if (!res.ok) {
+      setAllowEmployeeMobilePunch(prev);
       toast.error(res.error || t('common.genericError'));
       return;
     }
@@ -1471,6 +1490,26 @@ export function BusinessSettingsPage() {
                   id="kiosk-warn-off-schedule"
                   checked={kioskWarnOffSchedule}
                   onCheckedChange={handleKioskWarnOffScheduleChange}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('businessSettings.allowEmployeeMobilePunch')}</CardTitle>
+              <CardDescription>{t('businessSettings.allowEmployeeMobilePunchDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="allow-employee-mobile-punch">
+                    {t('businessSettings.allowEmployeeMobilePunchEnabledLabel')}
+                  </Label>
+                </div>
+                <Switch
+                  id="allow-employee-mobile-punch"
+                  checked={allowEmployeeMobilePunch}
+                  onCheckedChange={handleAllowEmployeeMobilePunchChange}
                 />
               </div>
             </CardContent>
