@@ -42,6 +42,7 @@ import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 import { consumeLastStaffWriteError } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
+import { InviteEmployeeDialog } from '@/components/employee/InviteEmployeeDialog';
 
 function resolvedAccessRole(emp: Employee): StaffAccessRole {
   const a = emp.access_role;
@@ -152,8 +153,9 @@ export function EmployeeManagement({
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const businessId = useBusinessId();
-  const { staffId, isAdmin: isSuperAdmin } = useAuth();
+  const { staffId, isAdmin: isSuperAdmin, business, role } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
+  const isEmployeeSelfService = role === 'employee';
 
   const myStaffAccessRole = useMemo((): StaffAccessRole | null => {
     if (!staffId) return null;
@@ -164,6 +166,26 @@ export function EmployeeManagement({
   const canEditStaffAccessRoles =
     isSuperAdmin || myStaffAccessRole === 'admin' || myStaffAccessRole === 'manager';
   const canAssignAdminAccessRole = isSuperAdmin || myStaffAccessRole === 'admin';
+  const canSendPortalInvite = (canEditStaffAccessRoles || isSuperAdmin) && !demoBrowseOnly;
+
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState<Employee | null>(null);
+  const [pendingInviteStaffIds, setPendingInviteStaffIds] = useState<Set<string>>(() => new Set());
+
+  const refreshPendingInvites = useCallback(async () => {
+    if (!businessId || demoBrowseOnly) return;
+    const { data } = await supabase
+      .from('staff_invites')
+      .select('staff_id')
+      .eq('business_id', businessId)
+      .eq('status', 'pending');
+    setPendingInviteStaffIds(new Set((data ?? []).map((r) => String(r.staff_id))));
+  }, [businessId, demoBrowseOnly]);
+
+  useEffect(() => {
+    void refreshPendingInvites();
+  }, [refreshPendingInvites, employees.length]);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [staffModalOpen, setStaffModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -204,6 +226,14 @@ export function EmployeeManagement({
     () => employees.filter((e) => e.status === statusFilter),
     [employees, statusFilter]
   );
+
+  const listForGrid = useMemo(() => {
+    if (isEmployeeSelfService && staffId) {
+      const me = employees.find((e) => e.id === staffId);
+      return me ? [me] : [];
+    }
+    return filteredEmployees;
+  }, [isEmployeeSelfService, staffId, employees, filteredEmployees]);
 
   useEffect(() => {
     setStaffModalOpen(false);
@@ -314,18 +344,22 @@ export function EmployeeManagement({
       return;
     }
 
-    const hireIso = formData.hire_date ? localYmdToTimestamptzIso(formData.hire_date) : null;
-    const lastIso =
-      formData.status === 'inactive' && formData.last_date
-        ? localYmdToTimestamptzIso(formData.last_date)
-        : null;
-    if (formData.hire_date && !hireIso) {
-      alert(t('common.genericError'));
-      return;
-    }
-    if (formData.status === 'inactive' && formData.last_date && !lastIso) {
-      alert(t('common.genericError'));
-      return;
+    let hireIso: string | null = null;
+    let lastIso: string | null = null;
+    if (!isEmployeeSelfService) {
+      hireIso = formData.hire_date ? localYmdToTimestamptzIso(formData.hire_date) : null;
+      lastIso =
+        formData.status === 'inactive' && formData.last_date
+          ? localYmdToTimestamptzIso(formData.last_date)
+          : null;
+      if (formData.hire_date && !hireIso) {
+        alert(t('common.genericError'));
+        return;
+      }
+      if (formData.status === 'inactive' && formData.last_date && !lastIso) {
+        alert(t('common.genericError'));
+        return;
+      }
     }
 
     const dobTrim = String(formData.dob_date ?? '').trim();
@@ -349,41 +383,43 @@ export function EmployeeManagement({
     }
     const allDob = birth_month !== null && birth_day !== null && birth_year !== null;
 
-    const activeAdmins = employees.filter(
-      (e) => e.status === 'active' && resolvedAccessRole(e) === 'admin'
-    );
-    const editingWasAdmin = editingEmployee && resolvedAccessRole(editingEmployee) === 'admin';
-    if (
-      editingWasAdmin &&
-      formData.access_role !== 'admin' &&
-      activeAdmins.length === 1 &&
-      activeAdmins[0]?.id === editingEmployee!.id
-    ) {
-      toast.error(t('employeeManagement.lastAdminGuard'));
-      return;
-    }
+    if (!isEmployeeSelfService) {
+      const activeAdmins = employees.filter(
+        (e) => e.status === 'active' && resolvedAccessRole(e) === 'admin'
+      );
+      const editingWasAdmin = editingEmployee && resolvedAccessRole(editingEmployee) === 'admin';
+      if (
+        editingWasAdmin &&
+        formData.access_role !== 'admin' &&
+        activeAdmins.length === 1 &&
+        activeAdmins[0]?.id === editingEmployee!.id
+      ) {
+        toast.error(t('employeeManagement.lastAdminGuard'));
+        return;
+      }
 
-    const activeManagers = employees.filter(
-      (e) => e.status === 'active' && resolvedAccessRole(e) === 'manager'
-    );
-    const editingWasManager = editingEmployee && resolvedAccessRole(editingEmployee) === 'manager';
-    if (
-      editingWasManager &&
-      formData.access_role !== 'manager' &&
-      activeManagers.length === 1 &&
-      activeManagers[0]?.id === editingEmployee!.id
-    ) {
-      toast.error(t('employeeManagement.lastManagerGuard'));
-      return;
-    }
+      const activeManagers = employees.filter(
+        (e) => e.status === 'active' && resolvedAccessRole(e) === 'manager'
+      );
+      const editingWasManager = editingEmployee && resolvedAccessRole(editingEmployee) === 'manager';
+      if (
+        editingWasManager &&
+        formData.access_role !== 'manager' &&
+        activeManagers.length === 1 &&
+        activeManagers[0]?.id === editingEmployee!.id
+      ) {
+        toast.error(t('employeeManagement.lastManagerGuard'));
+        return;
+      }
 
-    if (
-      myStaffAccessRole === 'manager' &&
-      !isSuperAdmin &&
-      formData.access_role === 'admin'
-    ) {
-      toast.error(t('employeeManagement.accessRoleManagersCannotAssignAdmin'));
-      return;
+      if (
+        myStaffAccessRole === 'manager' &&
+        !isSuperAdmin &&
+        formData.access_role === 'admin'
+      ) {
+        toast.error(t('employeeManagement.accessRoleManagersCannotAssignAdmin'));
+        return;
+      }
     }
 
     let finalPhotoUrl: string | null = formData.photo_url;
@@ -413,6 +449,56 @@ export function EmployeeManagement({
       }
     } else if (demoBrowseOnly) {
       finalPhotoUrl = formData.photo_url;
+    }
+
+    if (isEmployeeSelfService && editingEmployee) {
+      const emailTrim = String(formData.email ?? '').trim();
+      const routingDigits = normalizeRoutingDigits(formData.bank_routing_number);
+      if (formData.bank_routing_number.trim() && routingDigits.length !== 9) {
+        alert(t('employeeManagement.routingInvalid'));
+        return;
+      }
+
+      const selfPayload: Record<string, unknown> = {
+        name: formData.name.trim(),
+        email: emailTrim,
+        phone: unformatPhoneNumber(formData.phone),
+        pin: formData.pin,
+        birth_month,
+        birth_day,
+        birth_year,
+        photo_url: finalPhotoUrl,
+        bank_routing_number: routingDigits || null,
+        bank_account_number: formData.bank_account_number.trim() || null,
+        bank_name: formData.bank_name.trim() || null,
+        payment_notes: formData.payment_notes.trim() || null,
+      };
+      if (selfPayload.pin && String(selfPayload.pin).length === EMPLOYEE_PIN_LENGTH) {
+        const isNewPin = editingEmployee.pin !== selfPayload.pin;
+        if (isNewPin) {
+          selfPayload.pin_set_at = new Date().toISOString();
+          selfPayload.pin_required = false;
+        }
+      }
+
+      const updated = await onUpdateEmployee(editingEmployee.id, selfPayload);
+      if (updated == null) {
+        const det = consumeLastStaffWriteError();
+        toast.error(
+          det
+            ? `${t('employeeManagement.saveStaffFailed')} (${det.code ?? 'error'}: ${det.message})`
+            : t('employeeManagement.saveStaffFailed')
+        );
+        return;
+      }
+      if (allDob && birth_month !== null && birth_day !== null && !demoBrowseOnly) {
+        const { error: bdayErr } = await dispatchStaffBirthdaysForBusiness(businessId);
+        if (bdayErr) toast.error(bdayErr);
+        else if (isDemoWorkspaceBusiness(businessId)) clearPetHubBirthdayJobLocalKey(businessId);
+        requestNotificationsRefetch();
+      }
+      closeStaffModal();
+      return;
     }
 
     const commission_rate =
@@ -526,8 +612,9 @@ export function EmployeeManagement({
 
   // Deep link from notifications: ?staff=id (legacy ?employee=id)
   useEffect(() => {
-    const staffId = searchParams.get('staff') ?? searchParams.get('employee');
-    if (!staffId || employees.length === 0) return;
+    if (isEmployeeSelfService) return;
+    const staffIdParam = searchParams.get('staff') ?? searchParams.get('employee');
+    if (!staffIdParam || employees.length === 0) return;
     const next = new URLSearchParams(searchParams);
     next.delete('staff');
     next.delete('employee');
@@ -664,6 +751,12 @@ export function EmployeeManagement({
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {isEmployeeSelfService ? (
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">{t('nav.myStaffProfile')}</h1>
+          <p className="text-sm text-muted-foreground">{t('employeeManagement.selfServiceSubtitle')}</p>
+        </div>
+      ) : null}
       {loadError ? (
         <div
           role="alert"
@@ -679,44 +772,46 @@ export function EmployeeManagement({
         </div>
       ) : null}
 
-      <div
-        className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
-        data-page-toolbar
-      >
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:min-w-[200px]">
-          <span className="whitespace-nowrap text-sm text-muted-foreground">
-            {t('employeeManagement.statusFilter')}
-          </span>
-          <Select value={statusFilter} onValueChange={(v: 'active' | 'inactive') => setStatusFilter(v)}>
-            <SelectTrigger
-              id="employee-status-filter"
-              className="h-10 w-[min(100vw-10rem,260px)] rounded-xl border border-input bg-background/80 backdrop-blur-sm dark:bg-background/40"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">{t('employeeManagement.filterActive')}</SelectItem>
-              <SelectItem value="inactive">{t('employeeManagement.filterInactive')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <Button
-          type="button"
-          onClick={() => {
-            if (staffModalOpen) {
-              closeStaffModal();
-              return;
-            }
-            setEditingEmployee(null);
-            resetForm();
-            setStaffModalOpen(true);
-          }}
-          className="flex shrink-0 items-center gap-2 shadow-sm"
+      {!isEmployeeSelfService ? (
+        <div
+          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+          data-page-toolbar
         >
-          {staffModalOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {staffModalOpen ? t('common.cancel') : t('employeeManagement.addEmployee')}
-        </Button>
-      </div>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:min-w-[200px]">
+            <span className="whitespace-nowrap text-sm text-muted-foreground">
+              {t('employeeManagement.statusFilter')}
+            </span>
+            <Select value={statusFilter} onValueChange={(v: 'active' | 'inactive') => setStatusFilter(v)}>
+              <SelectTrigger
+                id="employee-status-filter"
+                className="h-10 w-[min(100vw-10rem,260px)] rounded-xl border border-input bg-background/80 backdrop-blur-sm dark:bg-background/40"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">{t('employeeManagement.filterActive')}</SelectItem>
+                <SelectItem value="inactive">{t('employeeManagement.filterInactive')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            type="button"
+            onClick={() => {
+              if (staffModalOpen) {
+                closeStaffModal();
+                return;
+              }
+              setEditingEmployee(null);
+              resetForm();
+              setStaffModalOpen(true);
+            }}
+            className="flex shrink-0 items-center gap-2 shadow-sm"
+          >
+            {staffModalOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {staffModalOpen ? t('common.cancel') : t('employeeManagement.addEmployee')}
+          </Button>
+        </div>
+      ) : null}
 
       <Dialog open={staffModalOpen} onOpenChange={(open) => !open && handleCancel()}>
         <DialogContent className="flex h-[min(92vh,900px)] w-[calc(100vw-1.5rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
@@ -733,12 +828,16 @@ export function EmployeeManagement({
                 disabledSave={staffPhotoUploading}
                 deleteLabel={t('employeeManagement.deleteEmployee')}
                 onDelete={
-                  editingEmployee && modalEmployeeLive?.status === 'active'
+                  !isEmployeeSelfService &&
+                  editingEmployee &&
+                  modalEmployeeLive?.status === 'active'
                     ? () => handleDeleteClick(editingEmployee.id)
                     : undefined
                 }
                 onAux={
-                  editingEmployee && modalEmployeeLive?.status === 'inactive'
+                  !isEmployeeSelfService &&
+                  editingEmployee &&
+                  modalEmployeeLive?.status === 'inactive'
                     ? () => handleReactivateClick(editingEmployee.id)
                     : undefined
                 }
@@ -748,9 +847,11 @@ export function EmployeeManagement({
             </div>
             <DialogHeader className="space-y-1 text-left">
               <DialogTitle className="text-xl font-semibold">
-                {editingEmployee
-                  ? t('employeeManagement.editEmployee')
-                  : t('employeeManagement.addNewEmployee')}
+                {isEmployeeSelfService && editingEmployee
+                  ? t('nav.myStaffProfile')
+                  : editingEmployee
+                    ? t('employeeManagement.editEmployee')
+                    : t('employeeManagement.addNewEmployee')}
               </DialogTitle>
             </DialogHeader>
           </div>
@@ -875,7 +976,7 @@ export function EmployeeManagement({
                       <RefreshCw className="mr-2 h-4 w-4" />
                       {t('employeeManagement.generatePin')}
                     </Button>
-                    {editingEmployee && modalEmployeeLive?.pin_set_at ? (
+                    {editingEmployee && modalEmployeeLive?.pin_set_at && !isEmployeeSelfService ? (
                       <Button
                         type="button"
                         variant="ghost"
@@ -894,60 +995,67 @@ export function EmployeeManagement({
                     </p>
                   ) : null}
                 </div>
-                <div className="space-y-2">
-                  <Label>{t('employeeManagement.compensationType')}</Label>
-                  <Select
-                    value={formData.compensation_type}
-                    onValueChange={(value: 'hourly' | 'commission') =>
-                      setFormData({ ...formData, compensation_type: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hourly">{t('employeeManagement.compensationHourly')}</SelectItem>
-                      <SelectItem value="commission">{t('employeeManagement.compensationCommission')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Hourly Rate ($)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.50"
-                    value={formData.hourly_rate}
-                    onChange={(e) => setFormData({ ...formData, hourly_rate: Number(e.target.value) })}
-                    required={formData.compensation_type === 'hourly'}
-                    disabled={formData.compensation_type === 'commission'}
-                  />
-                </div>
-                {formData.compensation_type === 'commission' && (
-                  <div className="space-y-2">
-                    <Label>{t('employeeManagement.commissionRate')}</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      value={formData.commission_rate === '' ? '' : formData.commission_rate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          commission_rate: e.target.value === '' ? '' : Number(e.target.value),
-                        })
-                      }
-                      placeholder="0"
-                    />
-                  </div>
-                )}
+                {!isEmployeeSelfService ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>{t('employeeManagement.compensationType')}</Label>
+                      <Select
+                        value={formData.compensation_type}
+                        onValueChange={(value: 'hourly' | 'commission') =>
+                          setFormData({ ...formData, compensation_type: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hourly">{t('employeeManagement.compensationHourly')}</SelectItem>
+                          <SelectItem value="commission">{t('employeeManagement.compensationCommission')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Hourly Rate ($)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.50"
+                        value={formData.hourly_rate}
+                        onChange={(e) => setFormData({ ...formData, hourly_rate: Number(e.target.value) })}
+                        required={formData.compensation_type === 'hourly'}
+                        disabled={formData.compensation_type === 'commission'}
+                      />
+                    </div>
+                    {formData.compensation_type === 'commission' && (
+                      <div className="space-y-2">
+                        <Label>{t('employeeManagement.commissionRate')}</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          value={formData.commission_rate === '' ? '' : formData.commission_rate}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              commission_rate: e.target.value === '' ? '' : Number(e.target.value),
+                            })
+                          }
+                          placeholder="0"
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : null}
                 <div className="space-y-2">
                   <Label>{t('employeeManagement.jobTitle')}</Label>
                   <Input
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     placeholder="Groomer"
+                    readOnly={isEmployeeSelfService}
+                    disabled={isEmployeeSelfService}
+                    className={isEmployeeSelfService ? 'bg-muted/50' : undefined}
                   />
                 </div>
                 <div className="space-y-2">
@@ -993,23 +1101,25 @@ export function EmployeeManagement({
                       : t('employeeManagement.accessRoleReadOnlyHint')}
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value: 'active' | 'inactive') =>
-                      setFormData({ ...formData, status: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!isEmployeeSelfService ? (
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value: 'active' | 'inactive') =>
+                        setFormData({ ...formData, status: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
                 <div className="space-y-4 rounded-lg border border-border p-4 md:col-span-2">
                   <p className="text-sm font-medium text-foreground">{t('employeeManagement.paymentSection')}</p>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1137,24 +1247,28 @@ export function EmployeeManagement({
                     className="max-w-xs"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Hire Date</Label>
-                  <Input
-                    type="date"
-                    value={formData.hire_date}
-                    onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
-                  />
-                </div>
-                {formData.status === 'inactive' && (
-                  <div className="space-y-2">
-                    <Label>Last Date (Termination/End Date)</Label>
-                    <Input
-                      type="date"
-                      value={formData.last_date}
-                      onChange={(e) => setFormData({ ...formData, last_date: e.target.value })}
-                    />
-                  </div>
-                )}
+                {!isEmployeeSelfService ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Hire Date</Label>
+                      <Input
+                        type="date"
+                        value={formData.hire_date}
+                        onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
+                      />
+                    </div>
+                    {formData.status === 'inactive' && (
+                      <div className="space-y-2">
+                        <Label>Last Date (Termination/End Date)</Label>
+                        <Input
+                          type="date"
+                          value={formData.last_date}
+                          onChange={(e) => setFormData({ ...formData, last_date: e.target.value })}
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : null}
               </div>
 
               {modalEmployeeLive ? (
@@ -1204,9 +1318,9 @@ export function EmployeeManagement({
         </DialogContent>
       </Dialog>
 
-      {filteredEmployees.length > 0 ? (
+      {listForGrid.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredEmployees.map((employee) => (
+          {listForGrid.map((employee) => (
             <Card key={employee.id}>
               <CardContent className="p-0">
                 <button
@@ -1227,11 +1341,43 @@ export function EmployeeManagement({
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold">{employee.name}</h3>
                       <JobTitleBadge employee={employee} />
+                      {employee.user_id ? (
+                        <span className="rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
+                          Cuenta activa
+                        </span>
+                      ) : pendingInviteStaffIds.has(employee.id) ? (
+                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                          Invitación pendiente
+                        </span>
+                      ) : null}
                     </div>
                     <p className="break-all text-sm text-muted-foreground">{employee.email}</p>
                     <p className="text-sm text-muted-foreground">{formatPhoneNumber(employee.phone)}</p>
                   </div>
                 </button>
+                {canSendPortalInvite && !isEmployeeSelfService && employee.status === 'active' ? (
+                  <div
+                    className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    role="presentation"
+                  >
+                    {!employee.user_id ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => {
+                          setInviteTarget(employee);
+                          setInviteDialogOpen(true);
+                        }}
+                      >
+                        Enviar invitación al portal
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ))}
@@ -1247,10 +1393,18 @@ export function EmployeeManagement({
             </p>
           </CardContent>
         </Card>
-      ) : !loading && !loadError && employees.length > 0 ? (
+      ) : !loading && !loadError && !isEmployeeSelfService && employees.length > 0 ? (
         <p className="text-center text-sm text-muted-foreground py-8">
           No {statusFilter} staff match this filter.
         </p>
+      ) : null}
+
+      {!loading && !loadError && isEmployeeSelfService && staffId && listForGrid.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            {t('employeeManagement.selfServiceProfileMissing')}
+          </CardContent>
+        </Card>
       ) : null}
 
       {employees.length === 0 ? (
@@ -1377,6 +1531,18 @@ export function EmployeeManagement({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {!isEmployeeSelfService ? (
+        <InviteEmployeeDialog
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          staffMember={inviteTarget}
+          businessId={businessId}
+          businessName={business?.name ?? null}
+          isSuperAdmin={isSuperAdmin}
+          onSent={() => void refreshPendingInvites()}
+        />
+      ) : null}
 
     </div>
   );

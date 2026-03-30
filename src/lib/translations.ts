@@ -445,6 +445,18 @@ export const translations: Translations = {
     en: 'Staff',
     es: 'Personal'
   },
+  'nav.myStaffProfile': {
+    en: 'My staff profile',
+    es: 'Mi ficha de personal'
+  },
+  'employeeManagement.selfServiceSubtitle': {
+    en: 'Update your contact details, profile photo, PIN, birthday, and payment information.',
+    es: 'Actualiza tus datos de contacto, foto, PIN, cumpleaños e información de pago.'
+  },
+  'employeeManagement.selfServiceProfileMissing': {
+    en: 'We could not load your staff profile. Ask a manager to confirm your account is linked to a staff record.',
+    es: 'No se pudo cargar tu ficha de personal. Pide a un gerente que confirme que tu cuenta está vinculada al personal.'
+  },
   'nav.employeeInfo': {
     en: 'Staff directory',
     es: 'Directorio del personal'
@@ -676,6 +688,10 @@ export const translations: Translations = {
   'nav.logOut': {
     en: 'Log Out',
     es: 'Cerrar sesión'
+  },
+  'employeePortal.subtitle': {
+    en: 'Staff portal',
+    es: 'Portal de empleados'
   },
   'layout.demoLocalSettingsHint': {
     en: 'DEMO: changes are not saved',
@@ -3996,6 +4012,18 @@ export const translations: Translations = {
   'businessSettings.kioskWarnOffScheduleEnabledLabel': {
     en: 'Show off-schedule notice on punch clock',
     es: 'Mostrar aviso de fuera de turno en el reloj'
+  },
+  'businessSettings.allowEmployeeMobilePunch': {
+    en: 'Employee punch clock on their phones',
+    es: 'Fichaje desde el teléfono del empleado'
+  },
+  'businessSettings.allowEmployeeMobilePunchDescription': {
+    en: 'When on, staff with the employee role see Punch clock in their sidebar and can open the time kiosk from their own device (in addition to the storefront kiosk).',
+    es: 'Si está activo, el personal con rol empleado ve Reloj de fichaje en el menú y puede abrir el kiosco de tiempo desde su propio dispositivo (además del kiosco en tienda).'
+  },
+  'businessSettings.allowEmployeeMobilePunchEnabledLabel': {
+    en: 'Let employees use punch clock on their phones',
+    es: 'Permitir fichar desde el teléfono del empleado'
   },
 
   'transactions.status': {

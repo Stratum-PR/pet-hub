@@ -4,3 +4,9 @@ project_id = "ehjrykgwfwgckfpcjmka"
 # This function still validates the user JWT inside the handler (auth.getUser + super_admin check).
 [functions.support-begin-user-session]
 verify_jwt = false
+
+[functions.send-employee-invitation]
+verify_jwt = false
+
+[functions.accept-employee-invitation]
+verify_jwt = false

@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import {
   LayoutDashboard,
@@ -32,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
@@ -79,6 +80,8 @@ interface AppSidebarProps {
   businessLogoUrl?: string | null;
   navbarLogoMode?: 'square' | 'wide';
   navbarLogoSizePx?: number;
+  /** When true, employees may open punch clock from their own phones (business setting). */
+  allowEmployeeMobilePunch?: boolean;
   /** When true, render for mobile sheet (no collapse button, full width) */
   mobile?: boolean;
 }
@@ -90,13 +93,14 @@ export function AppSidebar({
   businessLogoUrl,
   navbarLogoMode = 'square',
   navbarLogoSizePx = 80,
+  allowEmployeeMobilePunch = false,
   mobile,
 }: AppSidebarProps) {
   const sidebarRef = useRef<HTMLDivElement | null>(null);
   const businessSlug = useResolvedBusinessSlug();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
-  const { role } = useAuth();
+  const { role, staffId } = useAuth();
   const { isFeatureVisible } = useFeatureRollout();
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -115,7 +119,31 @@ export function AppSidebar({
 
   const scheduleLabelKey = role === 'employee' ? 'nav.mySchedule' : 'nav.schedule';
 
+  const isEmployeeRole = role === 'employee';
+  const employeeFlatNav = useMemo(() => {
+    const items: { path: string; labelKey: string; icon: LucideIcon }[] = [
+      { path: 'clients', labelKey: 'nav.clients', icon: Users },
+      { path: 'pets', labelKey: 'nav.pets', icon: Dog },
+      { path: 'staff-management', labelKey: 'nav.myStaffProfile', icon: UserCog },
+      { path: 'employee-schedule', labelKey: 'nav.mySchedule', icon: Calendar },
+    ];
+    if (allowEmployeeMobilePunch) {
+      items.push({ path: 'time-kiosk', labelKey: 'nav.timeKiosk', icon: Clock });
+    }
+    if (staffId) {
+      items.push({
+        path: `reports/payroll/staff/${staffId}/timesheet`,
+        labelKey: 'nav.payroll',
+        icon: DollarSign,
+      });
+    }
+    items.push({ path: 'help', labelKey: 'nav.help', icon: Mail });
+    return items;
+  }, [allowEmployeeMobilePunch, staffId]);
+
   const basePath = businessSlug ? `/${businessSlug}` : '';
+  const logoTarget =
+    isEmployeeRole && basePath ? `${basePath}/clients` : basePath || '/';
   const staffNavSectionActive =
     location.pathname.includes('/staff-management') ||
     location.pathname.includes('/employee-management') ||
@@ -184,7 +212,7 @@ export function AppSidebar({
         )}
       >
         <Link
-          to={basePath || '/'}
+          to={logoTarget}
           className={cn(
             'flex items-center gap-2 min-w-0 overflow-hidden',
             isPill && collapsed ? 'flex-none justify-center' : 'flex-1 justify-center min-w-0'
@@ -233,96 +261,104 @@ export function AppSidebar({
       </div>
 
       <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-1 space-y-0.5', isPill ? (collapsed ? 'px-3 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
-        {visibleMainNavItems.map((item) => (
-          <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
-        ))}
-
-        {collapsed && !mobile ? (
-          <>
-            <DropdownMenu open={employeesOpen} onOpenChange={setEmployeesOpen}>
-              <div className="w-full">
-                <DropdownMenuTrigger asChild>
-                  <button className={cn('w-full', linkClass(staffNavSectionActive, true))}>
-                    <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                      <UserCog className="h-5 w-5 shrink-0" />
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start" className="w-48">
-                  {employeeItems.map((item) => (
-                    <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`}>
-                        {t(item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey)}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </div>
-            </DropdownMenu>
-            <DropdownMenu open={reportsOpen} onOpenChange={setReportsOpen}>
-              <div className="w-full">
-                <DropdownMenuTrigger asChild>
-                  <button className={cn('w-full', linkClass(location.pathname.includes('reports'), true))}>
-                    <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                      <BarChart3 className="h-5 w-5 shrink-0" />
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start" className="w-48">
-                  {reportsItems.map((item) => (
-                    <DropdownMenuItem key={item.path} asChild>
-                      <Link to={`${basePath}/${item.path}`}>
-                        {t(item.labelKey)}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </div>
-            </DropdownMenu>
-          </>
+        {isEmployeeRole ? (
+          employeeFlatNav.map((item) => (
+            <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
+          ))
         ) : (
           <>
-        <Collapsible open={employeesOpen} onOpenChange={setEmployeesOpen}>
-          <div className="w-full">
-            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(staffNavSectionActive))}>
-              <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                <UserCog className="h-5 w-5 shrink-0" />
-              </span>
-              {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.employees')}</span>}
-              {(!collapsed || mobile) && (employeesOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
-                {employeeItems.map((item) => (
-                  <NavLink key={item.path} path={item.path} labelKey={item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey} icon={item.icon} />
-                ))}
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+            {visibleMainNavItems.map((item) => (
+              <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
+            ))}
 
-        <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
-          <div className="w-full">
-            <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('reports')))}>
-              <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                <BarChart3 className="h-5 w-5 shrink-0" />
-              </span>
-              {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.reports')}</span>}
-              {(!collapsed || mobile) && (reportsOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
-                {reportsItems.map((item) => (
-                  <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
-                ))}
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
+            {collapsed && !mobile ? (
+              <>
+                <DropdownMenu open={employeesOpen} onOpenChange={setEmployeesOpen}>
+                  <div className="w-full">
+                    <DropdownMenuTrigger asChild>
+                      <button className={cn('w-full', linkClass(staffNavSectionActive, true))}>
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                          <UserCog className="h-5 w-5 shrink-0" />
+                        </span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-48">
+                      {employeeItems.map((item) => (
+                        <DropdownMenuItem key={item.path} asChild>
+                          <Link to={`${basePath}/${item.path}`}>
+                            {t(item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey)}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </div>
+                </DropdownMenu>
+                <DropdownMenu open={reportsOpen} onOpenChange={setReportsOpen}>
+                  <div className="w-full">
+                    <DropdownMenuTrigger asChild>
+                      <button className={cn('w-full', linkClass(location.pathname.includes('reports'), true))}>
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                          <BarChart3 className="h-5 w-5 shrink-0" />
+                        </span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-48">
+                      {reportsItems.map((item) => (
+                        <DropdownMenuItem key={item.path} asChild>
+                          <Link to={`${basePath}/${item.path}`}>
+                            {t(item.labelKey)}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </div>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Collapsible open={employeesOpen} onOpenChange={setEmployeesOpen}>
+                  <div className="w-full">
+                    <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(staffNavSectionActive))}>
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                        <UserCog className="h-5 w-5 shrink-0" />
+                      </span>
+                      {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.employees')}</span>}
+                      {(!collapsed || mobile) && (employeesOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
+                        {employeeItems.map((item) => (
+                          <NavLink key={item.path} path={item.path} labelKey={item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey} icon={item.icon} />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+
+                <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
+                  <div className="w-full">
+                    <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('reports')))}>
+                      <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                        <BarChart3 className="h-5 w-5 shrink-0" />
+                      </span>
+                      {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.reports')}</span>}
+                      {(!collapsed || mobile) && (reportsOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
+                        {reportsItems.map((item) => (
+                          <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              </>
+            )}
+
+            <NavLink path="help" labelKey="nav.help" icon={Mail} />
           </>
         )}
-
-        <NavLink path="help" labelKey="nav.help" icon={Mail} />
       </nav>
 
       {/* Theme toggle */}
