@@ -37,6 +37,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
+import { useEmployees } from '@/hooks/useSupabaseData';
 import { t } from '@/lib/translations';
 import { cn } from '@/lib/utils';
 
@@ -101,6 +102,7 @@ export function AppSidebar({
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { role, staffId } = useAuth();
+  const { employees: navEmployees, loading: navEmployeesLoading } = useEmployees();
   const { isFeatureVisible } = useFeatureRollout();
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -120,30 +122,59 @@ export function AppSidebar({
   const scheduleLabelKey = role === 'employee' ? 'nav.mySchedule' : 'nav.schedule';
 
   const isEmployeeRole = role === 'employee';
+  const selfStaffRecord = useMemo(
+    () => (staffId ? navEmployees.find((e) => e.id === staffId) : undefined),
+    [navEmployees, staffId]
+  );
+  const employeeNavInactive =
+    isEmployeeRole && !navEmployeesLoading && selfStaffRecord?.status === 'inactive';
+
   const employeeFlatNav = useMemo(() => {
+    const helpItem = { path: 'help', labelKey: 'nav.help', icon: Mail } as const;
+    const profileItem = {
+      path: 'staff-management',
+      labelKey: 'nav.myStaffProfile',
+      icon: UserCog,
+    } as const;
+    const timesheetItem = staffId
+      ? ({
+          path: `reports/payroll/staff/${staffId}/timesheet`,
+          labelKey: 'nav.timesheets',
+          icon: DollarSign,
+        } as const)
+      : null;
+
+    const scheduleItem = {
+      path: 'employee-schedule',
+      labelKey: 'nav.mySchedule',
+      icon: Calendar,
+    } as const;
+
+    if (employeeNavInactive) {
+      const items: { path: string; labelKey: string; icon: LucideIcon }[] = [profileItem];
+      if (timesheetItem) items.push(timesheetItem);
+      items.push(helpItem);
+      return items;
+    }
+
     const items: { path: string; labelKey: string; icon: LucideIcon }[] = [
       { path: 'clients', labelKey: 'nav.clients', icon: Users },
       { path: 'pets', labelKey: 'nav.pets', icon: Dog },
-      { path: 'staff-management', labelKey: 'nav.myStaffProfile', icon: UserCog },
-      { path: 'employee-schedule', labelKey: 'nav.mySchedule', icon: Calendar },
+      scheduleItem,
+      profileItem,
     ];
     if (allowEmployeeMobilePunch) {
       items.push({ path: 'time-kiosk', labelKey: 'nav.timeKiosk', icon: Clock });
     }
-    if (staffId) {
-      items.push({
-        path: `reports/payroll/staff/${staffId}/timesheet`,
-        labelKey: 'nav.payroll',
-        icon: DollarSign,
-      });
-    }
-    items.push({ path: 'help', labelKey: 'nav.help', icon: Mail });
+    if (timesheetItem) items.push(timesheetItem);
+    items.push(helpItem);
     return items;
-  }, [allowEmployeeMobilePunch, staffId]);
+  }, [allowEmployeeMobilePunch, staffId, employeeNavInactive]);
 
   const basePath = businessSlug ? `/${businessSlug}` : '';
+  const employeeHomeSegment = employeeNavInactive ? 'staff-management' : 'clients';
   const logoTarget =
-    isEmployeeRole && basePath ? `${basePath}/clients` : basePath || '/';
+    isEmployeeRole && basePath ? `${basePath}/${employeeHomeSegment}` : basePath || '/';
   const staffNavSectionActive =
     location.pathname.includes('/staff-management') ||
     location.pathname.includes('/employee-management') ||

@@ -140,7 +140,7 @@ interface AccountSettingsProps {
 }
 
 export function AccountSettings({ settings, onSaveSettings }: AccountSettingsProps) {
-  const { user, profile, refreshAuth } = useAuth();
+  const { user, profile, role, refreshAuth } = useAuth();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
@@ -591,6 +591,7 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
         </CardContent>
       </Card>
 
+      {role !== 'employee' ? (
       <Card>
         <CardHeader>
           <CardTitle>{t('accountSettings.colorPalette')}</CardTitle>
@@ -788,6 +789,7 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
           </Tabs>
         </CardContent>
       </Card>
+      ) : null}
 
       {user ? (
         <Card>

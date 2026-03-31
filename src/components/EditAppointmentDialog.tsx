@@ -16,6 +16,7 @@ import { BusinessClient, Pet, Service, Appointment } from '@/hooks/useBusinessDa
 import { Employee } from '@/types';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { ensureAppointmentServiceIds } from '@/lib/appointmentServiceResolution';
+import { staffOffersSelectedServices } from '@/lib/staffOfferedServices';
 import { t } from '@/lib/translations';
 
 // Time slots in 24-hour format for internal use
@@ -207,6 +208,30 @@ export function EditAppointmentDialog({
     if (!formData.clientId) return [];
     return pets.filter(p => p.client_id === formData.clientId);
   }, [formData.clientId, pets]);
+
+  const selectedServiceIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const name of formData.services) {
+      const svc = services.find((s) => s.name === name);
+      if (svc?.id) ids.push(svc.id);
+    }
+    return ids;
+  }, [formData.services, services]);
+
+  const assignableEmployees = useMemo(
+    () => employees.filter((e) => staffOffersSelectedServices(e, selectedServiceIds)),
+    [employees, selectedServiceIds]
+  );
+
+  useEffect(() => {
+    if (!employees.length) return;
+    setFormData((prev) => {
+      if (!prev.staffId) return prev;
+      const emp = employees.find((e) => e.id === prev.staffId);
+      if (emp && staffOffersSelectedServices(emp, selectedServiceIds)) return prev;
+      return { ...prev, staffId: '' };
+    });
+  }, [selectedServiceIds, employees]);
 
   const handleServiceToggle = (service: string) => {
     setFormData(prev => ({
@@ -557,7 +582,7 @@ export function EditAppointmentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {employees.filter(e => e.status === 'active').map(employee => (
+                  {assignableEmployees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
                       {employee.name}
                     </SelectItem>

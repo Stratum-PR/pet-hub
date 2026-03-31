@@ -204,6 +204,7 @@ export type Database = {
           bank_account_number: string | null
           bank_name: string | null
           payment_notes: string | null
+          offered_service_ids: string[]
           created_at: string
           updated_at: string
         }
@@ -233,6 +234,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           payment_notes?: string | null
+          offered_service_ids?: string[]
           created_at?: string
           updated_at?: string
         }
@@ -262,6 +264,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_name?: string | null
           payment_notes?: string | null
+          offered_service_ids?: string[]
           created_at?: string
           updated_at?: string
         }
@@ -470,6 +473,12 @@ export type Database = {
           business_id: string
           business_name: string
         }[]
+      }
+      get_employee_portal_settings: {
+        Args: {
+          p_business_id: string
+        }
+        Returns: Record<string, unknown> | null
       }
     }
     Enums: {

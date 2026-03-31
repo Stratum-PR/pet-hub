@@ -76,6 +76,23 @@ function TransitionRoutes({ children }: { children: React.ReactNode }) {
   return <Routes location={displayLocation}>{children}</Routes>;
 }
 
+function EmployeeHomeRedirect({
+  staffId,
+  employees,
+  employeesLoading,
+}: {
+  staffId: string | null;
+  employees: { id: string; status: string }[];
+  employeesLoading: boolean;
+}) {
+  if (employeesLoading) {
+    return <PawStagedLoadingFullscreen label="Loading" />;
+  }
+  const me = staffId ? employees.find((e) => e.id === staffId) : undefined;
+  const target = me?.status === 'inactive' ? 'staff-management' : 'clients';
+  return <Navigate to={target} replace />;
+}
+
 const Index = () => {
   const businessId = useBusinessId();
   const { business, role, profile } = useAuth();
@@ -216,13 +233,17 @@ const Index = () => {
   };
 
   useEffect(() => {
-    if (role !== 'employee' || !businessSlug || kioskLocked || settingsLoading) return;
+    if (role !== 'employee' || !businessSlug || kioskLocked || settingsLoading || employeesLoading)
+      return;
 
     const allowMobilePunch = settings.allow_employee_mobile_punch === 'true';
     const raw = location.pathname.replace(new RegExp(`^/${businessSlug}/?`), '').replace(/\/$/, '');
 
     const staffPrefix = staffId ? `reports/payroll/staff/${staffId}` : '';
-    const allowed =
+    const me = staffId ? employees.find((e) => e.id === staffId) : undefined;
+    const isInactive = me?.status === 'inactive';
+
+    const allowedActive =
       raw === 'clients' ||
       raw === 'pets' ||
       raw === 'staff-management' ||
@@ -233,14 +254,24 @@ const Index = () => {
       raw === 'notifications' ||
       (accountSettingsVisible && (raw === 'settings/account' || raw === 'settings'));
 
+    const allowedInactive =
+      raw === 'staff-management' ||
+      (!!staffId && (raw === `${staffPrefix}/timesheet` || raw === staffPrefix)) ||
+      raw === 'help';
+
+    const allowed = isInactive ? allowedInactive : allowedActive;
+    const fallback = isInactive ? 'staff-management' : 'clients';
+
     if (!allowed) {
-      navigate(`/${businessSlug}/clients`, { replace: true });
+      navigate(`/${businessSlug}/${fallback}`, { replace: true });
     }
   }, [
     role,
     businessSlug,
     kioskLocked,
     settingsLoading,
+    employeesLoading,
+    employees,
     location.pathname,
     settings.allow_employee_mobile_punch,
     staffId,
@@ -263,7 +294,17 @@ const Index = () => {
               <TransitionRoutes>
               <Route
                 path=""
-                element={<Navigate to={role === 'employee' ? 'clients' : 'dashboard'} replace />}
+                element={
+                  role === 'employee' ? (
+                    <EmployeeHomeRedirect
+                      staffId={staffId}
+                      employees={employees}
+                      employeesLoading={employeesLoading}
+                    />
+                  ) : (
+                    <Navigate to="dashboard" replace />
+                  )
+                }
               />
             <Route
               path="dashboard"

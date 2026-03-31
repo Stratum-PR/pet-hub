@@ -20,47 +20,13 @@ import autoTable from 'jspdf-autotable';
 import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
+import { loadImageDataForPayrollPdf, hslStringToRgbForPdf } from '@/lib/payrollPdf';
 
 interface PayrollProps {
   employees: Employee[];
   timeEntries: TimeEntry[];
   onUpdateTimeEntry: (id: string, entryData: Partial<TimeEntry>) => Promise<TimeEntry | null>;
   onAddTimeEntry: (employeeId: string, clockIn: string, clockOut?: string) => Promise<TimeEntry | null>;
-}
-
-type PayrollPdfImage = { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' | 'GIF' };
-
-/** Load a raster image for jsPDF. SVG is skipped (not supported by addImage). */
-async function loadImageDataForPayrollPdf(logoUrl: string): Promise<PayrollPdfImage | null> {
-  const pathLower = logoUrl.split('?')[0].toLowerCase();
-  if (pathLower.endsWith('.svg')) return null;
-  try {
-    const resolved =
-      logoUrl.startsWith('http') || logoUrl.startsWith('data:')
-        ? logoUrl
-        : `${typeof window !== 'undefined' ? window.location.origin : ''}${
-            logoUrl.startsWith('/') ? logoUrl : `/${logoUrl}`
-          }`;
-    const res = await fetch(resolved);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const mime = blob.type || '';
-    if (mime.includes('svg')) return null;
-    let format: PayrollPdfImage['format'] = 'PNG';
-    if (mime.includes('jpeg') || mime.includes('jpg')) format = 'JPEG';
-    else if (mime.includes('webp')) format = 'WEBP';
-    else if (mime.includes('gif')) format = 'GIF';
-    else if (mime.includes('png')) format = 'PNG';
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(fr.result as string);
-      fr.onerror = () => reject(new Error('read'));
-      fr.readAsDataURL(blob);
-    });
-    return { dataUrl, format };
-  } catch {
-    return null;
-  }
 }
 
 export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEntry }: PayrollProps) {
@@ -109,48 +75,6 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
         });
     }
   }, [business, businessId]);
-
-  // Helper to convert HSL to RGB array for jsPDF
-  const hslToRgb = (hsl: string): [number, number, number] => {
-    try {
-      // Handle format: "127 18% 47%" or "hsl(127, 18%, 47%)"
-      let match = hsl.match(/(\d+)\s+(\d+)%\s+(\d+)%/);
-      if (!match) {
-        match = hsl.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-      }
-      if (!match) return [0, 0, 0];
-
-      const h = parseInt(match[1]) / 360;
-      const s = parseInt(match[2]) / 100;
-      const l = parseInt(match[3]) / 100;
-
-      let r: number, g: number, b: number;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p: number, q: number, t: number) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1 / 6) return p + (q - p) * 6 * t;
-          if (t < 1 / 2) return q;
-          if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-      }
-      return [
-        Math.round(r * 255),
-        Math.round(g * 255),
-        Math.round(b * 255),
-      ];
-    } catch {
-      return [0, 0, 0];
-    }
-  };
 
   // Use custom pay schedule only after settings have loaded so saved values are applied.
   const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
@@ -355,7 +279,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     const margin = 14;
     let yPos = margin;
 
-    const primaryColor = hslToRgb(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL);
+    const primaryColor = hslStringToRgbForPdf(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL);
     const getEmployeeId = (empId: string) => empId.slice(-4).toUpperCase();
 
     const logoSource =

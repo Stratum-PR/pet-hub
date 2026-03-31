@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Eye, EyeOff, Users, Clock, RotateCcw, RefreshCw, X, Upload, UserRound } from 'lucide-react';
+import { Plus, Eye, EyeOff, Users, Clock, RotateCcw, RefreshCw, X, Upload, UserRound, Loader2, Pencil, CheckCircle, ListPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
@@ -40,9 +40,62 @@ import { clearPetHubBirthdayJobLocalKey } from '@/lib/demoManagerBirthdaySync';
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
-import { consumeLastStaffWriteError } from '@/hooks/useSupabaseData';
+import { consumeLastStaffWriteError, useServices } from '@/hooks/useSupabaseData';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { InviteEmployeeDialog } from '@/components/employee/InviteEmployeeDialog';
+import type { Service } from '@/types';
+
+function serviceRowIsActive(s: Service): boolean {
+  return (s as { is_active?: boolean }).is_active !== false;
+}
+
+function sanitizeOfferedServiceIds(ids: string[], catalog: Service[]): string[] {
+  const allow = new Set(catalog.map((x) => x.id));
+  return ids.filter((id) => allow.has(id));
+}
+
+function OfferedServicesPickGrid({
+  catalogServices,
+  selectedIds,
+  onToggleId,
+}: {
+  catalogServices: Service[];
+  selectedIds: string[];
+  onToggleId: (id: string) => void;
+}) {
+  if (catalogServices.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">{t('employeeManagement.servicesOfferedNoCatalog')}</p>
+    );
+  }
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {catalogServices.map((svc) => {
+        const selected = selectedIds.includes(svc.id);
+        return (
+          <Button
+            key={svc.id}
+            type="button"
+            variant={selected ? 'default' : 'outline'}
+            className="h-auto justify-start py-2.5"
+            onClick={() => onToggleId(svc.id)}
+          >
+            <span
+              className={cn(
+                'mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                selected ? 'border-primary-foreground bg-primary-foreground/20' : 'border-border'
+              )}
+            >
+              {selected ? <CheckCircle className="h-3 w-3" /> : null}
+            </span>
+            <span className="min-w-0 flex-1 text-left font-medium">{svc.name}</span>
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
 
 function resolvedAccessRole(emp: Employee): StaffAccessRole {
   const a = emp.access_role;
@@ -131,6 +184,233 @@ function formatEmployeeLocaleDate(iso: string | undefined, lang: string): string
   });
 }
 
+function formatStaffDobFromParts(emp: Employee, lang: string): string {
+  if (
+    emp.birth_month != null &&
+    emp.birth_day != null &&
+    emp.birth_month >= 1 &&
+    emp.birth_month <= 12 &&
+    emp.birth_day >= 1 &&
+    emp.birth_day <= 31
+  ) {
+    const y = emp.birth_year ?? 2000;
+    const d = new Date(y, emp.birth_month - 1, emp.birth_day);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString(lang === 'es' ? 'es' : 'en', {
+        year: emp.birth_year ? 'numeric' : undefined,
+        month: 'long',
+        day: 'numeric',
+      });
+    }
+  }
+  return '—';
+}
+
+function accessRoleLabel(emp: Employee, t: (k: string) => string): string {
+  const ar = resolvedAccessRole(emp);
+  if (ar === 'admin') return t('employeeManagement.accessRoleAdmin');
+  if (ar === 'manager') return t('employeeManagement.accessRoleManager');
+  if (ar === 'contractor') return t('employeeManagement.accessRoleContractor');
+  return t('employeeManagement.accessRoleStaff');
+}
+
+function EmployeeSelfReadOnlyProfile({
+  employee: emp,
+  lang,
+  todayLocal,
+  onEdit,
+  onManageServices,
+  catalogServices,
+}: {
+  employee: Employee;
+  lang: string;
+  todayLocal: Date;
+  onEdit?: () => void;
+  onManageServices?: () => void;
+  catalogServices: Service[];
+}) {
+  const offeredLabels = useMemo(() => {
+    const ids = emp.offered_service_ids ?? [];
+    if (!ids.length) return [] as string[];
+    const byId = new Map(catalogServices.map((s) => [s.id, s.name]));
+    return ids.map((id) => byId.get(id)).filter((n): n is string => Boolean(n)).sort((a, b) => a.localeCompare(b));
+  }, [emp.offered_service_ids, catalogServices]);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
+              {emp.photo_url ? (
+                <img src={emp.photo_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <UserRound className="h-10 w-10 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-semibold tracking-tight">{emp.name}</h2>
+                  <JobTitleBadge employee={emp} />
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
+                    {emp.status}
+                  </span>
+                </div>
+                {emp.status === 'active' && onEdit ? (
+                  <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={onEdit}>
+                    <Pencil className="h-3.5 w-3.5" />
+                    {t('common.edit')}
+                  </Button>
+                ) : null}
+              </div>
+              <div className="grid gap-1 text-sm sm:grid-cols-2">
+                <p>
+                  <span className="text-muted-foreground">{t('employeePayroll.employee.email')}</span>{' '}
+                  <span className="break-all">{emp.email || '—'}</span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">{t('employeePayroll.employee.phone')}</span>{' '}
+                  <span>{emp.phone ? formatPhoneNumber(emp.phone) : '—'}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t('employeePayroll.employeeInformation')}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <p className="text-muted-foreground">{t('employeeManagement.accessRoleLabel')}</p>
+            <p className="font-medium">{accessRoleLabel(emp, t)}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">{t('employeeManagement.compensationType')}</p>
+            <p className="font-medium">
+              {emp.compensation_type === 'commission'
+                ? t('employeeManagement.compensationCommission')
+                : t('employeeManagement.compensationHourly')}
+            </p>
+          </div>
+          {emp.compensation_type === 'commission' && emp.commission_rate != null ? (
+            <div>
+              <p className="text-muted-foreground">{t('employeeManagement.commissionRate')}</p>
+              <p className="font-medium">{Number(emp.commission_rate)}%</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-muted-foreground">{t('employeePayroll.employee.hourlyRate')}</p>
+              <p className="font-medium">${emp.hourly_rate}/hr</p>
+            </div>
+          )}
+          {emp.hire_date ? (
+            <div>
+              <p className="text-muted-foreground">{t('employeeManagement.fieldHireDate')}</p>
+              <p className="font-medium">{formatEmployeeLocaleDate(emp.hire_date, lang)}</p>
+            </div>
+          ) : null}
+          {emp.status === 'inactive' && emp.last_date ? (
+            <div>
+              <p className="text-muted-foreground">{t('employeeManagement.lastDateFieldLabel')}</p>
+              <p className="font-medium">{formatEmployeeLocaleDate(emp.last_date, lang)}</p>
+            </div>
+          ) : null}
+          <div>
+            <p className="text-muted-foreground">{t('employeeManagement.dateOfBirthLabel')}</p>
+            <p className="font-medium">{formatStaffDobFromParts(emp, lang)}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
+          <CardTitle className="text-base">{t('employeeManagement.servicesOfferedTitle')}</CardTitle>
+          {emp.status === 'active' && onManageServices ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              onClick={onManageServices}
+            >
+              <ListPlus className="h-3.5 w-3.5" />
+              {t('employeeManagement.addServicesButton')}
+            </Button>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {offeredLabels.length > 0 ? (
+            <ul className="flex flex-wrap gap-2">
+              {offeredLabels.map((name, i) => (
+                <li
+                  key={`${name}-${i}`}
+                  className="rounded-md border border-border bg-muted/30 px-2.5 py-1 text-sm font-medium"
+                >
+                  {name}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">{t('employeeManagement.servicesOfferedEmptyRead')}</p>
+          )}
+          <p className="text-xs text-muted-foreground">{t('employeeManagement.servicesOfferedHint')}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t('employeeManagement.paymentSection')}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <p className="text-muted-foreground">{t('employeeManagement.routingNumber')}</p>
+            <p className="font-mono font-medium">{emp.bank_routing_number?.trim() || '—'}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">{t('employeeManagement.bankName')}</p>
+            <p className="font-medium">{emp.bank_name?.trim() || '—'}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">{t('employeeManagement.accountNumber')}</p>
+            <p className="font-mono font-medium">{emp.bank_account_number?.trim() || '—'}</p>
+          </div>
+          <div className="sm:col-span-2">
+            <p className="text-muted-foreground">{t('employeeManagement.paymentNotes')}</p>
+            <p className="font-medium">{emp.payment_notes?.trim() || '—'}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        {emp.status === 'active' && emp.hire_date ? (
+          <div className="rounded-md border border-border bg-muted/15 px-3 py-2 text-sm text-muted-foreground">
+            {t('employeeManagement.tenureToDate', {
+              tenure: (() => {
+                const { y, m, d } = calendarDiffYMD(atLocalDay(emp.hire_date!), todayLocal);
+                return formatTenureYMD(y, m, d, lang);
+              })(),
+            })}
+          </div>
+        ) : null}
+        {emp.status === 'inactive' && emp.hire_date && emp.last_date ? (
+          <div className="rounded-md border border-border bg-muted/15 px-3 py-2 text-sm text-muted-foreground">
+            {t('employeeManagement.timeWithCompany', {
+              tenure: (() => {
+                const { y, m, d } = calendarDiffYMD(atLocalDay(emp.hire_date!), atLocalDay(emp.last_date!));
+                return formatTenureYMD(y, m, d, lang);
+              })(),
+            })}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 interface EmployeeManagementProps {
   employees: Employee[];
   /** When the staff list query fails (RLS, network, etc.) */
@@ -153,6 +433,7 @@ export function EmployeeManagement({
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const businessId = useBusinessId();
+  const { services: catalogServices } = useServices();
   const { staffId, isAdmin: isSuperAdmin, business, role } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
   const isEmployeeSelfService = role === 'employee';
@@ -196,6 +477,8 @@ export function EmployeeManagement({
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [employeeToReactivate, setEmployeeToReactivate] = useState<string | null>(null);
   const [reactivateStartDate, setReactivateStartDate] = useState('');
+  const [servicesOnlyDialogOpen, setServicesOnlyDialogOpen] = useState(false);
+  const [servicesOnlyDraftIds, setServicesOnlyDraftIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -215,6 +498,7 @@ export function EmployeeManagement({
     bank_account_number: '',
     bank_name: '',
     payment_notes: '',
+    offered_service_ids: [] as string[],
   });
   const [originalStaffPhotoUrl, setOriginalStaffPhotoUrl] = useState<string | null>(null);
   const [staffPhotoUploading, setStaffPhotoUploading] = useState(false);
@@ -234,6 +518,34 @@ export function EmployeeManagement({
     }
     return filteredEmployees;
   }, [isEmployeeSelfService, staffId, employees, filteredEmployees]);
+
+  const staffFormCatalogServices = useMemo(
+    () => [...catalogServices].filter(serviceRowIsActive).sort((a, b) => a.name.localeCompare(b.name)),
+    [catalogServices]
+  );
+
+  const openEmployeeServicesDialog = useCallback(() => {
+    const me = staffId ? employees.find((e) => e.id === staffId) : null;
+    if (!me || me.status !== 'active') return;
+    setServicesOnlyDraftIds([...(me.offered_service_ids ?? [])]);
+    setServicesOnlyDialogOpen(true);
+  }, [staffId, employees]);
+
+  const saveEmployeeServicesDialog = useCallback(async () => {
+    if (!staffId) return;
+    const next = sanitizeOfferedServiceIds(servicesOnlyDraftIds, catalogServices);
+    const updated = await onUpdateEmployee(staffId, { offered_service_ids: next });
+    if (updated == null) {
+      const det = consumeLastStaffWriteError();
+      toast.error(
+        det
+          ? `${t('employeeManagement.saveStaffFailed')} (${det.code ?? 'error'}: ${det.message})`
+          : t('employeeManagement.saveStaffFailed')
+      );
+      return;
+    }
+    setServicesOnlyDialogOpen(false);
+  }, [staffId, servicesOnlyDraftIds, catalogServices, onUpdateEmployee]);
 
   useEffect(() => {
     setStaffModalOpen(false);
@@ -294,6 +606,7 @@ export function EmployeeManagement({
       bank_account_number: '',
       bank_name: '',
       payment_notes: '',
+      offered_service_ids: [],
     });
     setOriginalStaffPhotoUrl(null);
     setShowPinInForm(false);
@@ -451,15 +764,12 @@ export function EmployeeManagement({
       finalPhotoUrl = formData.photo_url;
     }
 
-    if (isEmployeeSelfService && editingEmployee) {
-      const emailTrim = String(formData.email ?? '').trim();
-      const routingDigits = normalizeRoutingDigits(formData.bank_routing_number);
-      if (formData.bank_routing_number.trim() && routingDigits.length !== 9) {
-        alert(t('employeeManagement.routingInvalid'));
+    if (isEmployeeSelfService) {
+      if (!editingEmployee) {
+        toast.error(t('employeeManagement.saveStaffFailed'));
         return;
       }
-
-      const selfPayload: Record<string, unknown> = {
+      const selfSubmit: Record<string, unknown> = {
         name: formData.name.trim(),
         email: emailTrim,
         phone: unformatPhoneNumber(formData.phone),
@@ -472,16 +782,16 @@ export function EmployeeManagement({
         bank_account_number: formData.bank_account_number.trim() || null,
         bank_name: formData.bank_name.trim() || null,
         payment_notes: formData.payment_notes.trim() || null,
+        offered_service_ids: sanitizeOfferedServiceIds(formData.offered_service_ids, catalogServices),
       };
-      if (selfPayload.pin && String(selfPayload.pin).length === EMPLOYEE_PIN_LENGTH) {
-        const isNewPin = editingEmployee.pin !== selfPayload.pin;
+      if (selfSubmit.pin && String(selfSubmit.pin).length === EMPLOYEE_PIN_LENGTH) {
+        const isNewPin = editingEmployee.pin !== selfSubmit.pin;
         if (isNewPin) {
-          selfPayload.pin_set_at = new Date().toISOString();
-          selfPayload.pin_required = false;
+          selfSubmit.pin_set_at = new Date().toISOString();
+          selfSubmit.pin_required = false;
         }
       }
-
-      const updated = await onUpdateEmployee(editingEmployee.id, selfPayload);
+      const updated = await onUpdateEmployee(editingEmployee.id, selfSubmit as Partial<Employee>);
       if (updated == null) {
         const det = consumeLastStaffWriteError();
         toast.error(
@@ -527,6 +837,7 @@ export function EmployeeManagement({
       bank_account_number: formData.bank_account_number.trim() || null,
       bank_name: formData.bank_name.trim() || null,
       payment_notes: formData.payment_notes.trim() || null,
+      offered_service_ids: sanitizeOfferedServiceIds(formData.offered_service_ids, catalogServices),
     };
 
     if (!canEditStaffAccessRoles) {
@@ -604,6 +915,7 @@ export function EmployeeManagement({
       bank_account_number: employee.bank_account_number ?? '',
       bank_name: employee.bank_name ?? '',
       payment_notes: employee.payment_notes ?? '',
+      offered_service_ids: [...(employee.offered_service_ids ?? [])],
     });
     setShowPinInForm(false);
     setStaffModalOpen(true);
@@ -751,12 +1063,6 @@ export function EmployeeManagement({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {isEmployeeSelfService ? (
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{t('nav.myStaffProfile')}</h1>
-          <p className="text-sm text-muted-foreground">{t('employeeManagement.selfServiceSubtitle')}</p>
-        </div>
-      ) : null}
       {loadError ? (
         <div
           role="alert"
@@ -770,6 +1076,50 @@ export function EmployeeManagement({
             </Button>
           )}
         </div>
+      ) : null}
+
+      {isEmployeeSelfService && loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : null}
+      {isEmployeeSelfService && !loading && !loadError && staffId && listForGrid.length > 0 ? (
+        <EmployeeSelfReadOnlyProfile
+          employee={listForGrid[0]}
+          lang={lang}
+          todayLocal={todayLocal}
+          onEdit={listForGrid[0].status === 'active' ? () => handleEdit(listForGrid[0]) : undefined}
+          onManageServices={listForGrid[0].status === 'active' ? openEmployeeServicesDialog : undefined}
+          catalogServices={catalogServices}
+        />
+      ) : null}
+
+      {isEmployeeSelfService ? (
+        <Dialog open={servicesOnlyDialogOpen} onOpenChange={setServicesOnlyDialogOpen}>
+          <DialogContent className="max-h-[min(90vh,640px)] max-w-lg overflow-y-auto sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>{t('employeeManagement.addServicesDialogTitle')}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">{t('employeeManagement.servicesOfferedHint')}</p>
+            <OfferedServicesPickGrid
+              catalogServices={staffFormCatalogServices}
+              selectedIds={servicesOnlyDraftIds}
+              onToggleId={(id) =>
+                setServicesOnlyDraftIds((cur) =>
+                  cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
+                )
+              }
+            />
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setServicesOnlyDialogOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="button" onClick={() => void saveEmployeeServicesDialog()}>
+                {t('common.save')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {!isEmployeeSelfService ? (
@@ -1120,6 +1470,26 @@ export function EmployeeManagement({
                     </Select>
                   </div>
                 ) : null}
+                <div className="space-y-3 md:col-span-2">
+                  <div>
+                    <Label className="text-base">{t('employeeManagement.servicesOfferedTitle')}</Label>
+                    <p className="text-xs text-muted-foreground">{t('employeeManagement.servicesOfferedHint')}</p>
+                  </div>
+                  <OfferedServicesPickGrid
+                    catalogServices={staffFormCatalogServices}
+                    selectedIds={formData.offered_service_ids}
+                    onToggleId={(id) =>
+                      setFormData((fd) => {
+                        const cur = fd.offered_service_ids;
+                        const has = cur.includes(id);
+                        return {
+                          ...fd,
+                          offered_service_ids: has ? cur.filter((x) => x !== id) : [...cur, id],
+                        };
+                      })
+                    }
+                  />
+                </div>
                 <div className="space-y-4 rounded-lg border border-border p-4 md:col-span-2">
                   <p className="text-sm font-medium text-foreground">{t('employeeManagement.paymentSection')}</p>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1318,7 +1688,7 @@ export function EmployeeManagement({
         </DialogContent>
       </Dialog>
 
-      {listForGrid.length > 0 ? (
+      {!isEmployeeSelfService && listForGrid.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {listForGrid.map((employee) => (
             <Card key={employee.id}>
@@ -1382,7 +1752,7 @@ export function EmployeeManagement({
             </Card>
           ))}
         </div>
-      ) : !loading && !loadError && employees.length === 0 ? (
+      ) : !isEmployeeSelfService && !loading && !loadError && employees.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             <p>No staff members returned for this business.</p>
@@ -1407,14 +1777,14 @@ export function EmployeeManagement({
         </Card>
       ) : null}
 
-      {employees.length === 0 ? (
+      {!isEmployeeSelfService && employees.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">{t('employeeManagement.noEmployeesYet')}</p>
           </CardContent>
         </Card>
-      ) : filteredEmployees.length === 0 ? (
+      ) : !isEmployeeSelfService && filteredEmployees.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -1427,6 +1797,8 @@ export function EmployeeManagement({
         </Card>
       ) : null}
 
+      {!isEmployeeSelfService ? (
+      <>
       <Dialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
@@ -1531,6 +1903,8 @@ export function EmployeeManagement({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </>
+      ) : null}
 
       {!isEmployeeSelfService ? (
         <InviteEmployeeDialog
