@@ -57,7 +57,17 @@ function getPageTitle(
 ): string {
   const base = businessSlug ? `/${businessSlug}` : '';
   const path = pathname.replace(base, '') || '/';
-  const segment = path.split('/').filter(Boolean)[0] || 'dashboard';
+  const pathParts = path.split('/').filter(Boolean);
+  const segment = pathParts[0] || 'dashboard';
+  if (
+    pathParts[0] === 'reports' &&
+    pathParts[1] === 'payroll' &&
+    pathParts[2] === 'staff' &&
+    pathParts[4] === 'timesheet' &&
+    role === 'employee'
+  ) {
+    return t('nav.timesheets');
+  }
   if (segment === 'staff-management' && role === 'employee') {
     return t('nav.myStaffProfile');
   }

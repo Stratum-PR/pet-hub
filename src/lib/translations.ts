@@ -446,12 +446,16 @@ export const translations: Translations = {
     es: 'Personal'
   },
   'nav.myStaffProfile': {
-    en: 'My staff profile',
-    es: 'Mi ficha de personal'
+    en: 'My Profile',
+    es: 'Mi perfil'
+  },
+  'nav.timesheets': {
+    en: 'Timesheets',
+    es: 'Hojas de horas'
   },
   'employeeManagement.selfServiceSubtitle': {
-    en: 'Update your contact details, profile photo, PIN, birthday, and payment information.',
-    es: 'Actualiza tus datos de contacto, foto, PIN, cumpleaños e información de pago.'
+    en: 'Your staff record in this business (read-only).',
+    es: 'Tu registro en el negocio (solo lectura).'
   },
   'employeeManagement.selfServiceProfileMissing': {
     en: 'We could not load your staff profile. Ask a manager to confirm your account is linked to a staff record.',
@@ -480,6 +484,18 @@ export const translations: Translations = {
   'nav.payroll': {
     en: 'Payroll',
     es: 'Nómina'
+  },
+  'timesheet.grossPayTaxNote': {
+    en: 'Gross pay does not include tax deductions or other withholdings.',
+    es: 'El pago bruto no incluye retenciones de impuestos ni otras deducciones.'
+  },
+  'timesheet.downloadPdf': {
+    en: 'Download PDF report',
+    es: 'Descargar informe PDF'
+  },
+  'timesheet.backToProfile': {
+    en: 'Back to My Profile',
+    es: 'Volver a Mi perfil'
   },
   'nav.more': {
     en: 'More',
@@ -2483,9 +2499,33 @@ export const translations: Translations = {
     en: 'Commission rate (% of sales)',
     es: 'Porcentaje de comisión (% de ventas)'
   },
+  'employeeManagement.servicesOfferedTitle': {
+    en: 'Services offered',
+    es: 'Servicios que ofrece'
+  },
+  'employeeManagement.addServicesButton': {
+    en: 'Add services',
+    es: 'Agregar servicios'
+  },
+  'employeeManagement.addServicesDialogTitle': {
+    en: 'Add services',
+    es: 'Agregar servicios'
+  },
+  'employeeManagement.servicesOfferedHint': {
+    en: 'Choose the services you perform. Leave none selected to show as available for any service when assigning appointments.',
+    es: 'Elige los servicios que realizas. Si no marcas ninguno, aparecerás disponible para cualquier servicio al asignar citas.',
+  },
+  'employeeManagement.servicesOfferedEmptyRead': {
+    en: 'No specific services selected (available for any service when assigning).',
+    es: 'Sin servicios específicos (disponible para cualquier servicio al asignar).',
+  },
+  'employeeManagement.servicesOfferedNoCatalog': {
+    en: 'No active services in this business yet. Managers can add services under business settings.',
+    es: 'Aún no hay servicios activos. Los gerentes pueden agregarlos en la configuración del negocio.',
+  },
   'employeeManagement.paymentSection': {
-    en: 'Payment & bank (direct deposit)',
-    es: 'Pago y banco (depósito directo)'
+    en: 'Bank Information',
+    es: 'Información bancaria'
   },
   'employeeManagement.bankName': {
     en: 'Bank name',
@@ -3238,6 +3278,10 @@ export const translations: Translations = {
   'timesheet.dateDay': {
     en: 'Date/Day',
     es: 'Fecha/Día'
+  },
+  'timesheet.clockTimes': {
+    en: 'Clock in / out',
+    es: 'Entrada / salida'
   },
   'timesheet.hoursWorked': {
     en: 'Hours Worked',

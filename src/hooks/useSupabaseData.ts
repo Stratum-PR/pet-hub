@@ -632,6 +632,7 @@ const PGRST204_STRIP_KEYS = [
   'bank_account_number',
   'bank_name',
   'payment_notes',
+  'offered_service_ids',
 ] as const;
 
 function snapshotStripFollowUp(payload: Record<string, unknown>): Record<string, unknown> {
@@ -807,6 +808,7 @@ export function useEmployees() {
         bank_account_number: (employeeData as any).bank_account_number ?? null,
         bank_name: (employeeData as any).bank_name ?? null,
         payment_notes: (employeeData as any).payment_notes ?? null,
+        offered_service_ids: (employeeData as any).offered_service_ids ?? [],
         created_at: now,
         updated_at: now,
       } as Employee;
@@ -837,6 +839,7 @@ export function useEmployees() {
       bank_account_number: (employeeData as any).bank_account_number ?? null,
       bank_name: (employeeData as any).bank_name ?? null,
       payment_notes: (employeeData as any).payment_notes ?? null,
+      offered_service_ids: (employeeData as any).offered_service_ids ?? [],
     };
 
     const stripFollowUpInsert = snapshotStripFollowUp(payload);
@@ -907,6 +910,7 @@ export function useEmployees() {
         'bank_account_number',
         'bank_name',
         'payment_notes',
+        'offered_service_ids',
       ] as const;
       const next = { ...prev } as Employee;
       for (const key of safeFields) {
@@ -940,6 +944,7 @@ export function useEmployees() {
       'bank_account_number',
       'bank_name',
       'payment_notes',
+      'offered_service_ids',
     ];
     const payload: Record<string, unknown> = {};
     for (const key of safeFields) {
@@ -1716,7 +1721,7 @@ function isUnauthenticatedDemoPath(pathname: string): boolean {
 }
 
 export function useSettings() {
-  const { user } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const { pathname } = useLocation();
   const demoLocalOnly = isUnauthenticatedDemoPath(pathname) && !user;
 
@@ -1776,7 +1781,13 @@ export function useSettings() {
 
     let row: any = null;
     let error: any = null;
-    {
+    if (role === 'employee' && user && !mergeLocalDemo) {
+      const res = await supabase.rpc('get_employee_portal_settings', {
+        p_business_id: businessId,
+      });
+      row = res.data as any;
+      error = res.error as any;
+    } else {
       const res = await supabase
         .from('settings')
         .select(fullSelect)
@@ -1823,7 +1834,7 @@ export function useSettings() {
       allow_employee_mobile_punch: 'false',
     };
 
-    const baseFromDb = !error && row
+    let baseFromDb = !error && row
       ? {
           business_name: row.business_name ?? defaults.business_name,
           business_hours: row.business_hours ?? defaults.business_hours,
@@ -1848,7 +1859,20 @@ export function useSettings() {
           allow_employee_mobile_punch:
             row.allow_employee_mobile_punch ?? defaults.allow_employee_mobile_punch,
         }
-      : defaults;
+      : { ...defaults };
+
+    // Employees cannot SELECT settings directly; RPC can return null for edge cases.
+    // If we fell back to defaults, prefer localStorage-cached brand colors from a prior session.
+    if (role === 'employee' && user && !mergeLocalDemo && businessId && (!row || error)) {
+      const cached = readCachedBusinessTheme(businessId);
+      if (cached) {
+        baseFromDb = {
+          ...baseFromDb,
+          primary_color: cached.primary,
+          secondary_color: cached.secondary,
+        };
+      }
+    }
 
     let nextSettings: Settings;
     if (mergeLocalDemo) {
@@ -1900,10 +1924,13 @@ export function useSettings() {
 
   // `demoLocalOnly` already depends on `user` for /demo; omitting `user?.id` avoids a second fetch
   // when auth hydrates (same businessId) — that was restarting the settings loader / paw animation.
+  // Wait for profile/role before fetching when logged in: otherwise `role` is briefly undefined, we hit
+  // the direct `settings` SELECT (RLS denies employees), and default theme colors replace the business brand.
   useEffect(() => {
     if (!businessId) return;
+    if (user && authLoading) return;
     fetchSettings();
-  }, [businessId, demoLocalOnly, pathname]);
+  }, [businessId, demoLocalOnly, pathname, role, user?.id, authLoading]);
 
   const settingsKeyToColumn: Record<string, string> = {
     business_name: 'business_name',
@@ -1931,6 +1958,7 @@ export function useSettings() {
 
   const updateSetting = async (key: string, value: string | null): Promise<{ ok: boolean; error?: string }> => {
     if (!businessId) return { ok: false, error: 'No business ID' };
+    if (role === 'employee' && !demoLocalOnly) return { ok: false, error: 'Forbidden' };
     const column = settingsKeyToColumn[key];
     if (!column) return { ok: false, error: `Unknown setting key: ${key}` };
 
@@ -1955,6 +1983,7 @@ export function useSettings() {
 
   const saveAllSettings = async (newSettings: Partial<Settings>): Promise<{ ok: boolean; error?: string }> => {
     if (!businessId) return { ok: false, error: 'No business ID' };
+    if (role === 'employee' && !demoLocalOnly) return { ok: false, error: 'Forbidden' };
 
     if (demoLocalOnly) {
       const patch: Record<string, string | null | undefined> = {};

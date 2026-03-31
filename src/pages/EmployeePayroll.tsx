@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DollarSign, ChevronLeft, Clock, Calendar, User, FileText } from 'lucide-react';
@@ -10,6 +10,7 @@ import { t } from '@/lib/translations';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { getPayPeriodRangeForDate } from '@/lib/payScheduleUtils';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EmployeePayrollProps {
   employees: Employee[];
@@ -22,18 +23,19 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
     employeeId?: string;
     businessSlug?: string;
   }>();
-  const staffRecordId = staffId ?? employeeId;
+  const staffRecordId = staffId ?? employeeId ?? '';
   const pathPrefix = businessSlug ? `/${businessSlug}` : '';
   const navigate = useNavigate();
   const location = useLocation();
-
-  const { settings, loading: settingsLoading } = useSettings();
+  const { role, profile } = useAuth();
 
   const [currentPayPeriodDate] = useState(() => {
     const state = location.state as { payPeriodStart?: string; weekStart?: string } | null;
     const startISO = state?.payPeriodStart || state?.weekStart;
     return startISO ? parseISO(startISO) : new Date();
   });
+
+  const { settings, loading: settingsLoading } = useSettings();
 
   const employee = employees.find(emp => emp.id === staffRecordId);
   const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
@@ -77,17 +79,20 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
     };
   }, [employee, timeEntries, payPeriodStart, payPeriodEnd]);
 
+  if (role === 'employee' && profile?.staff_id && staffRecordId && profile.staff_id !== staffRecordId) {
+    return <Navigate to={`${pathPrefix}/staff-management`} replace />;
+  }
+
+  const backTarget = role === 'employee' ? `${pathPrefix}/staff-management` : `${pathPrefix}/reports/payroll`;
+  const backLabel = role === 'employee' ? t('timesheet.backToProfile') : t('employeePayroll.backToPayroll');
+
   if (!settingsLoading && (!employee || !payrollData)) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div>
-          <Button
-            variant="ghost"
-            onClick={() => navigate(`${pathPrefix}/reports/payroll`)}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={() => navigate(backTarget)} className="mb-4">
             <ChevronLeft className="w-4 h-4 mr-2" />
-            {t('employeePayroll.backToPayroll')}
+            {backLabel}
           </Button>
           <h1 className="text-3xl font-bold tracking-tight">{t('employeePayroll.employeeNotFound')}</h1>
         </div>
@@ -103,13 +108,9 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
     >
     <div className="space-y-6">
       <div>
-        <Button
-          variant="ghost"
-          onClick={() => navigate(`${pathPrefix}/reports/payroll`)}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => navigate(backTarget)} className="mb-4">
           <ChevronLeft className="w-4 h-4 mr-2" />
-          {t('employeePayroll.backToPayroll')}
+          {backLabel}
         </Button>
         <div className="flex items-center justify-between">
           <Button
@@ -142,12 +143,12 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-secondary/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">{t('payroll.hoursWorked')}</p>
-              <p className="text-2xl font-bold">{payrollData.totalHours.toFixed(1)}h</p>
-            </div>
-            <div className="p-4 bg-secondary/50 rounded-lg">
               <p className="text-sm text-muted-foreground">{t('payroll.hourlyRate')}</p>
               <p className="text-2xl font-bold">${employee.hourly_rate}/hr</p>
+            </div>
+            <div className="p-4 bg-secondary/50 rounded-lg">
+              <p className="text-sm text-muted-foreground">{t('payroll.hoursWorked')}</p>
+              <p className="text-2xl font-bold">{payrollData.totalHours.toFixed(1)}h</p>
             </div>
             <div className="p-4 bg-secondary/50 rounded-lg">
               <p className="text-sm text-muted-foreground">{t('payroll.totalPay')}</p>
@@ -158,6 +159,7 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
               <p className="text-2xl font-bold">{payrollData.entries.length}</p>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground mt-3">{t('timesheet.grossPayTaxNote')}</p>
         </CardContent>
       </Card>
 

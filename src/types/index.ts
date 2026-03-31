@@ -89,6 +89,8 @@ export interface Employee {
   bank_account_number?: string | null;
   bank_name?: string | null;
   payment_notes?: string | null;
+  /** Service UUIDs offered; empty = no restriction in assignment UI. */
+  offered_service_ids?: string[] | null;
   created_at: string;
   updated_at: string;
 }
