@@ -111,7 +111,7 @@ export interface TimeEntry {
   is_off_schedule?: boolean;
   rounded_clock_in?: string;
   rounded_clock_out?: string;
-  status?: 'active' | 'pending_edit' | 'approved' | 'rejected';
+  status?: 'active' | 'pending_edit' | 'approved' | 'rejected' | 'voided';
   edit_request_id?: string;
   created_at: string;
 }

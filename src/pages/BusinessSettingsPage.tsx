@@ -1240,8 +1240,10 @@ export function BusinessSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Tax and Receipt side by side */}
+      {/* Tax and Receipt side by side — feature_rollout min_tier (tax_settings / receipt_personalization) */}
+      {(isFeatureVisible('tax_settings') || isFeatureVisible('receipt_personalization')) && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {isFeatureVisible('tax_settings') && (
       <Card>
         <CardHeader>
           <CardTitle>{t('businessSettings.taxConfiguration')}</CardTitle>
@@ -1359,7 +1361,9 @@ export function BusinessSettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      )}
 
+      {isFeatureVisible('receipt_personalization') && (
       <Card>
         <CardHeader>
           <CardTitle>{t('businessSettings.receiptCustomization')}</CardTitle>
@@ -1377,9 +1381,12 @@ export function BusinessSettingsPage() {
           <Button onClick={handleSaveReceipt}>{t('common.save')}</Button>
         </CardContent>
       </Card>
+      )}
       </div>
+      )}
 
-      {/* Payment setup - placeholder cards */}
+      {/* Payment setup — feature_rollout: payment_configuration */}
+      {isFeatureVisible('payment_configuration') && (
       <Card>
         <CardHeader>
           <CardTitle>{t('businessSettings.paymentSetup')}</CardTitle>
@@ -1418,6 +1425,7 @@ export function BusinessSettingsPage() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Pay Schedule */}
       <Card>
@@ -1494,6 +1502,7 @@ export function BusinessSettingsPage() {
               </div>
             </CardContent>
           </Card>
+          {isFeatureVisible('employee_mobile_punch') && (
           <Card>
             <CardHeader>
               <CardTitle>{t('businessSettings.allowEmployeeMobilePunch')}</CardTitle>
@@ -1514,6 +1523,7 @@ export function BusinessSettingsPage() {
               </div>
             </CardContent>
           </Card>
+          )}
           <KioskManagerPinSettings />
           {isFeatureVisible('geofencing_settings') || isFeatureVisible('geofencing') ? (
             <GeofencingSettings />

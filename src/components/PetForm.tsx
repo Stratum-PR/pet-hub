@@ -27,9 +27,11 @@ interface PetFormProps {
   onCancel?: () => void;
   initialData?: Pet | null;
   isEditing?: boolean;
+  /** When adding a pet (not editing), pre-select this client id (e.g. from Clients page). */
+  defaultClientId?: string | null;
 }
 
-export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }: PetFormProps) {
+export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, defaultClientId }: PetFormProps) {
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const businessId = useBusinessId();
@@ -151,8 +153,12 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
       setPhotoToDelete(false);
     } else {
       // Reset form when not editing
+      const presetClient =
+        defaultClientId && safeClients.some((c) => String(c.id).trim() === String(defaultClientId).trim())
+          ? String(defaultClientId).trim()
+          : '';
       setFormData({
-        client_id: '', // CRITICAL: Use client_id
+        client_id: presetClient,
         name: '',
         species: '' as 'dog' | 'cat' | 'other',
         breed_id: null, // CRITICAL: Use breed_id
@@ -167,7 +173,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing }:
       setOriginalPhotoUrl(null);
       setPhotoToDelete(false);
     }
-  }, [initialData, safeClients]);
+  }, [initialData, safeClients, defaultClientId]);
 
   // CRITICAL: Re-initialize breed_id when breeds load (if we have initialData but breeds weren't loaded yet)
   useEffect(() => {

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mail, Phone, MapPin, Dog } from 'lucide-react';
+import { Mail, Phone, MapPin, Dog, Plus } from 'lucide-react';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 
@@ -12,10 +12,11 @@ interface ClientListProps {
   onViewClient?: (client: Client) => void;
   onDelete?: (id: string) => void;
   onEdit?: (client: Client) => void;
+  onAddPetForClient?: (client: Client) => void;
   selectedClientId?: string | null;
 }
 
-export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, selectedClientId }: ClientListProps) {
+export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAddPetForClient, selectedClientId }: ClientListProps) {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
 
@@ -90,24 +91,40 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, sele
                     </div>
                   )}
                 </div>
-                {clientPets.length > 0 && (
+                {(clientPets.length > 0 || onAddPetForClient) && (
                   <div className="mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Dog className="w-4 h-4 text-primary" />
-                      <span>{clientPets.length} {clientPets.length === 1 ? t('pets.pet') : t('pets.pets')}</span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {clientPets.map((pet) => (
-                        <button
-                          key={pet.id}
-                          id={`pet-${pet.id}`}
-                          onClick={() => handlePetClick(pet.id)}
-                          className="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-md hover:bg-accent/80 transition-colors cursor-pointer"
-                        >
-                          {pet.name}
-                        </button>
-                      ))}
-                    </div>
+                    {clientPets.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Dog className="w-4 h-4 text-primary" />
+                          <span>{clientPets.length} {clientPets.length === 1 ? t('pets.pet') : t('pets.pets')}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {clientPets.map((pet) => (
+                            <button
+                              key={pet.id}
+                              id={`pet-${pet.id}`}
+                              onClick={() => handlePetClick(pet.id)}
+                              className="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-md hover:bg-accent/80 transition-colors cursor-pointer"
+                            >
+                              {pet.name}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {onAddPetForClient && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 w-full gap-1"
+                        onClick={() => onAddPetForClient(client)}
+                      >
+                        <Plus className="w-4 h-4" />
+                        {t('clients.addPetForClient')}
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>

@@ -11,6 +11,7 @@ import { useSettings } from '@/hooks/useSupabaseData';
 import { getPayPeriodRangeForDate } from '@/lib/payScheduleUtils';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { useAuth } from '@/contexts/AuthContext';
+import { timeEntryCountsTowardPayroll } from '@/lib/timeEntryStatus';
 
 interface EmployeePayrollProps {
   employees: Employee[];
@@ -56,7 +57,13 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
 
     const empEntries = timeEntries.filter(entry => {
       const entryDate = new Date(entry.clock_in);
-      return entry.staff_id === employee.id && entryDate >= payPeriodStart && entryDate <= payPeriodEnd && entry.clock_out;
+      return (
+        entry.staff_id === employee.id &&
+        entryDate >= payPeriodStart &&
+        entryDate <= payPeriodEnd &&
+        entry.clock_out &&
+        timeEntryCountsTowardPayroll(entry)
+      );
     });
 
     const entriesWithHours = empEntries.map(entry => {
