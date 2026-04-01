@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Plus, X, Edit, Trash2, Scissors, Tag } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, X, Edit, Trash2, Tag, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { APPOINTMENT_COLORS } from '@/types/calendar';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { SearchFilter } from '@/components/SearchFilter';
 
 export function BusinessServices() {
   const { services, loading, error, refetch, addService, updateService, deleteService } = useServices();
@@ -20,6 +21,17 @@ export function BusinessServices() {
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
   const [showCategoryInput, setShowCategoryInput] = useState(false);
   const [newCategory, setNewCategory] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const SERVICE_VIEW_KEY = 'pet-hub-services-view';
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return window.localStorage.getItem(SERVICE_VIEW_KEY) === 'list' ? 'list' : 'cards';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SERVICE_VIEW_KEY, viewMode);
+  }, [viewMode]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -41,9 +53,28 @@ export function BusinessServices() {
     return Array.from(cats).sort();
   }, [services]);
 
+  const filteredServices = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return services;
+    return services.filter((s) => {
+      const name = (s.name ?? '').toLowerCase();
+      const desc = (s.description ?? '').toLowerCase();
+      const cat = String((s as any).category ?? '').toLowerCase();
+      const price = String(s.price ?? '');
+      const duration = String(s.duration_minutes ?? '');
+      return (
+        name.includes(term) ||
+        desc.includes(term) ||
+        cat.includes(term) ||
+        price.includes(term) ||
+        duration.includes(term)
+      );
+    });
+  }, [services, searchTerm]);
+
   const servicesByCategory = useMemo(() => {
     const grouped: Record<string, Service[]> = {};
-    services.forEach(service => {
+    filteredServices.forEach((service) => {
       const cat = (service as any).category || 'Uncategorized';
       if (!grouped[cat]) {
         grouped[cat] = [];
@@ -51,7 +82,7 @@ export function BusinessServices() {
       grouped[cat].push(service);
     });
     return grouped;
-  }, [services]);
+  }, [filteredServices]);
 
   const resetForm = () => {
     setFormData({
@@ -154,14 +185,45 @@ export function BusinessServices() {
   return (
     <PawLoadedContent loading={loading} loaderLabel={t('common.loading')}>
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div
+        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap"
+        data-page-toolbar
+        data-page-search
+      >
+        <SearchFilter
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          placeholder={t('services.searchPlaceholder')}
+        />
+        <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5 shrink-0">
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+              viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            }`}
+            onClick={() => setViewMode('cards')}
+            aria-label="Card view"
+          >
+            <LayoutGrid className="w-4 h-4 shrink-0" />
+          </button>
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+              viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            }`}
+            onClick={() => setViewMode('list')}
+            aria-label="List view"
+          >
+            <List className="w-4 h-4 shrink-0" />
+          </button>
+        </div>
         <Button
           onClick={() => {
             setEditingService(null);
             resetForm();
             setShowForm(!showForm);
           }}
-          className="shadow-sm flex items-center gap-2"
+          className="shadow-sm flex items-center gap-2 shrink-0"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           {showForm ? t('common.cancel') : t('services.addService')}
@@ -300,8 +362,14 @@ export function BusinessServices() {
             <p className="text-muted-foreground">{t('services.noServices')}</p>
           </CardContent>
         </Card>
+      ) : filteredServices.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-muted-foreground">{t('services.noSearchResults')}</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6" data-page-content>
           {Object.entries(servicesByCategory).map(([category, categoryServices]) => (
             <Card key={category}>
               <CardHeader>
@@ -311,62 +379,143 @@ export function BusinessServices() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {categoryServices.map((service) => (
-                    <Card key={service.id} className="border">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{service.name}</h3>
-                            {service.description && (
-                              <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
-                            )}
+                {viewMode === 'cards' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-page-cards-grid>
+                    {categoryServices.map((service) => (
+                      <Card key={service.id} className="border">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <h3 className="font-semibold">{service.name}</h3>
+                              {service.description && (
+                                <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(service)}
+                                className="h-8 w-8"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteClick(service.id)}
+                                className="h-8 w-8 text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(service)}
-                              className="h-8 w-8"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteClick(service.id)}
-                              className="h-8 w-8 text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                            <div className="flex items-center gap-2">
+                              {(service as any).color && (
+                                <div
+                                  className="w-4 h-4 rounded border border-gray-300"
+                                  style={{ backgroundColor: (service as any).color }}
+                                  title="Appointment color"
+                                />
+                              )}
+                              <span className="text-sm text-muted-foreground">
+                                {service.duration_minutes} {t('serviceForm.minutes')}
+                              </span>
+                            </div>
+                            <span className="font-semibold">${service.price.toFixed(2)}</span>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                          <div className="flex items-center gap-2">
-                            {(service as any).color && (
-                              <div
-                                className="w-4 h-4 rounded border border-gray-300"
-                                style={{ backgroundColor: (service as any).color }}
-                                title="Appointment color"
-                              />
-                            )}
-                            <span className="text-sm text-muted-foreground">
+                          {!service.is_active && (
+                            <div className="mt-2">
+                              <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
+                                {t('serviceForm.inactive')}
+                              </span>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border-0 bg-card" data-table-load>
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/60">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium">{t('serviceForm.name')}</th>
+                          <th className="text-left px-3 py-2 font-medium">{t('serviceForm.description')}</th>
+                          <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
+                            {t('serviceForm.duration')}
+                          </th>
+                          <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
+                            {t('serviceForm.price')}
+                          </th>
+                          <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
+                            {t('serviceForm.status')}
+                          </th>
+                          <th className="text-left px-3 py-2 font-medium w-[120px]">
+                            {t('common.actions')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {categoryServices.map((service) => (
+                          <tr key={service.id} className="border-t hover:bg-muted/40">
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2 font-medium">
+                                {(service as any).color && (
+                                  <div
+                                    className="w-4 h-4 shrink-0 rounded border border-gray-300"
+                                    style={{ backgroundColor: (service as any).color }}
+                                    title="Appointment color"
+                                  />
+                                )}
+                                {service.name}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground max-w-[200px]">
+                              <span className="line-clamp-2">{service.description || '—'}</span>
+                            </td>
+                            <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                               {service.duration_minutes} {t('serviceForm.minutes')}
-                            </span>
-                          </div>
-                          <span className="font-semibold">${service.price.toFixed(2)}</span>
-                        </div>
-                        {!service.is_active && (
-                          <div className="mt-2">
-                            <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
-                              {t('serviceForm.inactive')}
-                            </span>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                            </td>
+                            <td className="px-3 py-2 font-semibold whitespace-nowrap">
+                              ${service.price.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {service.is_active ? (
+                                <span className="text-muted-foreground">{t('serviceForm.active')}</span>
+                              ) : (
+                                <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
+                                  {t('serviceForm.inactive')}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEdit(service)}
+                                  className="h-8 w-8"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteClick(service.id)}
+                                  className="h-8 w-8 text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

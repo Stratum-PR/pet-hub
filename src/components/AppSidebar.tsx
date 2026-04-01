@@ -71,7 +71,7 @@ const employeeItems = [
 
 const reportsItems = [
   { path: 'reports/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
-  { path: 'reports/payroll', labelKey: 'nav.payroll', icon: DollarSign },
+  { path: 'reports/payroll', labelKey: 'nav.payroll', icon: Clock },
 ];
 
 interface AppSidebarProps {

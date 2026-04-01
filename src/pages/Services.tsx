@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, X, Edit, Trash2, Scissors } from 'lucide-react';
+import { Plus, X, Edit, Trash2, Scissors, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Service } from '@/types';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { SearchFilter } from '@/components/SearchFilter';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
@@ -27,6 +28,34 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const SERVICE_VIEW_KEY = 'pet-hub-services-view';
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return window.localStorage.getItem(SERVICE_VIEW_KEY) === 'list' ? 'list' : 'cards';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SERVICE_VIEW_KEY, viewMode);
+  }, [viewMode]);
+
+  const filteredServices = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return services;
+    return services.filter((s) => {
+      const name = (s.name ?? '').toLowerCase();
+      const desc = (s.description ?? '').toLowerCase();
+      const price = String(s.price ?? '');
+      const duration = String(s.duration_minutes ?? '');
+      return (
+        name.includes(term) ||
+        desc.includes(term) ||
+        price.includes(term) ||
+        duration.includes(term)
+      );
+    });
+  }, [services, searchTerm]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -130,16 +159,44 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
     >
       <div ref={pageLoadRef} data-transition-root className="space-y-6 animate-fade-in">
         <div
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap"
           data-page-toolbar
+          data-page-search
         >
+          <SearchFilter
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            placeholder={t('services.searchPlaceholder')}
+          />
+          <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5 shrink-0">
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+                viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('cards')}
+              aria-label="Card view"
+            >
+              <LayoutGrid className="w-4 h-4 shrink-0" />
+            </button>
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+                viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('list')}
+              aria-label="List view"
+            >
+              <List className="w-4 h-4 shrink-0" />
+            </button>
+          </div>
           <Button
             onClick={() => {
               setEditingService(null);
               resetForm();
               setShowForm(!showForm);
             }}
-            className="shadow-sm flex items-center gap-2"
+            className="shadow-sm flex items-center gap-2 shrink-0"
           >
             {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
             {showForm ? t('common.cancel') : t('services.addService')}
@@ -250,59 +307,124 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
               <p className="text-muted-foreground">No services yet. Add your first service above!</p>
             </CardContent>
           </Card>
+        ) : filteredServices.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Scissors className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">{t('services.noSearchResults')}</p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">All Services</CardTitle>
             </CardHeader>
             <CardContent>
-              <div
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                data-page-cards-grid
-              >
-                {services.map((service) => (
-                  <Card key={service.id} className="border hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg">{service.name}</h3>
-                          {service.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
-                          )}
+              {viewMode === 'cards' ? (
+                <div
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                  data-page-cards-grid
+                >
+                  {filteredServices.map((service) => (
+                    <Card key={service.id} className="border hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{service.name}</h3>
+                            {service.description && (
+                              <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(service)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteClick(service.id)}
+                              className="h-8 w-8 text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(service)}
-                            className="h-8 w-8"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(service.id)}
-                            className="h-8 w-8 text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                        <div className="space-y-1 text-sm mt-3 pt-3 border-t">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Price:</span>
+                            <span className="font-semibold">${service.price.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Duration:</span>
+                            <span className="text-muted-foreground">{service.duration_minutes} min</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="space-y-1 text-sm mt-3 pt-3 border-t">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Price:</span>
-                          <span className="font-semibold">${service.price.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Duration:</span>
-                          <span className="text-muted-foreground">{service.duration_minutes} min</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border-0 bg-card" data-table-load>
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/60">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">{t('serviceForm.name')}</th>
+                        <th className="text-left px-3 py-2 font-medium">{t('serviceForm.description')}</th>
+                        <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
+                          {t('serviceForm.duration')}
+                        </th>
+                        <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
+                          {t('serviceForm.price')}
+                        </th>
+                        <th className="text-left px-3 py-2 font-medium w-[120px]">
+                          {t('common.actions')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredServices.map((service) => (
+                        <tr key={service.id} className="border-t hover:bg-muted/40">
+                          <td className="px-3 py-2 font-medium">{service.name}</td>
+                          <td className="px-3 py-2 text-muted-foreground max-w-[240px]">
+                            <span className="line-clamp-2">{service.description || '—'}</span>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                            {service.duration_minutes} min
+                          </td>
+                          <td className="px-3 py-2 font-semibold whitespace-nowrap">
+                            ${service.price.toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(service)}
+                                className="h-8 w-8"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteClick(service.id)}
+                                className="h-8 w-8 text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
