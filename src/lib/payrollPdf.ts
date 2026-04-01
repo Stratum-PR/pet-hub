@@ -3,6 +3,43 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
 
+/** Opened synchronously in a click handler; PDF is assigned after async generate (see assignBlobUrlToPreviewTab). */
+export function openPdfPreviewTab(): Window | null {
+  return window.open('about:blank', '_blank');
+}
+
+export function assignBlobUrlToPreviewTab(preview: Window | null, objectUrl: string): boolean {
+  if (preview && !preview.closed) {
+    try {
+      preview.location.href = objectUrl;
+      try {
+        preview.opener = null;
+      } catch {
+        /* ignore */
+      }
+      return true;
+    } catch {
+      try {
+        preview.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return false;
+}
+
+/** Does not navigate the current tab (unlike an anchor `download` on blob PDFs, which can replace the opener). */
+export function openObjectUrlInNewTabViaAnchor(objectUrl: string): void {
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export type PayrollPdfImage = { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' | 'GIF' };
 
 /** Load a raster image for jsPDF. SVG is skipped (not supported by addImage). */
@@ -104,6 +141,8 @@ export async function downloadEmployeeTimesheetPdf(opts: {
     summaryTitle,
     detailTitle,
   } = opts;
+
+  const previewTab = openPdfPreviewTab();
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -215,6 +254,10 @@ export async function downloadEmployeeTimesheetPdf(opts: {
   const noteLines = doc.splitTextToSize(taxDisclaimer, pageWidth - margin * 2);
   doc.text(noteLines, margin, yPos);
 
-  const fileName = `timesheet-${format(payPeriodStart, 'yyyy-MM-dd')}-to-${format(payPeriodEnd, 'yyyy-MM-dd')}.pdf`;
-  doc.save(fileName);
+  const blob = doc.output('blob');
+  const url = URL.createObjectURL(blob);
+  if (!assignBlobUrlToPreviewTab(previewTab, url)) {
+    openObjectUrlInNewTabViaAnchor(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
 }
