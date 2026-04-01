@@ -22,7 +22,13 @@ import autoTable from 'jspdf-autotable';
 import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
-import { loadImageDataForPayrollPdf, hslStringToRgbForPdf } from '@/lib/payrollPdf';
+import {
+  assignBlobUrlToPreviewTab,
+  hslStringToRgbForPdf,
+  loadImageDataForPayrollPdf,
+  openObjectUrlInNewTabViaAnchor,
+  openPdfPreviewTab,
+} from '@/lib/payrollPdf';
 import { staffSummaryFilterStorageKey } from '@/lib/timesheetsStaffSummaryFilterStorage';
 
 interface PayrollProps {
@@ -342,6 +348,8 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   };
 
   const handleDownloadPDF = async () => {
+    const previewTab = openPdfPreviewTab();
+
     const doc = new jsPDF();
     const businessName = settings.business_name || 'Business';
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -649,25 +657,14 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       }
     }
 
-    const fileName = `timesheets-${format(payPeriodStart, 'yyyy-MM-dd')}-to-${format(payPeriodEnd, 'yyyy-MM-dd')}.pdf`;
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
-    const preview = window.open(url, '_blank', 'noopener,noreferrer');
-
-    if (!preview) {
+    if (!assignBlobUrlToPreviewTab(previewTab, url)) {
       toast.warning(t('payroll.pdfPopupBlocked'));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      openObjectUrlInNewTabViaAnchor(url);
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      return;
     }
-
-    // Leave blob URL valid while the preview tab is open (browser PDF viewers may still reference it).
+    // When assign succeeds, leave blob URL valid (viewer may still reference it).
   };
 
   return (
@@ -680,6 +677,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-end">
         <div className="flex flex-col gap-2 min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center sm:justify-end">
           <Button
+            type="button"
             variant="default"
             size="sm"
             onClick={handleDownloadPDF}
