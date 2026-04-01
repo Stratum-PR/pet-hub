@@ -1,13 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, ChevronLeft, ChevronRight, Clock, Edit, Download } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DollarSign, ChevronLeft, ChevronRight, Edit, ChevronsUpDown, Plus, UserRound, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 import { Employee, TimeEntry } from '@/types';
 import { format, eachDayOfInterval, differenceInMinutes, startOfDay } from 'date-fns';
 import { t } from '@/lib/translations';
@@ -21,6 +23,7 @@ import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } fro
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
 import { loadImageDataForPayrollPdf, hslStringToRgbForPdf } from '@/lib/payrollPdf';
+import { staffSummaryFilterStorageKey } from '@/lib/timesheetsStaffSummaryFilterStorage';
 
 interface PayrollProps {
   employees: Employee[];
@@ -37,6 +40,9 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   const [businessLogoUrl, setBusinessLogoUrl] = useState<string | null>(null);
   const [currentPayPeriod, setCurrentPayPeriod] = useState(new Date());
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const staffSummaryHydratedRef = useRef(false);
+  const [staffFilterOpen, setStaffFilterOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [editingDay, setEditingDay] = useState<{ date: Date; entry?: TimeEntry } | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -56,6 +62,48 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       clock_out: entry.clock_out ? format(new Date(entry.clock_out), "yyyy-MM-dd'T'HH:mm") : '',
     });
   };
+
+  useEffect(() => {
+    staffSummaryHydratedRef.current = false;
+    setSelectedEmployeeIds([]);
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId || employees.length === 0 || staffSummaryHydratedRef.current) return;
+
+    const key = staffSummaryFilterStorageKey(businessId);
+    const raw = sessionStorage.getItem(key);
+
+    let next: string[];
+    if (raw == null) {
+      next = employees.map((e) => e.id);
+    } else {
+      try {
+        const parsed = JSON.parse(raw) as string[];
+        if (!Array.isArray(parsed)) {
+          next = employees.map((e) => e.id);
+        } else if (parsed.length === 0) {
+          next = [];
+        } else {
+          const valid = parsed.filter((id) => employees.some((e) => e.id === id));
+          next = valid.length > 0 ? valid : employees.map((e) => e.id);
+        }
+      } catch {
+        next = employees.map((e) => e.id);
+      }
+    }
+
+    staffSummaryHydratedRef.current = true;
+    setSelectedEmployeeIds(next);
+  }, [businessId, employees]);
+
+  useEffect(() => {
+    if (!businessId || !staffSummaryHydratedRef.current) return;
+    sessionStorage.setItem(
+      staffSummaryFilterStorageKey(businessId),
+      JSON.stringify(selectedEmployeeIds),
+    );
+  }, [businessId, selectedEmployeeIds]);
 
   // Fetch business logo
   useEffect(() => {
@@ -132,30 +180,78 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     }).filter(emp => emp.entries.length > 0); // Only show employees with entries
   }, [employees, allPayPeriodEntries]);
 
-  // By Employee Summary data
-  const byEmployeeSummary = useMemo(() => {
-    const summary: Record<string, {
-      employee: Employee;
-      entries: typeof allPayPeriodEntries;
-      totalHours: number;
-    }> = {};
+  type MergedEntry = TimeEntry & {
+    employee: Employee | undefined;
+    hours: number;
+    status: 'active' | 'pending_edit' | 'approved' | 'rejected';
+  };
 
-    allPayPeriodEntries.forEach(entry => {
-      if (!entry.employee) return;
-      const empId = entry.staff_id;
-      if (!summary[empId]) {
-        summary[empId] = {
-          employee: entry.employee,
-          entries: [],
-          totalHours: 0,
-        };
-      }
-      summary[empId].entries.push(entry);
-      summary[empId].totalHours += entry.hours;
+  const mergedEmployeeBlocks = useMemo(() => {
+    if (selectedEmployeeIds.length === 0) return [];
+    return [...selectedEmployeeIds]
+      .map((id) => {
+        const employee = employees.find((e) => e.id === id);
+        if (!employee) return null;
+        const entries: MergedEntry[] = timeEntries
+          .filter((entry) => {
+            const entryDate = startOfDay(new Date(entry.clock_in));
+            return (
+              entry.staff_id === id &&
+              entryDate >= startOfDay(payPeriodStart) &&
+              entryDate <= startOfDay(payPeriodEnd)
+            );
+          })
+          .map((entry) => {
+            const hours = entry.clock_out
+              ? roundToQuarterHours(
+                  differenceInMinutes(new Date(entry.clock_out), new Date(entry.clock_in)) / 60,
+                )
+              : 0;
+            return {
+              ...entry,
+              employee,
+              hours,
+              status: (entry.status || 'approved') as MergedEntry['status'],
+            };
+          })
+          .sort((a, b) => new Date(a.clock_in).getTime() - new Date(b.clock_in).getTime());
+        const totalHours = entries.reduce((sum, e) => sum + (e.clock_out ? e.hours : 0), 0);
+        return { employee, entries, totalHours };
+      })
+      .filter((b): b is NonNullable<typeof b> => b !== null)
+      .sort((a, b) =>
+        (a.employee.name || '').localeCompare(b.employee.name || '', undefined, { sensitivity: 'base' }),
+      );
+  }, [selectedEmployeeIds, employees, timeEntries, payPeriodStart, payPeriodEnd]);
+
+  const toggleEmployeeInFilter = (id: string) => {
+    setSelectedEmployeeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const selectAllStaffInFilter = () => {
+    setSelectedEmployeeIds(employees.map((e) => e.id));
+  };
+
+  const clearStaffFilter = () => {
+    setSelectedEmployeeIds([]);
+  };
+
+  const beginAddEntryForEmployee = (employeeId: string) => {
+    setSelectedEmployeeId(employeeId);
+    const today = startOfDay(new Date());
+    const periodStart = startOfDay(payPeriodStart);
+    const periodEnd = startOfDay(payPeriodEnd);
+    const date =
+      today >= periodStart && today <= periodEnd ? today : payPeriodStart;
+    setEditingDay({ date, entry: undefined });
+    setEditingEntry(null);
+    setEditFormData({
+      clock_in: format(date, "yyyy-MM-dd'T'09:00"),
+      clock_out: '',
     });
-
-    return Object.values(summary);
-  }, [allPayPeriodEntries]);
+  };
 
   const handlePreviousPayPeriod = () => {
     setCurrentPayPeriod(addPayPeriods(payPeriodStart, -1, cadenceWeeks));
@@ -174,8 +270,6 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     return payPeriodStart.getTime() === todayPeriodStart.getTime();
   }, [payPeriodStart, anchorDateISO, cadenceWeeks]);
 
-  const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
-  
   const employeeTimesheetEntries = useMemo(() => {
     if (!selectedEmployeeId) return [];
     
@@ -210,31 +304,6 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       };
     });
   }, [selectedEmployeeId, timeEntries, payPeriodStart, payPeriodEnd, payPeriodDays]);
-
-  const handleAmendDay = (date: Date) => {
-    if (!selectedEmployeeId) return;
-    
-    // Get the first entry for this day, or create a new one
-    const dayEntries = employeeTimesheetEntries.find(e => e.dateStr === format(date, 'yyyy-MM-dd'))?.entries || [];
-    const firstEntry = dayEntries.length > 0 ? dayEntries[0] : undefined;
-    
-    setEditingDay({ date, entry: firstEntry });
-    if (firstEntry) {
-      setEditingEntry(firstEntry);
-      setEditFormData({
-        clock_in: format(new Date(firstEntry.clock_in), "yyyy-MM-dd'T'HH:mm"),
-        clock_out: firstEntry.clock_out ? format(new Date(firstEntry.clock_out), "yyyy-MM-dd'T'HH:mm") : '',
-      });
-    } else {
-      // New entry - set default times for the day
-      const defaultClockIn = format(date, "yyyy-MM-dd'T'09:00");
-      setEditingEntry(null);
-      setEditFormData({
-        clock_in: defaultClockIn,
-        clock_out: '',
-      });
-    }
-  };
 
   const handleSaveAmend = async () => {
     if (!selectedEmployeeId || !editingDay) return;
@@ -276,6 +345,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     const doc = new jsPDF();
     const businessName = settings.business_name || 'Business';
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
     let yPos = margin;
 
@@ -318,7 +388,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    const headline = `${businessName} - PAYROLL TIMESHEET`;
+    const headline = `${businessName} - TIMESHEETS`;
     const headlineMaxW = pageWidth - titleLeft - margin;
     const headlineLines = doc.splitTextToSize(headline, Math.max(40, headlineMaxW));
     let lineY = margin + 7;
@@ -336,213 +406,56 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     doc.text(`Generated: ${format(new Date(), 'MMMM dd, yyyy')} at ${format(new Date(), 'h:mm a')}`, margin, yPos);
     yPos += 12;
 
-    // Section 1: Payroll Timesheet (Detailed)
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PAYROLL TIMESHEET', margin, yPos);
-    yPos += 8;
-
-    const timesheetData = allPayPeriodEntries.map(entry => [
-      getEmployeeId(entry.staff_id),
-      entry.employee?.name || 'Unknown',
-      format(new Date(entry.clock_in), 'MM/dd/yyyy'),
-      format(new Date(entry.clock_in), 'h:mm a'),
-      format(new Date(entry.clock_out!), 'h:mm a'),
-      (Math.round(entry.hours * 4) / 4).toFixed(2),
-      entry.status === 'approved' ? 'Approved' : entry.status === 'pending_edit' ? 'Pending' : 'Active',
-      format(payPeriodStart, 'MM/dd/yyyy'),
-      format(payPeriodEnd, 'MM/dd/yyyy'),
-    ]);
-
-    // Calculate available width for table (page width - margins)
-    const availableWidth = pageWidth - (margin * 2);
+    const availableWidth = pageWidth - margin * 2;
     const centeredCell = { halign: 'center' as const, valign: 'middle' as const };
 
-    autoTable(doc, {
-      head: [['Employee ID', 'Employee Name', 'Date', 'Clock In', 'Clock Out', 'Hours', 'Status', 'Period Start', 'Period End']],
-      body: timesheetData,
-      startY: yPos,
-      margin: { left: margin, right: margin },
-      styles: { fontSize: 7, cellPadding: 1.5, ...centeredCell },
-      headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', ...centeredCell },
-      columnStyles: {
-        0: { cellWidth: availableWidth * 0.08 }, // Employee ID
-        1: { cellWidth: availableWidth * 0.15 }, // Employee Name
-        2: { cellWidth: availableWidth * 0.10 }, // Date
-        3: { cellWidth: availableWidth * 0.10 }, // Clock In
-        4: { cellWidth: availableWidth * 0.10 }, // Clock Out
-        5: { cellWidth: availableWidth * 0.08 }, // Hours
-        6: { cellWidth: availableWidth * 0.10 }, // Status
-        7: { cellWidth: availableWidth * 0.10 }, // Period Start
-        8: { cellWidth: availableWidth * 0.10 }, // Period End
-      },
+    // --- Pay calculations: all active staff (0 hours if none worked), ordered by name ---
+    const activeEmployeesSorted = employees
+      .filter((e) => e.status === 'active')
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+
+    const payCalcData = activeEmployeesSorted.map((emp) => {
+      const empEntries = allPayPeriodEntries.filter((entry) => entry.staff_id === emp.id);
+      const totalHours = empEntries.reduce((sum, entry) => sum + entry.hours, 0);
+      const grossPay = totalHours * emp.hourly_rate;
+      return [
+        getEmployeeId(emp.id),
+        emp.name,
+        totalHours.toFixed(2),
+        `$${emp.hourly_rate.toFixed(2)}`,
+        `$${grossPay.toFixed(2)}`,
+      ];
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    const grandTotalHours = activeEmployeesSorted.reduce((sum, emp) => {
+      const hrs = allPayPeriodEntries
+        .filter((e) => e.staff_id === emp.id)
+        .reduce((s, e) => s + e.hours, 0);
+      return sum + hrs;
+    }, 0);
+    const grandTotalPay = activeEmployeesSorted.reduce((sum, emp) => {
+      const hrs = allPayPeriodEntries
+        .filter((e) => e.staff_id === emp.id)
+        .reduce((s, e) => s + e.hours, 0);
+      return sum + hrs * emp.hourly_rate;
+    }, 0);
 
-    // Total row
-    const totalHours = allPayPeriodEntries.reduce((sum, entry) => sum + entry.hours, 0);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(
-      `TOTAL: ${(Math.round(totalHours * 4) / 4).toFixed(2)} hours`,
-      pageWidth / 2,
-      yPos,
-      { align: 'center' }
-    );
-    yPos += 15;
-
-    doc.addPage();
-    yPos = margin;
+    payCalcData.push(['TOTALS', '', grandTotalHours.toFixed(2), '', `$${grandTotalPay.toFixed(2)}`]);
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(35, 35, 35);
-    doc.text('BY EMPLOYEE SUMMARY', margin, yPos);
-    yPos += 10;
-
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const summarySubtotalBg: [number, number, number] = [232, 242, 255];
-    const summaryLineGray: [number, number, number] = [210, 210, 210];
-    const thinRowLine = { top: 0, left: 0, right: 0, bottom: 0.12 } as const;
-    const noLine = { top: 0, left: 0, right: 0, bottom: 0 } as const;
-
-    const employeeSummariesSorted = [...byEmployeeSummary].sort((a, b) =>
-      (a.employee.name || '').localeCompare(b.employee.name || '', undefined, { sensitivity: 'base' })
-    );
-
-    for (const summary of employeeSummariesSorted) {
-      const minBlockMm = 36;
-      if (yPos > pageHeight - margin - minBlockMm) {
-        doc.addPage();
-        yPos = margin;
-      }
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(35, 35, 35);
-      doc.text(
-        `Employee: ${summary.employee.name} (ID: ${getEmployeeId(summary.employee.id)})`,
-        margin,
-        yPos
-      );
-      yPos += 8;
-
-      const entryCount = summary.entries.length;
-      const bodyRows: (string | number)[][] = summary.entries.map((entry) => [
-        format(new Date(entry.clock_in), 'MM/dd/yyyy'),
-        format(new Date(entry.clock_in), 'h:mm a'),
-        format(new Date(entry.clock_out!), 'h:mm a'),
-        (Math.round(entry.hours * 4) / 4).toFixed(2),
-      ]);
-      bodyRows.push([
-        `Subtotal - ${summary.employee.name}`,
-        '',
-        '',
-        summary.totalHours.toFixed(2),
-      ]);
-
-      autoTable(doc, {
-        head: [['Date', 'Clock In', 'Clock Out', 'Hours']],
-        body: bodyRows,
-        startY: yPos,
-        margin: { left: margin, right: margin },
-        theme: 'plain',
-        tableLineWidth: 0,
-        styles: {
-          fontSize: 8,
-          font: 'helvetica',
-          fontStyle: 'normal',
-          valign: 'middle',
-          fillColor: [255, 255, 255],
-          textColor: [40, 40, 40],
-          lineColor: summaryLineGray,
-          lineWidth: thinRowLine,
-          cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
-        },
-        headStyles: {
-          fillColor: primaryColor,
-          textColor: 255,
-          fontStyle: 'bold',
-          valign: 'middle',
-          lineWidth: noLine,
-          lineColor: summaryLineGray,
-        },
-        bodyStyles: {
-          fillColor: [255, 255, 255],
-        },
-        columnStyles: {
-          0: { cellWidth: availableWidth * 0.26, halign: 'left' },
-          1: { cellWidth: availableWidth * 0.22, halign: 'center' },
-          2: { cellWidth: availableWidth * 0.22, halign: 'center' },
-          3: { cellWidth: availableWidth * 0.3, halign: 'right', fontStyle: 'bold' },
-        },
-        didParseCell: (data: any) => {
-          if (data.section === 'head') {
-            if (data.column.index === 0) data.cell.styles.halign = 'left';
-            if (data.column.index === 1 || data.column.index === 2) data.cell.styles.halign = 'center';
-            if (data.column.index === 3) data.cell.styles.halign = 'right';
-            return;
-          }
-          const raw0 = data.row.raw[0];
-          const isSubtotal = typeof raw0 === 'string' && raw0.includes('Subtotal');
-          if (isSubtotal) {
-            data.cell.styles.fillColor = summarySubtotalBg;
-            data.cell.styles.textColor = [25, 25, 25];
-            data.cell.styles.fontStyle = 'bold';
-            if (data.column.index === 0) data.cell.styles.halign = 'left';
-            else if (data.column.index === 3) data.cell.styles.halign = 'right';
-            else data.cell.styles.halign = 'center';
-            data.cell.styles.lineWidth = {
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0.12,
-            };
-            return;
-          }
-          const isLastDataRow = data.row.index === entryCount - 1;
-          if (isLastDataRow) {
-            data.cell.styles.lineWidth = noLine;
-          }
-        },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 16;
-      doc.setTextColor(0, 0, 0);
-    }
-
-    doc.addPage();
-    yPos = margin;
-
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
     doc.text('PAY CALCULATIONS', margin, yPos);
     yPos += 6;
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text('Pay rates are editable. Gross Pay is calculated as Hours x Rate.', margin, yPos);
+    doc.text(
+      'Includes all active staff. Gross pay is completed hours x hourly rate for this pay period.',
+      margin,
+      yPos,
+    );
     yPos += 10;
-
-    const payCalcData = payrollData.map(emp => [
-      getEmployeeId(emp.id),
-      emp.name,
-      emp.hoursWorked.toFixed(2),
-      `$${emp.hourly_rate.toFixed(2)}`,
-      `$${emp.grossPay.toFixed(2)}`,
-    ]);
-
-    // Add totals row
-    const grandTotalHours = payrollData.reduce((sum, e) => sum + e.hoursWorked, 0);
-    const grandTotalPay = payrollData.reduce((sum, e) => sum + e.grossPay, 0);
-    payCalcData.push([
-      'TOTALS',
-      '',
-      grandTotalHours.toFixed(2),
-      '',
-      `$${grandTotalPay.toFixed(2)}`,
-    ]);
 
     autoTable(doc, {
       head: [['Employee ID', 'Employee Name', 'Total Hours', 'Hourly Rate', 'Gross Pay']],
@@ -552,11 +465,11 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       styles: { fontSize: 9, cellPadding: 3, ...centeredCell },
       headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', ...centeredCell },
       columnStyles: {
-        0: { cellWidth: availableWidth * 0.15 }, // Employee ID
-        1: { cellWidth: availableWidth * 0.30 }, // Employee Name
-        2: { cellWidth: availableWidth * 0.18 }, // Total Hours
-        3: { cellWidth: availableWidth * 0.18 }, // Hourly Rate
-        4: { cellWidth: availableWidth * 0.19 }, // Gross Pay
+        0: { cellWidth: availableWidth * 0.15 },
+        1: { cellWidth: availableWidth * 0.3 },
+        2: { cellWidth: availableWidth * 0.18 },
+        3: { cellWidth: availableWidth * 0.18 },
+        4: { cellWidth: availableWidth * 0.19 },
       },
       didParseCell: (data: any) => {
         if (data.row.raw[0] === 'TOTALS') {
@@ -566,9 +479,195 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       },
     });
 
-    // Save PDF
-    const fileName = `payroll-${format(payPeriodStart, 'yyyy-MM-dd')}-to-${format(payPeriodEnd, 'yyyy-MM-dd')}.pdf`;
-    doc.save(fileName);
+    yPos = (doc as any).lastAutoTable.finalY + 14;
+    doc.setTextColor(0, 0, 0);
+
+    // --- Staff summary: one table per employee with any time record in period (incl. open punch) ---
+    type PdfShiftRow = {
+      entry: TimeEntry;
+      hours: number;
+      employee: Employee;
+    };
+
+    const periodShiftRows: PdfShiftRow[] = timeEntries
+      .filter((entry) => {
+        const entryDate = startOfDay(new Date(entry.clock_in));
+        return (
+          entryDate >= startOfDay(payPeriodStart) && entryDate <= startOfDay(payPeriodEnd)
+        );
+      })
+      .map((entry) => {
+        const staff = employees.find((e) => e.id === entry.staff_id);
+        if (!staff) return null;
+        const hours = entry.clock_out
+          ? roundToQuarterHours(
+              differenceInMinutes(new Date(entry.clock_out), new Date(entry.clock_in)) / 60,
+            )
+          : 0;
+        return { entry, hours, employee: staff };
+      })
+      .filter((row): row is PdfShiftRow => row != null);
+
+    const byStaff: Record<string, { employee: Employee; rows: PdfShiftRow[] }> = {};
+    for (const row of periodShiftRows) {
+      const id = row.entry.staff_id;
+      if (!byStaff[id]) {
+        byStaff[id] = { employee: row.employee, rows: [] };
+      }
+      byStaff[id].rows.push(row);
+    }
+
+    const staffSummaryBlocks = Object.values(byStaff)
+      .map((block) => ({
+        ...block,
+        rows: block.rows.sort(
+          (a, b) => new Date(a.entry.clock_in).getTime() - new Date(b.entry.clock_in).getTime(),
+        ),
+      }))
+      .sort((a, b) =>
+        (a.employee.name || '').localeCompare(b.employee.name || '', undefined, { sensitivity: 'base' }),
+      );
+
+    if (staffSummaryBlocks.length > 0) {
+      doc.addPage();
+      yPos = margin;
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(35, 35, 35);
+      doc.text('STAFF SUMMARY', margin, yPos);
+      yPos += 10;
+
+      const summarySubtotalBg: [number, number, number] = [232, 242, 255];
+      const summaryLineGray: [number, number, number] = [210, 210, 210];
+      const thinRowLine = { top: 0, left: 0, right: 0, bottom: 0.12 } as const;
+      const noLine = { top: 0, left: 0, right: 0, bottom: 0 } as const;
+
+      for (const block of staffSummaryBlocks) {
+        const blockTotalHours = block.rows.reduce(
+          (sum, r) => sum + (r.entry.clock_out ? r.hours : 0),
+          0,
+        );
+        const minBlockMm = 36;
+        if (yPos > pageHeight - margin - minBlockMm) {
+          doc.addPage();
+          yPos = margin;
+        }
+
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(35, 35, 35);
+        doc.text(
+          `${block.employee.name} (ID: ${getEmployeeId(block.employee.id)})`,
+          margin,
+          yPos,
+        );
+        yPos += 8;
+
+        const entryCount = block.rows.length;
+        const bodyRows: (string | number)[][] = block.rows.map(({ entry, hours }) => [
+          format(new Date(entry.clock_in), 'MM/dd/yyyy'),
+          format(new Date(entry.clock_in), 'h:mm a'),
+          entry.clock_out ? format(new Date(entry.clock_out), 'h:mm a') : 'Open',
+          entry.clock_out ? (Math.round(hours * 4) / 4).toFixed(2) : '—',
+        ]);
+        bodyRows.push([
+          `Total — ${block.employee.name}`,
+          '',
+          '',
+          blockTotalHours.toFixed(2),
+        ]);
+
+        autoTable(doc, {
+          head: [['Date', 'Clock In', 'Clock Out', 'Hours']],
+          body: bodyRows,
+          startY: yPos,
+          margin: { left: margin, right: margin },
+          theme: 'plain',
+          tableLineWidth: 0,
+          styles: {
+            fontSize: 8,
+            font: 'helvetica',
+            fontStyle: 'normal',
+            valign: 'middle',
+            fillColor: [255, 255, 255],
+            textColor: [40, 40, 40],
+            lineColor: summaryLineGray,
+            lineWidth: thinRowLine,
+            cellPadding: { top: 3.5, bottom: 3.5, left: 2.5, right: 2.5 },
+          },
+          headStyles: {
+            fillColor: primaryColor,
+            textColor: 255,
+            fontStyle: 'bold',
+            valign: 'middle',
+            lineWidth: noLine,
+            lineColor: summaryLineGray,
+          },
+          bodyStyles: {
+            fillColor: [255, 255, 255],
+          },
+          columnStyles: {
+            0: { cellWidth: availableWidth * 0.26, halign: 'left' },
+            1: { cellWidth: availableWidth * 0.22, halign: 'center' },
+            2: { cellWidth: availableWidth * 0.22, halign: 'center' },
+            3: { cellWidth: availableWidth * 0.3, halign: 'right', fontStyle: 'bold' },
+          },
+          didParseCell: (data: any) => {
+            if (data.section === 'head') {
+              if (data.column.index === 0) data.cell.styles.halign = 'left';
+              if (data.column.index === 1 || data.column.index === 2) data.cell.styles.halign = 'center';
+              if (data.column.index === 3) data.cell.styles.halign = 'right';
+              return;
+            }
+            const raw0 = data.row.raw[0];
+            const isTotalRow = typeof raw0 === 'string' && raw0.startsWith('Total —');
+            if (isTotalRow) {
+              data.cell.styles.fillColor = summarySubtotalBg;
+              data.cell.styles.textColor = [25, 25, 25];
+              data.cell.styles.fontStyle = 'bold';
+              if (data.column.index === 0) data.cell.styles.halign = 'left';
+              else if (data.column.index === 3) data.cell.styles.halign = 'right';
+              else data.cell.styles.halign = 'center';
+              data.cell.styles.lineWidth = {
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0.12,
+              };
+              return;
+            }
+            const isLastDataRow = data.row.index === entryCount - 1;
+            if (isLastDataRow) {
+              data.cell.styles.lineWidth = noLine;
+            }
+          },
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 16;
+        doc.setTextColor(0, 0, 0);
+      }
+    }
+
+    const fileName = `timesheets-${format(payPeriodStart, 'yyyy-MM-dd')}-to-${format(payPeriodEnd, 'yyyy-MM-dd')}.pdf`;
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const preview = window.open(url, '_blank', 'noopener,noreferrer');
+
+    if (!preview) {
+      toast.warning(t('payroll.pdfPopupBlocked'));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      return;
+    }
+
+    // Leave blob URL valid while the preview tab is open (browser PDF viewers may still reference it).
   };
 
   return (
@@ -577,245 +676,316 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       loaderLabel={t('common.loading')}
       loaderWrapperClassName="min-h-[240px]"
     >
-    <div className="space-y-6">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-end">
+        <div className="flex flex-col gap-2 min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center sm:justify-end">
           <Button
             variant="default"
             size="sm"
             onClick={handleDownloadPDF}
-            className="flex items-center gap-2"
+            className="flex w-full min-[400px]:w-auto items-center justify-center gap-2 shrink-0"
           >
-            <Download className="w-4 h-4" />
-            Download PDF Report
+            <ExternalLink className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('payroll.downloadPdfReport')}</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handlePreviousPayPeriod}
-            className="flex items-center gap-2"
+            className="flex w-full min-[400px]:w-auto items-center justify-center gap-2 shrink-0"
           >
-            <ChevronLeft className="w-4 h-4" />
-            {t('payroll.previousPayPeriod')}
+            <ChevronLeft className="h-4 w-4 shrink-0" />
+            <span className="truncate">{t('payroll.previousPayPeriod')}</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleNextPayPeriod}
-            className="flex items-center gap-2"
+            className="flex w-full min-[400px]:w-auto items-center justify-center gap-2 shrink-0"
           >
-            {t('payroll.nextPayPeriod')}
-            <ChevronRight className="w-4 h-4" />
+            <span className="truncate">{t('payroll.nextPayPeriod')}</span>
+            <ChevronRight className="h-4 w-4 shrink-0" />
           </Button>
           <Button
-            variant={isCurrentPayPeriod ? "default" : "outline"}
+            variant={isCurrentPayPeriod ? 'default' : 'outline'}
             size="sm"
             onClick={handleCurrentPayPeriod}
+            className="w-full min-[400px]:w-auto shrink-0"
           >
             {t('payroll.currentPayPeriod')}
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="timesheet" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="timesheet">Payroll Timesheet</TabsTrigger>
-          <TabsTrigger value="summary">By Employee Summary</TabsTrigger>
-          <TabsTrigger value="calculations">Pay Calculations</TabsTrigger>
-          <TabsTrigger value="edit">Edit Timesheet</TabsTrigger>
+      <Tabs defaultValue="timesheets" className="space-y-4">
+        <TabsList className="flex h-auto min-h-10 w-full flex-wrap gap-1 p-1 sm:flex-nowrap">
+          <TabsTrigger
+            value="timesheets"
+            className="min-h-9 flex-1 min-w-[9rem] px-2 sm:px-3 outline-none transition-[outline,outline-offset] data-[state=active]:outline data-[state=active]:outline-2 data-[state=active]:outline-primary data-[state=active]:outline-offset-2"
+          >
+            {t('payroll.employeeSummary')}
+          </TabsTrigger>
+          <TabsTrigger
+            value="calculations"
+            className="min-h-9 flex-1 min-w-[9rem] px-2 sm:px-3 outline-none transition-[outline,outline-offset] data-[state=active]:outline data-[state=active]:outline-2 data-[state=active]:outline-primary data-[state=active]:outline-offset-2"
+          >
+            {t('payroll.payCalculations')}
+          </TabsTrigger>
         </TabsList>
 
-        {/* Payroll Timesheet Tab */}
-        <TabsContent value="timesheet">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
-                Payroll Timesheet
-              </CardTitle>
-              <CardDescription>
-                Pay Period: {format(payPeriodStart, 'MMMM dd')} - {format(payPeriodEnd, 'MMMM dd, yyyy')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-muted">
-                      <th className="text-left py-3 px-4 font-medium">Employee ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Employee Name</th>
-                      <th className="text-left py-3 px-4 font-medium">Date</th>
-                      <th className="text-left py-3 px-4 font-medium">Clock In</th>
-                      <th className="text-left py-3 px-4 font-medium">Clock Out</th>
-                      <th className="text-right py-3 px-4 font-medium">Hours</th>
-                      <th className="text-left py-3 px-4 font-medium">Status</th>
-                      <th className="text-left py-3 px-4 font-medium">Period Start</th>
-                      <th className="text-left py-3 px-4 font-medium">Period End</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allPayPeriodEntries.map((entry) => {
-                      const empId = entry.staff_id.slice(-4).toUpperCase();
-                      return (
-                        <tr
-                          key={entry.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => openEditForEntry(entry)}
-                          onKeyDown={(e) => e.key === 'Enter' && openEditForEntry(entry)}
-                          className="border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
-                          title="Click to edit"
-                        >
-                          <td className="py-3 px-4 font-mono text-sm">{empId}</td>
-                          <td className="py-3 px-4 font-medium">{entry.employee?.name || 'Unknown'}</td>
-                          <td className="py-3 px-4">{format(new Date(entry.clock_in), 'MM/dd/yyyy')}</td>
-                          <td className="py-3 px-4">{format(new Date(entry.clock_in), 'h:mm a')}</td>
-                          <td className="py-3 px-4">{format(new Date(entry.clock_out!), 'h:mm a')}</td>
-                          <td className="py-3 px-4 text-right font-semibold">{(Math.round(entry.hours * 4) / 4).toFixed(2)}</td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              entry.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              entry.status === 'pending_edit' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-blue-100 text-blue-800'
-                            }`}>
-                              {entry.status === 'approved' ? 'Approved' : entry.status === 'pending_edit' ? 'Pending' : 'Active'}
+        <TabsContent value="timesheets" className="mt-4 space-y-4">
+          <Card className="overflow-hidden">
+            <CardHeader className="space-y-2 p-4 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                    <UserRound className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+                    {t('payroll.employeeSummary')}
+                  </CardTitle>
+                  <CardDescription className="text-pretty">
+                    {t('payroll.employeeSummaryDescription')}
+                  </CardDescription>
+                  <p className="text-sm text-muted-foreground">
+                    {t('payroll.payPeriod')}: {format(payPeriodStart, 'MMMM d')} – {format(payPeriodEnd, 'MMMM d, yyyy')}
+                  </p>
+                </div>
+                <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[200px]">
+                  <Label className="text-xs font-medium sm:text-sm">{t('payroll.filterEmployees')}</Label>
+                  <Popover open={staffFilterOpen} onOpenChange={setStaffFilterOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 w-full justify-between font-normal sm:min-w-[220px]"
+                        aria-expanded={staffFilterOpen}
+                      >
+                        <span className="truncate">
+                          {selectedEmployeeIds.length === 0
+                            ? t('payroll.selectEmployees')
+                            : t('payroll.employeesSelected', { count: selectedEmployeeIds.length })}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[min(100vw-2rem,22rem)] p-0" align="end">
+                      <div className="flex items-center justify-between gap-2 border-b border-border p-3">
+                        <span className="text-sm font-medium">{t('payroll.selectEmployees')}</span>
+                        <div className="flex gap-1">
+                          <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={selectAllStaffInFilter}>
+                            {t('payroll.selectAllStaff')}
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={clearStaffFilter}>
+                            {t('payroll.clearStaffSelection')}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="max-h-[min(50vh,16rem)] overflow-y-auto p-2">
+                        {employees.map((emp) => (
+                          <label
+                            key={emp.id}
+                            className="flex cursor-pointer items-center gap-3 rounded-md py-2.5 pl-2 pr-2 hover:bg-muted/80"
+                          >
+                            <Checkbox
+                              checked={selectedEmployeeIds.includes(emp.id)}
+                              onCheckedChange={() => toggleEmployeeInFilter(emp.id)}
+                              aria-label={emp.name}
+                            />
+                            <span className="min-w-0 flex-1 text-sm">
+                              <span className="block truncate font-medium">{emp.name}</span>
+                              <span className="block truncate text-xs text-muted-foreground">{emp.role}</span>
                             </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">{format(payPeriodStart, 'MM/dd/yyyy')}</td>
-                          <td className="py-3 px-4 text-sm text-muted-foreground">{format(payPeriodEnd, 'MM/dd/yyyy')}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-secondary/50 font-semibold">
-                      <td colSpan={5} className="py-3 px-4">TOTAL</td>
-                      <td className="py-3 px-4 text-right">
-                        {(Math.round(allPayPeriodEntries.reduce((sum, entry) => sum + entry.hours, 0) * 4) / 4).toFixed(2)}
-                      </td>
-                      <td colSpan={3} className="py-3 px-4"></td>
-                    </tr>
-                  </tfoot>
-                </table>
+                          </label>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* By Employee Summary Tab */}
-        <TabsContent value="summary">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-primary" />
-                By Employee Summary
-              </CardTitle>
-              <CardDescription>
-                Pay Period: {format(payPeriodStart, 'MMMM dd')} - {format(payPeriodEnd, 'MMMM dd, yyyy')}
-              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {byEmployeeSummary.map((summary) => (
-                  <div key={summary.employee.id}>
-                    <div className="mb-2">
-                      <h3 className="font-semibold text-lg">
-                        Employee: {summary.employee.name} (ID: {summary.employee.id.slice(-4).toUpperCase()})
+            <CardContent className="space-y-6 p-4 pt-0 sm:p-6 sm:pt-0">
+              {selectedEmployeeIds.length === 0 && (
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground">
+                  {t('payroll.selectStaffToView')}
+                </div>
+              )}
+              {selectedEmployeeIds.length > 0 &&
+                mergedEmployeeBlocks.map((block) => (
+                  <div key={block.employee.id} className="min-w-0 space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="text-base font-semibold sm:text-lg">
+                        {block.employee.name}{' '}
+                        <span className="font-mono text-sm font-normal text-muted-foreground">
+                          (ID: {block.employee.id.slice(-4).toUpperCase()})
+                        </span>
                       </h3>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 w-full shrink-0 sm:w-auto"
+                        onClick={() => beginAddEntryForEmployee(block.employee.id)}
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        {t('payroll.addEntry')}
+                      </Button>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
+                    <div className="-mx-4 overflow-x-auto sm:mx-0 sm:rounded-md sm:border sm:border-border">
+                      <table className="w-full min-w-[320px] text-sm">
                         <thead>
                           <tr className="border-b border-border bg-muted">
-                            <th className="text-left py-3 px-4 font-medium">Date</th>
-                            <th className="text-left py-3 px-4 font-medium">Clock In</th>
-                            <th className="text-left py-3 px-4 font-medium">Clock Out</th>
-                            <th className="text-right py-3 px-4 font-medium">Hours</th>
+                            <th className="whitespace-nowrap py-2.5 pl-4 pr-2 text-left text-xs font-medium sm:py-3 sm:pl-4 sm:text-sm">
+                              {t('employeePayroll.table.date')}
+                            </th>
+                            <th className="whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium sm:py-3 sm:text-sm">
+                              {t('payroll.clockIn')}
+                            </th>
+                            <th className="whitespace-nowrap px-2 py-2.5 text-left text-xs font-medium sm:py-3 sm:text-sm">
+                              {t('payroll.clockOut')}
+                            </th>
+                            <th className="whitespace-nowrap px-2 py-2.5 text-right text-xs font-medium sm:py-3 sm:pr-2 sm:text-sm">
+                              {t('employeePayroll.table.hours')}
+                            </th>
+                            <th className="w-12 py-2.5 pr-4 text-right sm:w-14 sm:py-3 sm:pr-4">
+                              <span className="sr-only">{t('payroll.editTimesHint')}</span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {summary.entries.map((entry) => (
-                            <tr
-                              key={entry.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => openEditForEntry(entry)}
-                              onKeyDown={(e) => e.key === 'Enter' && openEditForEntry(entry)}
-                              className="border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
-                              title="Click to edit"
-                            >
-                              <td className="py-3 px-4">{format(new Date(entry.clock_in), 'MM/dd/yyyy')}</td>
-                              <td className="py-3 px-4">{format(new Date(entry.clock_in), 'h:mm a')}</td>
-                              <td className="py-3 px-4">{format(new Date(entry.clock_out!), 'h:mm a')}</td>
-                              <td className="py-3 px-4 text-right font-semibold">{(Math.round(entry.hours * 4) / 4).toFixed(2)}</td>
+                          {block.entries.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                                {t('payroll.noEntriesThisPeriod')}
+                              </td>
                             </tr>
-                          ))}
+                          ) : (
+                            block.entries.map((entry) => (
+                              <tr
+                                key={entry.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => openEditForEntry(entry)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    openEditForEntry(entry);
+                                  }
+                                }}
+                                className="group border-b border-border transition-colors hover:bg-primary/10 cursor-pointer"
+                                title={t('payroll.rowEditableHint')}
+                              >
+                                <td className="whitespace-nowrap py-2.5 pl-4 pr-2 sm:py-3">
+                                  {format(new Date(entry.clock_in), 'MM/dd/yyyy')}
+                                </td>
+                                <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
+                                  {format(new Date(entry.clock_in), 'h:mm a')}
+                                </td>
+                                <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
+                                  {entry.clock_out
+                                    ? format(new Date(entry.clock_out), 'h:mm a')
+                                    : t('timeClock.clockedIn')}
+                                </td>
+                                <td className="whitespace-nowrap px-2 py-2.5 text-right font-semibold sm:py-3 sm:pr-2">
+                                  {entry.clock_out ? (Math.round(entry.hours * 4) / 4).toFixed(2) : '—'}
+                                </td>
+                                <td className="py-2.5 pr-4 text-right align-middle sm:py-3" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+                                    onClick={() => openEditForEntry(entry)}
+                                    title={t('payroll.rowEditableHint')}
+                                    aria-label={t('payroll.editTimesHint')}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
-                        <tfoot>
-                          <tr className="bg-secondary/50 font-semibold border-t-2 border-border">
-                            <td className="py-3 px-4">Subtotal - {summary.employee.name}</td>
-                            <td colSpan={2} className="py-3 px-4"></td>
-                            <td className="py-3 px-4 text-right">{summary.totalHours.toFixed(2)}</td>
-                          </tr>
-                        </tfoot>
+                        {block.entries.length > 0 && (
+                          <tfoot>
+                            <tr className="border-t-2 border-border bg-primary/10 font-semibold">
+                              <td className="py-2.5 pl-4 pr-2 sm:py-3">
+                                {t('employeePayroll.total')} — {block.employee.name}
+                              </td>
+                              <td colSpan={2} className="py-2.5 sm:py-3" />
+                              <td className="py-2.5 pr-2 text-right sm:py-3 sm:pr-2">{block.totalHours.toFixed(2)}</td>
+                              <td className="py-2.5 pr-4 sm:py-3" />
+                            </tr>
+                          </tfoot>
+                        )}
                       </table>
                     </div>
                   </div>
                 ))}
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Pay Calculations Tab */}
-        <TabsContent value="calculations">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-primary" />
-                Pay Calculations
+        <TabsContent value="calculations" className="mt-4">
+          <Card className="overflow-hidden">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <DollarSign className="h-5 w-5 shrink-0 text-primary" />
+                {t('payroll.payCalculations')}
               </CardTitle>
-              <CardDescription>
-                Pay Period: {format(payPeriodStart, 'MMMM dd')} - {format(payPeriodEnd, 'MMMM dd, yyyy')}
+              <CardDescription className="text-pretty">
+                {t('payroll.payCalculationsDescription')}
               </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Pay rates are editable. Gross Pay is calculated as Hours x Rate.
+              <p className="text-sm text-muted-foreground">
+                {t('payroll.payPeriod')}: {format(payPeriodStart, 'MMMM d')} – {format(payPeriodEnd, 'MMMM d, yyyy')}
               </p>
-              <div className="overflow-x-auto">
-                <table className="w-full">
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="-mx-4 overflow-x-auto sm:mx-0 sm:rounded-md sm:border sm:border-border">
+                <table className="w-full min-w-[520px] text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted">
-                      <th className="text-left py-3 px-4 font-medium">Employee ID</th>
-                      <th className="text-left py-3 px-4 font-medium">Employee Name</th>
-                      <th className="text-right py-3 px-4 font-medium">Total Hours</th>
-                      <th className="text-right py-3 px-4 font-medium">Hourly Rate</th>
-                      <th className="text-right py-3 px-4 font-medium">Gross Pay</th>
+                      <th className="py-2.5 pl-4 pr-2 text-left text-xs font-medium sm:py-3 sm:text-sm">
+                        {t('payroll.employee')} ID
+                      </th>
+                      <th className="px-2 py-2.5 text-left text-xs font-medium sm:py-3 sm:text-sm">
+                        {t('payroll.employee')}
+                      </th>
+                      <th className="px-2 py-2.5 text-right text-xs font-medium sm:py-3 sm:text-sm">
+                        {t('payroll.hoursWorked')}
+                      </th>
+                      <th className="px-2 py-2.5 text-right text-xs font-medium sm:py-3 sm:text-sm">
+                        {t('payroll.hourlyRate')}
+                      </th>
+                      <th className="py-2.5 pr-4 pl-2 text-right text-xs font-medium sm:py-3 sm:text-sm">
+                        {t('payroll.totalPay')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {payrollData.map(emp => {
+                    {payrollData.map((emp) => {
                       const empId = emp.id.slice(-4).toUpperCase();
                       return (
-                        <tr key={emp.id} className="border-b border-border hover:bg-secondary/50 transition-colors">
-                          <td className="py-3 px-4 font-mono text-sm">{empId}</td>
-                          <td className="py-3 px-4 font-medium">{emp.name}</td>
-                          <td className="py-3 px-4 text-right font-semibold">{emp.hoursWorked.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right text-muted-foreground">${emp.hourly_rate.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right font-semibold">${emp.grossPay.toFixed(2)}</td>
+                        <tr key={emp.id} className="border-b border-border transition-colors hover:bg-primary/10">
+                          <td className="py-2.5 pl-4 pr-2 font-mono text-xs sm:py-3 sm:text-sm">{empId}</td>
+                          <td className="px-2 py-2.5 font-medium sm:py-3">{emp.name}</td>
+                          <td className="px-2 py-2.5 text-right font-semibold sm:py-3">{emp.hoursWorked.toFixed(2)}</td>
+                          <td className="px-2 py-2.5 text-right text-muted-foreground sm:py-3">
+                            ${emp.hourly_rate.toFixed(2)}
+                          </td>
+                          <td className="py-2.5 pr-4 pl-2 text-right font-semibold sm:py-3">${emp.grossPay.toFixed(2)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-secondary/50 font-semibold border-t-2 border-border">
-                      <td colSpan={2} className="py-3 px-4">TOTALS</td>
-                      <td className="py-3 px-4 text-right">
+                    <tr className="border-t-2 border-border bg-primary/10 font-semibold">
+                      <td colSpan={2} className="py-2.5 pl-4 sm:py-3">
+                        TOTALS
+                      </td>
+                      <td className="px-2 py-2.5 text-right sm:py-3">
                         {payrollData.reduce((sum, e) => sum + e.hoursWorked, 0).toFixed(2)}
                       </td>
-                      <td className="py-3 px-4"></td>
-                      <td className="py-3 px-4 text-right font-bold">
+                      <td className="py-2.5 sm:py-3" />
+                      <td className="py-2.5 pr-4 pl-2 text-right font-bold sm:py-3">
                         ${payrollData.reduce((sum, e) => sum + e.grossPay, 0).toFixed(2)}
                       </td>
                     </tr>
@@ -825,114 +995,11 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Edit Timesheet Tab */}
-        <TabsContent value="edit">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
-                {t('payroll.employeeTimesheet')}
-              </CardTitle>
-              <CardDescription>
-                {t('payroll.viewAndAmendDescription')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>{t('payroll.selectEmployee')}</Label>
-                  <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('payroll.chooseEmployee')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map(emp => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedEmployee && (
-                  <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground mb-4">
-                      {t('payroll.timesheetFor')} <span className="font-semibold text-foreground">{selectedEmployee.name}</span> - {t('payroll.payPeriod')}: {format(payPeriodStart, 'MMMM d')} - {format(payPeriodEnd, 'd, yyyy')}
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-border">
-                            <th className="text-left py-3 px-4 font-medium">{t('timesheet.dateDay')}</th>
-                            <th className="text-right py-3 px-4 font-medium">{t('reports.hours')}</th>
-                            <th className="text-center py-3 px-4 font-medium">{t('payroll.action')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {employeeTimesheetEntries.map(({ date, dateStr, entries, totalHours }) => (
-                            <tr key={dateStr} className="border-b border-border hover:bg-secondary/50 transition-colors">
-                              <td className="py-3 px-4">
-                                <div className="font-medium">{format(date, 'EEE MMM d')}</div>
-                                {entries.length > 0 && (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {entries.map((entry) => (
-                                      <div key={entry.id}>
-                                        {format(new Date(entry.clock_in), 'h:mm a')} - {entry.clock_out ? format(new Date(entry.clock_out), 'h:mm a') : t('timeClock.clockedIn')}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                {entries.length === 0 && (
-                                  <div className="text-xs text-muted-foreground mt-1">{t('schedule.noEntries')}</div>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-right font-semibold">
-                                {totalHours > 0 ? `${totalHours.toFixed(1)}h` : '-'}
-                              </td>
-                              <td className="py-3 px-4 text-center">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleAmendDay(date)}
-                                  className="flex items-center gap-1"
-                                >
-                                  <Edit className="w-3 h-3" />
-                                  {t('payroll.amend')}
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="bg-secondary/50">
-                            <td className="py-3 px-4 font-semibold">{t('dashboard.totalEarned')}</td>
-                            <td className="py-3 px-4 text-right font-semibold">
-                              {employeeTimesheetEntries.reduce((sum, day) => sum + day.totalHours, 0).toFixed(1)}h
-                            </td>
-                            <td className="py-3 px-4"></td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {!selectedEmployee && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {t('payroll.selectEmployeeToView')}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Amend Timesheet Dialog */}
       <Dialog open={!!editingDay} onOpenChange={(open) => !open && handleCancelAmend}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingEntry ? t('payroll.amendTimesheetEntry') : t('payroll.addTimesheetEntry')}</DialogTitle>
             <DialogDescription>

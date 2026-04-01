@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, Eye, EyeOff, Users, Clock, RotateCcw, RefreshCw, X, Upload, UserRound, Loader2, Pencil, CheckCircle, ListPlus } from 'lucide-react';
+import { Plus, Eye, EyeOff, Users, Clock, RotateCcw, RefreshCw, X, Upload, UserRound, Loader2, Pencil, CheckCircle, ListPlus, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,6 +44,7 @@ import { consumeLastStaffWriteError, useServices } from '@/hooks/useSupabaseData
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { InviteEmployeeDialog } from '@/components/employee/InviteEmployeeDialog';
+import { SearchFilter } from '@/components/SearchFilter';
 import type { Service } from '@/types';
 
 function serviceRowIsActive(s: Service): boolean {
@@ -505,11 +506,37 @@ export function EmployeeManagement({
   const staffPhotoInputRef = useRef<HTMLInputElement>(null);
   const [showPinInForm, setShowPinInForm] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive'>('active');
+  const [staffSearchTerm, setStaffSearchTerm] = useState('');
+  const STAFF_DIRECTORY_VIEW_KEY = 'pet-hub-staff-directory-view';
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return window.localStorage.getItem(STAFF_DIRECTORY_VIEW_KEY) === 'list' ? 'list' : 'cards';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STAFF_DIRECTORY_VIEW_KEY, viewMode);
+  }, [viewMode]);
 
   const filteredEmployees = useMemo(
     () => employees.filter((e) => e.status === statusFilter),
     [employees, statusFilter]
   );
+
+  const staffDirectoryList = useMemo(() => {
+    if (isEmployeeSelfService) return [];
+    const term = staffSearchTerm.trim().toLowerCase();
+    if (!term) return filteredEmployees;
+    return filteredEmployees.filter((e) => {
+      const name = (e.name ?? '').toLowerCase();
+      const email = (e.email ?? '').toLowerCase();
+      const phoneDigits = (e.phone ?? '').replace(/\D/g, '');
+      const termDigits = term.replace(/\D/g, '');
+      const role = (e.role ?? '').toLowerCase();
+      const phoneMatch = termDigits.length > 0 && phoneDigits.includes(termDigits);
+      return name.includes(term) || email.includes(term) || role.includes(term) || phoneMatch;
+    });
+  }, [isEmployeeSelfService, filteredEmployees, staffSearchTerm]);
 
   const listForGrid = useMemo(() => {
     if (isEmployeeSelfService && staffId) {
@@ -1124,11 +1151,17 @@ export function EmployeeManagement({
 
       {!isEmployeeSelfService ? (
         <div
-          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+          className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap"
           data-page-toolbar
+          data-page-search
         >
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:min-w-[200px]">
-            <span className="whitespace-nowrap text-sm text-muted-foreground">
+          <SearchFilter
+            searchTerm={staffSearchTerm}
+            onSearchChange={setStaffSearchTerm}
+            placeholder={t('employeeManagement.searchPlaceholder')}
+          />
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
               {t('employeeManagement.statusFilter')}
             </span>
             <Select value={statusFilter} onValueChange={(v: 'active' | 'inactive') => setStatusFilter(v)}>
@@ -1143,6 +1176,28 @@ export function EmployeeManagement({
                 <SelectItem value="inactive">{t('employeeManagement.filterInactive')}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5 shrink-0">
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+                viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('cards')}
+              aria-label="Card view"
+            >
+              <LayoutGrid className="w-4 h-4 shrink-0" />
+            </button>
+            <button
+              type="button"
+              className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
+                viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+              onClick={() => setViewMode('list')}
+              aria-label="List view"
+            >
+              <List className="w-4 h-4 shrink-0" />
+            </button>
           </div>
           <Button
             type="button"
@@ -1688,56 +1743,61 @@ export function EmployeeManagement({
         </DialogContent>
       </Dialog>
 
-      {!isEmployeeSelfService && listForGrid.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {listForGrid.map((employee) => (
-            <Card key={employee.id}>
-              <CardContent className="p-0">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  onClick={() => handleEdit(employee)}
-                >
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-                    {employee.photo_url ? (
-                      <img src={employee.photo_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        <UserRound className="h-7 w-7" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold">{employee.name}</h3>
-                      <JobTitleBadge employee={employee} />
-                      {employee.user_id ? (
-                        <span className="rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
-                          Cuenta activa
-                        </span>
-                      ) : pendingInviteStaffIds.has(employee.id) ? (
-                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
-                          Invitación pendiente
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="break-all text-sm text-muted-foreground">{employee.email}</p>
-                    <p className="text-sm text-muted-foreground">{formatPhoneNumber(employee.phone)}</p>
-                  </div>
-                </button>
-                {canSendPortalInvite && !isEmployeeSelfService && employee.status === 'active' ? (
-                  <div
-                    className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3"
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    role="presentation"
+      {!isEmployeeSelfService && staffDirectoryList.length > 0 ? (
+        viewMode === 'cards' ? (
+          <div
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+            data-page-content
+            data-page-cards-grid
+          >
+            {staffDirectoryList.map((employee) => (
+              <Card key={employee.id}>
+                <CardContent className="p-0">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    onClick={() => handleEdit(employee)}
                   >
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                      {employee.photo_url ? (
+                        <img src={employee.photo_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                          <UserRound className="h-7 w-7" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-lg font-semibold">{employee.name}</h3>
+                        <JobTitleBadge employee={employee} />
+                        {employee.user_id ? (
+                          <span className="rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
+                            Cuenta activa
+                          </span>
+                        ) : pendingInviteStaffIds.has(employee.id) ? (
+                          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                            Invitación pendiente
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="break-all text-sm text-muted-foreground">{employee.email}</p>
+                      <p className="text-sm text-muted-foreground">{formatPhoneNumber(employee.phone)}</p>
+                    </div>
+                  </button>
+                  {canSendPortalInvite && !isEmployeeSelfService && employee.status === 'active' ? (
+                    <div
+                      className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      role="presentation"
+                    >
                     {!employee.user_id ? (
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="default"
                         size="sm"
-                        className="text-xs"
+                        className="text-xs shadow-sm"
                         onClick={() => {
                           setInviteTarget(employee);
                           setInviteDialogOpen(true);
@@ -1746,12 +1806,98 @@ export function EmployeeManagement({
                         Enviar invitación al portal
                       </Button>
                     ) : null}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border-0 bg-card" data-page-content data-table-load>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/60">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium w-14" aria-hidden />
+                  <th className="text-left px-3 py-2 font-medium">{t('pets.listName')}</th>
+                  <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
+                    {t('employeeManagement.jobTitle')}
+                  </th>
+                  <th className="text-left px-3 py-2 font-medium">{t('form.email')}</th>
+                  <th className="text-left px-3 py-2 font-medium">{t('form.phone')}</th>
+                  <th className="text-left px-3 py-2 font-medium w-[140px]">{t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staffDirectoryList.map((employee) => (
+                  <tr key={employee.id} className="border-t hover:bg-muted/40">
+                    <td className="px-3 py-2 align-middle">
+                      <div className="h-10 w-10 overflow-hidden rounded-full border border-border bg-muted">
+                        {employee.photo_url ? (
+                          <img src={employee.photo_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <UserRound className="h-5 w-5" />
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">{employee.name}</span>
+                        {employee.user_id ? (
+                          <span className="w-fit rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
+                            Cuenta activa
+                          </span>
+                        ) : pendingInviteStaffIds.has(employee.id) ? (
+                          <span className="w-fit rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                            Invitación pendiente
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <JobTitleBadge employee={employee} />
+                    </td>
+                    <td className="px-3 py-2 align-middle text-muted-foreground break-all max-w-[200px]">
+                      {employee.email || '—'}
+                    </td>
+                    <td className="px-3 py-2 align-middle text-muted-foreground whitespace-nowrap">
+                      {formatPhoneNumber(employee.phone)}
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEdit(employee)}
+                          aria-label={t('employeeManagement.editEmployee')}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {canSendPortalInvite && employee.status === 'active' && !employee.user_id ? (
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            className="h-8 text-xs shadow-sm"
+                            onClick={() => {
+                              setInviteTarget(employee);
+                              setInviteDialogOpen(true);
+                            }}
+                          >
+                            {t('employeeManagement.invitePortalShort')}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : !isEmployeeSelfService && !loading && !loadError && employees.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -1763,10 +1909,17 @@ export function EmployeeManagement({
             </p>
           </CardContent>
         </Card>
-      ) : !loading && !loadError && !isEmployeeSelfService && employees.length > 0 ? (
+      ) : !loading && !loadError && !isEmployeeSelfService && filteredEmployees.length === 0 && employees.length > 0 ? (
         <p className="text-center text-sm text-muted-foreground py-8">
           No {statusFilter} staff match this filter.
         </p>
+      ) : !loading && !loadError && !isEmployeeSelfService && filteredEmployees.length > 0 && staffDirectoryList.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t('employeeManagement.noSearchResults')}</p>
+          </CardContent>
+        </Card>
       ) : null}
 
       {!loading && !loadError && isEmployeeSelfService && staffId && listForGrid.length === 0 ? (

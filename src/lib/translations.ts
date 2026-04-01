@@ -482,8 +482,8 @@ export const translations: Translations = {
     es: 'Análisis'
   },
   'nav.payroll': {
-    en: 'Payroll',
-    es: 'Nómina'
+    en: 'Timesheets',
+    es: 'Hojas de horas'
   },
   'timesheet.grossPayTaxNote': {
     en: 'Gross pay does not include tax deductions or other withholdings.',
@@ -902,6 +902,14 @@ export const translations: Translations = {
   'transactions.emptyListHint': {
     en: 'No transactions yet. Create one using New Transaction.',
     es: 'Aún no hay transacciones. Crea una con Nueva transacción.',
+  },
+  'transactions.searchPlaceholder': {
+    en: 'Search by transaction ID, customer name, or amount...',
+    es: 'Buscar por ID de transacción, cliente o monto...',
+  },
+  'transactions.noSearchResults': {
+    en: 'No transactions match your search.',
+    es: 'Ninguna transacción coincide con tu búsqueda.',
   },
   'transactions.addAtLeastOneItem': { en: 'Add at least one line item', es: 'Agrega al menos un ítem' },
   'transactions.receipt': { en: 'Receipt', es: 'Recibo' },
@@ -1464,6 +1472,14 @@ export const translations: Translations = {
   'services.addService': {
     en: 'Add Service',
     es: 'Agregar Servicio'
+  },
+  'services.searchPlaceholder': {
+    en: 'Search services by name or description...',
+    es: 'Buscar servicios por nombre o descripción...'
+  },
+  'services.noSearchResults': {
+    en: 'No services match your search.',
+    es: 'Ningún servicio coincide con tu búsqueda.'
   },
   'services.serviceAdded': {
     en: 'Service added successfully.',
@@ -2222,6 +2238,18 @@ export const translations: Translations = {
   'employeeManagement.addNewEmployee': {
     en: 'Add new staff member',
     es: 'Agregar nuevo miembro del personal'
+  },
+  'employeeManagement.searchPlaceholder': {
+    en: 'Search staff by name, email, phone, or job title...',
+    es: 'Buscar personal por nombre, correo, teléfono o puesto...',
+  },
+  'employeeManagement.noSearchResults': {
+    en: 'No staff match your search.',
+    es: 'Ningún miembro del personal coincide con tu búsqueda.',
+  },
+  'employeeManagement.invitePortalShort': {
+    en: 'Invite',
+    es: 'Invitar',
   },
   'employeeManagement.noEmployeesYet': {
     en: 'No staff yet. Add your first team member above!',
@@ -3064,12 +3092,12 @@ export const translations: Translations = {
 
   // Payroll page
   'payroll.title': {
-    en: 'Payroll',
-    es: 'Nómina'
+    en: 'Timesheets',
+    es: 'Hojas de horas'
   },
   'payroll.description': {
-    en: 'Manage employee payroll and time entries',
-    es: 'Administre la nómina de empleados y entradas de tiempo'
+    en: 'Review hours, edit clock times, and run pay calculations for each period.',
+    es: 'Revise horas, edite fichajes y calcule pagos por período.'
   },
   'payroll.employee': {
     en: 'Employee',
@@ -3135,7 +3163,67 @@ export const translations: Translations = {
     en: 'Role',
     es: 'Rol'
   },
-  
+  'payroll.employeeSummary': {
+    en: 'Staff summary',
+    es: 'Resumen del personal'
+  },
+  'payroll.employeeSummaryDescription': {
+    en: 'Choose one or more staff members to view their shifts. Click a row or the pencil to edit clock in and out.',
+    es: 'Elija uno o más miembros del personal para ver sus turnos. Pulse una fila o el lápiz para editar entrada y salida.'
+  },
+  'payroll.filterEmployees': {
+    en: 'Staff filter',
+    es: 'Filtrar personal'
+  },
+  'payroll.selectEmployees': {
+    en: 'Select staff',
+    es: 'Seleccionar personal'
+  },
+  'payroll.employeesSelected': {
+    en: '{count} selected',
+    es: '{count} seleccionados'
+  },
+  'payroll.selectAllStaff': {
+    en: 'Select all',
+    es: 'Seleccionar todos'
+  },
+  'payroll.clearStaffSelection': {
+    en: 'Clear',
+    es: 'Limpiar'
+  },
+  'payroll.selectStaffToView': {
+    en: 'Select one or more staff members to view their time entries for this pay period.',
+    es: 'Seleccione uno o más miembros del personal para ver sus entradas de tiempo en este período.'
+  },
+  'payroll.noEntriesThisPeriod': {
+    en: 'No time entries in this pay period.',
+    es: 'No hay entradas de tiempo en este período.'
+  },
+  'payroll.editTimesHint': {
+    en: 'Edit times',
+    es: 'Editar horas'
+  },
+  'payroll.rowEditableHint': {
+    en: 'Click to edit clock in and out',
+    es: 'Pulse para editar entrada y salida'
+  },
+  'payroll.downloadPdfReport': {
+    en: 'Preview PDF report',
+    es: 'Vista previa del informe PDF'
+  },
+  'payroll.pdfPopupBlocked': {
+    en: 'Could not open a new tab for preview. Check your pop-up settings—the file was downloaded instead.',
+    es: 'No se pudo abrir una pestaña para la vista previa. Revise las ventanas emergentes: el archivo se descargó en su lugar.'
+  },
+  'payroll.payCalculations': {
+    en: 'Pay calculations',
+    es: 'Cálculo de pagos'
+  },
+  'payroll.payCalculationsDescription': {
+    en: 'Pay rates are editable in staff profiles. Gross pay is hours × rate for this period.',
+    es: 'Las tarifas se editan en las fichas del personal. El pago bruto es horas × tarifa en este período.'
+  },
+
   // Reports/Analytics page
   'reports.title': {
     en: 'Analytics & Reports',
@@ -3256,8 +3344,8 @@ export const translations: Translations = {
     es: 'Hoja de Tiempo'
   },
   'timesheet.backToPayroll': {
-    en: 'Back to Payroll',
-    es: 'Volver a Nómina'
+    en: 'Back to Timesheets',
+    es: 'Volver a hojas de horas'
   },
   'timesheet.employeeNotFound': {
     en: 'Employee Not Found',
@@ -3686,8 +3774,8 @@ export const translations: Translations = {
 
   // Employee Payroll page (employee report details)
   'employeePayroll.backToPayroll': {
-    en: 'Back to Payroll',
-    es: 'Volver a Nómina'
+    en: 'Back to Timesheets',
+    es: 'Volver a hojas de horas'
   },
   'employeePayroll.employeeNotFound': {
     en: 'Employee Not Found',

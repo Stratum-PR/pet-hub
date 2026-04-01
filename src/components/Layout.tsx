@@ -44,6 +44,7 @@ import { SupportSessionBanner } from '@/components/SupportSessionBanner';
 import type { RolloutTier } from '@/lib/featureRollout';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import { clearStaffSummaryFilterIfOutsidePayroll } from '@/lib/timesheetsStaffSummaryFilterStorage';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -73,6 +74,9 @@ function getPageTitle(
   }
   if (segment === 'employee-schedule' && role === 'employee') {
     return t('nav.mySchedule');
+  }
+  if (pathParts[0] === 'reports' && pathParts[1] === 'payroll' && pathParts.length === 2) {
+    return t('nav.payroll');
   }
   if (segment === 'settings') {
     const sub = path.split('/').filter(Boolean)[1];
@@ -143,6 +147,14 @@ export function Layout({ children, settings }: LayoutProps) {
   useEffect(() => {
     if (mobileMenuOpen) setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  /** Staff summary filter: persist across refresh; clear when leaving the payroll / timesheets section. */
+  useEffect(() => {
+    if (!businessSlug) return;
+    const raw = location.pathname.replace(new RegExp(`^/${businessSlug}`), '') || '/';
+    const pathWithinBusiness = raw.replace(/\/$/, '') || '/';
+    clearStaffSummaryFilterIfOutsidePayroll(businessId, pathWithinBusiness);
+  }, [location.pathname, businessId, businessSlug]);
 
   // Apply dynamic colors + persist for next refresh (noop if already set — avoids loader animation hitch).
   useEffect(() => {
