@@ -3208,12 +3208,12 @@ export const translations: Translations = {
     es: 'Pulse para editar entrada y salida'
   },
   'payroll.downloadPdfReport': {
-    en: 'Preview PDF report',
-    es: 'Vista previa del informe PDF'
+    en: 'Download Report',
+    es: 'Descargar informe'
   },
   'payroll.pdfPopupBlocked': {
-    en: 'Could not open a new tab for preview. Check your pop-up settings—the file was downloaded instead.',
-    es: 'No se pudo abrir una pestaña para la vista previa. Revise las ventanas emergentes: el archivo se descargó en su lugar.'
+    en: 'Could not open a new tab. Check your pop-up settings—the report was downloaded instead.',
+    es: 'No se pudo abrir una pestaña nueva. Revise las ventanas emergentes: el informe se descargó en su lugar.'
   },
   'payroll.payCalculations': {
     en: 'Pay calculations',
