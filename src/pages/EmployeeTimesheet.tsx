@@ -27,6 +27,7 @@ import {
   timesheetExportBaseName,
 } from '@/lib/timesheetExport';
 import { toast } from 'sonner';
+import { timeEntryCountsTowardPayroll } from '@/lib/timeEntryStatus';
 
 interface EmployeeTimesheetProps {
   employees: Employee[];
@@ -112,7 +113,8 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
         entry.staff_id === employee.id &&
         entryDate >= startOfDay(payPeriodStart) &&
         entryDate <= startOfDay(payPeriodEnd) &&
-        entry.clock_out
+        entry.clock_out &&
+        timeEntryCountsTowardPayroll(entry)
       );
     });
 

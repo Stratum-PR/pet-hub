@@ -333,6 +333,7 @@ const Index = () => {
                   onAddClient={addClient}
                   onUpdateClient={updateClient}
                   onDeleteClient={deleteClient}
+                  onAddPet={addPet}
                   onUpdatePet={updatePet}
                 />
               }

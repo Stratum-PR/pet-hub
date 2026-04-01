@@ -18,6 +18,7 @@ import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { format, parseISO, isWithinInterval, subDays, differenceInDays } from 'date-fns';
+import { formatPhoneNumber } from '@/lib/phoneFormat';
 
 interface PetsProps {
   clients: Client[];
@@ -120,10 +121,16 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
       filtered = filtered.filter(pet => {
         const owner = clients.find(c => c.id === pet.client_id);
         const ownerName = owner ? `${(owner as any).first_name || ''} ${(owner as any).last_name || ''}`.trim() : '';
+        const ownerPhoneRaw = owner?.phone ? String(owner.phone) : '';
+        const phoneDigits = term.replace(/\D/g, '');
+        const phoneMatch =
+          phoneDigits.length > 0 && ownerPhoneRaw.replace(/\D/g, '').includes(phoneDigits);
         return (
           pet.name.toLowerCase().includes(term) ||
           (pet.breed && pet.breed.toLowerCase().includes(term)) ||
-          ownerName.toLowerCase().includes(term)
+          ownerName.toLowerCase().includes(term) ||
+          phoneMatch ||
+          ownerPhoneRaw.toLowerCase().includes(term)
         );
       });
     }
@@ -303,12 +310,13 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
       )}
 
       {showForm && clients.length > 0 && (
-        <PetForm 
-          clients={clients as any} 
-          onSubmit={handleSubmit} 
+        <PetForm
+          clients={clients as any}
+          onSubmit={handleSubmit}
           onCancel={handleCancel}
           initialData={editingPet}
           isEditing={!!editingPet}
+          defaultClientId={!editingPet ? fromClient : null}
         />
       )}
 
@@ -357,6 +365,15 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                 </th>
                 <th
                   className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
+                  onClick={() => { setSortKey('breed'); setSortAsc((prev) => (sortKey === 'breed' ? !prev : true)); }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {t('pets.listBreed')}
+                    {sortKey === 'breed' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
+                  </span>
+                </th>
+                <th
+                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
                   onClick={() => { setSortKey('owner'); setSortAsc((prev) => (sortKey === 'owner' ? !prev : true)); }}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -364,14 +381,8 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                     {sortKey === 'owner' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
                   </span>
                 </th>
-                <th
-                  className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
-                  onClick={() => { setSortKey('breed'); setSortAsc((prev) => (sortKey === 'breed' ? !prev : true)); }}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {t('pets.listBreed')}
-                    {sortKey === 'breed' ? (sortAsc ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />) : <ChevronDown className="w-4 h-4 opacity-40" />}
-                  </span>
+                <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
+                  {t('pets.listOwnerPhone')}
                 </th>
                 <th
                   className="text-left px-3 py-2 font-medium cursor-pointer select-none hover:bg-muted/80"
@@ -401,6 +412,10 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                   : t('pets.notAssigned') || '—';
                 const photoUrl = (pet as any).photo_url;
                 const breedName = (pet as any).breeds?.name ?? (pet as any).breed ?? '—';
+                const ownerPhoneDisplay =
+                  owner?.phone && String(owner.phone).replace(/\D/g, '').length > 0
+                    ? formatPhoneNumber(String(owner.phone))
+                    : '—';
                 const lastAppt = lastAppointmentByPet[pet.id];
                 let lastApptFormatted = '—';
                 let daysAgo: number | null = null;
@@ -437,6 +452,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                       )}
                     </td>
                     <td className="px-3 py-2 font-medium">{pet.name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{breedName}</td>
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       {owner ? (
                         <button
@@ -453,7 +469,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                         <span className="text-muted-foreground">{ownerName}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{breedName}</td>
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums whitespace-nowrap">{ownerPhoneDisplay}</td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {lastApptFormatted}
                       {daysAgo !== null && (

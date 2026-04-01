@@ -6,6 +6,7 @@ import { Client, Pet, Employee, TimeEntry, Appointment } from '@/types';
 import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInMinutes, startOfDay } from 'date-fns';
 import { t } from '@/lib/translations';
 import { useTransactions } from '@/hooks/useTransactions';
+import { timeEntryCountsTowardPayroll } from '@/lib/timeEntryStatus';
 
 interface ReportsProps {
   clients: Client[];
@@ -92,7 +93,12 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
     return employees.filter(e => e.status === 'active').map(emp => {
       const empEntries = timeEntries.filter(entry => {
         const entryDate = new Date(entry.clock_in);
-        return entry.staff_id === emp.id && entryDate >= weekStart && entry.clock_out;
+        return (
+          entry.staff_id === emp.id &&
+          entryDate >= weekStart &&
+          entry.clock_out &&
+          timeEntryCountsTowardPayroll(entry)
+        );
       });
       
       const totalHours = empEntries.reduce((sum, entry) => {

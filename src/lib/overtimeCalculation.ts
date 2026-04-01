@@ -4,6 +4,7 @@
  */
 
 import { TimeEntry } from '@/types';
+import { timeEntryCountsTowardPayroll } from '@/lib/timeEntryStatus';
 import { startOfWeek, endOfWeek, isWithinInterval, differenceInHours } from 'date-fns';
 
 export interface OvertimeCalculation {
@@ -28,8 +29,8 @@ export function calculateOvertime(
   
   // Filter entries within the week
   const weekEntries = timeEntries.filter(entry => {
-    if (!entry.clock_out) return false;
-    
+    if (!entry.clock_out || !timeEntryCountsTowardPayroll(entry)) return false;
+
     const clockIn = new Date(entry.clock_in);
     return isWithinInterval(clockIn, { start: weekStart, end: weekEnd });
   });

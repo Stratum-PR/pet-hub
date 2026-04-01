@@ -1142,7 +1142,9 @@ export function useTimeEntries() {
   };
 
   const getActiveEntry = (employeeId: string) => {
-    return timeEntries.find(t => t.staff_id === employeeId && !t.clock_out);
+    return timeEntries.find(
+      (t) => t.staff_id === employeeId && !t.clock_out && t.status !== 'voided',
+    );
   };
 
   const updateTimeEntry = async (id: string, entryData: Partial<TimeEntry>) => {

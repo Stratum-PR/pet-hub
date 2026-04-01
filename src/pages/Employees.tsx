@@ -7,6 +7,7 @@ import { Employee, TimeEntry } from '@/types';
 import { format } from 'date-fns';
 import { t } from '@/lib/translations';
 import { EMPLOYEE_PIN_LENGTH } from '@/lib/pinLengths';
+import { timeEntryCountsTowardPayroll } from '@/lib/timeEntryStatus';
 
 interface EmployeesProps {
   employees: Employee[];
@@ -64,7 +65,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
   const todayEntries = timeEntries.filter(entry => {
     const entryDate = new Date(entry.clock_in).toDateString();
     const today = new Date().toDateString();
-    return entryDate === today;
+    return entryDate === today && timeEntryCountsTowardPayroll(entry);
   });
 
   return (

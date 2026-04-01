@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { Plus, X, LayoutGrid, List, Dog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PetForm } from '@/components/PetForm';
 import { ClientForm } from '@/components/ClientForm';
 import { ClientList } from '@/components/ClientList';
 import { SearchFilter } from '@/components/SearchFilter';
@@ -26,10 +27,11 @@ interface ClientsProps {
   onAddClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => Promise<Client | null>;
   onUpdateClient: (id: string, client: Partial<Client>) => Promise<Client | null>;
   onDeleteClient: (id: string) => Promise<boolean>;
+  onAddPet: (pet: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => Promise<Pet | null>;
   onUpdatePet?: (id: string, pet: Partial<Pet>) => Promise<Pet | null>;
 }
 
-export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient, onUpdatePet }: ClientsProps) {
+export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient, onAddPet, onUpdatePet }: ClientsProps) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -50,6 +52,8 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const navigate = useNavigate();
   const [clientDetailOpen, setClientDetailOpen] = useState<Client | null>(null);
+  const [showPetForm, setShowPetForm] = useState(false);
+  const [petFormDefaultClientId, setPetFormDefaultClientId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const pageLoadRef = usePageLoadRef();
@@ -160,6 +164,33 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
     setEditingClient(null);
   };
 
+  const beginAddPetForClient = (client: Client) => {
+    setShowForm(false);
+    setEditingClient(null);
+    setClientDetailOpen(null);
+    setPetFormDefaultClientId(client.id);
+    setShowPetForm(true);
+    setTimeout(() => {
+      document.getElementById('pet-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
+
+  const handlePetFormSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
+    const result = await onAddPet(petData);
+    if (result) {
+      toast.success(t('pets.saveSuccess'));
+      setShowPetForm(false);
+      setPetFormDefaultClientId(null);
+    } else {
+      toast.error(t('pets.saveError'));
+    }
+  };
+
+  const handlePetFormCancel = () => {
+    setShowPetForm(false);
+    setPetFormDefaultClientId(null);
+  };
+
   return (
     <div ref={pageLoadRef} className="space-y-6 animate-fade-in" data-transition-root>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap" data-page-toolbar data-page-search>
@@ -193,6 +224,8 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
         <Button
           onClick={() => {
             setEditingClient(null);
+            setShowPetForm(false);
+            setPetFormDefaultClientId(null);
             setShowForm(!showForm);
           }}
           className="shadow-sm flex items-center gap-2 shrink-0"
@@ -213,6 +246,17 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
         />
       )}
 
+      {showPetForm && clients.length > 0 && (
+        <PetForm
+          clients={clients as any}
+          onSubmit={handlePetFormSubmit}
+          onCancel={handlePetFormCancel}
+          initialData={null}
+          isEditing={false}
+          defaultClientId={petFormDefaultClientId}
+        />
+      )}
+
       {filteredClients.length === 0 ? (
         <div data-page-content>
           <ClientList
@@ -220,6 +264,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
             pets={pets}
             onDelete={onDeleteClient}
             onEdit={handleEdit}
+            onAddPetForClient={beginAddPetForClient}
             selectedClientId={selectedClientId}
           />
         </div>
@@ -231,6 +276,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
             onViewClient={setClientDetailOpen}
             onDelete={onDeleteClient}
             onEdit={handleEdit}
+            onAddPetForClient={beginAddPetForClient}
             selectedClientId={selectedClientId}
           />
         </div>
@@ -244,6 +290,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listEmail')}</th>
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listPhone')}</th>
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listPets')}</th>
+                  <th className="text-right px-3 py-2 font-medium w-[1px] whitespace-nowrap">{t('clients.listActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -288,6 +335,18 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                             ))
                           )}
                         </div>
+                      </td>
+                      <td className="px-3 py-2 text-right align-middle" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 shrink-0"
+                          onClick={() => beginAddPetForClient(client)}
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span className="hidden min-[480px]:inline">{t('clients.addPetForClient')}</span>
+                        </Button>
                       </td>
                     </tr>
                   );
@@ -354,6 +413,18 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                       ))
                     )}
                   </div>
+                </div>
+                <div className="pt-2">
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    className="w-full gap-1"
+                    onClick={() => beginAddPetForClient(clientDetailOpen)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    {t('clients.addPetForClient')}
+                  </Button>
                 </div>
                 {/* Transaction history for this client */}
                 <div className="pt-3 border-t border-border">

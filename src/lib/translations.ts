@@ -1323,6 +1323,14 @@ export const translations: Translations = {
     en: 'Add Client',
     es: 'Agregar Cliente'
   },
+  'clients.addPetForClient': {
+    en: 'Add pet',
+    es: 'Agregar mascota'
+  },
+  'clients.listActions': {
+    en: 'Actions',
+    es: 'Acciones'
+  },
   'clients.searchPlaceholder': {
     en: 'Search clients by name, email, or phone...',
     es: 'Buscar clientes por nombre, correo o teléfono...'
@@ -1444,6 +1452,10 @@ export const translations: Translations = {
   'pets.listOwner': {
     en: 'Owner',
     es: 'Dueño'
+  },
+  'pets.listOwnerPhone': {
+    en: 'Owner phone',
+    es: 'Tel. del dueño'
   },
   'pets.listBreed': {
     en: 'Breed',
@@ -3238,6 +3250,62 @@ export const translations: Translations = {
   'payroll.noEntriesThisPeriod': {
     en: 'No time entries in this pay period.',
     es: 'No hay entradas de tiempo en este período.'
+  },
+  'payroll.noVoidedEntriesThisPeriod': {
+    en: 'No voided time entries in this pay period.',
+    es: 'No hay entradas de tiempo anuladas en este período.'
+  },
+  'payroll.viewPayableTimes': {
+    en: 'Payable times',
+    es: 'Horas pagaderas'
+  },
+  'payroll.viewVoidedTimes': {
+    en: 'Voided times',
+    es: 'Horas anuladas'
+  },
+  'payroll.voidedTimesDescription': {
+    en: 'These records are excluded from hours, pay, and reports. Void from the payable view when a punch was mistaken or entered wrong.',
+    es: 'Estas entradas no cuentan para horas, pago ni informes. Anúlelas desde la vista de horas pagaderas si hubo un error.'
+  },
+  'payroll.entryVoidedBadge': {
+    en: 'Voided',
+    es: 'Anulada'
+  },
+  'payroll.voidEntry': {
+    en: 'Void',
+    es: 'Anular'
+  },
+  'payroll.voidEntryConfirmTitle': {
+    en: 'Void this time entry?',
+    es: '¿Anular esta entrada de tiempo?'
+  },
+  'payroll.voidEntryConfirmDescription': {
+    en: 'It will be hidden from pay calculations and reports but kept for your records. You can restore it from Voided times.',
+    es: 'No contará en pagos ni informes, pero se conservará. Puede restaurarla desde Horas anuladas.'
+  },
+  'payroll.voidEntrySuccess': {
+    en: 'Time entry voided.',
+    es: 'Entrada anulada.'
+  },
+  'payroll.restoreEntry': {
+    en: 'Restore',
+    es: 'Restaurar'
+  },
+  'payroll.restoreVoidedTitle': {
+    en: 'Voided time entry',
+    es: 'Entrada anulada'
+  },
+  'payroll.restoreVoidedDescription': {
+    en: 'This shift is voided and does not count toward pay. Restore it to include it again in payable times.',
+    es: 'Este turno está anulado y no cuenta para el pago. Restaúrelo para incluirlo de nuevo.'
+  },
+  'payroll.restoreEntrySuccess': {
+    en: 'Time entry restored.',
+    es: 'Entrada restaurada.'
+  },
+  'payroll.voidedTotalFooterHint': {
+    en: 'Not counted toward pay',
+    es: 'No cuenta para el pago'
   },
   'payroll.editTimesHint': {
     en: 'Edit times',

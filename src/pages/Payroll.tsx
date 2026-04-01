@@ -4,11 +4,32 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DollarSign, ChevronLeft, ChevronRight, Edit, ChevronsUpDown, Plus, UserRound, Download } from 'lucide-react';
+import {
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  Download,
+  Edit,
+  ChevronsUpDown,
+  Plus,
+  RotateCcw,
+  UserRound,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Employee, TimeEntry } from '@/types';
 import { format, eachDayOfInterval, differenceInMinutes, startOfDay } from 'date-fns';
@@ -30,6 +51,8 @@ import {
   openPdfPreviewTab,
 } from '@/lib/payrollPdf';
 import { staffSummaryFilterStorageKey } from '@/lib/timesheetsStaffSummaryFilterStorage';
+import { isVoidedTimeEntry, timeEntryCountsTowardPayroll } from '@/lib/timeEntryStatus';
+import { cn } from '@/lib/utils';
 
 interface PayrollProps {
   employees: Employee[];
@@ -55,6 +78,8 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     clock_in: '',
     clock_out: '',
   });
+  const [timesheetRecordView, setTimesheetRecordView] = useState<'payable' | 'voided'>('payable');
+  const [voidConfirmEntry, setVoidConfirmEntry] = useState<TimeEntry | null>(null);
 
   const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
 
@@ -150,9 +175,12 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   const allPayPeriodEntries = useMemo(() => {
     return timeEntries.filter(entry => {
       const entryDate = startOfDay(new Date(entry.clock_in));
-      return entryDate >= startOfDay(payPeriodStart) &&
-             entryDate <= startOfDay(payPeriodEnd) &&
-             entry.clock_out;
+      return (
+        entryDate >= startOfDay(payPeriodStart) &&
+        entryDate <= startOfDay(payPeriodEnd) &&
+        entry.clock_out &&
+        timeEntryCountsTowardPayroll(entry)
+      );
     }).map(entry => {
       const employee = employees.find(e => e.id === entry.staff_id);
       const minutes = differenceInMinutes(new Date(entry.clock_out!), new Date(entry.clock_in));
@@ -161,7 +189,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
         ...entry,
         employee,
         hours,
-        status: entry.status || 'approved' as 'active' | 'pending_edit' | 'approved' | 'rejected',
+        status: (entry.status || 'approved') as 'active' | 'pending_edit' | 'approved' | 'rejected' | 'voided',
       };
     }).sort((a, b) => {
       // Sort by employee name, then by date
@@ -189,7 +217,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   type MergedEntry = TimeEntry & {
     employee: Employee | undefined;
     hours: number;
-    status: 'active' | 'pending_edit' | 'approved' | 'rejected';
+    status: 'active' | 'pending_edit' | 'approved' | 'rejected' | 'voided';
   };
 
   const mergedEmployeeBlocks = useMemo(() => {
@@ -201,11 +229,14 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
         const entries: MergedEntry[] = timeEntries
           .filter((entry) => {
             const entryDate = startOfDay(new Date(entry.clock_in));
-            return (
+            const inPeriod =
               entry.staff_id === id &&
               entryDate >= startOfDay(payPeriodStart) &&
-              entryDate <= startOfDay(payPeriodEnd)
-            );
+              entryDate <= startOfDay(payPeriodEnd);
+            if (!inPeriod) return false;
+            return timesheetRecordView === 'voided'
+              ? isVoidedTimeEntry(entry)
+              : timeEntryCountsTowardPayroll(entry);
           })
           .map((entry) => {
             const hours = entry.clock_out
@@ -228,7 +259,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       .sort((a, b) =>
         (a.employee.name || '').localeCompare(b.employee.name || '', undefined, { sensitivity: 'base' }),
       );
-  }, [selectedEmployeeIds, employees, timeEntries, payPeriodStart, payPeriodEnd]);
+  }, [selectedEmployeeIds, employees, timeEntries, payPeriodStart, payPeriodEnd, timesheetRecordView]);
 
   const toggleEmployeeInFilter = (id: string) => {
     setSelectedEmployeeIds((prev) =>
@@ -298,7 +329,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       const dayStr = format(day, 'yyyy-MM-dd');
       const dayEntries = entriesByDay[dayStr] || [];
       const totalHours = dayEntries.reduce((sum, entry) => {
-        if (!entry.clock_out) return sum;
+        if (!entry.clock_out || !timeEntryCountsTowardPayroll(entry)) return sum;
         return sum + roundToQuarterHours(differenceInMinutes(new Date(entry.clock_out), new Date(entry.clock_in)) / 60);
       }, 0);
 
@@ -312,8 +343,8 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
   }, [selectedEmployeeId, timeEntries, payPeriodStart, payPeriodEnd, payPeriodDays]);
 
   const handleSaveAmend = async () => {
-    if (!selectedEmployeeId || !editingDay) return;
-    
+    if (!selectedEmployeeId || !editingDay || editingEntry?.status === 'voided') return;
+
     const clockInISO = new Date(editFormData.clock_in).toISOString();
     const clockOutISO = editFormData.clock_out ? new Date(editFormData.clock_out).toISOString() : undefined;
 
@@ -345,6 +376,29 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     setEditingDay(null);
     setEditingEntry(null);
     setEditFormData({ clock_in: '', clock_out: '' });
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!voidConfirmEntry) return;
+    const updated = await onUpdateTimeEntry(voidConfirmEntry.id, {
+      status: 'voided',
+      edit_request_id: null,
+    } as unknown as Partial<TimeEntry>);
+    setVoidConfirmEntry(null);
+    if (updated) toast.success(t('payroll.voidEntrySuccess'));
+    else toast.error(t('common.genericError'));
+  };
+
+  const handleRestoreVoided = async () => {
+    if (!editingEntry) return;
+    const updated = await onUpdateTimeEntry(editingEntry.id, {
+      status: 'active',
+      edit_request_id: null,
+    } as unknown as Partial<TimeEntry>);
+    if (updated) {
+      toast.success(t('payroll.restoreEntrySuccess'));
+      handleCancelAmend();
+    } else toast.error(t('common.genericError'));
   };
 
   const handleDownloadPDF = async () => {
@@ -501,7 +555,9 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       .filter((entry) => {
         const entryDate = startOfDay(new Date(entry.clock_in));
         return (
-          entryDate >= startOfDay(payPeriodStart) && entryDate <= startOfDay(payPeriodEnd)
+          entryDate >= startOfDay(payPeriodStart) &&
+          entryDate <= startOfDay(payPeriodEnd) &&
+          timeEntryCountsTowardPayroll(entry)
         );
       })
       .map((entry) => {
@@ -741,11 +797,35 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                     {t('payroll.employeeSummary')}
                   </CardTitle>
                   <CardDescription className="text-pretty">
-                    {t('payroll.employeeSummaryDescription')}
+                    {timesheetRecordView === 'voided'
+                      ? t('payroll.voidedTimesDescription')
+                      : t('payroll.employeeSummaryDescription')}
                   </CardDescription>
                   <p className="text-sm text-muted-foreground">
                     {t('payroll.payPeriod')}: {format(payPeriodStart, 'MMMM d')} – {format(payPeriodEnd, 'MMMM d, yyyy')}
                   </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="inline-flex rounded-lg border border-border p-0.5">
+                      <Button
+                        type="button"
+                        variant={timesheetRecordView === 'payable' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-8 rounded-md px-3"
+                        onClick={() => setTimesheetRecordView('payable')}
+                      >
+                        {t('payroll.viewPayableTimes')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={timesheetRecordView === 'voided' ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-8 rounded-md px-3"
+                        onClick={() => setTimesheetRecordView('voided')}
+                      >
+                        {t('payroll.viewVoidedTimes')}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[200px]">
                   <Label className="text-xs font-medium sm:text-sm">{t('payroll.filterEmployees')}</Label>
@@ -816,16 +896,18 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                           (ID: {block.employee.id.slice(-4).toUpperCase()})
                         </span>
                       </h3>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-9 w-full shrink-0 sm:w-auto"
-                        onClick={() => beginAddEntryForEmployee(block.employee.id)}
-                      >
-                        <Plus className="mr-1 h-4 w-4" />
-                        {t('payroll.addEntry')}
-                      </Button>
+                      {timesheetRecordView === 'payable' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 w-full shrink-0 sm:w-auto"
+                          onClick={() => beginAddEntryForEmployee(block.employee.id)}
+                        >
+                          <Plus className="mr-1 h-4 w-4" />
+                          {t('payroll.addEntry')}
+                        </Button>
+                      )}
                     </div>
                     <div className="-mx-4 overflow-x-auto sm:mx-0 sm:rounded-md sm:border sm:border-border">
                       <table className="w-full min-w-[320px] text-sm">
@@ -852,61 +934,121 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                           {block.entries.length === 0 ? (
                             <tr>
                               <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                                {t('payroll.noEntriesThisPeriod')}
+                                {timesheetRecordView === 'voided'
+                                  ? t('payroll.noVoidedEntriesThisPeriod')
+                                  : t('payroll.noEntriesThisPeriod')}
                               </td>
                             </tr>
                           ) : (
-                            block.entries.map((entry) => (
-                              <tr
-                                key={entry.id}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => openEditForEntry(entry)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    openEditForEntry(entry);
+                            block.entries.map((entry) => {
+                              const voided = isVoidedTimeEntry(entry);
+                              const rowOpensRestore = timesheetRecordView === 'voided' && voided;
+                              return (
+                                <tr
+                                  key={entry.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => openEditForEntry(entry)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      openEditForEntry(entry);
+                                    }
+                                  }}
+                                  className={cn(
+                                    'group border-b border-border transition-colors',
+                                    voided ? 'bg-muted/30' : 'hover:bg-primary/10 cursor-pointer',
+                                    !rowOpensRestore && timesheetRecordView === 'payable' && 'cursor-pointer',
+                                    rowOpensRestore && 'cursor-pointer hover:bg-muted/50',
+                                  )}
+                                  title={
+                                    rowOpensRestore
+                                      ? t('payroll.restoreVoidedDescription')
+                                      : t('payroll.rowEditableHint')
                                   }
-                                }}
-                                className="group border-b border-border transition-colors hover:bg-primary/10 cursor-pointer"
-                                title={t('payroll.rowEditableHint')}
-                              >
-                                <td className="whitespace-nowrap py-2.5 pl-4 pr-2 sm:py-3">
-                                  {format(new Date(entry.clock_in), 'MM/dd/yyyy')}
-                                </td>
-                                <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
-                                  {format(new Date(entry.clock_in), 'h:mm a')}
-                                </td>
-                                <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
-                                  {entry.clock_out
-                                    ? format(new Date(entry.clock_out), 'h:mm a')
-                                    : t('timeClock.clockedIn')}
-                                </td>
-                                <td className="whitespace-nowrap px-2 py-2.5 text-right font-semibold sm:py-3 sm:pr-2">
-                                  {entry.clock_out ? (Math.round(entry.hours * 4) / 4).toFixed(2) : '—'}
-                                </td>
-                                <td className="py-2.5 pr-4 text-right align-middle sm:py-3" onClick={(e) => e.stopPropagation()}>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-9 w-9 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
-                                    onClick={() => openEditForEntry(entry)}
-                                    title={t('payroll.rowEditableHint')}
-                                    aria-label={t('payroll.editTimesHint')}
+                                >
+                                  <td className="whitespace-nowrap py-2.5 pl-4 pr-2 sm:py-3">
+                                    <span className="inline-flex flex-wrap items-center gap-2">
+                                      {format(new Date(entry.clock_in), 'MM/dd/yyyy')}
+                                      {voided && (
+                                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                          {t('payroll.entryVoidedBadge')}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
+                                    {format(new Date(entry.clock_in), 'h:mm a')}
+                                  </td>
+                                  <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
+                                    {entry.clock_out
+                                      ? format(new Date(entry.clock_out), 'h:mm a')
+                                      : t('timeClock.clockedIn')}
+                                  </td>
+                                  <td className="whitespace-nowrap px-2 py-2.5 text-right font-semibold sm:py-3 sm:pr-2">
+                                    {entry.clock_out ? (Math.round(entry.hours * 4) / 4).toFixed(2) : '—'}
+                                  </td>
+                                  <td
+                                    className="py-2.5 pr-4 text-right align-middle sm:py-3"
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))
+                                    {timesheetRecordView === 'payable' && !voided && (
+                                      <div className="flex justify-end gap-0 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-9 w-9 opacity-100"
+                                          onClick={() => openEditForEntry(entry)}
+                                          title={t('payroll.rowEditableHint')}
+                                          aria-label={t('payroll.editTimesHint')}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-9 w-9 text-destructive hover:text-destructive opacity-100"
+                                          onClick={() => setVoidConfirmEntry(entry)}
+                                          title={t('payroll.voidEntry')}
+                                          aria-label={t('payroll.voidEntry')}
+                                        >
+                                          <Ban className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                    {timesheetRecordView === 'voided' && voided && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
+                                        onClick={() => openEditForEntry(entry)}
+                                        title={t('payroll.restoreEntry')}
+                                        aria-label={t('payroll.restoreEntry')}
+                                      >
+                                        <RotateCcw className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                         {block.entries.length > 0 && (
                           <tfoot>
                             <tr className="border-t-2 border-border bg-primary/10 font-semibold">
                               <td className="py-2.5 pl-4 pr-2 sm:py-3">
-                                {t('employeePayroll.total')} — {block.employee.name}
+                                <span className="block sm:inline">
+                                  {t('employeePayroll.total')} — {block.employee.name}
+                                </span>
+                                {timesheetRecordView === 'voided' && (
+                                  <span className="mt-1 block text-[11px] font-normal normal-case text-muted-foreground sm:mt-0 sm:ml-2 sm:inline">
+                                    ({t('payroll.voidedTotalFooterHint')})
+                                  </span>
+                                )}
                               </td>
                               <td colSpan={2} className="py-2.5 sm:py-3" />
                               <td className="py-2.5 pr-2 text-right sm:py-3 sm:pr-2">{block.totalHours.toFixed(2)}</td>
@@ -998,52 +1140,117 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       {/* Amend Timesheet Dialog */}
       <Dialog open={!!editingDay} onOpenChange={(open) => !open && handleCancelAmend}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingEntry ? t('payroll.amendTimesheetEntry') : t('payroll.addTimesheetEntry')}</DialogTitle>
-            <DialogDescription>
-              {editingEntry 
-                ? t('payroll.correctTimesDescription', { date: editingDay ? format(editingDay.date, 'EEEE, MMMM d') : '' })
-                : t('payroll.addNewEntryDescription', { date: editingDay ? format(editingDay.date, 'EEEE, MMMM d') : '' })
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {editingDay && employeeTimesheetEntries.find(e => e.dateStr === format(editingDay.date, 'yyyy-MM-dd'))?.entries.length > 1 && (
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm text-muted-foreground">
-                  {t('payroll.multipleEntriesNote')}
+          {editingEntry?.status === 'voided' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t('payroll.restoreVoidedTitle')}</DialogTitle>
+                <DialogDescription>{t('payroll.restoreVoidedDescription')}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2 text-sm">
+                <p>
+                  <span className="font-medium text-foreground">{t('payroll.clockIn')}: </span>
+                  {format(new Date(editingEntry.clock_in), 'MMM d, yyyy h:mm a')}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">{t('payroll.clockOut')}: </span>
+                  {editingEntry.clock_out
+                    ? format(new Date(editingEntry.clock_out), 'MMM d, yyyy h:mm a')
+                    : t('timeClock.clockedIn')}
                 </p>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label>{t('payroll.clockIn')} *</Label>
-              <Input
-                type="datetime-local"
-                value={editFormData.clock_in}
-                onChange={(e) => setEditFormData({ ...editFormData, clock_in: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('payroll.clockOut')}</Label>
-              <Input
-                type="datetime-local"
-                value={editFormData.clock_out}
-                onChange={(e) => setEditFormData({ ...editFormData, clock_out: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">{t('payroll.leaveEmptyIfClockedIn')}</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelAmend}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleSaveAmend}>
-              {editingEntry ? t('payroll.saveChanges') : t('payroll.addEntry')}
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCancelAmend}>
+                  {t('common.cancel')}
+                </Button>
+                <Button onClick={() => void handleRestoreVoided()}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  {t('payroll.restoreEntry')}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{editingEntry ? t('payroll.amendTimesheetEntry') : t('payroll.addTimesheetEntry')}</DialogTitle>
+                <DialogDescription>
+                  {editingEntry
+                    ? t('payroll.correctTimesDescription', {
+                        date: editingDay ? format(editingDay.date, 'EEEE, MMMM d') : '',
+                      })
+                    : t('payroll.addNewEntryDescription', {
+                        date: editingDay ? format(editingDay.date, 'EEEE, MMMM d') : '',
+                      })}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {editingDay &&
+                  (employeeTimesheetEntries.find((e) => e.dateStr === format(editingDay.date, 'yyyy-MM-dd'))?.entries ?? []).filter(
+                    timeEntryCountsTowardPayroll,
+                  ).length > 1 && (
+                    <div className="rounded-md bg-muted p-3">
+                      <p className="text-sm text-muted-foreground">{t('payroll.multipleEntriesNote')}</p>
+                    </div>
+                  )}
+                <div className="space-y-2">
+                  <Label>{t('payroll.clockIn')} *</Label>
+                  <Input
+                    type="datetime-local"
+                    value={editFormData.clock_in}
+                    onChange={(e) => setEditFormData({ ...editFormData, clock_in: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('payroll.clockOut')}</Label>
+                  <Input
+                    type="datetime-local"
+                    value={editFormData.clock_out}
+                    onChange={(e) => setEditFormData({ ...editFormData, clock_out: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">{t('payroll.leaveEmptyIfClockedIn')}</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCancelAmend}>
+                  {t('common.cancel')}
+                </Button>
+                <Button onClick={handleSaveAmend}>
+                  {editingEntry ? t('payroll.saveChanges') : t('payroll.addEntry')}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!voidConfirmEntry} onOpenChange={(open) => !open && setVoidConfirmEntry(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('payroll.voidEntryConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('payroll.voidEntryConfirmDescription')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          {voidConfirmEntry && (
+            <div className="text-sm text-foreground">
+              <p>
+                {format(new Date(voidConfirmEntry.clock_in), 'EEEE, MMM d')} · {t('payroll.clockIn')}{' '}
+                {format(new Date(voidConfirmEntry.clock_in), 'h:mm a')}
+                {voidConfirmEntry.clock_out
+                  ? ` → ${format(new Date(voidConfirmEntry.clock_out), 'h:mm a')}`
+                  : ''}
+              </p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void handleConfirmVoid()}
+            >
+              {t('payroll.voidEntry')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
     </PawLoadedContent>
   );
