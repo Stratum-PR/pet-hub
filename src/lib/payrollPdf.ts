@@ -1,7 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format, differenceInMinutes } from 'date-fns';
-import type { Employee, TimeEntry } from '@/types';
+import { format } from 'date-fns';
 import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
 
 export type PayrollPdfImage = { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' | 'GIF' };
@@ -79,29 +78,31 @@ export function hslStringToRgbForPdf(hsl: string): [number, number, number] {
   }
 }
 
-const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
-
 export async function downloadEmployeeTimesheetPdf(opts: {
   businessName: string;
   primaryHsl: string;
   payrollPdfIncludeLogo: boolean;
   logoSource: string | null | undefined;
-  employee: Employee;
   payPeriodStart: Date;
   payPeriodEnd: Date;
-  entries: TimeEntry[];
   taxDisclaimer: string;
+  summaryTable: { head: string[]; body: string[][] };
+  detailTable: { head: string[]; body: string[][] };
+  summaryTitle: string;
+  detailTitle: string;
 }): Promise<void> {
   const {
     businessName,
     primaryHsl,
     payrollPdfIncludeLogo,
     logoSource,
-    employee,
     payPeriodStart,
     payPeriodEnd,
-    entries,
     taxDisclaimer,
+    summaryTable,
+    detailTable,
+    summaryTitle,
+    detailTitle,
   } = opts;
 
   const doc = new jsPDF();
@@ -150,59 +151,57 @@ export async function downloadEmployeeTimesheetPdf(opts: {
   headerBottom = Math.max(headerBottom, lineY - 2);
   yPos = headerBottom + 8;
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(employee.name, margin, yPos);
-  yPos += 6;
-  doc.text(
-    `Hourly rate: $${Number(employee.hourly_rate).toFixed(2)}/hr`,
-    margin,
-    yPos
-  );
-  yPos += 6;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(72, 72, 72);
   doc.text(`Generated: ${format(new Date(), 'MMM d, yyyy h:mm a')}`, margin, yPos);
+  doc.setTextColor(0, 0, 0);
   yPos += 12;
 
-  const sorted = [...entries].filter((e) => e.clock_out).sort((a, b) => new Date(a.clock_in).getTime() - new Date(b.clock_in).getTime());
-
-  const bodyRows = sorted.map((entry) => {
-    const mins = differenceInMinutes(new Date(entry.clock_out!), new Date(entry.clock_in));
-    const hrs = roundToQuarterHours(mins / 60);
-    const pay = hrs * employee.hourly_rate;
-    return [
-      format(new Date(entry.clock_in), 'MM/dd/yyyy'),
-      format(new Date(entry.clock_in), 'h:mm a'),
-      format(new Date(entry.clock_out!), 'h:mm a'),
-      hrs.toFixed(2),
-      `$${pay.toFixed(2)}`,
-    ];
-  });
-
-  const totalHours = sorted.reduce((sum, e) => {
-    const mins = differenceInMinutes(new Date(e.clock_out!), new Date(e.clock_in));
-    return sum + roundToQuarterHours(mins / 60);
-  }, 0);
-  const grossPay = totalHours * employee.hourly_rate;
-
-  bodyRows.push(['Total', '', '', totalHours.toFixed(2), `$${grossPay.toFixed(2)}`]);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(summaryTitle, margin, yPos);
+  yPos += 8;
+  doc.setFont('helvetica', 'normal');
 
   autoTable(doc, {
-    head: [['Date', 'Clock in', 'Clock out', 'Hours', 'Pay']],
-    body: bodyRows,
+    head: [summaryTable.head],
+    body: summaryTable.body,
     startY: yPos,
     margin: { left: margin, right: margin },
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 26 },
-      1: { halign: 'center' },
-      2: { halign: 'center' },
+      0: { cellWidth: 52 },
+    },
+  });
+
+  yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(detailTitle, margin, yPos);
+  yPos += 8;
+  doc.setFont('helvetica', 'normal');
+
+  const detailLast = detailTable.body.length - 1;
+
+  autoTable(doc, {
+    head: [detailTable.head],
+    body: detailTable.body,
+    startY: yPos,
+    margin: { left: margin, right: margin },
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 28 },
+      1: { halign: 'left' },
+      2: { halign: 'left' },
       3: { halign: 'right' },
       4: { halign: 'right' },
     },
     didParseCell: (data) => {
-      const first = data.row.raw[0];
-      if (first === 'Total') {
+      if (data.section === 'body' && data.row.index === detailLast) {
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fillColor = [240, 240, 240];
       }

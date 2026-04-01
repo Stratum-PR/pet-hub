@@ -493,6 +493,46 @@ export const translations: Translations = {
     en: 'Download PDF report',
     es: 'Descargar informe PDF'
   },
+  'timesheet.downloadReport': {
+    en: 'Download report',
+    es: 'Descargar informe'
+  },
+  'timesheet.downloadFormatPdf': {
+    en: 'PDF',
+    es: 'PDF'
+  },
+  'timesheet.downloadFormatCsv': {
+    en: 'CSV (summary & details)',
+    es: 'CSV (resumen y detalles)'
+  },
+  'timesheet.downloadFormatXlsx': {
+    en: 'Excel (.xlsx)',
+    es: 'Excel (.xlsx)'
+  },
+  'timesheet.exportSectionPayPeriodSummary': {
+    en: 'Pay period summary',
+    es: 'Resumen del período de pago'
+  },
+  'timesheet.exportSectionTimesheetDetails': {
+    en: 'Timesheet details',
+    es: 'Detalle de hoja de horas'
+  },
+  'timesheet.exportSheetSummary': {
+    en: 'Summary',
+    es: 'Resumen'
+  },
+  'timesheet.exportSheetDetails': {
+    en: 'Timesheet details',
+    es: 'Detalle'
+  },
+  'timesheet.exportField': {
+    en: 'Field',
+    es: 'Campo'
+  },
+  'timesheet.exportValue': {
+    en: 'Value',
+    es: 'Valor'
+  },
   'timesheet.backToProfile': {
     en: 'Back to My Profile',
     es: 'Volver a Mi perfil'
