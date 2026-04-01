@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DollarSign, ChevronLeft, ChevronRight, Edit, ChevronsUpDown, Plus, UserRound, ExternalLink } from 'lucide-react';
+import { DollarSign, ChevronLeft, ChevronRight, Edit, ChevronsUpDown, Plus, UserRound, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Employee, TimeEntry } from '@/types';
 import { format, eachDayOfInterval, differenceInMinutes, startOfDay } from 'date-fns';
@@ -421,8 +421,8 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       return [
         getEmployeeId(emp.id),
         emp.name,
-        totalHours.toFixed(2),
         `$${emp.hourly_rate.toFixed(2)}`,
+        totalHours.toFixed(2),
         `$${grossPay.toFixed(2)}`,
       ];
     });
@@ -440,7 +440,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
       return sum + hrs * emp.hourly_rate;
     }, 0);
 
-    payCalcData.push(['TOTALS', '', grandTotalHours.toFixed(2), '', `$${grandTotalPay.toFixed(2)}`]);
+    payCalcData.push(['TOTALS', '', '', grandTotalHours.toFixed(2), `$${grandTotalPay.toFixed(2)}`]);
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
@@ -458,7 +458,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
     yPos += 10;
 
     autoTable(doc, {
-      head: [['Employee ID', 'Employee Name', 'Total Hours', 'Hourly Rate', 'Gross Pay']],
+      head: [['Employee ID', 'Employee Name', 'Hourly Rate', 'Hours Worked', 'Total Pay']],
       body: payCalcData,
       startY: yPos,
       margin: { left: margin, right: margin },
@@ -685,7 +685,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             onClick={handleDownloadPDF}
             className="flex w-full min-[400px]:w-auto items-center justify-center gap-2 shrink-0"
           >
-            <ExternalLink className="h-4 w-4 shrink-0" />
+            <Download className="h-4 w-4 shrink-0" />
             <span className="truncate">{t('payroll.downloadPdfReport')}</span>
           </Button>
           <Button
@@ -950,10 +950,10 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                         {t('payroll.employee')}
                       </th>
                       <th className="px-2 py-2.5 text-right text-xs font-medium sm:py-3 sm:text-sm">
-                        {t('payroll.hoursWorked')}
+                        {t('payroll.hourlyRate')}
                       </th>
                       <th className="px-2 py-2.5 text-right text-xs font-medium sm:py-3 sm:text-sm">
-                        {t('payroll.hourlyRate')}
+                        {t('payroll.hoursWorked')}
                       </th>
                       <th className="py-2.5 pr-4 pl-2 text-right text-xs font-medium sm:py-3 sm:text-sm">
                         {t('payroll.totalPay')}
@@ -967,10 +967,10 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                         <tr key={emp.id} className="border-b border-border transition-colors hover:bg-primary/10">
                           <td className="py-2.5 pl-4 pr-2 font-mono text-xs sm:py-3 sm:text-sm">{empId}</td>
                           <td className="px-2 py-2.5 font-medium sm:py-3">{emp.name}</td>
-                          <td className="px-2 py-2.5 text-right font-semibold sm:py-3">{emp.hoursWorked.toFixed(2)}</td>
                           <td className="px-2 py-2.5 text-right text-muted-foreground sm:py-3">
                             ${emp.hourly_rate.toFixed(2)}
                           </td>
+                          <td className="px-2 py-2.5 text-right font-semibold sm:py-3">{emp.hoursWorked.toFixed(2)}</td>
                           <td className="py-2.5 pr-4 pl-2 text-right font-semibold sm:py-3">${emp.grossPay.toFixed(2)}</td>
                         </tr>
                       );
@@ -981,10 +981,10 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                       <td colSpan={2} className="py-2.5 pl-4 sm:py-3">
                         TOTALS
                       </td>
+                      <td className="py-2.5 sm:py-3" />
                       <td className="px-2 py-2.5 text-right sm:py-3">
                         {payrollData.reduce((sum, e) => sum + e.hoursWorked, 0).toFixed(2)}
                       </td>
-                      <td className="py-2.5 sm:py-3" />
                       <td className="py-2.5 pr-4 pl-2 text-right font-bold sm:py-3">
                         ${payrollData.reduce((sum, e) => sum + e.grossPay, 0).toFixed(2)}
                       </td>
