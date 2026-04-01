@@ -2,7 +2,13 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, Download } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, Download } from 'lucide-react';
 import { Employee, TimeEntry } from '@/types';
 import { format, differenceInMinutes, parseISO, eachDayOfInterval, startOfDay } from 'date-fns';
 import { t } from '@/lib/translations';
@@ -13,6 +19,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { downloadEmployeeTimesheetPdf } from '@/lib/payrollPdf';
+import {
+  buildStandardDetailRows,
+  buildStandardSummaryRows,
+  downloadStandardTimesheetCsv,
+  downloadTwoSheetXlsx,
+  timesheetExportBaseName,
+} from '@/lib/timesheetExport';
 import { toast } from 'sonner';
 
 interface EmployeeTimesheetProps {
@@ -44,7 +57,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
   const { role, profile, business } = useAuth();
   const businessId = useBusinessId();
   const [businessLogoUrl, setBusinessLogoUrl] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const [currentPayPeriod, setCurrentPayPeriod] = useState(() => {
     const state = location.state as { payPeriodStart?: string; weekStart?: string } | null;
@@ -153,35 +166,104 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
   const backTarget = role === 'employee' ? `${pathPrefix}/staff-management` : `${pathPrefix}/reports/payroll`;
   const backLabel = role === 'employee' ? t('timesheet.backToProfile') : t('timesheet.backToPayroll');
 
-  const handleDownloadPdf = async () => {
+  const buildExportTables = () => {
+    if (!employee || !timesheetData) return null;
+    const payPeriodLabel = `${format(payPeriodStart, 'MMMM d')} - ${format(payPeriodEnd, 'd, yyyy')}`;
+    const summary = buildStandardSummaryRows({
+      labels: {
+        field: t('timesheet.exportField'),
+        value: t('timesheet.exportValue'),
+        employee: t('payroll.employee'),
+        payPeriod: t('payroll.payPeriod'),
+        hourlyRate: t('timesheet.hourlyRate'),
+        totalHours: t('timesheet.totalHours'),
+        grossPay: t('timesheet.grossPay'),
+      },
+      employee,
+      payPeriodLabel,
+      totalHours: timesheetData.totalHours,
+      grossPay: timesheetData.grossPay,
+    });
+    const detail = buildStandardDetailRows({
+      labels: {
+        dateDay: t('timesheet.dateDay'),
+        clockIn: t('payroll.clockIn'),
+        clockOut: t('payroll.clockOut'),
+        hoursWorked: t('timesheet.hoursWorked'),
+        pay: t('timesheet.pay'),
+        totalLabel: t('dashboard.totalEarned'),
+      },
+      dailyData: timesheetData.dailyData,
+      totalHours: timesheetData.totalHours,
+      grossPay: timesheetData.grossPay,
+    });
+    return { summary, detail };
+  };
+
+  type ExportFormat = 'pdf' | 'csv' | 'xlsx';
+
+  const handleExport = async (format: ExportFormat) => {
     if (!employee || !timesheetData) return;
     if (role === 'employee' && profile?.staff_id !== employee.id) {
       toast.error(t('common.genericError'));
       return;
     }
-    setPdfLoading(true);
+    const tables = buildExportTables();
+    if (!tables) return;
+
+    setExportLoading(true);
     try {
+      const baseName = timesheetExportBaseName(payPeriodStart, payPeriodEnd);
       const logoSource =
         settings.business_logo_url_light ||
         settings.business_logo_url ||
         businessLogoUrl ||
         '';
-      await downloadEmployeeTimesheetPdf({
-        businessName: settings.business_name || business?.name || 'Business',
-        primaryHsl: settings.primary_color,
-        payrollPdfIncludeLogo: settings.payroll_pdf_include_logo !== 'false',
-        logoSource,
-        employee,
-        payPeriodStart,
-        payPeriodEnd,
-        entries: timesheetData.empEntries,
-        taxDisclaimer: t('timesheet.grossPayTaxNote'),
-      });
+
+      if (format === 'pdf') {
+        await downloadEmployeeTimesheetPdf({
+          businessName: settings.business_name || business?.name || 'Business',
+          primaryHsl: settings.primary_color,
+          payrollPdfIncludeLogo: settings.payroll_pdf_include_logo !== 'false',
+          logoSource,
+          payPeriodStart,
+          payPeriodEnd,
+          taxDisclaimer: t('timesheet.grossPayTaxNote'),
+          summaryTable: { head: tables.summary.head, body: tables.summary.rows },
+          detailTable: { head: tables.detail.head, body: tables.detail.rows },
+          summaryTitle: t('timesheet.exportSectionPayPeriodSummary'),
+          detailTitle: t('timesheet.exportSectionTimesheetDetails'),
+        });
+        return;
+      }
+
+      if (format === 'csv') {
+        downloadStandardTimesheetCsv({
+          summarySectionTitle: t('timesheet.exportSectionPayPeriodSummary'),
+          detailsSectionTitle: t('timesheet.exportSectionTimesheetDetails'),
+          summary: { head: tables.summary.head, rows: tables.summary.rows },
+          detail: { head: tables.detail.head, rows: tables.detail.rows },
+          fileName: `${baseName}.csv`,
+        });
+        return;
+      }
+
+      if (format === 'xlsx') {
+        downloadTwoSheetXlsx({
+          sheetNames: {
+            summary: t('timesheet.exportSheetSummary'),
+            detail: t('timesheet.exportSheetDetails'),
+          },
+          summary: { head: tables.summary.head, rows: tables.summary.rows },
+          detail: { head: tables.detail.head, rows: tables.detail.rows },
+          fileName: `${baseName}.xlsx`,
+        });
+      }
     } catch (e) {
       if (import.meta.env.DEV) console.error(e);
       toast.error(t('common.genericError'));
     } finally {
-      setPdfLoading(false);
+      setExportLoading(false);
     }
   };
 
@@ -244,16 +326,53 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
                 {t('payroll.currentPayPeriod')}
               </Button>
             </div>
-            <Button
-              variant="default"
-              size="sm"
-              disabled={pdfLoading || !timesheetData}
-              onClick={() => void handleDownloadPdf()}
-              className="flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              {t('timesheet.downloadPdf')}
-            </Button>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={exportLoading || !timesheetData}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  {t('timesheet.downloadReport')}
+                  <ChevronDown className="w-4 h-4 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={6}
+                className="z-[300] w-[min(100vw-2rem,16rem)] !bg-popover border border-border text-popover-foreground shadow-lg [background-image:none] backdrop-blur-none"
+              >
+                <DropdownMenuItem
+                  disabled={exportLoading}
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    void handleExport('pdf');
+                  }}
+                >
+                  {t('timesheet.downloadFormatPdf')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={exportLoading}
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    void handleExport('csv');
+                  }}
+                >
+                  {t('timesheet.downloadFormatCsv')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={exportLoading}
+                  className="cursor-pointer"
+                  onSelect={() => {
+                    void handleExport('xlsx');
+                  }}
+                >
+                  {t('timesheet.downloadFormatXlsx')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
