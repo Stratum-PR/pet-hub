@@ -2,6 +2,8 @@
 
 export interface CalendarAppointment {
   id: string;
+  /** Raw DB/UI status for actions (e.g. mark no-show). */
+  dbStatus?: string;
   petId?: string; // Pet ID for lookup
   petName: string;
   breed: string;

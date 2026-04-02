@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { t } from '@/lib/translations';
+import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
+import { normalizeAppointmentStatus, showOnActiveCalendar } from '@/lib/appointmentStatus';
 
 interface AppointmentsProps {
   appointments: Appointment[];
@@ -26,9 +28,10 @@ interface AppointmentsProps {
   employees: Employee[];
   services: Service[];
   onAddAppointment: (appointment: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => void;
-  onUpdateAppointment: (id: string, appointment: Partial<Appointment>) => void;
+  onUpdateAppointment: (id: string, appointment: Partial<Appointment>) => Promise<Appointment | null> | void;
   onDeleteAppointment: (id: string) => void;
   onRefreshAppointments?: () => void;
+  canMarkNoShow?: boolean;
 }
 
 type SortField = 'date' | 'pet' | 'cost' | 'service';
@@ -44,6 +47,7 @@ export function Appointments({
   onUpdateAppointment, 
   onDeleteAppointment,
   onRefreshAppointments,
+  canMarkNoShow = false,
 }: AppointmentsProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,7 +111,7 @@ export function Appointments({
   const selectedDateAppointments = useMemo(() => {
     if (!selectedDate) return [];
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    return appointmentsByDate[dateKey] || [];
+    return (appointmentsByDate[dateKey] || []).filter((a) => showOnActiveCalendar(a.status));
   }, [selectedDate, appointmentsByDate]);
 
   // Calendar: Week view appointments
@@ -119,9 +123,10 @@ export function Appointments({
     
     return weekDays.map(day => {
       const dateKey = format(day, 'yyyy-MM-dd');
+      const raw = appointmentsByDate[dateKey] || [];
       return {
         date: day,
-        appointments: appointmentsByDate[dateKey] || [],
+        appointments: raw.filter((a) => showOnActiveCalendar(a.status)),
       };
     });
   }, [selectedDate, appointmentsByDate]);
@@ -134,9 +139,10 @@ export function Appointments({
     
     return monthDays.map(day => {
       const dateKey = format(day, 'yyyy-MM-dd');
+      const raw = appointmentsByDate[dateKey] || [];
       return {
         date: day,
-        appointments: appointmentsByDate[dateKey] || [],
+        appointments: raw.filter((a) => showOnActiveCalendar(a.status)),
       };
     });
   }, [currentMonth, appointmentsByDate]);
@@ -219,18 +225,39 @@ export function Appointments({
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    const s = normalizeAppointmentStatus(status);
+    switch (s) {
       case 'scheduled':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+      case 'confirmed':
+        return 'bg-violet-100 text-violet-900 dark:bg-violet-900 dark:text-violet-200';
       case 'in-progress':
+      case 'in_progress':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       case 'completed':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'cancelled':
+      case 'canceled':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
+      case 'no-show':
+      case 'no_show':
+        return 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
     }
+  };
+
+  const formatStatusLabel = (status: string | undefined) => {
+    const s = normalizeAppointmentStatus(status);
+    if (s === 'no-show' || s === 'no_show') return t('appointments.statusNoShow');
+    return status || 'scheduled';
+  };
+
+  const handleMarkNoShow = async (id: string) => {
+    const r = await onUpdateAppointment(id, { status: 'no_show' as Appointment['status'] });
+    if (r) toast.success(t('appointments.markedNoShow'));
+    else toast.error(t('appointments.noShowFailed'));
+    onRefreshAppointments?.();
   };
 
   const getPetName = (petId?: string) => {
@@ -506,10 +533,17 @@ export function Appointments({
                                             </div>
                                           )}
                                         </div>
-                                        <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col gap-2 items-end">
                                           <Badge className={getStatusColor(appointment.status)}>
-                                            {appointment.status || 'scheduled'}
+                                            {formatStatusLabel(appointment.status)}
                                           </Badge>
+                                          {canMarkNoShow ? (
+                                            <AppointmentNoShowControl
+                                              status={appointment.status}
+                                              compact
+                                              onMarkNoShow={() => handleMarkNoShow(appointment.id)}
+                                            />
+                                          ) : null}
                                           <div className="flex gap-1">
                                             <Button
                                               variant="ghost"
@@ -623,10 +657,17 @@ export function Appointments({
                                             </div>
                                           )}
                                         </div>
-                                        <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col gap-2 items-end">
                                           <Badge className={getStatusColor(appointment.status)}>
-                                            {appointment.status || 'scheduled'}
+                                            {formatStatusLabel(appointment.status)}
                                           </Badge>
+                                          {canMarkNoShow ? (
+                                            <AppointmentNoShowControl
+                                              status={appointment.status}
+                                              compact
+                                              onMarkNoShow={() => handleMarkNoShow(appointment.id)}
+                                            />
+                                          ) : null}
                                           <div className="flex gap-1">
                                             <Button
                                               variant="ghost"
@@ -674,7 +715,9 @@ export function Appointments({
                 <CardContent>
                   {(() => {
                     const todayKey = format(new Date(), 'yyyy-MM-dd');
-                    const todayAppointments = appointmentsByDate[todayKey] || [];
+                    const todayAppointments = (appointmentsByDate[todayKey] || []).filter((a) =>
+                      showOnActiveCalendar(a.status)
+                    );
                     return todayAppointments.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">
                         {t('appointments.noAppointmentsScheduled')}
@@ -708,9 +751,18 @@ export function Appointments({
                                       <span className="font-medium">Costo:</span> ${typeof appointment.price === 'number' ? appointment.price.toFixed(2) : '0.00'}
                                     </div>
                                   </div>
-                                  <Badge className={cn("text-xs", getStatusColor(appointment.status))}>
-                                    {appointment.status || 'scheduled'}
-                                  </Badge>
+                                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                    <Badge className={cn("text-xs", getStatusColor(appointment.status))}>
+                                      {formatStatusLabel(appointment.status)}
+                                    </Badge>
+                                    {canMarkNoShow ? (
+                                      <AppointmentNoShowControl
+                                        status={appointment.status}
+                                        compact
+                                        onMarkNoShow={() => handleMarkNoShow(appointment.id)}
+                                      />
+                                    ) : null}
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
@@ -867,11 +919,18 @@ export function Appointments({
                             <TableCell>{getEmployeeName(appointment.staff_id)}</TableCell>
                             <TableCell>
                               <Badge className={getStatusColor(appointment.status)}>
-                                {appointment.status || 'scheduled'}
+                                {formatStatusLabel(appointment.status)}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
+                              <div className="flex flex-wrap items-center justify-end gap-1">
+                                {canMarkNoShow ? (
+                                  <AppointmentNoShowControl
+                                    status={appointment.status}
+                                    compact
+                                    onMarkNoShow={() => handleMarkNoShow(appointment.id)}
+                                  />
+                                ) : null}
                                 <Button
                                   variant="ghost"
                                   size="icon"

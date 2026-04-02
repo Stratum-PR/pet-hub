@@ -14,6 +14,8 @@ import { convertAppointmentsToCalendar, convertEmployeesToCalendar } from '@/lib
 import { BookingFormDialog } from '@/components/BookingFormDialog';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import { PawRevealEnter } from '@/components/PawRevealEnter';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export function AppointmentBook() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -27,7 +29,23 @@ export function AppointmentBook() {
   const [waitlistCollapsed, setWaitlistCollapsed] = useState(false);
 
   // Fetch real data
-  const { appointments, loading: appointmentsLoading, error: appointmentsError, addAppointment, refetch: refetchAppointments } = useAppointments();
+  const { role, profile } = useAuth();
+  const {
+    appointments,
+    loading: appointmentsLoading,
+    error: appointmentsError,
+    addAppointment,
+    updateAppointment,
+    refetch: refetchAppointments,
+  } = useAppointments();
+  const canMarkNoShow =
+    role === 'manager' || role === 'super_admin' || !!profile?.is_super_admin;
+
+  const handleMarkNoShow = async (id: string) => {
+    const r = await updateAppointment(id, { status: 'no_show' });
+    if (r) toast.success(t('appointments.markedNoShow'));
+    else toast.error(t('appointments.noShowFailed'));
+  };
   const { pets, loading: petsLoading, error: petsError, refetch: refetchPets } = usePets();
   const { employees, loading: employeesLoading, error: employeesError, refetch: refetchEmployees } = useEmployees();
   const { services, loading: servicesLoading, error: servicesError, refetch: refetchServices } = useServices();
@@ -190,6 +208,8 @@ export function AppointmentBook() {
                   console.log('Check in:', appointmentId);
                 }}
                 onCreateClick={() => setCreateDialogOpen(true)}
+                canMarkNoShow={canMarkNoShow}
+                onMarkNoShow={handleMarkNoShow}
               />
             ) : (
               <AppointmentCalendarView
@@ -202,6 +222,8 @@ export function AppointmentBook() {
                 onNextDay={handleNextDay}
                 onToday={handleToday}
                 onCreateClick={() => setCreateDialogOpen(true)}
+                canMarkNoShow={canMarkNoShow}
+                onMarkNoShow={handleMarkNoShow}
               />
             )}
               </PawRevealEnter>

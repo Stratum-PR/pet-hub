@@ -157,7 +157,7 @@ export function BusinessAppointments() {
         return 'secondary';
       case 'canceled':
       case 'no_show':
-        return 'destructive';
+        return 'secondary';
       default:
         return 'outline';
     }

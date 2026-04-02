@@ -41,6 +41,7 @@ import { useBusinessId } from '@/hooks/useBusinessId';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { SupportImpersonationDialogContent } from '@/components/SupportImpersonationDialog';
 import { SupportSessionBanner } from '@/components/SupportSessionBanner';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import type { RolloutTier } from '@/lib/featureRollout';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
@@ -365,6 +366,11 @@ export function Layout({ children, settings }: LayoutProps) {
                 demoLocalOnly && 'col-start-3 justify-self-end justify-end'
               )}
             >
+              <LanguageSwitcher
+                variant="ghost"
+                size="sm"
+                className="text-foreground hover:bg-muted/80 hover:text-foreground h-9 rounded-full px-2.5"
+              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative" aria-label={t('nav.notifications')}>

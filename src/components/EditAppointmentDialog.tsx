@@ -17,6 +17,7 @@ import { Employee } from '@/types';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { ensureAppointmentServiceIds } from '@/lib/appointmentServiceResolution';
 import { staffOffersSelectedServices } from '@/lib/staffOfferedServices';
+import { normalizeAppointmentStatus } from '@/lib/appointmentStatus';
 import { t } from '@/lib/translations';
 
 // Time slots in 24-hour format for internal use
@@ -45,7 +46,7 @@ interface EditAppointmentDialogProps {
   services: Service[];
   employees: Employee[];
   appointments: Appointment[];
-  onUpdate: (id: string, appointment: Partial<Appointment>) => void;
+  onUpdate: (id: string, appointment: Partial<Appointment>) => void | Promise<void>;
   onSuccess: () => void;
 }
 
@@ -76,7 +77,13 @@ export function EditAppointmentDialog({
     petBreed: '',
     staffId: '',
     services: [] as string[],
-    status: 'scheduled' as 'scheduled' | 'in-progress' | 'completed' | 'cancelled',
+    status: 'scheduled' as
+      | 'scheduled'
+      | 'confirmed'
+      | 'in-progress'
+      | 'completed'
+      | 'cancelled'
+      | 'no_show',
     price: 0,
     notes: '',
   });
@@ -131,7 +138,16 @@ export function EditAppointmentDialog({
           petBreed: pet?.breed || '',
           staffId: appointment.staff_id || '',
           services: serviceNames,
-          status: (appointment.status as any) || 'scheduled',
+          status: (() => {
+            const n = normalizeAppointmentStatus(appointment.status);
+            if (n === 'in-progress' || n === 'in_progress') return 'in-progress' as const;
+            if (n === 'canceled') return 'cancelled' as const;
+            if (n === 'confirmed') return 'confirmed' as const;
+            if (n === 'no-show' || n === 'no_show') return 'no_show' as const;
+            if (n === 'completed') return 'completed' as const;
+            if (n === 'cancelled') return 'cancelled' as const;
+            return 'scheduled' as const;
+          })(),
           price: appointment.price || 0,
           notes: appointment.notes || '',
         });
@@ -342,13 +358,16 @@ export function EditAppointmentDialog({
         return;
       }
 
-      onUpdate(appointment.id, {
+      const statusForDb =
+        formData.status === 'in-progress' ? 'in_progress' : formData.status;
+
+      await onUpdate(appointment.id, {
         pet_id: formData.petId,
         staff_id: formData.staffId && formData.staffId !== '__unassigned__' ? formData.staffId : null,
         scheduled_date: appointmentDate.toISOString(),
         service_id: svcRes.primaryServiceId,
         service_type: svcRes.serviceType,
-        status: formData.status,
+        status: statusForDb as any,
         price: formData.price,
         notes: formData.notes,
       });
@@ -639,7 +658,7 @@ export function EditAppointmentDialog({
               <Label>Status *</Label>
               <Select
                 value={formData.status}
-                onValueChange={(value: 'scheduled' | 'in-progress' | 'completed' | 'cancelled') => 
+                onValueChange={(value: typeof formData.status) => 
                   setFormData({ ...formData, status: value })
                 }
               >
@@ -648,9 +667,11 @@ export function EditAppointmentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
                   <SelectItem value="in-progress">In Progress</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="no_show">No-Show</SelectItem>
                 </SelectContent>
               </Select>
             </div>

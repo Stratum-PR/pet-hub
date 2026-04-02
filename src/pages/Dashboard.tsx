@@ -1,6 +1,14 @@
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { Package, Calendar, TrendingUp, Clock, ChevronDown, AlertTriangle } from 'lucide-react';
+import {
+  Calendar,
+  TrendingUp,
+  Clock,
+  ChevronDown,
+  DollarSign,
+  CheckCircle2,
+  UserX,
+} from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +49,14 @@ import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/componen
 import { dashboardStaggerDelayMs } from '@/lib/dashboardEnterAnimation';
 import { DashboardRevenueChart, type DashboardRevenueChartPoint } from '@/components/DashboardRevenueChart';
 import type { Product } from '@/types/inventory';
+import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
+import { toast } from 'sonner';
+import {
+  excludeFromPeriodClientStats,
+  isTerminalAppointmentStatus,
+  isNoShowStatus,
+  normalizeAppointmentStatus,
+} from '@/lib/appointmentStatus';
 
 interface DashboardProps {
   clients: Client[];
@@ -53,6 +69,9 @@ interface DashboardProps {
   onSelectClient?: (clientId: string) => void;
   /** True while clients / pets / employees / appointments hooks are still fetching */
   dataLoading?: boolean;
+  onUpdateAppointment?: (id: string, data: Partial<Appointment>) => Promise<Appointment | null>;
+  /** Managers / super admins can mark no-show from the dashboard */
+  canMarkNoShow?: boolean;
 }
 
 function DashboardStaggerItem({
@@ -198,6 +217,8 @@ export function Dashboard({
   defaultLowStockThreshold = 5,
   onSelectClient,
   dataLoading = false,
+  onUpdateAppointment,
+  canMarkNoShow = false,
 }: DashboardProps) {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
@@ -205,23 +226,28 @@ export function Dashboard({
   const { transactions, loading: transactionsLoading } = useTransactions();
   const { language } = useLanguage();
   const dateLocale = language === 'es' ? dateFnsEs : undefined;
-  const lowStockProducts = useMemo(() => {
+  const lowStockProductsAll = useMemo(() => {
     return products
       .filter((p) => p.quantity <= reorderThresholdForProduct(p, defaultLowStockThreshold))
-      .sort((a, b) => a.quantity - b.quantity || a.name.localeCompare(b.name))
-      .slice(0, 16);
+      .sort((a, b) => a.quantity - b.quantity || a.name.localeCompare(b.name));
   }, [products, defaultLowStockThreshold]);
+  const lowStockProducts = useMemo(
+    () => lowStockProductsAll.slice(0, 16),
+    [lowStockProductsAll],
+  );
+  const lowStockCount = lowStockProductsAll.length;
 
   const activeEmployees = employees.filter(e => e.status === 'active').length;
-  const todayAppointments = appointments.filter(a => {
-    const today = new Date().toDateString();
-    return new Date(a.scheduled_date).toDateString() === today;
-  }).length;
 
-  const todaysAppointmentsList = appointments.filter(a => {
-    const today = new Date().toDateString();
-    return new Date(a.scheduled_date).toDateString() === today;
-  }).sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+  const isTodayAppt = (a: Appointment) =>
+    new Date(a.scheduled_date).toDateString() === new Date().toDateString();
+
+  /** Today's operational list: hide completed / cancelled / no-show from the quick glance. */
+  const todaysAppointmentsList = appointments
+    .filter((a) => isTodayAppt(a) && !isTerminalAppointmentStatus(a.status))
+    .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+
+  const todayAppointments = todaysAppointmentsList.length;
 
   type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
   const DASHBOARD_PERIOD_KEY = 'pet-hub-dashboard-period';
@@ -412,12 +438,31 @@ export function Dashboard({
     });
   }, [appointments, periodStart, periodEnd]);
 
+  const periodCompletedAppointmentRevenue = useMemo(() => {
+    return appointmentsInPeriod
+      .filter((a) => normalizeAppointmentStatus(a.status) === 'completed')
+      .reduce((sum, a) => sum + (Number(a.price) || 0), 0);
+  }, [appointmentsInPeriod]);
+
+  const noShowMetrics = useMemo(() => {
+    const total = appointmentsInPeriod.length;
+    const noshows = appointmentsInPeriod.filter((a) => isNoShowStatus(a.status)).length;
+    const pct = total > 0 ? (noshows / total) * 100 : null;
+    return {
+      total,
+      noshows,
+      pctLabel: total === 0 ? '—' : `${pct!.toFixed(1)}%`,
+    };
+  }, [appointmentsInPeriod]);
+
   const newVsRepeatData = useMemo(() => {
     const startTs = periodStart.getTime();
     const endTs = periodEnd.getTime() + 86400000;
     const inPeriod = appointments.filter((a) => {
       const t = new Date(a.scheduled_date).getTime();
-      return t >= startTs && t < endTs;
+      if (t < startTs || t >= endTs) return false;
+      if (excludeFromPeriodClientStats(a.status)) return false;
+      return true;
     });
     // Each client's first-ever appointment (across all appointment history)
     const clientFirstAppointmentTs = new Map<string, number>();
@@ -661,6 +706,28 @@ export function Dashboard({
     // Use replace: false to preserve navigation history and auth state
     navigate(target, { replace: false });
   };
+
+  const formatUsd = (n: number) =>
+    new Intl.NumberFormat(language === 'es' ? 'es-US' : undefined, {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+
+  const handleMarkNoShow = async (appointmentId: string) => {
+    if (!onUpdateAppointment) return;
+    const prev = appointments.find((a) => a.id === appointmentId);
+    const updated = await onUpdateAppointment(appointmentId, { status: 'no_show' as Appointment['status'] });
+    if (updated) {
+      toast.success(t('appointments.markedNoShow'));
+    } else if (prev) {
+      toast.error(t('appointments.noShowFailed'));
+    }
+  };
+
+  const invHref = businessSlug ? `/${businessSlug}/inventory` : '/inventory';
+  const apptHref = businessSlug ? `/${businessSlug}/appointments` : '/appointments';
 
   return (
     <PawLoadedContent
@@ -1046,13 +1113,20 @@ export function Dashboard({
           index={6}
           className="min-w-0 lg:col-span-2 lg:row-start-1"
         >
-        <Link
-          to={businessSlug ? `/${businessSlug}/appointments` : '/appointments'}
-          className="block cursor-pointer h-full min-h-0"
-        >
         <Card
-          className="shadow-none hover:shadow-md transition-shadow h-full flex flex-col min-h-[22rem] max-h-[560px]"
-          role="article"
+          className="shadow-none hover:shadow-md transition-shadow h-full flex flex-col min-h-[22rem] max-h-[560px] cursor-pointer"
+          role="link"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigate(apptHref);
+            }
+          }}
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest('[data-no-nav]')) return;
+            navigate(apptHref);
+          }}
         >
           <CardHeader className="shrink-0 flex flex-row items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2" data-card-title>
@@ -1076,11 +1150,12 @@ export function Dashboard({
                       const employee = appointment.staff_id
                         ? employees.find((e) => e.id === appointment.staff_id)
                         : null;
+                      const st = normalizeAppointmentStatus(appointment.status);
                       return (
                         <div
                           key={appointment.id}
                           data-list-item
-                          className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg text-sm"
+                          className="flex flex-col gap-2 p-2.5 bg-secondary/50 rounded-lg text-sm sm:flex-row sm:items-start sm:justify-between"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{pet?.name || t('appointments.unknownPet')}</p>
@@ -1090,18 +1165,31 @@ export function Dashboard({
                               {employee && ` • ${employee.name}`}
                             </p>
                           </div>
-                          <Badge
-                            variant={
-                              appointment.status === 'completed'
-                                ? 'default'
-                                : appointment.status === 'cancelled'
-                                  ? 'destructive'
-                                  : 'secondary'
-                            }
-                            className="shrink-0 ml-2 text-[10px]"
-                          >
-                            {appointment.status}
-                          </Badge>
+                          <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+                            <Badge
+                              variant={
+                                st === 'completed'
+                                  ? 'default'
+                                  : st === 'cancelled' || st === 'canceled'
+                                    ? 'destructive'
+                                    : st === 'no-show' || st === 'no_show'
+                                      ? 'secondary'
+                                      : 'secondary'
+                              }
+                              className="text-[10px]"
+                            >
+                              {st === 'no-show' || st === 'no_show'
+                                ? t('appointments.statusNoShow')
+                                : appointment.status}
+                            </Badge>
+                            {canMarkNoShow && onUpdateAppointment ? (
+                              <AppointmentNoShowControl
+                                status={appointment.status}
+                                compact
+                                onMarkNoShow={() => handleMarkNoShow(appointment.id)}
+                              />
+                            ) : null}
+                          </div>
                         </div>
                       );
                     })}
@@ -1123,14 +1211,42 @@ export function Dashboard({
             })()}
           </CardContent>
         </Card>
-        </Link>
         </DashboardStaggerItem>
 
-        {/* Stack revenue + low stock in one column so row height isn’t driven by the tall appointments card */}
-        <div className="min-w-0 lg:col-span-4 flex flex-col gap-6">
+        <DashboardStaggerItem
+          key={`dsk-${chartEnterKey}-6b`}
+          index={7}
+          className="min-w-0 lg:col-span-1 lg:row-start-1 flex flex-col gap-4"
+        >
+          <StatCard
+            compact
+            title={t('dashboard.apptRevenue')}
+            value={formatUsd(periodCompletedAppointmentRevenue)}
+            icon={DollarSign}
+            className="h-full"
+          />
+          <StatCard
+            compact
+            title={t('dashboard.noShowRate')}
+            value={noShowMetrics.pctLabel}
+            icon={UserX}
+            description={
+              noShowMetrics.total === 0
+                ? t('dashboard.noShowRateEmpty')
+                : t('dashboard.noShowRateHint', {
+                    n: noShowMetrics.noshows,
+                    total: noShowMetrics.total,
+                  })
+            }
+            className="h-full"
+          />
+        </DashboardStaggerItem>
+
+        {/* Sales trend chart + inventory — column aligns to appointments height */}
+        <div className="min-w-0 lg:col-span-3 flex flex-col gap-6">
         <DashboardStaggerItem
           key={`dsk-${chartEnterKey}-7`}
-          index={7}
+          index={8}
           className="min-w-0"
         >
           <Link
@@ -1140,7 +1256,7 @@ export function Dashboard({
             <Card className="h-full min-h-0 flex flex-col cursor-pointer transition-shadow">
               <CardHeader className="pb-2 pt-4 px-4 sm:px-6 shrink-0">
                 <CardTitle className="text-base" data-card-title>
-                  {t('dashboard.revenue')}
+                  {t('dashboard.salesTrend')}
                 </CardTitle>
                 <p className="text-xs text-muted-foreground font-normal mt-1 tabular-nums">
                   {format(periodStart, 'd MMM', { locale: dateLocale })} –{' '}
@@ -1148,7 +1264,8 @@ export function Dashboard({
                   {' · '}$
                   {Math.round(periodRevenueDollars).toLocaleString(undefined, {
                     maximumFractionDigits: 0,
-                  })}
+                  })}{' '}
+                  <span className="font-normal opacity-90">({t('dashboard.posSalesShort')})</span>
                 </p>
               </CardHeader>
               <CardContent className="pt-0 px-4 sm:px-6 pb-4 flex-1 min-h-0">
@@ -1157,10 +1274,10 @@ export function Dashboard({
                   chartEnterKey={chartEnterKey}
                   chartHeight={200}
                   emptyLabel={t('dashboard.noData')}
-                  tooltipSeriesName={t('dashboard.revenue')}
+                  tooltipSeriesName={t('dashboard.salesTrend')}
                   tooltipFormatter={(value) => [
                     `$${Math.round(Number(value)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-                    t('dashboard.revenue'),
+                    t('dashboard.salesTrend'),
                   ]}
                   labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDay ?? ''}
                 />
@@ -1171,106 +1288,54 @@ export function Dashboard({
 
         <DashboardStaggerItem
           key={`dsk-${chartEnterKey}-8`}
-          index={8}
+          index={9}
           className="min-w-0"
         >
-          <Card className="border border-orange-500/25 bg-gradient-to-br from-orange-500/[0.07] via-card to-card dark:from-orange-500/10">
-            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0 pb-2 pt-4 px-4 sm:px-6">
-              <div className="min-w-0">
-                <CardTitle className="flex items-center gap-2 text-base" data-card-title>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400">
-                    <AlertTriangle className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className="flex flex-col gap-0.5">
-                    <span>{t('dashboard.lowStockTitle')}</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {t('dashboard.lowStockSubtitle')}
-                    </span>
-                  </span>
+          <Link to={invHref} className="block cursor-pointer w-full min-h-0">
+            <Card className="h-full min-h-0 flex flex-col cursor-pointer transition-shadow">
+              <CardHeader className="pb-2 pt-4 px-4 sm:px-6 shrink-0">
+                <CardTitle className="text-base" data-card-title>
+                  {t('dashboard.inventoryCardTitle')}
                 </CardTitle>
-              </div>
-              <Link
-                to={businessSlug ? `/${businessSlug}/inventory` : '/inventory'}
-                className="shrink-0 text-sm font-medium text-primary hover:underline"
-              >
-                {t('dashboard.openInventory')}
-              </Link>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0 sm:px-6">
-              {lowStockProducts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
-                  <Package className="h-10 w-10 text-muted-foreground/50" aria-hidden />
-                  <p className="max-w-sm text-sm text-muted-foreground">{t('dashboard.lowStockEmpty')}</p>
-                  <Link
-                    to={businessSlug ? `/${businessSlug}/inventory` : '/inventory'}
-                    className="text-sm font-medium text-primary hover:underline"
-                  >
-                    {t('dashboard.openInventory')}
-                  </Link>
-                </div>
-              ) : (
-                <ul className="max-h-[min(22rem,55vh)] space-y-2 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
-                  {lowStockProducts.map((p) => {
-                    const th = reorderThresholdForProduct(p, defaultLowStockThreshold);
-                    const ratio = th > 0 ? p.quantity / th : 1;
-                    const barPct = Math.min(100, Math.max(p.quantity === 0 ? 5 : 8, ratio * 100));
-                    const inv = businessSlug ? `/${businessSlug}/inventory` : '/inventory';
-                    return (
-                      <li key={p.id}>
-                        <Link
-                          to={`${inv}?product=${encodeURIComponent(p.id)}`}
-                          className="block rounded-lg border border-orange-500/25 bg-card/80 px-3 py-2.5 shadow-none ring-1 ring-orange-500/10 transition hover:border-orange-500/45 hover:bg-card hover:shadow-md hover:ring-orange-500/20"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold leading-snug text-foreground truncate">
-                                {p.name}
-                              </p>
-                              <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-                                {t('inventory.stock')}: {p.quantity}
-                                <span className="mx-1.5 text-border">·</span>
-                                {t('inventory.reorderLevel')}: {th}
-                              </p>
-                            </div>
-                            <span
-                              className={cn(
-                                'shrink-0 rounded-md px-2 py-0.5 text-xs font-bold tabular-nums',
-                                p.quantity === 0
-                                  ? 'bg-destructive/15 text-destructive'
-                                  : 'bg-orange-500/10 text-orange-700 dark:text-orange-400'
-                              )}
-                            >
-                              {p.quantity}
-                            </span>
-                          </div>
-                          <div
-                            className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
-                            title={`${p.quantity} / ${th}`}
-                          >
-                            <div
-                              className={cn(
-                                'h-full rounded-full bg-gradient-to-r transition-all',
-                                p.quantity === 0
-                                  ? 'from-destructive to-destructive/80'
-                                  : 'from-amber-500 to-orange-600'
-                              )}
-                              style={{ width: `${barPct}%` }}
-                            />
-                          </div>
-                        </Link>
+                <p className="text-xs text-muted-foreground font-normal mt-1 tabular-nums">
+                  {lowStockCount > 0
+                    ? t('dashboard.inventorySubtitleLow', { n: lowStockCount })
+                    : t('dashboard.inventorySubtitleOk')}
+                </p>
+              </CardHeader>
+              <CardContent className="pt-0 px-4 sm:px-6 pb-4 flex-1 min-h-0">
+                {lowStockCount === 0 ? (
+                  <div className="flex min-h-[8rem] flex-col items-center justify-center gap-2 py-6 text-center">
+                    <CheckCircle2
+                      className="h-8 w-8 shrink-0 text-emerald-600/90 dark:text-emerald-400/90"
+                      aria-hidden
+                    />
+                    <p className="text-sm text-muted-foreground max-w-sm">{t('dashboard.inventoryOptimal')}</p>
+                  </div>
+                ) : (
+                  <ul className="max-h-[min(22rem,55vh)] space-y-2 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
+                    {lowStockProducts.map((p) => (
+                      <li
+                        key={p.id}
+                        className="rounded-lg border border-border bg-card px-3 py-2.5"
+                      >
+                        <p className="text-sm font-semibold leading-snug text-foreground">{p.name}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                          {t('inventory.stock')}: {p.quantity}
+                        </p>
                       </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
         </DashboardStaggerItem>
         </div>
       </div>
 
       {/* Collapsible Data Diagnostics at bottom */}
-      <DashboardStaggerItem key={`dsk-${chartEnterKey}-9`} index={9}>
+      <DashboardStaggerItem key={`dsk-${chartEnterKey}-10`} index={10}>
       <details className="mt-8 border border-border rounded-lg bg-card/50">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center justify-between">
           <span>Show Diagnostics</span>

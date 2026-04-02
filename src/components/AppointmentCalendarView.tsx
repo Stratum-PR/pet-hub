@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarAppointment, CalendarStaff, CalendarFilters, CalendarView } from '@/types/calendar';
 import { cn } from '@/lib/utils';
+import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
 
 interface AppointmentCalendarViewProps {
   selectedDate: Date;
@@ -16,6 +17,8 @@ interface AppointmentCalendarViewProps {
   onNextDay: () => void;
   onToday: () => void;
   onCreateClick?: () => void;
+  canMarkNoShow?: boolean;
+  onMarkNoShow?: (appointmentId: string) => void | Promise<void>;
 }
 
 // Generate time slots from 7 AM to 8 PM
@@ -59,6 +62,8 @@ export function AppointmentCalendarView({
   onNextDay,
   onToday,
   onCreateClick,
+  canMarkNoShow,
+  onMarkNoShow,
 }: AppointmentCalendarViewProps) {
   const timeSlots = useMemo(() => generateTimeSlots(), []);
 
@@ -265,6 +270,18 @@ export function AppointmentCalendarView({
                         <div className="text-xs text-muted-foreground mt-1">
                           {appointment.startTime} - {appointment.endTime}
                         </div>
+                        {canMarkNoShow && onMarkNoShow && appointment.dbStatus ? (
+                          <div
+                            className="mt-1.5 pt-1 border-t border-border/60"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <AppointmentNoShowControl
+                              status={appointment.dbStatus}
+                              compact
+                              onMarkNoShow={() => onMarkNoShow(appointment.id)}
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}

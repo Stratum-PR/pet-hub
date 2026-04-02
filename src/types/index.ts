@@ -156,7 +156,16 @@ export interface Appointment {
   scheduled_date: string;
   appointment_date?: string;
   service_type: string;
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  status:
+    | 'scheduled'
+    | 'confirmed'
+    | 'in-progress'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled'
+    | 'canceled'
+    | 'no_show'
+    | 'no-show';
   price: number;
   notes?: string;
   created_at: string;

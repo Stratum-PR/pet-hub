@@ -7,6 +7,7 @@ import { CalendarAppointment, CalendarFilters, CalendarView } from '@/types/cale
 import { Pet } from '@/hooks/useBusinessData';
 import { Dog, Cat } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
 
 interface DaycareCalendarViewProps {
   selectedDate: Date;
@@ -19,6 +20,8 @@ interface DaycareCalendarViewProps {
   onToday: () => void;
   onCheckIn?: (appointmentId: string) => void;
   onCreateClick?: () => void;
+  canMarkNoShow?: boolean;
+  onMarkNoShow?: (appointmentId: string) => void | Promise<void>;
 }
 
 // Mock daycare rooms - in production, this would come from database
@@ -40,6 +43,8 @@ export function DaycareCalendarView({
   onToday,
   onCheckIn,
   onCreateClick,
+  canMarkNoShow,
+  onMarkNoShow,
 }: DaycareCalendarViewProps) {
   // Group appointments by room (for now, randomly assign to rooms)
   // In production, this would be based on pet characteristics or appointment type
@@ -264,6 +269,14 @@ export function DaycareCalendarView({
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Check In
                             </Button>
+                            {canMarkNoShow && onMarkNoShow && appointment.dbStatus ? (
+                              <AppointmentNoShowControl
+                                status={appointment.dbStatus}
+                                compact
+                                className="w-full justify-stretch [&_button]:w-full"
+                                onMarkNoShow={() => onMarkNoShow(appointment.id)}
+                              />
+                            ) : null}
                           </div>
                         </div>
                       );

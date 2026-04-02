@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { isSupabaseConfigured, supabase } from '@/integrations/supabase/client';
 import type { Profile, Business } from '@/lib/auth';
 import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
@@ -167,6 +167,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      console.error('[AuthContext] Supabase not configured; skipping auth hydration.');
+      setAuthInitialized(true);
+      return;
+    }
+
     console.log('[AuthContext] mount – hydrating initial session');
     refreshAuth().catch((e) => console.error('[AuthContext] initial refreshAuth failed:', e));
 

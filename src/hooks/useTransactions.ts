@@ -191,6 +191,34 @@ export function useTransactions() {
     fetchTransactions();
   }, [businessId, fetchTransactions]);
 
+  /** Keep dashboard POS totals in sync (Realtime + polling backup). */
+  useEffect(() => {
+    if (!businessId || demoBrowseOnly) return;
+    const channel = supabase
+      .channel(`transactions-rt-${businessId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `business_id=eq.${businessId}`,
+        },
+        () => {
+          void fetchTransactions();
+        }
+      )
+      .subscribe();
+    const pollMs = 45_000;
+    const poll = window.setInterval(() => {
+      void fetchTransactions();
+    }, pollMs);
+    return () => {
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
+  }, [businessId, demoBrowseOnly, fetchTransactions]);
+
   const fetchTransactionById = useCallback(async (id: string): Promise<FetchTransactionByIdResult> => {
     if (id.startsWith('local-')) {
       const entry = localDemoEntriesRef.current.find((e) => e.transaction.id === id);
