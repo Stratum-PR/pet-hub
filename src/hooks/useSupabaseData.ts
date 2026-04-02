@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -1349,7 +1349,7 @@ export function useAppointments() {
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     if (!businessId) {
       if (import.meta.env.DEV) console.warn('[useAppointments] No businessId, skipping fetch');
       setLoading(false);
@@ -1422,7 +1422,7 @@ export function useAppointments() {
       setAppointments([]);
     }
     setLoading(false);
-  };
+  }, [businessId]);
 
   const refetch = async () => {
     setError(null);
@@ -1431,8 +1431,39 @@ export function useAppointments() {
   };
 
   useEffect(() => {
-    fetchAppointments();
-  }, [businessId]);
+    void fetchAppointments();
+  }, [fetchAppointments]);
+
+  /** Near-real-time: Supabase Realtime + 45s polling backup (publication may vary by project). */
+  useEffect(() => {
+    if (!businessId || demoBrowseOnly) return;
+
+    const channel = supabase
+      .channel(`appointments-rt-${businessId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `business_id=eq.${businessId}`,
+        },
+        () => {
+          void fetchAppointments();
+        }
+      )
+      .subscribe();
+
+    const pollMs = 45_000;
+    const poll = window.setInterval(() => {
+      void fetchAppointments();
+    }, pollMs);
+
+    return () => {
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
+  }, [businessId, demoBrowseOnly, fetchAppointments]);
 
   const addAppointment = async (appointmentData: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => {
     if (demoBrowseOnly) {
@@ -1474,16 +1505,37 @@ export function useAppointments() {
       setAppointments(appointments.map((a) => (a.id === id ? data : a)));
       return data;
     }
+    if (!businessId) return null;
+    const prev = appointments.find((a) => a.id === id);
+    if (prev) {
+      const optimistic = { ...prev, ...appointmentData, id: prev.id } as Appointment;
+      setAppointments((curr) => curr.map((a) => (a.id === id ? optimistic : a)));
+    }
+
     const { data, error } = await supabase
       .from('appointments')
       .update(appointmentData)
       .eq('id', id)
+      .eq('business_id', businessId)
       .select()
       .single();
     
-    if (!error && data) {
-      setAppointments(appointments.map(a => a.id === id ? data as Appointment : a));
-      return data;
+    if (error) {
+      if (prev) setAppointments((curr) => curr.map((a) => (a.id === id ? prev : a)));
+      return null;
+    }
+    if (data) {
+      const row = data as any;
+      const staff_id = staffRecordIdFromRow(row) ?? row.staff_id;
+      const normalized = {
+        ...row,
+        staff_id,
+        scheduled_date: row.appointment_date
+          ? `${row.appointment_date}T${row.start_time || '00:00:00'}`
+          : row.scheduled_date,
+      } as Appointment;
+      setAppointments((curr) => curr.map((a) => (a.id === id ? normalized : a)));
+      return normalized;
     }
     return null;
   };
@@ -1493,10 +1545,12 @@ export function useAppointments() {
       setAppointments(appointments.filter((a) => a.id !== id));
       return true;
     }
+    if (!businessId) return false;
     const { error } = await supabase
       .from('appointments')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('business_id', businessId);
     
     if (!error) {
       setAppointments(appointments.filter(a => a.id !== id));

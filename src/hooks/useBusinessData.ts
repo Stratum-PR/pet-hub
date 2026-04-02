@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
@@ -514,7 +514,7 @@ export function useAppointments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     if (!businessId) {
       setLoading(false);
       return;
@@ -538,7 +538,7 @@ export function useAppointments() {
       setAppointments(withStaff as any);
     }
     setLoading(false);
-  };
+  }, [businessId]);
 
   const refetch = async () => {
     setError(null);
@@ -547,8 +547,32 @@ export function useAppointments() {
   };
 
   useEffect(() => {
-    fetchAppointments();
-  }, [businessId]);
+    void fetchAppointments();
+  }, [fetchAppointments]);
+
+  useEffect(() => {
+    if (!businessId || demoBrowseOnly) return;
+    const channel = supabase
+      .channel(`appointments-rt-biz-${businessId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `business_id=eq.${businessId}`,
+        },
+        () => {
+          void fetchAppointments();
+        }
+      )
+      .subscribe();
+    const poll = window.setInterval(() => void fetchAppointments(), 45_000);
+    return () => {
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
+  }, [businessId, demoBrowseOnly, fetchAppointments]);
 
   const addAppointment = async (appointmentData: Omit<Appointment, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
@@ -592,6 +616,12 @@ export function useAppointments() {
       return data;
     }
 
+    const prev = appointments.find((a) => a.id === id);
+    if (prev) {
+      const optimistic = { ...prev, ...appointmentData, id: prev.id } as Appointment;
+      setAppointments((curr) => curr.map((a) => (a.id === id ? optimistic : a)));
+    }
+
     const { data, error } = await supabase
       .from('appointments')
       .update(appointmentData)
@@ -600,9 +630,16 @@ export function useAppointments() {
       .select()
       .single();
     
-    if (!error && data) {
-      setAppointments(appointments.map(a => a.id === id ? data : a));
-      return data;
+    if (error) {
+      if (prev) setAppointments((curr) => curr.map((a) => (a.id === id ? prev! : a)));
+      return null;
+    }
+    if (data) {
+      const row = data as any;
+      const staff_id = staffRecordIdFromRow(row) ?? row.staff_id;
+      const normalized = { ...row, staff_id } as Appointment;
+      setAppointments((curr) => curr.map((a) => (a.id === id ? normalized : a)));
+      return normalized;
     }
     return null;
   };

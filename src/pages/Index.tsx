@@ -320,6 +320,12 @@ const Index = () => {
                     products={products}
                     defaultLowStockThreshold={defaultLow}
                     dataLoading={dashboardDataLoading}
+                    onUpdateAppointment={updateAppointmentWithNotification}
+                    canMarkNoShow={
+                      role === 'manager' ||
+                      role === 'super_admin' ||
+                      !!profile?.is_super_admin
+                    }
                   />
                 )
               }
@@ -365,6 +371,11 @@ const Index = () => {
                     onUpdateAppointment={updateAppointmentWithNotification}
                     onDeleteAppointment={deleteAppointment}
                     onRefreshAppointments={refetchAppointments}
+                    canMarkNoShow={
+                      role === 'manager' ||
+                      role === 'super_admin' ||
+                      !!profile?.is_super_admin
+                    }
                   />
                 ) : (
                   <Navigate to="dashboard" replace />

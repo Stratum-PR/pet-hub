@@ -3,6 +3,7 @@ import { CalendarAppointment, CalendarStaff, APPOINTMENT_COLORS } from '@/types/
 import { Appointment, Pet, Service } from '@/hooks/useBusinessData';
 import { Employee } from '@/types';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
+import { showOnActiveCalendar } from '@/lib/appointmentStatus';
 
 /**
  * Convert database employees to calendar employees
@@ -32,9 +33,8 @@ export function convertAppointmentsToCalendar(
   services: Service[],
   selectedDate: Date
 ): CalendarAppointment[] {
-  console.log('[convertAppointmentsToCalendar] Processing', appointments.length, 'appointments for date', format(selectedDate, 'yyyy-MM-dd'));
-  
   const filtered = appointments
+    .filter((apt) => showOnActiveCalendar(apt.status))
     .filter(apt => {
       // Filter by date - handle both DATE type and string formats
       try {
@@ -53,26 +53,18 @@ export function convertAppointmentsToCalendar(
             // If it's already a Date object
             aptDate = apt.appointment_date as any;
           }
-        } else if (apt.scheduled_date) {
-          aptDate = new Date(apt.scheduled_date);
+        } else if ((apt as any).scheduled_date) {
+          aptDate = new Date((apt as any).scheduled_date);
         }
         
         if (!aptDate || isNaN(aptDate.getTime())) {
-          console.warn('[convertAppointmentsToCalendar] Invalid date for appointment', apt.id, apt.appointment_date);
           return false;
         }
-        const matches = isSameDay(aptDate, selectedDate);
-        if (matches) {
-          console.log('[convertAppointmentsToCalendar] Found matching appointment', apt.id, 'on', format(aptDate, 'yyyy-MM-dd'));
-        }
-        return matches;
-      } catch (err) {
-        console.warn('[convertAppointmentsToCalendar] Error parsing appointment date:', apt.id, err);
+        return isSameDay(aptDate, selectedDate);
+      } catch {
         return false;
       }
     });
-  
-  console.log('[convertAppointmentsToCalendar] Filtered to', filtered.length, 'appointments for selected date');
   
   return filtered
     .map(apt => {
@@ -123,6 +115,7 @@ export function convertAppointmentsToCalendar(
 
       return {
         id: apt.id,
+        dbStatus: apt.status,
         petId: apt.pet_id,
         petName,
         breed,

@@ -27,11 +27,24 @@ import AcceptInvitation from "@/pages/employee/AcceptInvitation";
 import EmployeeProfile from "@/pages/employee/EmployeeProfile";
 import { EmployeeLegacyRedirect } from "@/pages/employee/EmployeeLegacyRedirect";
 import { EmployeePortalRoute } from "@/components/employee/EmployeePortalRoute";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    {!isSupabaseConfigured && (
+      <div
+        role="alert"
+        className="border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive"
+      >
+        <strong className="font-semibold">Configuration error:</strong> Supabase variables were not set at build
+        time. Set{" "}
+        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_SUPABASE_URL</code> and{" "}
+        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">VITE_SUPABASE_PUBLISHABLE_KEY</code> in
+        your deployment environment, then redeploy.
+      </div>
+    )}
     <LanguageProvider>
       <AuthProvider>
         <BrowserRouter>

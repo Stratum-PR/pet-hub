@@ -1883,6 +1883,46 @@ export const translations: Translations = {
     en: 'Revenue',
     es: 'Ingresos'
   },
+  'dashboard.salesTrend': {
+    en: 'Sales trend',
+    es: 'Tendencia de ventas'
+  },
+  'dashboard.apptRevenue': {
+    en: 'Appt revenue',
+    es: 'Ingresos citas'
+  },
+  'dashboard.posSalesShort': {
+    en: 'POS',
+    es: 'POS'
+  },
+  'dashboard.noShowRate': {
+    en: 'No-show rate',
+    es: 'Tasa no-show'
+  },
+  'dashboard.noShowRateHint': {
+    en: '{n} no-show of {total} appts',
+    es: '{n} no-show de {total} citas'
+  },
+  'dashboard.noShowRateEmpty': {
+    en: 'No appointments in period',
+    es: 'Sin citas en el período'
+  },
+  'dashboard.inventoryCardTitle': {
+    en: 'Inventory',
+    es: 'Inventario'
+  },
+  'dashboard.inventoryOptimal': {
+    en: 'Nothing is below your reorder point.',
+    es: 'Nada por debajo del punto de reorden.'
+  },
+  'dashboard.inventorySubtitleLow': {
+    en: '{n} at or below reorder',
+    es: '{n} en o por debajo del mínimo'
+  },
+  'dashboard.inventorySubtitleOk': {
+    en: 'All products at or above reorder',
+    es: 'Todo el stock en o por encima del mínimo'
+  },
   'dashboard.chartWeekly': {
     en: 'Weekly',
     es: 'Semanal'
@@ -2986,6 +3026,26 @@ export const translations: Translations = {
   'appointments.appointmentDeleted': {
     en: 'Appointment deleted successfully',
     es: 'Cita eliminada exitosamente'
+  },
+  'appointments.markNoShow': {
+    en: 'No-Show',
+    es: 'No-Show'
+  },
+  'appointments.noShowConfirm': {
+    en: 'Confirm',
+    es: 'Confirmar'
+  },
+  'appointments.markedNoShow': {
+    en: 'Marked as no-show',
+    es: 'Marcado como no-show'
+  },
+  'appointments.noShowFailed': {
+    en: 'Could not update appointment',
+    es: 'No se pudo actualizar la cita'
+  },
+  'appointments.statusNoShow': {
+    en: 'No-Show',
+    es: 'No-Show'
   },
   'appointments.checkout': {
     en: 'Checkout',

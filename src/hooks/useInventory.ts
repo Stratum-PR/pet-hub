@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Product } from '@/types/inventory';
 import { useBusinessId } from './useBusinessId';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
@@ -59,7 +59,7 @@ export function useInventory() {
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
 
-  const fetchStockMovements = async () => {
+  const fetchStockMovements = useCallback(async () => {
     if (!businessId) return;
     const { data, error } = await supabase
       .from('inventory_stock_movements' as any)
@@ -67,9 +67,9 @@ export function useInventory() {
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     if (!error && data) setStockMovements((data as any[]) as StockMovementRow[]);
-  };
+  }, [businessId]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     if (!businessId) return;
     const { data, error } = await supabase
       .from('inventory' as any)
@@ -81,7 +81,11 @@ export function useInventory() {
       return;
     }
     setProducts((data || []).map(mapRowToProduct));
-  };
+  }, [businessId]);
+
+  const refreshInventory = useCallback(async () => {
+    await Promise.all([fetchProducts(), fetchStockMovements()]);
+  }, [fetchProducts, fetchStockMovements]);
 
   useEffect(() => {
     if (!businessId) {
@@ -89,8 +93,36 @@ export function useInventory() {
       return;
     }
     setLoading(true);
-    Promise.all([fetchProducts(), fetchStockMovements()]).finally(() => setLoading(false));
-  }, [businessId]);
+    refreshInventory().finally(() => setLoading(false));
+  }, [businessId, refreshInventory]);
+
+  /** Realtime + polling so dashboard inventory stays fresh (see appointments hook). */
+  useEffect(() => {
+    if (!businessId || demoBrowseOnly) return;
+    const channel = supabase
+      .channel(`inventory-rt-${businessId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'inventory',
+          filter: `business_id=eq.${businessId}`,
+        },
+        () => {
+          void refreshInventory();
+        }
+      )
+      .subscribe();
+    const pollMs = 45_000;
+    const poll = window.setInterval(() => {
+      void refreshInventory();
+    }, pollMs);
+    return () => {
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
+  }, [businessId, demoBrowseOnly, refreshInventory]);
 
   const addProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;

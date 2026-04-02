@@ -15,9 +15,8 @@ import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { t, type Language } from '@/lib/translations';
+import { t } from '@/lib/translations';
 import {
   employeeBirthPartsToDateInput,
   employeeDobInputBounds,
@@ -31,7 +30,6 @@ import {
   DEFAULT_SECONDARY_HEX,
 } from '@/lib/defaultThemeColors';
 import { Check } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 
 function hexToHsl(hex: string): string {
@@ -145,9 +143,6 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
   const demoLocalOnly = useDemoLocalSettingsMode();
-  const { language, setLanguage } = useLanguage();
-  const [pendingLanguage, setPendingLanguage] = useState<Language>(language);
-  useEffect(() => { setPendingLanguage(language); }, [language]);
   const [primaryColor, setPrimaryColor] = useState(settings.primary_color || DEFAULT_PRIMARY_COLOR_HSL);
   const [secondaryColor, setSecondaryColor] = useState(settings.secondary_color || DEFAULT_SECONDARY_COLOR_HSL);
   const [primaryRgb, setPrimaryRgb] = useState(() => {
@@ -448,43 +443,6 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
           </CardContent>
         </Card>
       ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('accountSettings.language')}</CardTitle>
-          <CardDescription>{t('accountSettings.languageDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Select value={pendingLanguage} onValueChange={(value: Language) => setPendingLanguage(value)}>
-            <SelectTrigger className="w-full max-w-xs">
-              <SelectValue placeholder={t('accountSettings.selectLanguage')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="en">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🇺🇸</span>
-                  <span>English</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="es">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🇵🇷</span>
-                  <span>Español</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            onClick={() => {
-              setLanguage(pendingLanguage);
-              toast.success(t('accountSettings.languageSavedRefresh'));
-              setTimeout(() => window.location.reload(), 1500);
-            }}
-          >
-            {t('accountSettings.saveLanguage')}
-          </Button>
-        </CardContent>
-      </Card>
 
       {!demoLocalOnly && user && !profile?.staff_id ? (
         <Card>
