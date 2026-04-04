@@ -45,7 +45,11 @@ function renderFatalError(err: unknown) {
   pre.setAttribute("style", "background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto;max-height:360px;font-size:12px;line-height:1.4");
   pre.textContent = msg;
   root.append(h2, p, pre);
-  document.body.replaceChildren(root);
+  // Avoid replaceChildren: missing on Safari < 14 (WebKit); keep fatal UI working everywhere.
+  while (document.body.firstChild) {
+    document.body.removeChild(document.body.firstChild);
+  }
+  document.body.appendChild(root);
 }
 
 // Capture early runtime errors before React mounts.
