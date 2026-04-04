@@ -42,7 +42,7 @@ import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { SupportImpersonationDialogContent } from '@/components/SupportImpersonationDialog';
 import { SupportSessionBanner } from '@/components/SupportSessionBanner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import type { RolloutTier } from '@/lib/featureRollout';
+import type { SuperAdminViewerTier } from '@/lib/featureRollout';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import { clearStaffSummaryFilterIfOutsidePayroll } from '@/lib/timesheetsStaffSummaryFilterStorage';
@@ -504,23 +504,23 @@ export function Layout({ children, settings }: LayoutProps) {
                       <DropdownMenuLabel className="text-xs text-muted-foreground">
                         {t('layout.featurePreviewChannel')}
                       </DropdownMenuLabel>
-                      <div className="flex gap-1 px-2 pb-2">
-                        {(['production', 'staged', 'development'] as const).map((tier: RolloutTier) => (
-                          <Button
-                            key={tier}
-                            type="button"
-                            size="sm"
-                            variant={viewerTier === tier ? 'default' : 'outline'}
-                            className="h-8 flex-1 px-1 text-[10px] leading-tight"
-                            onClick={() => setViewerTier(tier)}
-                          >
-                            {tier === 'production'
-                              ? t('layout.tierProduction')
-                              : tier === 'staged'
-                                ? t('layout.tierStaged')
-                                : t('layout.tierDevelopment')}
-                          </Button>
-                        ))}
+                      <div className="flex gap-1 px-2 pb-2" role="group" aria-label={t('layout.featurePreviewChannel')}>
+                        {(['development', 'production'] as const satisfies readonly SuperAdminViewerTier[]).map(
+                          (tier) => (
+                            <Button
+                              key={tier}
+                              type="button"
+                              size="sm"
+                              variant={viewerTier === tier ? 'default' : 'outline'}
+                              className="h-8 flex-1 px-1 text-xs leading-tight"
+                              onClick={() => setViewerTier(tier)}
+                            >
+                              {tier === 'development'
+                                ? t('layout.tierDevelopment')
+                                : t('layout.tierProduction')}
+                            </Button>
+                          )
+                        )}
                       </div>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem

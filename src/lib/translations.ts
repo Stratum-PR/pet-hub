@@ -553,6 +553,146 @@ export const translations: Translations = {
     en: 'Appt Book',
     es: 'Reservar cita'
   },
+  'apptBook.appointmentList': {
+    en: 'Appointment List',
+    es: 'Lista de citas'
+  },
+  'apptBook.onlineRequests': {
+    en: 'Online Requests',
+    es: 'Solicitudes en línea'
+  },
+  'apptBook.settings': {
+    en: 'Settings',
+    es: 'Configuración'
+  },
+  'apptBook.listSearchPlaceholder': {
+    en: 'Search for client or pet',
+    es: 'Buscar cliente o mascota'
+  },
+  'apptBook.allEmployees': {
+    en: 'All staff',
+    es: 'Todo el personal'
+  },
+  'apptBook.allRooms': {
+    en: 'All rooms',
+    es: 'Todas las salas'
+  },
+  'apptBook.allStatuses': {
+    en: 'All appointments',
+    es: 'Todas las citas'
+  },
+  'apptBook.dateScopeDay': {
+    en: 'This day',
+    es: 'Este día'
+  },
+  'apptBook.dateScopeAll': {
+    en: 'All dates',
+    es: 'Todas las fechas'
+  },
+  'apptBook.paymentPaid': {
+    en: 'Paid',
+    es: 'Pagado'
+  },
+  'apptBook.paymentUnpaid': {
+    en: 'Unpaid',
+    es: 'Sin pagar'
+  },
+  'apptBook.paymentDash': {
+    en: '—',
+    es: '—'
+  },
+  'apptBook.noMatchingRows': {
+    en: 'No appointments match your filters.',
+    es: 'Ninguna cita coincide con los filtros.'
+  },
+  'apptBook.columnId': {
+    en: 'ID',
+    es: 'ID'
+  },
+  'apptBook.columnStatus': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'apptBook.columnPet': {
+    en: 'Pet',
+    es: 'Mascota'
+  },
+  'apptBook.columnClient': {
+    en: 'Client',
+    es: 'Cliente'
+  },
+  'apptBook.columnDate': {
+    en: 'Date',
+    es: 'Fecha'
+  },
+  'apptBook.columnTime': {
+    en: 'Time',
+    es: 'Hora'
+  },
+  'apptBook.columnServices': {
+    en: 'Services',
+    es: 'Servicios'
+  },
+  'apptBook.columnEmployee': {
+    en: 'Employee',
+    es: 'Empleado'
+  },
+  'apptBook.columnPayment': {
+    en: 'Payment',
+    es: 'Pago'
+  },
+  'apptBook.columnTotal': {
+    en: 'Total',
+    es: 'Total'
+  },
+  'apptBook.columnActions': {
+    en: 'Actions',
+    es: 'Acciones'
+  },
+  'apptBook.unassigned': {
+    en: 'Unassigned',
+    es: 'Sin asignar'
+  },
+  'apptBook.byDay': {
+    en: 'By Day',
+    es: 'Por día'
+  },
+  'apptBook.byWeek': {
+    en: 'By Week',
+    es: 'Por semana'
+  },
+  'apptBook.filterCalendar': {
+    en: 'Filter calendar',
+    es: 'Filtrar calendario'
+  },
+  'apptBook.specialist': {
+    en: 'Specialist',
+    es: 'Especialista'
+  },
+  'apptBook.bookingCategory': {
+    en: 'Booking category',
+    es: 'Categoría de reserva'
+  },
+  'apptBook.searchCategories': {
+    en: 'Search categories',
+    es: 'Buscar categorías'
+  },
+  'apptBook.allCategories': {
+    en: 'All categories',
+    es: 'Todas las categorías'
+  },
+  'apptBook.allStaff': {
+    en: 'All staff',
+    es: 'Todo el personal'
+  },
+  'apptBook.clearFilters': {
+    en: 'Clear filters',
+    es: 'Borrar filtros'
+  },
+  'apptBook.openAppointmentFailed': {
+    en: 'Could not open this appointment.',
+    es: 'No se pudo abrir esta cita.'
+  },
   'nav.support': {
     en: 'Support',
     es: 'Soporte'
@@ -778,16 +918,24 @@ export const translations: Translations = {
     es: 'Vista previa de funciones (super admin)',
   },
   'layout.tierProduction': {
-    en: 'Prod',
-    es: 'Prod',
+    en: 'Production',
+    es: 'Producción',
   },
   'layout.tierStaged': {
     en: 'Staged',
     es: 'Staged',
   },
   'layout.tierDevelopment': {
-    en: 'Dev',
-    es: 'Dev',
+    en: 'Development',
+    es: 'Desarrollo',
+  },
+  'auth.inPlaceLoginTitle': {
+    en: 'Your session ended',
+    es: 'Tu sesión finalizó',
+  },
+  'auth.inPlaceLoginDescription': {
+    en: 'Sign in again to continue on this page.',
+    es: 'Inicia sesión de nuevo para continuar en esta página.',
   },
   'layout.supportSignInAsUser': {
     en: 'Support: sign in as user…',
@@ -3572,6 +3720,10 @@ export const translations: Translations = {
   'form.petInformation': {
     en: 'Pet Information',
     es: 'Información de Mascota'
+  },
+  'form.addPet': {
+    en: 'Add pet',
+    es: 'Agregar mascota'
   },
   'form.clientInformation': {
     en: 'Client Information',

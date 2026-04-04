@@ -2,6 +2,10 @@
 
 export interface CalendarAppointment {
   id: string;
+  /** yyyy-MM-dd — set for week-range views to place the card in the correct day column. */
+  calendarDayKey?: string;
+  /** Source service row id when available (for sidebar category filters). */
+  serviceId?: string;
   /** Raw DB/UI status for actions (e.g. mark no-show). */
   dbStatus?: string;
   petId?: string; // Pet ID for lookup

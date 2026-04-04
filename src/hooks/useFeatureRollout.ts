@@ -7,8 +7,9 @@ import {
   type FeatureRole,
   type FeatureKey,
   type RolloutTier,
-  getStoredSupportViewTier,
-  setStoredSupportViewTier,
+  type SuperAdminViewerTier,
+  getStoredSuperAdminViewerTier,
+  setStoredSuperAdminViewerTier,
   tierVisibleForViewer,
 } from '@/lib/featureRollout';
 
@@ -22,10 +23,10 @@ type VisibilityRuleRow = {
 export function useFeatureRollout() {
   const { profile, business } = useAuth();
   const isSuperAdmin = profile?.is_super_admin ?? false;
-  const [sessionTier, setSessionTier] = useState<RolloutTier>(() => getStoredSupportViewTier());
+  const [sessionTier, setSessionTier] = useState<SuperAdminViewerTier>(() => getStoredSuperAdminViewerTier());
 
   useEffect(() => {
-    const onChange = () => setSessionTier(getStoredSupportViewTier());
+    const onChange = () => setSessionTier(getStoredSuperAdminViewerTier());
     window.addEventListener('support-feature-tier-changed', onChange);
     window.addEventListener('storage', onChange);
     return () => {
@@ -122,8 +123,8 @@ export function useFeatureRollout() {
     [configByKey, viewerTier, roleAllowed, subscriptionAllowed]
   );
 
-  const setViewerTier = useCallback((tier: RolloutTier) => {
-    setStoredSupportViewTier(tier);
+  const setViewerTier = useCallback((tier: SuperAdminViewerTier) => {
+    setStoredSuperAdminViewerTier(tier);
     setSessionTier(tier);
   }, []);
 

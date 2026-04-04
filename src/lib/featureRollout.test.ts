@@ -3,6 +3,7 @@ import {
   normalizeFeatureKey,
   normalizeRolloutTierLabel,
   tierVisibleForViewer,
+  superAdminViewerTierFromRolloutTier,
 } from '@/lib/featureRollout';
 
 describe('featureRollout helpers', () => {
@@ -25,5 +26,11 @@ describe('featureRollout helpers', () => {
     expect(tierVisibleForViewer('staged', 'staged')).toBe(true);
     expect(tierVisibleForViewer('development', 'staged')).toBe(false);
     expect(tierVisibleForViewer('development', 'development')).toBe(true);
+  });
+
+  it('maps staged rollout tier to development for super-admin viewer toggle', () => {
+    expect(superAdminViewerTierFromRolloutTier('staged')).toBe('development');
+    expect(superAdminViewerTierFromRolloutTier('production')).toBe('production');
+    expect(superAdminViewerTierFromRolloutTier('development')).toBe('development');
   });
 });

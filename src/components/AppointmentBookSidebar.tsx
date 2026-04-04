@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Calendar as CalendarIcon, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CalendarAppointment, WaitlistEntry } from '@/types/calendar';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { WaitlistEntry, CalendarStaff } from '@/types/calendar';
+import { Service } from '@/hooks/useBusinessData';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/translations';
+import type { ApptBookSidebarFilterMode } from '@/lib/apptBookCalendarPrefs';
 
 interface AppointmentBookSidebarProps {
   selectedDate: Date;
@@ -13,6 +20,22 @@ interface AppointmentBookSidebarProps {
   waitlistCollapsed: boolean;
   onWaitlistToggle: () => void;
   onCreateClick?: () => void;
+  /** Calendar-only: filter panel below mini calendar */
+  showCalendarFilters?: boolean;
+  sidebarFilterMode?: ApptBookSidebarFilterMode;
+  onSidebarFilterModeChange?: (mode: ApptBookSidebarFilterMode) => void;
+  activeServices?: Service[];
+  /** null = all services selected */
+  selectedServiceIds?: Set<string> | null;
+  onToggleServiceId?: (id: string) => void;
+  onSelectAllServices?: () => void;
+  categorySearch?: string;
+  onCategorySearchChange?: (q: string) => void;
+  calendarEmployees?: CalendarStaff[];
+  selectedEmployeeIds?: Set<string> | null;
+  onToggleEmployeeId?: (id: string) => void;
+  onSelectAllEmployees?: () => void;
+  onClearFilters?: () => void;
 }
 
 export function AppointmentBookSidebar({
@@ -23,8 +46,26 @@ export function AppointmentBookSidebar({
   waitlistCollapsed,
   onWaitlistToggle,
   onCreateClick,
+  showCalendarFilters = false,
+  sidebarFilterMode = 'booking-category',
+  onSidebarFilterModeChange,
+  activeServices = [],
+  selectedServiceIds = null,
+  onToggleServiceId,
+  onSelectAllServices,
+  categorySearch = '',
+  onCategorySearchChange,
+  calendarEmployees = [],
+  selectedEmployeeIds = null,
+  onToggleEmployeeId,
+  onSelectAllEmployees,
+  onClearFilters,
 }: AppointmentBookSidebarProps) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(selectedDate));
+
+  useEffect(() => {
+    setCurrentMonth(startOfMonth(selectedDate));
+  }, [selectedDate]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -147,6 +188,122 @@ export function AppointmentBookSidebar({
           </div>
         </div>
       </div>
+
+      {showCalendarFilters &&
+        onSidebarFilterModeChange &&
+        onToggleServiceId &&
+        onSelectAllServices &&
+        onCategorySearchChange &&
+        onToggleEmployeeId &&
+        onSelectAllEmployees &&
+        onClearFilters && (
+          <div className="border-b border-border p-4">
+            <h3 className="mb-2 text-sm font-semibold text-foreground">{t('apptBook.filterCalendar')}</h3>
+            <Tabs
+              value={sidebarFilterMode}
+              onValueChange={(v) => onSidebarFilterModeChange(v as ApptBookSidebarFilterMode)}
+            >
+              <TabsList className="mb-3 grid w-full grid-cols-2">
+                <TabsTrigger value="specialist" className="text-xs">
+                  {t('apptBook.specialist')}
+                </TabsTrigger>
+                <TabsTrigger value="booking-category" className="text-xs">
+                  {t('apptBook.bookingCategory')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {sidebarFilterMode === 'booking-category' ? (
+              <>
+                <Input
+                  value={categorySearch}
+                  onChange={(e) => onCategorySearchChange(e.target.value)}
+                  placeholder={t('apptBook.searchCategories')}
+                  className="mb-2 h-8 text-xs"
+                />
+                <ScrollArea className="h-[160px] pr-2">
+                  <div className="space-y-2">
+                    <label className="flex cursor-pointer items-center gap-2 text-xs">
+                      <Checkbox
+                        checked={
+                          !selectedServiceIds || selectedServiceIds.size === activeServices.length
+                        }
+                        onCheckedChange={() => onSelectAllServices()}
+                      />
+                      <span>{t('apptBook.allCategories')}</span>
+                    </label>
+                    {activeServices
+                      .filter((s) =>
+                        categorySearch.trim()
+                          ? s.name.toLowerCase().includes(categorySearch.trim().toLowerCase())
+                          : true,
+                      )
+                      .map((s) => {
+                        const all =
+                          !selectedServiceIds || selectedServiceIds.size === activeServices.length;
+                        const checked = all || (selectedServiceIds?.has(s.id) ?? false);
+                        return (
+                          <label
+                            key={s.id}
+                            className="flex cursor-pointer items-center gap-2 text-xs"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => onToggleServiceId(s.id)}
+                            />
+                            <span className="truncate">{s.name}</span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </ScrollArea>
+              </>
+            ) : (
+              <ScrollArea className="h-[200px] pr-2">
+                <div className="space-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={
+                        !selectedEmployeeIds ||
+                        selectedEmployeeIds.size === calendarEmployees.length
+                      }
+                      onCheckedChange={() => onSelectAllEmployees()}
+                    />
+                    <span>{t('apptBook.allStaff')}</span>
+                  </label>
+                  {calendarEmployees.map((e) => {
+                    const all =
+                      !selectedEmployeeIds ||
+                      selectedEmployeeIds.size === calendarEmployees.length;
+                    const checked = all || (selectedEmployeeIds?.has(e.id) ?? false);
+                    return (
+                      <label
+                        key={e.id}
+                        className="flex cursor-pointer items-center gap-2 text-xs"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => onToggleEmployeeId(e.id)}
+                        />
+                        <span className="truncate">{e.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={onClearFilters}
+            >
+              {t('apptBook.clearFilters')}
+            </Button>
+          </div>
+        )}
 
       {/* Waitlist Section */}
       <div className="flex-1 overflow-hidden flex flex-col">

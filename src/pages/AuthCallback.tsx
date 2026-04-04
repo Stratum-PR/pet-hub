@@ -12,6 +12,7 @@ import {
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
 import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
+import { broadcastAuthLogin } from '@/lib/authBroadcast';
 
 const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
 const PENDING_MANAGER_TIER = 'pending_manager_tier';
@@ -67,6 +68,11 @@ export function AuthCallback() {
         return;
       }
 
+      await refreshAuth(session.user);
+      if (!cancelled) {
+        broadcastAuthLogin(session.user);
+      }
+
       const pendingName = localStorage.getItem(PENDING_MANAGER_BUSINESS_NAME);
       const pendingTier = localStorage.getItem(PENDING_MANAGER_TIER) || 'basic';
 
@@ -77,7 +83,6 @@ export function AuthCallback() {
           setStatus('error');
           return;
         }
-        await refreshAuth();
         setAuthContext(AUTH_CONTEXTS.BUSINESS);
         const route = getDefaultRoute({ isAdmin: false, business: null });
         navigate(route, { replace: true });
@@ -165,6 +170,8 @@ export function AuthCallback() {
     const ok = await runCompleteManagerSignup();
     if (ok) {
       await refreshAuth();
+      const { data: s } = await supabase.auth.getSession();
+      if (s.session?.user) broadcastAuthLogin(s.session.user);
       setAuthContext(AUTH_CONTEXTS.BUSINESS);
       const route = getDefaultRoute({ isAdmin: false, business: null });
       navigate(route, { replace: true });

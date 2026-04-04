@@ -2,6 +2,9 @@ export const SUPPORT_FEATURE_VIEW_TIER_KEY = 'support_feature_view_tier';
 
 export type RolloutTier = 'production' | 'staged' | 'development';
 
+/** Super-admin UI preview: only Production vs Development (no staged channel). */
+export type SuperAdminViewerTier = 'production' | 'development';
+
 export type FeatureKey = string;
 
 export type FeatureRole = 'client' | 'employee' | 'manager' | 'super_admin';
@@ -27,7 +30,26 @@ export function getStoredSupportViewTier(): RolloutTier {
   return parseRolloutTier(sessionStorage.getItem(SUPPORT_FEATURE_VIEW_TIER_KEY));
 }
 
+/** Map DB / legacy tier labels to the super-admin preview toggle (staged → development). */
+export function superAdminViewerTierFromRolloutTier(tier: RolloutTier): SuperAdminViewerTier {
+  if (tier === 'staged') return 'development';
+  if (tier === 'development') return 'development';
+  return 'production';
+}
+
+/** Stored super-admin preview mode; legacy `staged` maps to `development` so removing the middle option does not break. */
+export function getStoredSuperAdminViewerTier(): SuperAdminViewerTier {
+  if (typeof window === 'undefined') return 'production';
+  return superAdminViewerTierFromRolloutTier(parseRolloutTier(sessionStorage.getItem(SUPPORT_FEATURE_VIEW_TIER_KEY)));
+}
+
 export function setStoredSupportViewTier(tier: RolloutTier): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(SUPPORT_FEATURE_VIEW_TIER_KEY, tier);
+  window.dispatchEvent(new Event('support-feature-tier-changed'));
+}
+
+export function setStoredSuperAdminViewerTier(tier: SuperAdminViewerTier): void {
   if (typeof window === 'undefined') return;
   sessionStorage.setItem(SUPPORT_FEATURE_VIEW_TIER_KEY, tier);
   window.dispatchEvent(new Event('support-feature-tier-changed'));

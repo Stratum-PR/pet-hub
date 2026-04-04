@@ -8,6 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { getBusinessClientLink } from '@/lib/businessClientLink';
 import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { LoginForm } from '@/components/LoginForm';
+import { t } from '@/lib/translations';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,7 +23,7 @@ function BusinessAuthHold({ label }: { label: string }) {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, isAdmin, loading, profile, business } = useAuth();
+  const { user, isAdmin, loading, profile, business, inPlaceLoginRequired, clearInPlaceLoginRequirement } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
@@ -211,7 +214,38 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
         <PawStagedLoadingFullscreen label="Loading user session" />
       );
     }
-    
+
+    if (inPlaceLoginRequired) {
+      const stayPath = `${location.pathname}${location.search}`;
+      return (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="in-place-login-title"
+        >
+          <Card className="w-full max-w-md shadow-lg border-border/80">
+            <CardHeader className="space-y-1">
+              <CardTitle id="in-place-login-title">{t('auth.inPlaceLoginTitle')}</CardTitle>
+              <CardDescription>{t('auth.inPlaceLoginDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LoginForm
+                postLoginNavigateTo={stayPath}
+                businessSlug={businessSlug}
+                businessId={business?.id}
+                business={business}
+                onLoginSuccess={(_destination) => {
+                  clearInPlaceLoginRequirement();
+                  navigate(stayPath, { replace: true });
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     // No session — send to marketing home instead of a dead-end / blank-feeling page
     return <Navigate to="/" replace />;
   }
