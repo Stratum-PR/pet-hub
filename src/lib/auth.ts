@@ -1,6 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { clearAuthContext } from '@/lib/authRouting';
 import { clearSupportSessionMarkers } from '@/lib/supportSession';
+import { broadcastAuthLogout } from '@/lib/authBroadcast';
+
+/** True while this tab is executing `signOut` — used to avoid treating same-tab logout as cross-tab session loss. */
+let localSignOutDepth = 0;
+export function isAuthLocalSignOutInProgress(): boolean {
+  return localSignOutDepth > 0;
+}
 
 export interface Profile {
   id: string;
@@ -174,37 +181,56 @@ export async function requireSuperAdmin() {
  * Sign out the current user
  */
 export async function signOut() {
+  localSignOutDepth += 1;
+  try {
+    if (typeof window !== 'undefined') {
+      clearSupportSessionMarkers();
+    }
+    // Clear impersonation first (before sign out)
+    if (isImpersonating()) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('is_impersonating');
+        sessionStorage.removeItem('impersonating_business_id');
+        sessionStorage.removeItem('impersonating_business_name');
+      }
+    }
+
+    try {
+      // Best-effort sign out; don't let failures block UI navigation
+      const { error } = await supabase.auth.signOut();
+      if (error && typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+        console.error('[Auth] signOut error:', error);
+      }
+    } catch (err) {
+      if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+        console.error('[Auth] signOut unexpected error:', err);
+      }
+    }
+
+    // Clear all session-scoped routing/context flags
+    clearAuthContext();
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('lastRoute');
+      }
+    } catch {
+      // ignore
+    }
+
+    if (typeof window !== 'undefined') {
+      broadcastAuthLogout();
+    }
+  } finally {
+    scheduleLocalSignOutDepthEnd();
+  }
+}
+
+function scheduleLocalSignOutDepthEnd() {
   if (typeof window !== 'undefined') {
-    clearSupportSessionMarkers();
-  }
-  // Clear impersonation first (before sign out)
-  if (isImpersonating()) {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('is_impersonating');
-      sessionStorage.removeItem('impersonating_business_id');
-      sessionStorage.removeItem('impersonating_business_name');
-    }
-  }
-
-  try {
-    // Best-effort sign out; don't let failures block UI navigation
-    const { error } = await supabase.auth.signOut();
-    if (error && typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
-      console.error('[Auth] signOut error:', error);
-    }
-  } catch (err) {
-    if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
-      console.error('[Auth] signOut unexpected error:', err);
-    }
-  }
-
-  // Clear all session-scoped routing/context flags
-  clearAuthContext();
-  try {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('lastRoute');
-    }
-  } catch {
-    // ignore
+    window.setTimeout(() => {
+      localSignOutDepth = Math.max(0, localSignOutDepth - 1);
+    }, 750);
+  } else {
+    localSignOutDepth = Math.max(0, localSignOutDepth - 1);
   }
 }

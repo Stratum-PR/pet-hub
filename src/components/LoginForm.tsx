@@ -29,6 +29,7 @@ import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
 import { t } from '@/lib/translations';
 import { getBusinessClientLink, ensureBusinessClientLink } from '@/lib/businessClientLink';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
+import { broadcastAuthLogin } from '@/lib/authBroadcast';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -39,9 +40,18 @@ export interface LoginFormProps {
   businessSlug?: string;
   businessId?: string;
   business?: Business | null;
+  /** When set, navigation after login uses this path instead of the computed default (e.g. stay on current URL for in-place re-auth). */
+  postLoginNavigateTo?: string | null;
 }
 
-export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, business }: LoginFormProps) {
+export function LoginForm({
+  onLoginSuccess,
+  onClose,
+  businessSlug,
+  businessId,
+  business,
+  postLoginNavigateTo,
+}: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -229,8 +239,15 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
       const ok = await credentialsLogin(email, password);
       if (ok) {
         await refreshAuth();
+        const { data: sessionWrap } = await supabase.auth.getSession();
+        if (sessionWrap?.session?.user) {
+          broadcastAuthLogin(sessionWrap.session.user);
+        }
         toast.success('Signed in successfully');
-        let destination = await getRedirectForAuthenticatedUser();
+        let destination =
+          postLoginNavigateTo != null && postLoginNavigateTo !== ''
+            ? postLoginNavigateTo
+            : await getRedirectForAuthenticatedUser();
         if (destination === '/cliente' && businessSlug && businessId) {
           const { data: { user: u } } = await supabase.auth.getUser();
           if (u) {
@@ -271,6 +288,7 @@ export function LoginForm({ onLoginSuccess, onClose, businessSlug, businessId, b
       if (!user) return;
       await ensureBusinessClientLink(user.id, businessId, 'pet_owner');
       if (business) setBusinessSlugForSession(business);
+      broadcastAuthLogin(user);
       toast.success(t('register.linkSuccess'));
       onLoginSuccess(`/${businessSlug}/dashboard`);
     } catch (err) {

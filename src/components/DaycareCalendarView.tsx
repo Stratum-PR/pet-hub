@@ -22,6 +22,8 @@ interface DaycareCalendarViewProps {
   onCreateClick?: () => void;
   canMarkNoShow?: boolean;
   onMarkNoShow?: (appointmentId: string) => void | Promise<void>;
+  /** When true, only the room grid is shown (toolbar lives in AppointmentBook). */
+  suppressHeader?: boolean;
 }
 
 // Mock daycare rooms - in production, this would come from database
@@ -45,6 +47,7 @@ export function DaycareCalendarView({
   onCreateClick,
   canMarkNoShow,
   onMarkNoShow,
+  suppressHeader = false,
 }: DaycareCalendarViewProps) {
   // Group appointments by room (for now, randomly assign to rooms)
   // In production, this would be based on pet characteristics or appointment type
@@ -98,7 +101,7 @@ export function DaycareCalendarView({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header Controls */}
+      {!suppressHeader ? (
       <div className="border-b border-border bg-muted/30 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-semibold text-foreground">Appointment Book</h1>
@@ -188,6 +191,7 @@ export function DaycareCalendarView({
           </div>
         </div>
       </div>
+      ) : null}
 
       {/* Daycare Rooms */}
       <div className="flex-1 overflow-auto p-6">

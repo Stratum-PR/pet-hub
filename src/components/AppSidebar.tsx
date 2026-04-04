@@ -57,7 +57,7 @@ const mainNavItems = [
   { path: 'clients', labelKey: 'nav.clients', icon: Users },
   { path: 'pets', labelKey: 'nav.pets', icon: Dog },
   { path: 'appointments', labelKey: 'nav.appointments', icon: CalendarDays },
-  { path: 'appt-book', labelKey: 'nav.apptBook', icon: Calendar },
+  { path: 'appt-book/calendar', labelKey: 'nav.apptBook', icon: Calendar },
   { path: 'inventory', labelKey: 'nav.inventory', icon: Package },
   { path: 'transactions', labelKey: 'nav.transactions', icon: DollarSign },
   { path: 'services', labelKey: 'nav.services', icon: Scissors },
@@ -196,7 +196,11 @@ export function AppSidebar({
 
   const NavLink = ({ path, labelKey, label, icon: Icon }: { path: string; labelKey?: string; label?: string; icon: React.ElementType }) => {
     const to = `${basePath}/${path}`;
-    const active = isActive(path);
+    const active = path.startsWith('appt-book')
+      ? basePath
+        ? location.pathname.startsWith(`${basePath}/appt-book`)
+        : location.pathname.includes('/appt-book')
+      : isActive(path);
     const collapsedNav = collapsed && !mobile;
     return (
       <Link to={to} className={linkClass(active, collapsedNav)}>
@@ -210,7 +214,7 @@ export function AppSidebar({
 
   const visibleMainNavItems = mainNavItems.filter((item) => {
     if (item.path === 'appointments') return isFeatureVisible('appointments');
-    if (item.path === 'appt-book') return isFeatureVisible('appointment_book');
+    if (item.path.startsWith('appt-book')) return isFeatureVisible('appointment_book');
     if (item.path === 'inventory') return isFeatureVisible('inventory');
     if (item.path === 'transactions') return isFeatureVisible('transactions_list');
     return true;

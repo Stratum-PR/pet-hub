@@ -15,7 +15,7 @@ export interface DayHours {
 export const DEFAULT_DAY_HOURS: DayHours = { open: '09:00', close: '18:00' };
 
 /** Parse "HH:mm" to minutes since midnight (0-1439). */
-function timeToMinutes(time: string): number {
+export function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   if (Number.isNaN(h) || Number.isNaN(m)) return 9 * 60; // 09:00 default
   return Math.max(0, Math.min(23 * 60 + 59, h * 60 + m));
@@ -61,6 +61,49 @@ export interface WeekTimeRange {
 
 export function serializeBusinessHours(hours: Record<DayKey, DayHours>): string {
   return JSON.stringify(hours);
+}
+
+/** Map a JS Date to our JSON day key (week starts Monday in settings object, keys are monday..sunday). */
+export function dateToDayKey(date: Date): DayKey {
+  const map: DayKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  return map[date.getDay()];
+}
+
+/**
+ * 30-minute appointment start times (24h "HH:mm") from opening through the last slot
+ * that begins at least 30 minutes before closing.
+ */
+export function appointmentTimeSlotsForDay(day: DayHours): string[] {
+  if (day?.closed) return [];
+  const open = timeToMinutes(day.open ?? DEFAULT_DAY_HOURS.open);
+  const close = timeToMinutes(day.close ?? DEFAULT_DAY_HOURS.close);
+  const lastStart = close - 30;
+  if (lastStart < open) return [];
+  const out: string[] = [];
+  for (let m = open; m <= lastStart; m += 30) {
+    out.push(minutesToHHmm(m));
+  }
+  return out;
+}
+
+export function minutesToHHmm(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const mm = totalMinutes % 60;
+  return `${h.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+}
+
+/** 30-minute grid start times where the whole booking of durationMin fits before close. */
+export function appointmentStartSlotsForDuration(day: DayHours, durationMin: number): string[] {
+  if (day?.closed || durationMin <= 0) return [];
+  const open = timeToMinutes(day.open ?? DEFAULT_DAY_HOURS.open);
+  const close = timeToMinutes(day.close ?? DEFAULT_DAY_HOURS.close);
+  const lastStart = close - durationMin;
+  if (lastStart < open) return [];
+  const out: string[] = [];
+  for (let m = open; m <= lastStart; m += 30) {
+    out.push(minutesToHHmm(m));
+  }
+  return out;
 }
 
 /**

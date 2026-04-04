@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isSupabaseConfigured, supabase } from '@/integrations/supabase/client';
-import type { Profile, Business } from '@/lib/auth';
+import { type Profile, type Business, isAuthLocalSignOutInProgress } from '@/lib/auth';
 import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
+import { subscribeAuthBroadcast } from '@/lib/authBroadcast';
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +23,11 @@ interface AuthContextType {
   impersonatingBusinessName: string | null;
   /** Re-hydrate auth state, optionally from a known Supabase user */
   refreshAuth: (userOverride?: User | null) => Promise<void>;
+  /**
+   * True after another tab (or broadcast) ended the session; protected routes should show login in place instead of redirecting home.
+   */
+  inPlaceLoginRequired: boolean;
+  clearInPlaceLoginRequirement: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,6 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authInitialized, setAuthInitialized] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatingBusinessName, setImpersonatingBusinessName] = useState<string | null>(null);
+  const [inPlaceLoginRequired, setInPlaceLoginRequired] = useState(false);
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
   const queryClient = useQueryClient();
 
   const profileQuery = useQuery({
@@ -104,6 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   }, [authInitialized, user, profile, profileQuery.isLoading, businessId, business, businessQuery.isLoading]);
 
+  const clearInPlaceLoginRequirement = useCallback(() => {
+    setInPlaceLoginRequired(false);
+  }, []);
+
   const refreshAuth = async (userOverride?: User | null) => {
     console.log('[AuthContext] refreshAuth start');
 
@@ -144,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    setInPlaceLoginRequired(false);
+
     // 2) Best-effort: prefill query cache for immediate UI stability.
     // Fire-and-forget so refreshAuth returns instantly (React Query handles retries).
     const userId = effectiveUser.id;
@@ -165,6 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     console.log('[AuthContext] refreshAuth end');
   };
+
+  const refreshAuthRef = useRef(refreshAuth);
+  refreshAuthRef.current = refreshAuth;
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -207,6 +225,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           queryClient.removeQueries({ queryKey: ['business'] });
           setIsImpersonating(false);
           setImpersonatingBusinessName(null);
+          if (!isAuthLocalSignOutInProgress()) {
+            setInPlaceLoginRequired(true);
+          }
         } else if (event === 'SIGNED_IN') {
           await refreshAuth(session?.user ?? null);
         } else if (event === 'TOKEN_REFRESHED') {
@@ -229,9 +250,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('storage', handleStorageChange);
 
+    const unsubBroadcast = subscribeAuthBroadcast((msg) => {
+      if (msg.type === 'LOGOUT') {
+        setUser(null);
+        setAuthInitialized(true);
+        queryClient.removeQueries({ queryKey: ['profile'] });
+        queryClient.removeQueries({ queryKey: ['business'] });
+        setIsImpersonating(false);
+        setImpersonatingBusinessName(null);
+        setInPlaceLoginRequired(true);
+        return;
+      }
+      if (msg.type === 'LOGIN') {
+        void refreshAuthRef.current().catch((e) => console.warn('[AuthContext] refreshAuth after LOGIN broadcast:', e));
+      }
+    });
+
+    const revalidateSessionOnFocus = async () => {
+      if (!isSupabaseConfigured || document.visibilityState !== 'visible') return;
+      if (!userRef.current) return;
+      try {
+        const { data: sessionData, error: sessionError } = await withTimeout(
+          supabase.auth.getSession(),
+          12000,
+          'auth.getSession.focus'
+        );
+        if (sessionError || !sessionData?.session?.user) {
+          setUser(null);
+          queryClient.removeQueries({ queryKey: ['profile'] });
+          queryClient.removeQueries({ queryKey: ['business'] });
+          setInPlaceLoginRequired(true);
+          setAuthInitialized(true);
+          return;
+        }
+        const { data: userData, error: userError } = await withTimeout(
+          supabase.auth.getUser(),
+          12000,
+          'auth.getUser.focus'
+        );
+        if (userError || !userData?.user) {
+          setUser(null);
+          queryClient.removeQueries({ queryKey: ['profile'] });
+          queryClient.removeQueries({ queryKey: ['business'] });
+          setInPlaceLoginRequired(true);
+          setAuthInitialized(true);
+          return;
+        }
+        setUser(userData.user);
+        void queryClient.invalidateQueries({ queryKey: ['profile', userData.user.id] }).catch(() => {});
+      } catch (e) {
+        console.warn('[AuthContext] focus session revalidation failed:', e);
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void revalidateSessionOnFocus();
+    };
+    window.addEventListener('focus', onVisibility);
+    document.addEventListener('visibilitychange', onVisibility);
+
     return () => {
       subscription.unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
+      unsubBroadcast();
+      window.removeEventListener('focus', onVisibility);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 
@@ -262,6 +345,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isImpersonating,
         impersonatingBusinessName,
         refreshAuth,
+        inPlaceLoginRequired,
+        clearInPlaceLoginRequirement,
       }}
     >
       {children}

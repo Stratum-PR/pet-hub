@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation, useSearchParams, Outlet } from 'react-router-dom';
 import { useMemo, useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { PageTransitionProvider, usePageTransition } from '@/contexts/PageTransitionContext';
@@ -50,6 +50,13 @@ function RedirectLegacyEmployeeManagement() {
   const staff = searchParams.get('staff') ?? searchParams.get('employee');
   const qs = staff ? `?staff=${encodeURIComponent(staff)}` : '';
   return <Navigate to={`staff-management${qs}`} replace />;
+}
+
+/** Short URL alias: /:slug/calendar → Appt Book calendar (feature-gated). */
+function RedirectApptBookCalendarAlias() {
+  const slug = useResolvedBusinessSlug();
+  const prefix = slug ? `/${slug}` : '';
+  return <Navigate to={`${prefix}/appt-book/calendar`} replace />;
 }
 
 /** Legacy URLs used .../payroll/employee/:id; canonical is .../payroll/staff/:id */
@@ -383,9 +390,23 @@ const Index = () => {
               }
             />
             <Route
-              path="appt-book"
-              element={appointmentBookVisible ? <AppointmentBook /> : <Navigate to="dashboard" replace />}
+              path="calendar"
+              element={
+                appointmentBookVisible ? (
+                  <RedirectApptBookCalendarAlias />
+                ) : (
+                  <Navigate to="dashboard" replace />
+                )
+              }
             />
+            <Route
+              path="appt-book"
+              element={appointmentBookVisible ? <Outlet /> : <Navigate to="dashboard" replace />}
+            >
+              <Route index element={<Navigate to="calendar" replace />} />
+              <Route path="calendar" element={<AppointmentBook />} />
+              <Route path="appointments" element={<AppointmentBook />} />
+            </Route>
             <Route
               path="inventory"
               element={
