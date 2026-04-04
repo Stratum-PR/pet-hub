@@ -21,7 +21,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  esbuild: {
+    /** Downlevel ??, ?., etc. so older Safari/WebKit can parse the bundle. */
+    target: "es2018",
+  },
   build: {
+    /** Rollup output baseline (keep in sync with esbuild.target). */
+    target: "es2018",
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "index.html"),
