@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Calendar as CalendarIcon, Clock, User, Dog, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,18 +8,28 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { format, startOfDay, setHours, setMinutes } from 'date-fns';
+import { format, startOfDay, setHours, setMinutes, addDays, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { BusinessClient, Pet, Service, Appointment } from '@/hooks/useBusinessData';
 import { Employee } from '@/types';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useSettings } from '@/hooks/useSupabaseData';
 import { ensureAppointmentServiceIds } from '@/lib/appointmentServiceResolution';
 import { staffOffersSelectedServices } from '@/lib/staffOfferedServices';
 import { normalizeAppointmentStatus } from '@/lib/appointmentStatus';
 import { t } from '@/lib/translations';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import { useAuth } from '@/contexts/AuthContext';
+import { isPastCalendarDay, isSlotStartInPast } from '@/lib/bookingPastSlots';
+import {
+  parseBusinessHours,
+  dateToDayKey,
+  appointmentTimeSlotsForDay,
+  findFirstOpenDayWithSlotsFrom,
+  isBusinessClosedOnDate,
+} from '@/lib/businessHours';
 
 // Time slots in 24-hour format for internal use
 const TIME_SLOTS_24H = [
@@ -64,7 +74,15 @@ export function EditAppointmentDialog({
   onSuccess,
 }: EditAppointmentDialogProps) {
   const businessId = useBusinessId();
+  const { settings } = useSettings();
+  const { role } = useAuth();
+  const employeeMayBookPast = role === 'employee';
   const normalizedClients: BusinessClient[] = Array.isArray(clients) ? clients : [];
+
+  const hoursPerDay = useMemo(
+    () => parseBusinessHours(settings?.business_hours),
+    [settings?.business_hours],
+  );
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('');
@@ -90,6 +108,25 @@ export function EditAppointmentDialog({
   });
   const [loading, setLoading] = useState(false);
   const [existingAppointments, setExistingAppointments] = useState<any[]>([]);
+
+  const resolvedDurationMin = useMemo(() => {
+    let sum = 0;
+    for (const name of formData.services) {
+      const s = services.find((x) => x.name === name);
+      sum += s?.duration_minutes ?? 60;
+    }
+    return Math.max(30, sum);
+  }, [formData.services, services]);
+
+  const dayHoursEdit = selectedDate ? hoursPerDay[dateToDayKey(selectedDate)] : null;
+
+  const editableTimeSlots = useMemo(() => {
+    if (!dayHoursEdit || dayHoursEdit.closed) return [];
+    const allowed = new Set(appointmentTimeSlotsForDay(dayHoursEdit));
+    return TIME_SLOTS_24H.filter((t) => allowed.has(t));
+  }, [dayHoursEdit]);
+
+  const editAutoJumpRef = useRef(0);
 
   // Initialize form data when appointment changes
   useEffect(() => {
@@ -211,15 +248,96 @@ export function EditAppointmentDialog({
     });
   }, [selectedDate, existingAppointments]);
 
-  const availableTimeSlots = useMemo(() => {
-    // If editing and time hasn't changed, include current time slot
-    const currentTime = appointment ? format(new Date(appointment.scheduled_date), 'HH:mm') : '';
-    const slots = TIME_SLOTS_24H.filter(time => !getBookedTimes.includes(time));
-    if (currentTime && !slots.includes(currentTime)) {
-      return [currentTime, ...slots].sort();
+  useEffect(() => {
+    if (!open) editAutoJumpRef.current = 0;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !appointment) return;
+    if (resolvedDurationMin <= 0) return;
+    if (!selectedDate) return;
+    if (editAutoJumpRef.current > 90) return;
+
+    const closed = Boolean(dayHoursEdit?.closed);
+    const hasGrid = editableTimeSlots.length > 0;
+    const hasSelectable = editableTimeSlots.some((time24) => {
+      const isBooked = getBookedTimes.includes(time24);
+      const isCurrentAppointmentTime =
+        appointment && format(new Date(appointment.scheduled_date), 'HH:mm') === time24;
+      const isPast = selectedDate ? isSlotStartInPast(selectedDate, time24) : false;
+      return (!isBooked || isCurrentAppointmentTime) && (!isPast || employeeMayBookPast);
+    });
+
+    if (!closed && hasGrid && hasSelectable) return;
+
+    const next =
+      closed || !hasGrid
+        ? findFirstOpenDayWithSlotsFrom(startOfDay(selectedDate), hoursPerDay, resolvedDurationMin)
+        : findFirstOpenDayWithSlotsFrom(
+            addDays(startOfDay(selectedDate), 1),
+            hoursPerDay,
+            resolvedDurationMin,
+          );
+
+    if (!next) {
+      editAutoJumpRef.current = 100;
+      return;
     }
-    return slots;
-  }, [getBookedTimes, appointment]);
+    if (!isSameDay(startOfDay(next), startOfDay(selectedDate))) {
+      editAutoJumpRef.current += 1;
+      setSelectedDate(next);
+    }
+  }, [
+    open,
+    appointment,
+    selectedDate,
+    dayHoursEdit?.closed,
+    editableTimeSlots,
+    getBookedTimes,
+    resolvedDurationMin,
+    hoursPerDay,
+    employeeMayBookPast,
+  ]);
+
+  useEffect(() => {
+    if (!open || !selectedTime || editableTimeSlots.length === 0) return;
+    if (editableTimeSlots.includes(selectedTime)) return;
+    const first = editableTimeSlots.find((time24) => {
+      const isBooked = getBookedTimes.includes(time24);
+      const isCurrentAppointmentTime =
+        appointment && format(new Date(appointment.scheduled_date), 'HH:mm') === time24;
+      const isPast = selectedDate ? isSlotStartInPast(selectedDate, time24) : false;
+      return (!isBooked || isCurrentAppointmentTime) && (!isPast || employeeMayBookPast);
+    });
+    if (first) setSelectedTime(first);
+  }, [
+    editableTimeSlots,
+    selectedTime,
+    getBookedTimes,
+    appointment,
+    selectedDate,
+    employeeMayBookPast,
+    open,
+  ]);
+
+  useEffect(() => {
+    if (!open) return;
+    const tFirst = editableTimeSlots.find((time24) => {
+      const isBooked = getBookedTimes.includes(time24);
+      const isCurrentAppointmentTime =
+        appointment && format(new Date(appointment.scheduled_date), 'HH:mm') === time24;
+      const isPast = selectedDate ? isSlotStartInPast(selectedDate, time24) : false;
+      return (!isBooked || isCurrentAppointmentTime) && (!isPast || employeeMayBookPast);
+    });
+    if (!tFirst) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document
+          .getElementById(`edit-appt-slot-${tFirst.replace(':', '-')}`)
+          ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    });
+  }, [open, selectedDate, editableTimeSlots, getBookedTimes, appointment, employeeMayBookPast]);
 
   const clientPets = useMemo(() => {
     if (!formData.clientId) return [];
@@ -291,6 +409,13 @@ export function EditAppointmentDialog({
     if (!appointment || !selectedDate || !selectedTime || !formData.clientName || !formData.petId || formData.services.length === 0) {
       alert('Please fill in all required fields');
       return;
+    }
+
+    if (
+      employeeMayBookPast &&
+      isSlotStartInPast(selectedDate, selectedTime)
+    ) {
+      if (!window.confirm(t('booking.pastTimeConfirm'))) return;
     }
 
     setLoading(true);
@@ -438,7 +563,27 @@ export function EditAppointmentDialog({
                   mode="single"
                   selected={selectedDate || new Date()}
                   onSelect={(date) => date && setSelectedDate(date)}
-                  disabled={(date) => date < startOfDay(new Date())}
+                  disabled={(date) => {
+                    if (isBusinessClosedOnDate(date, hoursPerDay)) return true;
+                    if (employeeMayBookPast) return false;
+                    return date < startOfDay(new Date());
+                  }}
+                  modifiers={{
+                    ...(employeeMayBookPast
+                      ? { pastDay: (d: Date) => isPastCalendarDay(d) }
+                      : {}),
+                    closedDay: (d: Date) => isBusinessClosedOnDate(d, hoursPerDay),
+                  }}
+                  modifiersClassNames={{
+                    ...(employeeMayBookPast
+                      ? {
+                          pastDay:
+                            'opacity-50 text-muted-foreground aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:opacity-100',
+                        }
+                      : {}),
+                    closedDay:
+                      'opacity-45 text-muted-foreground line-through decoration-muted-foreground/50',
+                  }}
                   initialFocus
                 />
               </PopoverContent>
@@ -449,37 +594,52 @@ export function EditAppointmentDialog({
           {selectedDate && (
             <div className="space-y-2">
               <Label className="text-base font-semibold">Select Time *</Label>
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                {TIME_SLOTS_24H.map((time24) => {
-                  const isBooked = getBookedTimes.includes(time24);
-                  const isSelected = selectedTime === time24;
-                  const time12H = formatTime12H(time24);
-                  // Allow selecting current appointment's time even if it appears booked
-                  const isCurrentAppointmentTime = appointment && format(new Date(appointment.scheduled_date), 'HH:mm') === time24;
-                  const canSelect = !isBooked || isCurrentAppointmentTime;
-                  
-                  return (
-                    <Button
-                      key={time24}
-                      type="button"
-                      variant={isSelected ? "default" : "outline"}
-                      onClick={() => canSelect && setSelectedTime(time24)}
-                      disabled={!canSelect && !isSelected}
-                      className={cn(
-                        "h-10",
-                        !canSelect && !isSelected && "opacity-50 cursor-not-allowed bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {time12H}
-                    </Button>
-                  );
-                })}
-              </div>
-              {getBookedTimes.length > 0 && (
+              {editableTimeSlots.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {dayHoursEdit?.closed
+                    ? t('booking.closedThisDay')
+                    : t('booking.noTimesInBusinessHours')}
+                </p>
+              ) : (
+                <div className="max-h-[min(280px,45vh)] overflow-y-auto rounded-md border border-border p-2">
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                    {editableTimeSlots.map((time24) => {
+                      const isBooked = getBookedTimes.includes(time24);
+                      const isSelected = selectedTime === time24;
+                      const time12H = formatTime12H(time24);
+                      const isCurrentAppointmentTime =
+                        appointment && format(new Date(appointment.scheduled_date), 'HH:mm') === time24;
+                      const isPast = selectedDate ? isSlotStartInPast(selectedDate, time24) : false;
+                      const slotSelectable =
+                        (!isBooked || isCurrentAppointmentTime) && (!isPast || employeeMayBookPast);
+
+                      return (
+                        <Button
+                          key={time24}
+                          type="button"
+                          id={`edit-appt-slot-${time24.replace(':', '-')}`}
+                          variant={isSelected ? 'default' : 'outline'}
+                          onClick={() => slotSelectable && setSelectedTime(time24)}
+                          disabled={!slotSelectable && !isSelected}
+                          className={cn(
+                            'h-10',
+                            (isPast || (!slotSelectable && !isSelected)) &&
+                              'opacity-50 bg-muted text-muted-foreground',
+                            slotSelectable && isPast && !isSelected && 'cursor-pointer',
+                          )}
+                        >
+                          {time12H}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {getBookedTimes.length > 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {getBookedTimes.length} time slot(s) already booked (greyed out)
                 </p>
-              )}
+              ) : null}
             </div>
           )}
 

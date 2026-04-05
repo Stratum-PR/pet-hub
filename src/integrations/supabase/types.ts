@@ -513,6 +513,12 @@ export type Database = {
         }
         Returns: Record<string, unknown> | null
       }
+      sync_staff_job_titles_from_staff_roles: {
+        Args: {
+          p_business_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
