@@ -257,19 +257,19 @@ Deno.serve(async (req) => {
   const bizName = body.business_name?.trim() || "Tu negocio";
 
   const resendPayload = JSON.stringify({
-    from: "Pet Hub <noreply@stratumpr.com>",
+    from: "Grumi <noreply@stratumpr.com>",
     to: [email],
-    subject: `${bizName} te invita a unirte a Pet Hub`,
+    subject: `${bizName} te invita a unirte a Grumi`,
     html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 12px 12px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Pet Hub</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">Grumi</h1>
             <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Portal de Empleados</p>
           </div>
           <div style="padding: 30px; background: white; border: 1px solid #e5e7eb; border-top: none;">
             <h2 style="color: #1f2937; margin: 0 0 16px 0;">¡Hola${displayName ? ` ${displayName}` : ""}!</h2>
             <p style="color: #4b5563; line-height: 1.6;">
-              Has sido invitado/a a unirte a <strong>${bizName}</strong> en Pet Hub.
+              Has sido invitado/a a unirte a <strong>${bizName}</strong> en Grumi.
               Crea tu cuenta para acceder a tu horario, citas, hojas de tiempo y más.
             </p>
             <div style="text-align: center; margin: 30px 0;">

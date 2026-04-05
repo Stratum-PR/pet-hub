@@ -276,7 +276,7 @@ export function Layout({ children, settings }: LayoutProps) {
           <AppSidebar
             collapsed={sidebarCollapsed}
             onCollapsedChange={setCollapsed}
-            businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Pet Hub'}
+            businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Grumi'}
             businessLogoUrl={logoToShow}
             navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
             navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}
@@ -639,7 +639,7 @@ export function Layout({ children, settings }: LayoutProps) {
           <AppSidebar
             collapsed={false}
             onCollapsedChange={() => {}}
-            businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Pet Hub'}
+            businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Grumi'}
             businessLogoUrl={logoToShow}
             navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
             navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}

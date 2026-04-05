@@ -35,7 +35,7 @@ export function EmployeePortalRoute() {
   const logoToShow = isDark ? logoDark : logoLight;
   const rawName = settings.business_name?.trim() || '';
   const displayBusinessName =
-    rawName && rawName.toLowerCase().includes('demo') ? 'Demo' : rawName || 'Pet Hub';
+    rawName && rawName.toLowerCase().includes('demo') ? 'Demo' : rawName || 'Grumi';
   const navbarLogoSize = Math.max(32, Math.min(96, parseInt(settings.navbar_logo_size_px || '72', 10) || 72));
 
   async function handleLogout() {

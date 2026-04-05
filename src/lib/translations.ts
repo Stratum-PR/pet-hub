@@ -104,8 +104,8 @@ export const translations: Translations = {
     es: 'Características'
   },
   'landing.navWhyPetHub': {
-    en: 'Why Pet Hub',
-    es: 'Por Qué Pet Hub'
+    en: 'Why Grumi',
+    es: 'Por Qué Grumi'
   },
   'landing.navPricing': {
     en: 'Pricing',
@@ -146,8 +146,8 @@ export const translations: Translations = {
     es: 'Inicia sesión para acceder a {businessName}'
   },
   'login.notLinkedMessage': {
-    en: "We detected you have a Pet Hub account, but you're not linked to {businessName} yet. Would you like to link your account now?",
-    es: 'Ya tienes una cuenta de Pet Hub, pero no estás vinculado a {businessName}. ¿Quieres vincular tu cuenta ahora?'
+    en: "We detected you have a Grumi account, but you're not linked to {businessName} yet. Would you like to link your account now?",
+    es: 'Ya tienes una cuenta de Grumi, pero no estás vinculado a {businessName}. ¿Quieres vincular tu cuenta ahora?'
   },
   'login.linkMyAccount': {
     en: 'Link My Account',
@@ -224,8 +224,8 @@ export const translations: Translations = {
     es: 'Crea tu cuenta'
   },
   'register.subtitle': {
-    en: 'Join Pet Hub',
-    es: 'Únete a Pet Hub'
+    en: 'Join Grumi',
+    es: 'Únete a Grumi'
   },
   'register.userTypeQuestion': {
     en: 'Are you a business owner or a client?',
@@ -340,8 +340,8 @@ export const translations: Translations = {
     es: '¡Bienvenido de nuevo!'
   },
   'register.linkAccountDescription': {
-    en: "We detected you already have a Pet Hub account with this email. To access {businessName}'s services, enter your existing password to link this business to your account.",
-    es: 'Ya tienes una cuenta de Pet Hub con este correo. Para acceder a los servicios de {businessName}, ingresa tu contraseña para vincular este negocio.'
+    en: "We detected you already have a Grumi account with this email. To access {businessName}'s services, enter your existing password to link this business to your account.",
+    es: 'Ya tienes una cuenta de Grumi con este correo. Para acceder a los servicios de {businessName}, ingresa tu contraseña para vincular este negocio.'
   },
   'register.linkAccountButton': {
     en: 'Link Account & Continue',
@@ -382,8 +382,8 @@ export const translations: Translations = {
     es: 'Cerrar sesión'
   },
   'logout.confirm': {
-    en: 'Are you sure you want to log out of Pet Hub?',
-    es: '¿Seguro que quieres cerrar sesión en Pet Hub?'
+    en: 'Are you sure you want to log out of Grumi?',
+    es: '¿Seguro que quieres cerrar sesión en Grumi?'
   },
   'logout.cancel': {
     en: 'Cancel',
@@ -898,8 +898,8 @@ export const translations: Translations = {
     es: 'Modo DEMO: cambios no se guardan',
   },
   'layout.betaTooltip': {
-    en: "We're still refining Pet Hub. Your feedback is welcome!",
-    es: 'Seguimos puliendo Pet Hub. ¡Tu opinión es bienvenida!',
+    en: "We're still refining Grumi. Your feedback is welcome!",
+    es: 'Seguimos puliendo Grumi. ¡Tu opinión es bienvenida!',
   },
   'layout.guestShort': {
     en: 'Guest',
@@ -1144,8 +1144,8 @@ export const translations: Translations = {
   'accountSettings.description': { en: 'Manage your account and preferences', es: 'Administra tu cuenta y preferencias' },
   'accountSettings.demoProfileTitle': { en: 'Demo profile', es: 'Perfil de demostración' },
   'accountSettings.demoProfileDescription': {
-    en: 'You are exploring Pet Hub without signing in. The app shows sample business data. Appearance and some fields can be changed here, but they are stored only in this browser until you create an account.',
-    es: 'Estás explorando Pet Hub sin iniciar sesión. La app muestra datos de ejemplo del negocio. Puedes cambiar la apariencia y algunos campos aquí, pero se guardan solo en este navegador hasta que crees una cuenta.',
+    en: 'You are exploring Grumi without signing in. The app shows sample business data. Appearance and some fields can be changed here, but they are stored only in this browser until you create an account.',
+    es: 'Estás explorando Grumi sin iniciar sesión. La app muestra datos de ejemplo del negocio. Puedes cambiar la apariencia y algunos campos aquí, pero se guardan solo en este navegador hasta que crees una cuenta.',
   },
   'accountSettings.demoProfileDisplayName': { en: 'Display name', es: 'Nombre mostrado' },
   'accountSettings.demoProfileDisplayNameValue': { en: 'Demo manager (preview)', es: 'Gerente demo (vista previa)' },
@@ -4151,8 +4151,8 @@ export const translations: Translations = {
     es: 'Restablecer contraseña del reloj de fichaje'
   },
   'kioskManagerPinReset.stepPasswordDescription': {
-    en: 'Enter your Pet Hub account password to prove it is you. Then you can set a new manager PIN.',
-    es: 'Ingresa la contraseña de tu cuenta de Pet Hub para verificar tu identidad. Luego podrás configurar un nuevo PIN de gerente.'
+    en: 'Enter your Grumi account password to prove it is you. Then you can set a new manager PIN.',
+    es: 'Ingresa la contraseña de tu cuenta de Grumi para verificar tu identidad. Luego podrás configurar un nuevo PIN de gerente.'
   },
   'kioskManagerPinReset.stepPinDescription': {
     en: 'Choose a new 6-digit manager PIN for the punch clock.',

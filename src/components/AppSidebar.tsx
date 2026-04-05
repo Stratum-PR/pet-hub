@@ -274,7 +274,7 @@ export function AppSidebar({
           )}
           {(!collapsed || mobile) && !businessLogoUrl && (
             <span className="font-bold truncate text-sidebar-foreground text-sm mt-1.5 block" style={{ fontFamily: 'var(--font-telegraf)' }}>
-              {businessName?.toLowerCase().includes('demo') ? 'Demo' : businessName || 'Pet Hub'}
+              {businessName?.toLowerCase().includes('demo') ? 'Demo' : businessName || 'Grumi'}
             </span>
           )}
         </Link>

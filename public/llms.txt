@@ -1,16 +1,16 @@
-# Pet Hub
+# Grumi
 
-Pet Hub is a pet grooming business management platform. Manage appointments, clients, pets, inventory, and employees in one place.
+Grumi is a pet grooming business management platform. Manage appointments, clients, pets, inventory, and employees in one place.
 
 ## Main links
 
-- / - Pet Hub - Pet Grooming Business Management. Manage appointments, clients, pets, and more.
+- / - Grumi - Pet Grooming Business Management. Manage appointments, clients, pets, and more.
 - /pricing - Simple, transparent pricing for pet grooming businesses. Choose the plan that fits. All plans include a 14-day free trial.
-- /login - Log in to your Pet Hub account.
-- /registrarse - Create your Pet Hub account. Sign up as a business owner or client.
-- /signup/success - Your Pet Hub account has been created. Check your email to activate.
-- /cliente - Pet Hub client portal. View your appointments and pet care info.
-- /demo - Try Pet Hub with our interactive demo. No signup required.
+- /login - Log in to your Grumi account.
+- /registrarse - Create your Grumi account. Sign up as a business owner or client.
+- /signup/success - Your Grumi account has been created. Check your email to activate.
+- /cliente - Grumi client portal. View your appointments and pet care info.
+- /demo - Try Grumi with our interactive demo. No signup required.
 
 ## For AI agents
 

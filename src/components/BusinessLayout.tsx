@@ -96,7 +96,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-[140px] h-[50px] flex items-center justify-center overflow-hidden bg-transparent -my-2">
-              <img src="/pet-hub-logo.svg" alt="Pet Hub" className="w-full h-full object-contain" />
+              <img src="/pet-hub-logo.svg" alt="Grumi" className="w-full h-full object-contain" />
             </div>
 
             {/* Replace business name with logo (when present). */}

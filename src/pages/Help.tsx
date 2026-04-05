@@ -44,9 +44,9 @@ export function Help() {
           name: trimmedName,
           email: trimmedEmail,
           message: trimmedMessage,
-          subject: subject?.trim() || 'Pet Hub – Need Help',
+          subject: subject?.trim() || 'Grumi – Need Help',
           _replyto: trimmedEmail,
-          _subject: subject?.trim() || 'Pet Hub – Need Help',
+          _subject: subject?.trim() || 'Grumi – Need Help',
         }),
       });
       if (res.ok) {
@@ -148,7 +148,7 @@ export function Help() {
                 id="help-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Pet Hub – Need Help"
+                placeholder="Grumi – Need Help"
                 className="h-9 bg-background text-foreground"
               />
             </div>

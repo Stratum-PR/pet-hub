@@ -30,7 +30,7 @@ function getLandingJsonLd(): string {
     {
       '@context': 'https://schema.org',
       '@type': 'Organization',
-      name: 'Pet Hub',
+      name: 'Grumi',
       url: base,
       description: 'Pet grooming business management. Manage appointments, clients, pets, and more.',
       logo: `${base}/pet-hub-icon.svg`,
@@ -38,14 +38,14 @@ function getLandingJsonLd(): string {
     {
       '@context': 'https://schema.org',
       '@type': 'WebSite',
-      name: 'Pet Hub',
+      name: 'Grumi',
       url: base,
       description: LANDING_ROUTE.description,
       // Nested nodes must include @context where parsers walk the tree (Safari JSON-LD can call @context.toLowerCase).
       publisher: {
         '@context': 'https://schema.org',
         '@type': 'Organization',
-        name: 'Pet Hub',
+        name: 'Grumi',
       },
     },
   ]);
@@ -120,7 +120,7 @@ export function Landing() {
                 alt=""
                 className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
               />
-              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Pet Hub</span>
+              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Grumi</span>
             </button>
 
             {/* Center nav - desktop, centered inside pill */}
