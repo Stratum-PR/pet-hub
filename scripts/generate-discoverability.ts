@@ -97,9 +97,9 @@ function generateAiRoutes() {
 function generateLlmsTxt() {
   const baseUrl = getPublicBaseUrl().replace(/\/$/, '');
   const lines: string[] = [
-    '# Pet Hub',
+    '# Grumi',
     '',
-    'Pet Hub is a pet grooming business management platform. Manage appointments, clients, pets, inventory, and employees in one place.',
+    'Grumi is a pet grooming business management platform. Manage appointments, clients, pets, inventory, and employees in one place.',
     '',
     '## Main links',
     ...DISCOVERABLE_ROUTES.filter((r) => r.indexable !== false).map((r) => {

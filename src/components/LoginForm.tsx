@@ -182,7 +182,7 @@ export function LoginForm({
     try {
       clearAuthContext();
       setDemoMode(true);
-      toast.success('Bienvenido al demo de Pet Hub');
+      toast.success('Bienvenido al demo de Grumi');
       onLoginSuccess(`/${DEMO_WORKSPACE_SLUG}/dashboard`);
     } finally {
       setLoading(false);

@@ -1830,7 +1830,7 @@ export function useSettings() {
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const [settings, setSettings] = useState<Settings>({
-    business_name: 'Pet Hub',
+    business_name: 'Grumi',
     business_hours: '9:00 AM - 6:00 PM',
     primary_color: DEFAULT_PRIMARY_COLOR_HSL,
     secondary_color: DEFAULT_SECONDARY_COLOR_HSL,
@@ -1914,7 +1914,7 @@ export function useSettings() {
     }
 
     const defaults = {
-      business_name: business?.name ?? 'Pet Hub',
+      business_name: business?.name ?? 'Grumi',
       business_hours: '9:00 AM - 6:00 PM',
       primary_color: DEFAULT_PRIMARY_COLOR_HSL,
       secondary_color: DEFAULT_SECONDARY_COLOR_HSL,

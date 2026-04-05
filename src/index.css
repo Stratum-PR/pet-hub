@@ -64,7 +64,7 @@
 
     --font-sans: 'Nunito', 'Outfit', ui-sans-serif, system-ui, sans-serif;
     --font-brand: 'Nunito', 'Outfit', ui-sans-serif, sans-serif;
-    /* Pet Hub / business name in sidebar — PP Telegraf style (Telegraf from cdnfonts) */
+    /* Grumi / business name in sidebar — PP Telegraf style (Telegraf from cdnfonts) */
     --font-telegraf: 'Telegraf', 'PP Telegraf', var(--font-sans);
 
     --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;

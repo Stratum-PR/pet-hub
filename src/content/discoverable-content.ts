@@ -92,8 +92,8 @@ export interface FaqEntry {
 /** FAQ shown on the landing page and exposed in llms.txt / content.json. Edit here. */
 export const FAQ_ENTRIES: FaqEntry[] = [
   {
-    question: 'What is Pet Hub?',
-    answer: 'Pet Hub is a business management platform for pet grooming businesses. It helps you manage appointments, clients, pets, inventory, employees, and time tracking in one place.',
+    question: 'What is Grumi?',
+    answer: 'Grumi is a business management platform for pet grooming businesses. It helps you manage appointments, clients, pets, inventory, employees, and time tracking in one place.',
   },
   {
     question: 'Is there a free trial?',
@@ -122,10 +122,10 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     sections: [
       { heading: 'Hero', body: 'Transform How You Run Your Pet Business. Save hours every week with software built specifically for your industry.' },
       { heading: 'Features', body: 'Easy Scheduling: Manage appointments effortlessly with our intuitive calendar system. Never double-book again with real-time availability. Customer Management: Keep detailed records of your clients and their pets. Track preferences, history, and special instructions all in one place. Revenue Tracking: Monitor your business performance with comprehensive analytics. Track revenue, appointments, and growth metrics.' },
-      { heading: 'Why Pet Hub', body: 'Ready to Get Started? Choose the plan that fits your business. All plans include a 14-day free trial.' },
+      { heading: 'Why Grumi', body: 'Ready to Get Started? Choose the plan that fits your business. All plans include a 14-day free trial.' },
       { heading: 'Pricing', body: 'View pricing plans. All plans include a 14-day free trial. No credit card required.' },
       ...FAQ_ENTRIES.flatMap((f) => [{ heading: `FAQ: ${f.question}`, body: f.answer }] as PageSection[]),
-      { heading: 'About', body: 'Pet Hub is a pet grooming business management platform. Manage appointments, clients, pets, inventory, and employees in one place.' },
+      { heading: 'About', body: 'Grumi is a pet grooming business management platform. Manage appointments, clients, pets, inventory, and employees in one place.' },
     ],
   },
   '/pricing': {
@@ -137,18 +137,18 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
     ],
   },
   '/login': {
-    sections: [{ heading: 'Log in', body: 'Log in to your Pet Hub account.' }],
+    sections: [{ heading: 'Log in', body: 'Log in to your Grumi account.' }],
   },
   '/registrarse': {
-    sections: [{ heading: 'Sign up', body: 'Create your Pet Hub account. Sign up as a business owner or client.' }],
+    sections: [{ heading: 'Sign up', body: 'Create your Grumi account. Sign up as a business owner or client.' }],
   },
   '/cliente': {
-    sections: [{ heading: 'Client portal', body: 'Pet Hub client portal. View your appointments and pet care info.' }],
+    sections: [{ heading: 'Client portal', body: 'Grumi client portal. View your appointments and pet care info.' }],
   },
   '/demo': {
-    sections: [{ heading: 'Demo', body: 'Try Pet Hub with our interactive demo. No signup required.' }],
+    sections: [{ heading: 'Demo', body: 'Try Grumi with our interactive demo. No signup required.' }],
   },
   '/signup/success': {
-    sections: [{ heading: 'Success', body: 'Your Pet Hub account has been created. Check your email to activate.' }],
+    sections: [{ heading: 'Success', body: 'Your Grumi account has been created. Check your email to activate.' }],
   },
 };

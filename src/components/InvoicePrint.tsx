@@ -15,7 +15,7 @@ export interface InvoicePrintProps {
   businessName: string;
   businessPhone?: string | null;
   businessAddress?: string | null;
-  /** Logo URL for invoice header (absolute URL for print). Demo: Pet Hub icon at /pet-hub-icon.svg */
+  /** Logo URL for invoice header (absolute URL for print). Demo: Grumi icon at /pet-hub-icon.svg */
   logoUrl?: string | null;
   transaction: Transaction;
   lineItems: TransactionLineItem[];
@@ -127,7 +127,7 @@ function buildInvoiceHtml(props: InvoicePrintProps, resolvedLogoUrl: string, bas
     </section>
 
     <footer class="invoice-footer">
-      <p class="powered-by"><span class="pet-hub-text">Pet Hub</span> powered by <img src="${escapeHtml(stratumLogoUrl)}" alt="Stratum" class="stratum-logo" /></p>
+      <p class="powered-by"><span class="grumi-text">Grumi</span> powered by <img src="${escapeHtml(stratumLogoUrl)}" alt="Stratum" class="stratum-logo" /></p>
     </footer>
   </div>`;
 }
@@ -185,7 +185,7 @@ export function printInvoice(props: InvoicePrintProps) {
     .payment-visa svg { display: block; }
     .invoice-footer { margin-top: auto; padding-top: 2rem; text-align: center; }
     .powered-by { margin: 0; font-size: 0.7rem; color: #888; letter-spacing: 0.03em; display: flex; align-items: center; justify-content: center; gap: 0.35rem; flex-wrap: wrap; }
-    .powered-by .pet-hub-text { font-family: 'Telegraf', 'PP Telegraf', sans-serif; font-weight: 600; color: #333; }
+    .powered-by .grumi-text { font-family: 'Telegraf', 'PP Telegraf', sans-serif; font-weight: 600; color: #333; }
     .powered-by .stratum-logo { height: 1.25rem; width: auto; max-width: 80px; object-fit: contain; vertical-align: middle; }
     @media print {
       html, body { padding: 0; margin: 0; width: 8.5in; min-height: 11in; height: 11in; }
@@ -273,7 +273,7 @@ export function viewInvoice(props: InvoicePrintProps) {
     .payment-visa svg { display: block; }
     .invoice-footer { margin-top: auto; padding-top: 2rem; text-align: center; }
     .powered-by { margin: 0; font-size: 0.7rem; color: #888; letter-spacing: 0.03em; display: flex; align-items: center; justify-content: center; gap: 0.35rem; flex-wrap: wrap; }
-    .powered-by .pet-hub-text { font-family: 'Telegraf', 'PP Telegraf', sans-serif; font-weight: 600; color: #333; }
+    .powered-by .grumi-text { font-family: 'Telegraf', 'PP Telegraf', sans-serif; font-weight: 600; color: #333; }
     .powered-by .stratum-logo { height: 1.25rem; width: auto; max-width: 80px; object-fit: contain; vertical-align: middle; }
     @media print {
       html, body { padding: 0; margin: 0; width: 8.5in; min-height: 11in; height: 11in; }

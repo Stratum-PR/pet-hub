@@ -174,7 +174,7 @@ export function TransactionDetail() {
     const receiptSettings = await fetchReceiptSettings();
     const footer = receiptSettings?.footer_text ?? receiptSettings?.thank_you_message ?? undefined;
     printReceipt({
-      businessName: settings?.business_name ?? 'Pet Hub',
+      businessName: settings?.business_name ?? 'Grumi',
       headerText: receiptSettings?.header_text ?? undefined,
       footerText: footer ?? undefined,
       receiptPhone: receiptSettings?.receipt_phone ?? undefined,
@@ -194,7 +194,7 @@ export function TransactionDetail() {
     const receiptSettings = receiptRes;
     const biz = bizRes.data as { logo_url?: string | null } | null;
     printInvoice({
-      businessName: settings?.business_name ?? 'Pet Hub',
+      businessName: settings?.business_name ?? 'Grumi',
       businessPhone: receiptSettings?.receipt_phone ?? undefined,
       businessAddress: receiptSettings?.receipt_location ?? undefined,
       logoUrl: biz?.logo_url ?? undefined,
@@ -500,7 +500,7 @@ export function TransactionDetail() {
                 setReceiptMenuOpen(false);
                 const receiptSettings = await fetchReceiptSettings();
                 const footer = receiptSettings?.footer_text ?? receiptSettings?.thank_you_message ?? undefined;
-                viewReceipt({ businessName: settings?.business_name ?? 'Pet Hub', headerText: receiptSettings?.header_text ?? undefined, footerText: footer ?? undefined, receiptPhone: receiptSettings?.receipt_phone ?? undefined, receiptLocation: receiptSettings?.receipt_location ?? undefined, transaction, lineItems, displayId });
+                viewReceipt({ businessName: settings?.business_name ?? 'Grumi', headerText: receiptSettings?.header_text ?? undefined, footerText: footer ?? undefined, receiptPhone: receiptSettings?.receipt_phone ?? undefined, receiptLocation: receiptSettings?.receipt_location ?? undefined, transaction, lineItems, displayId });
               }}>
                 <Eye className="h-4 w-4 mr-2" />
                 {t('transactions.view') ?? 'View'}
@@ -554,7 +554,7 @@ export function TransactionDetail() {
                 setInvoiceMenuOpen(false);
                 const [receiptRes, bizRes] = await Promise.all([fetchReceiptSettings(), supabase.from('businesses' as any).select('logo_url').eq('id', transaction.business_id).maybeSingle()]);
                 const biz = bizRes.data as { logo_url?: string | null } | null;
-                viewInvoice({ businessName: settings?.business_name ?? 'Pet Hub', businessPhone: receiptRes?.receipt_phone ?? undefined, businessAddress: receiptRes?.receipt_location ?? undefined, logoUrl: biz?.logo_url ?? undefined, transaction, lineItems, displayId, customerName });
+                viewInvoice({ businessName: settings?.business_name ?? 'Grumi', businessPhone: receiptRes?.receipt_phone ?? undefined, businessAddress: receiptRes?.receipt_location ?? undefined, logoUrl: biz?.logo_url ?? undefined, transaction, lineItems, displayId, customerName });
               }}>
                 <Eye className="h-4 w-4 mr-2" />
                 {t('transactions.view') ?? 'View'}

@@ -137,7 +137,7 @@ export function Pricing() {
               className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] rounded-full"
             >
               <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
-              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Pet Hub</span>
+              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Grumi</span>
             </Link>
             {/* Center nav - desktop, same entries as Landing */}
             <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">

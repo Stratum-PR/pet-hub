@@ -419,7 +419,7 @@ export function useNotifications() {
             const rawFirst = row.name.trim().split(/\s+/)[0];
             const firstName = rawFirst || row.name || 'Friend';
             const businessName =
-              (settings.business_name && String(settings.business_name).trim()) || 'Pet Hub';
+              (settings.business_name && String(settings.business_name).trim()) || 'Grumi';
             await createNotification(
               "🎂 Happy Birthday! It's your special day! Click to see your birthday wishes",
               businessId,

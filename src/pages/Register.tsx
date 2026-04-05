@@ -197,7 +197,7 @@ export function Register() {
         const route = getDefaultRoute({ isAdmin: false, business: null });
         addLog(`Redirecting to ${route}`);
         navigate(route, { replace: true });
-        toast.success('Cuenta creada. Bienvenido a Pet Hub.');
+        toast.success('Cuenta creada. Bienvenido a Grumi.');
       } else {
         addLog('No session (confirm email): showing "Check your email" screen');
         setEmailConfirmSent(true);
@@ -315,7 +315,9 @@ export function Register() {
     if (!email.trim() || !linkPassword || !businessId || !businessSlug) return;
     setLinkLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: linkPassword });
+      const emailForLink = email.trim();
+      const pw = linkPassword;
+      const { data, error } = await supabase.auth.signInWithPassword({ email: emailForLink, password: pw });
       if (error) {
         if (error.message?.toLowerCase().includes('invalid') || error.message?.toLowerCase().includes('password')) {
           toast.error(t('register.linkIncorrectPassword'));
@@ -431,7 +433,7 @@ export function Register() {
               className="flex justify-center mb-4 cursor-pointer"
               onClick={() => navigate('/')}
             >
-              <img src="/pet-hub-logo.svg" alt="Pet Hub" className="h-12" />
+              <img src="/pet-hub-logo.svg" alt="Grumi" className="h-12" />
             </div>
             <CardTitle className="text-2xl">{t('register.title')}</CardTitle>
             <CardDescription>{t('register.subtitle')}</CardDescription>

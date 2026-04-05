@@ -50,7 +50,7 @@ async function main() {
   const discovery = [
     ['sitemap.xml', /<urlset/, /<loc>/],
     ['robots.txt', /Sitemap:/, /Allow:\s*\//],
-    ['llms.txt', /Pet Hub/, /Main links/],
+    ['llms.txt', /Grumi/, /Main links/],
     ['ai-routes.json', /"routes"/, /"baseUrl"/],
     ['content.json', /"pricing"/, /"pages"/],
   ];

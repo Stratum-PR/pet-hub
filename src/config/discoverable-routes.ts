@@ -29,15 +29,15 @@ export interface DiscoverableRoute {
 export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   {
     path: '/',
-    title: 'Pet Hub – Pet Grooming Business Management',
-    description: 'Pet Hub - Pet Grooming Business Management. Manage appointments, clients, pets, and more.',
+    title: 'Grumi – Pet Grooming Business Management',
+    description: 'Grumi - Pet Grooming Business Management. Manage appointments, clients, pets, and more.',
     indexable: true,
     changefreq: 'weekly',
     priority: 1,
   },
   {
     path: '/pricing',
-    title: 'Pricing – Pet Hub',
+    title: 'Pricing – Grumi',
     description: 'Simple, transparent pricing for pet grooming businesses. Choose the plan that fits. All plans include a 14-day free trial.',
     indexable: true,
     changefreq: 'monthly',
@@ -45,8 +45,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   },
   {
     path: '/login',
-    title: 'Log in – Pet Hub',
-    description: 'Log in to your Pet Hub account.',
+    title: 'Log in – Grumi',
+    description: 'Log in to your Grumi account.',
     indexable: true,
     noindex: true,
     changefreq: 'monthly',
@@ -54,8 +54,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   },
   {
     path: '/registrarse',
-    title: 'Sign up – Pet Hub',
-    description: 'Create your Pet Hub account. Sign up as a business owner or client.',
+    title: 'Sign up – Grumi',
+    description: 'Create your Grumi account. Sign up as a business owner or client.',
     indexable: true,
     noindex: true,
     changefreq: 'monthly',
@@ -63,8 +63,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   },
   {
     path: '/signup/success',
-    title: 'Signup successful – Pet Hub',
-    description: 'Your Pet Hub account has been created. Check your email to activate.',
+    title: 'Signup successful – Grumi',
+    description: 'Your Grumi account has been created. Check your email to activate.',
     indexable: true,
     noindex: true,
     changefreq: 'yearly',
@@ -72,8 +72,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   },
   {
     path: '/cliente',
-    title: 'Client portal – Pet Hub',
-    description: 'Pet Hub client portal. View your appointments and pet care info.',
+    title: 'Client portal – Grumi',
+    description: 'Grumi client portal. View your appointments and pet care info.',
     indexable: true,
     noindex: false,
     changefreq: 'weekly',
@@ -81,8 +81,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   },
   {
     path: '/demo',
-    title: 'Demo – Pet Hub',
-    description: 'Try Pet Hub with our interactive demo. No signup required.',
+    title: 'Demo – Grumi',
+    description: 'Try Grumi with our interactive demo. No signup required.',
     indexable: true,
     changefreq: 'monthly',
     priority: 0.8,

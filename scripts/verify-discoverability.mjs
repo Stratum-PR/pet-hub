@@ -70,8 +70,8 @@ if (existsSync(join(distDir, 'ai-routes.json'))) {
 // 5. llms.txt has content and mentions main links
 if (existsSync(join(distDir, 'llms.txt'))) {
   const llms = readFileSync(join(distDir, 'llms.txt'), 'utf-8');
-  if (llms.length < 100 || !llms.includes('Pet Hub')) {
-    console.error('  FAIL: llms.txt too short or missing "Pet Hub"');
+  if (llms.length < 100 || !llms.includes('Grumi')) {
+    console.error('  FAIL: llms.txt too short or missing "Grumi"');
     failed = true;
   } else {
     console.log('  OK: llms.txt has expected content');

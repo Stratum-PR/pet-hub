@@ -120,7 +120,7 @@ function rgbStringToHsl(rgb: string): string | null {
 const THEME_PRESETS = [
   {
     id: 'pet-hub',
-    name: 'Pet Hub',
+    name: 'Grumi',
     primary: DEFAULT_PRIMARY_HEX,
     secondary: DEFAULT_SECONDARY_HEX,
   },

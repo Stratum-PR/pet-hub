@@ -32,7 +32,7 @@ export function Login() {
               className="flex justify-center mb-4 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
               onClick={() => navigate('/')}
             >
-              <img src="/pet-hub-logo.svg" alt="Pet Hub" className="h-12" />
+              <img src="/pet-hub-logo.svg" alt="Grumi" className="h-12" />
             </div>
             <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
             <CardDescription>
