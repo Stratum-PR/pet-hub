@@ -2503,6 +2503,38 @@ export const translations: Translations = {
     en: 'Reactivate employee',
     es: 'Reactivar empleado'
   },
+  'employeeManagement.firstName': {
+    en: 'First name',
+    es: 'Nombre'
+  },
+  'employeeManagement.lastName': {
+    en: 'Last name',
+    es: 'Apellido'
+  },
+  'employeeManagement.firstNameRequired': {
+    en: 'First name is required.',
+    es: 'El nombre es obligatorio.'
+  },
+  'employeeManagement.jobTitleRequired': {
+    en: 'Select a job title or add a new one.',
+    es: 'Selecciona un puesto o agrega uno nuevo.'
+  },
+  'employeeManagement.jobTitleDuplicate': {
+    en: 'That job title already exists (titles are unique regardless of capitalization).',
+    es: 'Ese puesto ya existe (los puestos son únicos sin importar mayúsculas).'
+  },
+  'employeeManagement.selectJobTitle': {
+    en: 'Select job title',
+    es: 'Seleccionar puesto'
+  },
+  'employeeManagement.noJobTitlesYet': {
+    en: 'No job titles yet. Add one to assign roles.',
+    es: 'Aún no hay puestos. Agrega uno para asignar roles.'
+  },
+  'employeeManagement.jobTitleEmpty': {
+    en: 'Enter a job title.',
+    es: 'Escribe un puesto.'
+  },
   'employeeManagement.jobTitle': {
     en: 'Job title',
     es: 'Puesto'

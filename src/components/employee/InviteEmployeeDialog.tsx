@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { StaffMember } from '@/types';
+import { employeeFullName } from '@/lib/employeeName';
 
 export interface InviteEmployeeDialogProps {
   open: boolean;
@@ -69,7 +70,7 @@ export function InviteEmployeeDialog({
       const body: Record<string, string> = {
         staff_id: staffMember.id,
         email: to,
-        staff_member_name: staffMember.name,
+        staff_member_name: employeeFullName(staffMember),
         business_name: businessName || '',
       };
       if (isSuperAdmin) {

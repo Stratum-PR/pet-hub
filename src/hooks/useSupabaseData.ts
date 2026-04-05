@@ -633,6 +633,9 @@ const PGRST204_STRIP_KEYS = [
   'bank_name',
   'payment_notes',
   'offered_service_ids',
+  'first_name',
+  'last_name',
+  'job_title_id',
 ] as const;
 
 function snapshotStripFollowUp(payload: Record<string, unknown>): Record<string, unknown> {
@@ -732,6 +735,36 @@ function setLastStaffWriteError(err: { code?: string; message: string; hint?: st
   lastStaffWriteError = err;
 }
 
+function splitStaffNameParts(employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): {
+  first_name: string;
+  last_name: string;
+  displayName: string;
+} {
+  const ef = String((employeeData as any).first_name ?? '').trim();
+  const el = String((employeeData as any).last_name ?? '').trim();
+  if (ef || el) {
+    const first_name = ef || 'Staff';
+    const last_name = el;
+    return {
+      first_name,
+      last_name,
+      displayName: [first_name, last_name].filter(Boolean).join(' '),
+    };
+  }
+  const raw = String(employeeData.name ?? '').trim();
+  if (!raw) {
+    return { first_name: 'Staff', last_name: '', displayName: 'Staff' };
+  }
+  const parts = raw.split(/\s+/);
+  const first_name = parts[0] ?? 'Staff';
+  const last_name = parts.slice(1).join(' ');
+  return {
+    first_name,
+    last_name,
+    displayName: [first_name, last_name].filter(Boolean).join(' ') || raw,
+  };
+}
+
 export function useEmployees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -785,10 +818,14 @@ export function useEmployees() {
     if (!businessId) return null;
     if (demoBrowseOnly) {
       const now = new Date().toISOString();
+      const sp = splitStaffNameParts(employeeData);
       const row: Employee = {
         id: uuidv4(),
         business_id: businessId,
-        name: employeeData.name,
+        first_name: sp.first_name,
+        last_name: sp.last_name,
+        job_title_id: (employeeData as any).job_title_id ?? null,
+        name: sp.displayName,
         email: employeeData.email,
         phone: employeeData.phone,
         pin: employeeData.pin,
@@ -815,11 +852,15 @@ export function useEmployees() {
       setEmployees([row, ...employees]);
       return row;
     }
+    const sp = splitStaffNameParts(employeeData);
     // Build payload with only columns known to the DB; add business_id.
     const payload: Record<string, unknown> = {
       id: uuidv4(),
       business_id: businessId,
-      name: employeeData.name,
+      name: sp.displayName,
+      first_name: sp.first_name,
+      last_name: sp.last_name,
+      job_title_id: (employeeData as any).job_title_id ?? null,
       email: employeeData.email,
       phone: employeeData.phone,
       pin: employeeData.pin,
@@ -889,6 +930,9 @@ export function useEmployees() {
       if (!prev) return null;
       const safeFields = [
         'name',
+        'first_name',
+        'last_name',
+        'job_title_id',
         'email',
         'phone',
         'pin',
@@ -923,6 +967,9 @@ export function useEmployees() {
     // Only send known columns
     const safeFields = [
       'name',
+      'first_name',
+      'last_name',
+      'job_title_id',
       'email',
       'phone',
       'pin',

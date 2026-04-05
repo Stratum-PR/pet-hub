@@ -19,6 +19,7 @@ import { ensureAppointmentServiceIds } from '@/lib/appointmentServiceResolution'
 import { staffOffersSelectedServices } from '@/lib/staffOfferedServices';
 import { normalizeAppointmentStatus } from '@/lib/appointmentStatus';
 import { t } from '@/lib/translations';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 // Time slots in 24-hour format for internal use
 const TIME_SLOTS_24H = [
@@ -603,7 +604,7 @@ export function EditAppointmentDialog({
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {assignableEmployees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
-                      {employee.name}
+                      {formatStaffNameAggregated(employee.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

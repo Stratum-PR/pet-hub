@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 interface ScheduleSummaryProps {
   shifts: EmployeeShift[];
@@ -97,7 +98,7 @@ export function ScheduleSummary({ shifts, employees, weekDays, onOpenShift }: Sc
               ) : (
                 activeEmployees.map((emp) => (
                   <tr key={emp.id} className="border-b hover:bg-muted/30">
-                    <td className="p-2 font-medium">{emp.name}</td>
+                    <td className="p-2 font-medium">{formatStaffNameAggregated(emp.name)}</td>
                     {weekDays.map((day) => {
                       const dayStr = format(day, 'yyyy-MM-dd');
                       const dayShifts = byEmployeeDayShifts[emp.id]?.[dayStr] ?? [];

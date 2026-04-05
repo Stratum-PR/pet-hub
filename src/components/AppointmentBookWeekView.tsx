@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
 import { cn } from '@/lib/utils';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 export interface AppointmentBookWeekViewProps {
   weekDays: Date[];
@@ -69,7 +70,7 @@ export function AppointmentBookWeekView({
             {employees.map((emp) => (
               <tr key={emp.id} className="align-top">
                 <td className="sticky left-0 z-10 border border-border bg-card px-3 py-2 text-sm font-medium text-foreground">
-                  {emp.name}
+                  {formatStaffNameAggregated(emp.name)}
                 </td>
                 {weekDays.map((d) => {
                   const key = dayKey(d);

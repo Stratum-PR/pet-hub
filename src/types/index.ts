@@ -61,6 +61,13 @@ export interface Employee {
   id: string;
   /** Present on rows from Supabase; omitted in some demo/local shapes. */
   business_id?: string;
+  /** Given name (DB-backed after migration). */
+  first_name?: string | null;
+  /** Family name (may be empty). */
+  last_name?: string | null;
+  /** FK to `staff_job_titles`; `role` is kept in sync for legacy reads. */
+  job_title_id?: string | null;
+  /** Full display name; maintained by DB trigger from first + last when those are set. */
   name: string;
   email: string;
   phone: string;
