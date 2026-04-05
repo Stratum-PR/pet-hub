@@ -48,6 +48,11 @@ import {
   type DayAppointmentRow,
 } from '@/lib/bookingAvailability';
 import { useSettings, useEmployees } from '@/hooks/useSupabaseData';
+import { PastBookingConfirmDialog } from '@/components/PastBookingConfirmDialog';
+
+/** Solid outline so fields read clearly on glass / tinted dialog backgrounds. */
+const bookingFieldChrome =
+  'rounded-lg border-2 border-solid border-border bg-background shadow-sm dark:bg-background';
 
 const CAT_BREEDS = [
   'Mixed Breed - Shorthair',
@@ -122,8 +127,10 @@ function bookingPlaceholders(lang: Language) {
     year: es ? 'Año' : 'Year',
     ageYears: es ? 'Edad en años' : 'Age in years',
     weight: es ? 'Peso (lb)' : 'Weight (lbs)',
+    petDetailsGroup: es ? 'Características' : 'Characteristics',
+    petAgeGroup: es ? 'Cumpleaños o edad' : 'Birthday or age',
     vacSubsection: es ? 'Vacunas' : 'Vaccination',
-    addVaccine: es ? 'Agregar tipo de vacuna' : 'Add vaccine type',
+    addVaccine: es ? 'Agregar otra vacuna' : 'Add another vaccine',
     vaccineType: es ? 'Tipo de vacuna' : 'Vaccine type',
     rabiesLabel: es ? 'Rabia' : 'Rabies',
     notes: es ? 'Notas del turno…' : 'Appointment notes…',
@@ -226,7 +233,8 @@ function UsPhoneFields({
     <div className="space-y-1" role="group" aria-label={groupAriaLabel}>
       <div
         className={cn(
-          'flex flex-wrap items-center gap-x-1 gap-y-2 rounded-lg border-2 border-border bg-muted/30 px-3 py-2.5 font-mono text-base text-foreground tabular-nums',
+          'flex flex-wrap items-center gap-x-1 gap-y-2 rounded-lg px-3 py-2.5 font-mono text-base text-foreground tabular-nums shadow-sm',
+          bookingFieldChrome,
         )}
       >
         <span className="select-none text-muted-foreground">(</span>
@@ -311,7 +319,9 @@ export function BookingFormDialog({
 }: BookingFormDialogProps) {
   const businessId = useBusinessId();
   const { staffId, role } = useAuth();
-  const employeeMayBookPast = role === 'employee';
+  /** Staff can pick greyed past dates/times to log visits after the fact (not public self-serve). */
+  const staffMayBookPast =
+    role === 'employee' || role === 'manager' || role === 'super_admin';
   const { settings } = useSettings();
   const { employees } = useEmployees();
 
@@ -367,6 +377,22 @@ export function BookingFormDialog({
   const [preferredStaffId, setPreferredStaffId] = useState<'anyone' | string>('anyone');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const autoDayJumpRef = useRef(0);
+  /** User already acknowledged past calendar day via confirm (avoids duplicate submit prompt). */
+  const warnedPastDateRef = useRef(false);
+  /** User already acknowledged today's past time slot via confirm. */
+  const warnedPastTimeRef = useRef(false);
+
+  const [pastConfirm, setPastConfirm] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -499,14 +525,18 @@ export function BookingFormDialog({
   }, [candidateSlots, bookingDurationMinutes, preferredStaffId, activeStaffIds, dayBlocks, selectedDate]);
 
   const firstSelectableHhmm = useMemo(() => {
-    const row = slotRows.find((r) => r.available && (!r.isPast || employeeMayBookPast));
+    const row = slotRows.find((r) => r.available && (!r.isPast || staffMayBookPast));
     return row?.hhmm ?? null;
-  }, [slotRows, employeeMayBookPast]);
+  }, [slotRows, staffMayBookPast]);
 
   const isClosedDay = dayHours?.closed === true;
 
   useEffect(() => {
     if (!open) autoDayJumpRef.current = 0;
+    else {
+      warnedPastDateRef.current = false;
+      warnedPastTimeRef.current = false;
+    }
   }, [open]);
 
   useEffect(() => {
@@ -518,7 +548,7 @@ export function BookingFormDialog({
     const closed = Boolean(dayHours?.closed);
     const noSlotsForDuration = candidateSlots.length === 0;
     const hasSelectable = slotRows.some(
-      (r) => r.available && (!r.isPast || employeeMayBookPast),
+      (r) => r.available && (!r.isPast || staffMayBookPast),
     );
 
     if (!closed && !noSlotsForDuration && hasSelectable) return;
@@ -553,7 +583,7 @@ export function BookingFormDialog({
     dayHours?.closed,
     candidateSlots.length,
     slotRows,
-    employeeMayBookPast,
+    staffMayBookPast,
     hoursPerDay,
   ]);
   useEffect(() => {
@@ -564,7 +594,7 @@ export function BookingFormDialog({
     if (selectedTime) {
       const row = slotRows.find((r) => r.hhmm === selectedTime);
       if (!row || !row.available) setSelectedTime('');
-      else if (row.isPast && !employeeMayBookPast) setSelectedTime('');
+      else if (row.isPast && !staffMayBookPast) setSelectedTime('');
     }
   }, [
     selectedDate,
@@ -573,7 +603,7 @@ export function BookingFormDialog({
     bookingDurationMinutes,
     selectedTime,
     slotRows,
-    employeeMayBookPast,
+    staffMayBookPast,
   ]);
 
   const clientPets = useMemo(() => {
@@ -663,6 +693,53 @@ export function BookingFormDialog({
     }
   };
 
+  const handleBookingDateSelect = (date: Date | undefined) => {
+    if (!date) {
+      setSelectedDate(undefined);
+      warnedPastDateRef.current = false;
+      return;
+    }
+    if (staffMayBookPast && isPastCalendarDay(date)) {
+      setPastConfirm({
+        open: true,
+        title: t('booking.pastConfirmTitle'),
+        description: t('booking.pastDateConfirm'),
+        onConfirm: () => {
+          warnedPastDateRef.current = true;
+          warnedPastTimeRef.current = false;
+          setSelectedDate(date);
+        },
+      });
+      return;
+    }
+    warnedPastDateRef.current = false;
+    setSelectedDate(date);
+  };
+
+  const handleBookingTimeSelect = (hhmm: string) => {
+    if (!selectedDate) {
+      setSelectedTime(hhmm);
+      return;
+    }
+    const slotPast = isSlotStartInPast(selectedDate, hhmm);
+    if (staffMayBookPast && !isPastCalendarDay(selectedDate) && slotPast) {
+      setPastConfirm({
+        open: true,
+        title: t('booking.pastConfirmTitle'),
+        description: t('booking.pastTimeSlotConfirm'),
+        onConfirm: () => {
+          warnedPastTimeRef.current = true;
+          setSelectedTime(hhmm);
+        },
+      });
+      return;
+    }
+    if (!slotPast) {
+      warnedPastTimeRef.current = false;
+    }
+    setSelectedTime(hhmm);
+  };
+
   const validate = (): boolean => {
     const err: Record<string, string> = {};
 
@@ -671,7 +748,7 @@ export function BookingFormDialog({
     else {
       const slot = slotRows.find((r) => r.hhmm === selectedTime);
       if (!slot?.available) err.time = 'Choose an available time slot.';
-      else if (slot.isPast && !employeeMayBookPast) err.time = 'Choose a future time slot.';
+      else if (slot.isPast && !staffMayBookPast) err.time = 'Choose a future time slot.';
     }
     if (isClosedDay) err.time = 'Business is closed on this date.';
 
@@ -711,14 +788,8 @@ export function BookingFormDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    if (
-      employeeMayBookPast &&
-      selectedDate &&
-      selectedTime &&
-      isSlotStartInPast(selectedDate, selectedTime)
-    ) {
-      if (!window.confirm(t('booking.pastTimeConfirm'))) return;
-    }
+
+    const runSubmit = async () => {
     if (!businessId) {
       alert('Business not loaded. Please refresh and try again.');
       return;
@@ -882,6 +953,31 @@ export function BookingFormDialog({
     } finally {
       setLoading(false);
     }
+    };
+
+    if (
+      staffMayBookPast &&
+      selectedDate &&
+      selectedTime &&
+      isSlotStartInPast(selectedDate, selectedTime)
+    ) {
+      const acknowledged = isPastCalendarDay(selectedDate)
+        ? warnedPastDateRef.current
+        : warnedPastTimeRef.current;
+      if (!acknowledged) {
+        setPastConfirm({
+          open: true,
+          title: t('booking.pastConfirmTitle'),
+          description: t('booking.pastTimeConfirm'),
+          onConfirm: () => {
+            void runSubmit();
+          },
+        });
+        return;
+      }
+    }
+
+    await runSubmit();
   };
 
   const timePlaceholder = !selectedDate
@@ -902,9 +998,11 @@ export function BookingFormDialog({
     candidateSlots.length === 0;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] max-w-4xl min-h-0 flex-col gap-0 overflow-hidden p-0">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-12">
+        <DialogHeader className="pr-10 sm:pr-12">
           <DialogTitle className="text-2xl">Book New Appointment</DialogTitle>
         </DialogHeader>
 
@@ -921,7 +1019,7 @@ export function BookingFormDialog({
                 setSelectedTime('');
               }}
             >
-              <SelectTrigger className="w-full max-w-md">
+              <SelectTrigger className={cn('w-full max-w-md', bookingFieldChrome)}>
                 <SelectValue placeholder="Anyone (best availability)" />
               </SelectTrigger>
               <SelectContent>
@@ -995,6 +1093,7 @@ export function BookingFormDialog({
                     type="button"
                     className={cn(
                       'w-full justify-start text-left font-normal',
+                      bookingFieldChrome,
                       !selectedDate && 'text-muted-foreground',
                     )}
                   >
@@ -1006,20 +1105,20 @@ export function BookingFormDialog({
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={setSelectedDate}
+                    onSelect={handleBookingDateSelect}
                     disabled={(date) => {
                       if (isBusinessClosedOnDate(date, hoursPerDay)) return true;
-                      if (employeeMayBookPast) return false;
+                      if (staffMayBookPast) return false;
                       return date < startOfDay(new Date());
                     }}
                     modifiers={{
-                      ...(employeeMayBookPast
+                      ...(staffMayBookPast
                         ? { pastDay: (d: Date) => isPastCalendarDay(d) }
                         : {}),
                       closedDay: (d: Date) => isBusinessClosedOnDate(d, hoursPerDay),
                     }}
                     modifiersClassNames={{
-                      ...(employeeMayBookPast
+                      ...(staffMayBookPast
                         ? {
                             pastDay:
                               'opacity-50 text-muted-foreground aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:opacity-100',
@@ -1043,7 +1142,7 @@ export function BookingFormDialog({
               </Label>
               <Select
                 value={selectedTime || undefined}
-                onValueChange={setSelectedTime}
+                onValueChange={handleBookingTimeSelect}
                 disabled={timeSelectDisabled}
                 onOpenChange={(opened) => {
                   if (!opened || !firstSelectableHhmm) return;
@@ -1055,18 +1154,23 @@ export function BookingFormDialog({
                   });
                 }}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={cn('w-full', bookingFieldChrome)}>
                   <SelectValue placeholder={timePlaceholder} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[min(60vh,320px)]">
                   {slotRows.map(({ hhmm, available, isPast }) => {
-                    const itemDisabled = !available || (isPast && !employeeMayBookPast);
+                    const itemDisabled = !available || (isPast && !staffMayBookPast);
                     return (
                       <SelectItem
                         key={hhmm}
                         id={`booking-time-slot-${hhmm.replace(':', '-')}`}
                         value={hhmm}
                         disabled={itemDisabled}
+                        title={
+                          isPast && staffMayBookPast && (available || selectedTime === hhmm)
+                            ? t('booking.pastTimeHoverHint')
+                            : undefined
+                        }
                         className={cn((!available || isPast) && 'text-muted-foreground opacity-60')}
                       >
                         {formatTime12H(hhmm)}
@@ -1120,13 +1224,17 @@ export function BookingFormDialog({
 
             {clientMode === 'existing' ? (
               <div ref={clientSearchRef} className="relative space-y-2">
+                <Label className="text-base font-semibold" htmlFor="booking-client-search">
+                  {t('form.searchClient')}
+                </Label>
                 <div className="relative">
                   <Search
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden
                   />
                   <Input
-                    className="h-10 pl-9"
+                    id="booking-client-search"
+                    className={cn('relative z-0 h-10 pl-9', bookingFieldChrome)}
                     value={clientSearch}
                     onChange={(e) => {
                       setClientSearch(e.target.value);
@@ -1165,7 +1273,7 @@ export function BookingFormDialog({
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <Input
-                    className="h-10"
+                    className={cn('h-10', bookingFieldChrome)}
                     value={formData.clientFirstName}
                     onChange={(e) =>
                       setFormData((p) => ({ ...p, clientFirstName: e.target.value }))
@@ -1180,7 +1288,7 @@ export function BookingFormDialog({
                 </div>
                 <div className="space-y-1">
                   <Input
-                    className="h-10"
+                    className={cn('h-10', bookingFieldChrome)}
                     value={formData.clientLastName}
                     onChange={(e) =>
                       setFormData((p) => ({ ...p, clientLastName: e.target.value }))
@@ -1195,7 +1303,7 @@ export function BookingFormDialog({
                 </div>
                 <div className="space-y-1 md:col-span-2">
                   <Input
-                    className="h-10"
+                    className={cn('h-10', bookingFieldChrome)}
                     type="email"
                     value={formData.clientEmail}
                     onChange={(e) => setFormData((p) => ({ ...p, clientEmail: e.target.value }))}
@@ -1228,7 +1336,12 @@ export function BookingFormDialog({
                 <Label className="text-base font-semibold">{bc.selectPet}</Label>
                 <div className="flex flex-wrap gap-2">
                   <Select value={formData.petId} onValueChange={handlePetChange}>
-                    <SelectTrigger className="h-10 min-w-[200px] flex-1 justify-start font-normal md:max-w-md">
+                    <SelectTrigger
+                      className={cn(
+                        'h-10 min-w-[200px] flex-1 justify-start font-normal md:max-w-md',
+                        bookingFieldChrome,
+                      )}
+                    >
                       <SelectValue placeholder={bc.selectPet} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1265,262 +1378,277 @@ export function BookingFormDialog({
             ) : null}
 
             {showNewPetForm ? (
-              <div className="space-y-4 rounded-lg border border-border/60 p-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <Input
-                      className="h-10"
-                      value={formData.petName}
-                      onChange={(e) => setFormData((p) => ({ ...p, petName: e.target.value }))}
-                      placeholder={bc.petName}
-                      aria-label={bc.petName}
-                    />
-                    {fieldErrors.petName ? (
-                      <p className="text-sm text-destructive">{fieldErrors.petName}</p>
-                    ) : null}
-                  </div>
-                  <div className="space-y-1">
-                    <Select
-                      value={formData.petSpecies}
-                      onValueChange={(value: 'dog' | 'cat' | 'other') =>
-                        setFormData((p) => ({
-                          ...p,
-                          petSpecies: value,
-                          petBreed: '',
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="h-10" aria-label={bc.species}>
-                        <SelectValue placeholder={bc.species} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dog">{bc.speciesDog}</SelectItem>
-                        <SelectItem value="cat">{bc.speciesCat}</SelectItem>
-                        <SelectItem value="other">{bc.speciesOther}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="space-y-5 rounded-xl border-2 border-border bg-card/50 p-5 shadow-sm">
+                <div className="space-y-1">
+                  <Input
+                    className={cn('h-10', bookingFieldChrome)}
+                    value={formData.petName}
+                    onChange={(e) => setFormData((p) => ({ ...p, petName: e.target.value }))}
+                    placeholder={bc.petName}
+                    aria-label={bc.petName}
+                  />
+                  {fieldErrors.petName ? (
+                    <p className="text-sm text-destructive">{fieldErrors.petName}</p>
+                  ) : null}
+                </div>
 
-                  <div className="space-y-1 md:col-span-2">
-                    {formData.petSpecies === 'other' ? (
-                      <Input
-                        className="h-10"
-                        value={formData.petBreed}
-                        onChange={(e) => setFormData((p) => ({ ...p, petBreed: e.target.value }))}
-                        placeholder={bc.breedOther}
-                        aria-label={bc.breedOther}
-                      />
-                    ) : (
-                      <Select
-                        value={formData.petBreed || undefined}
-                        onValueChange={(b) => setFormData((p) => ({ ...p, petBreed: b }))}
-                      >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder={bc.breedSelect} />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[min(50vh,280px)]">
-                          {breedOptionsForSpecies.map((b) => (
-                            <SelectItem key={b} value={b}>
-                              {b}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {fieldErrors.petBreed ? (
-                      <p className="text-sm text-destructive">{fieldErrors.petBreed}</p>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Tabs
-                      value={formData.petAgeMode}
-                      onValueChange={(v) =>
-                        setFormData((p) => ({ ...p, petAgeMode: v as 'age' | 'birthday' }))
-                      }
-                    >
-                      <TabsList>
-                        <TabsTrigger value="birthday">Birthday</TabsTrigger>
-                        <TabsTrigger value="age">Age</TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                    {formData.petAgeMode === 'birthday' ? (
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div className="space-y-1">
+                <div className="space-y-3 rounded-lg border-2 border-border bg-muted/15 p-4">
+                  <p className="text-sm font-semibold text-foreground">{bc.petDetailsGroup}</p>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                    <div className="flex min-w-0 flex-1 flex-col gap-3 min-[480px]:flex-row min-[480px]:items-end">
+                      <div className="min-w-0 shrink-0 space-y-1 min-[480px]:w-[min(100%,9.5rem)]">
+                        <Select
+                          value={formData.petSpecies}
+                          onValueChange={(value: 'dog' | 'cat' | 'other') =>
+                            setFormData((p) => ({
+                              ...p,
+                              petSpecies: value,
+                              petBreed: '',
+                            }))
+                          }
+                        >
+                          <SelectTrigger className={cn('h-10 w-full', bookingFieldChrome)} aria-label={bc.species}>
+                            <SelectValue placeholder={bc.species} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="dog">{bc.speciesDog}</SelectItem>
+                            <SelectItem value="cat">{bc.speciesCat}</SelectItem>
+                            <SelectItem value="other">{bc.speciesOther}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        {formData.petSpecies === 'other' ? (
+                          <Input
+                            className={cn('h-10 w-full', bookingFieldChrome)}
+                            value={formData.petBreed}
+                            onChange={(e) => setFormData((p) => ({ ...p, petBreed: e.target.value }))}
+                            placeholder={bc.breedOther}
+                            aria-label={bc.breedOther}
+                          />
+                        ) : (
                           <Select
-                            value={formData.petBirthMonth || undefined}
-                            onValueChange={(m) => setFormData((p) => ({ ...p, petBirthMonth: m }))}
+                            value={formData.petBreed || undefined}
+                            onValueChange={(b) => setFormData((p) => ({ ...p, petBreed: b }))}
                           >
-                            <SelectTrigger className="h-10 w-[200px]">
-                              <SelectValue placeholder={bc.selectMonth} />
+                            <SelectTrigger className={cn('h-10 w-full', bookingFieldChrome)}>
+                              <SelectValue placeholder={bc.breedSelect} />
                             </SelectTrigger>
-                            <SelectContent>
-                              {monthNames.map((name, i) => (
-                                <SelectItem key={name} value={String(i + 1)}>
-                                  {name}
+                            <SelectContent className="max-h-[min(50vh,280px)]">
+                              {breedOptionsForSpecies.map((b) => (
+                                <SelectItem key={b} value={b}>
+                                  {b}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Input
-                            className="h-10 w-28"
-                            inputMode="numeric"
-                            value={formData.petBirthYear}
-                            onChange={(e) =>
-                              setFormData((p) => ({ ...p, petBirthYear: e.target.value }))
-                            }
-                            placeholder={bc.year}
-                            aria-label={bc.year}
-                          />
-                        </div>
-                        {fieldErrors.petBirth ? (
-                          <p className="w-full text-sm text-destructive">{fieldErrors.petBirth}</p>
+                        )}
+                        {fieldErrors.petBreed ? (
+                          <p className="text-sm text-destructive">{fieldErrors.petBreed}</p>
                         ) : null}
                       </div>
-                    ) : (
+                    </div>
+                    <div className="w-full shrink-0 space-y-1 lg:w-[5.5rem]">
+                      <Input
+                        className={cn('h-10 w-full lg:max-w-[5.5rem]', bookingFieldChrome)}
+                        inputMode="numeric"
+                        maxLength={3}
+                        value={formData.petWeight}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, '').slice(0, 3);
+                          setFormData((p) => ({ ...p, petWeight: v }));
+                        }}
+                        placeholder={bc.weight}
+                        aria-label={bc.weight}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border-2 border-border bg-muted/15 p-4">
+                  <p className="text-sm font-semibold text-foreground">{bc.petAgeGroup}</p>
+                  <Tabs
+                    value={formData.petAgeMode}
+                    onValueChange={(v) =>
+                      setFormData((p) => ({ ...p, petAgeMode: v as 'age' | 'birthday' }))
+                    }
+                  >
+                    <TabsList className={cn('grid w-full max-w-xs grid-cols-2', bookingFieldChrome, 'p-1')}>
+                      <TabsTrigger value="birthday">Birthday</TabsTrigger>
+                      <TabsTrigger value="age">Age</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  {formData.petAgeMode === 'birthday' ? (
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="space-y-1">
+                        <Select
+                          value={formData.petBirthMonth || undefined}
+                          onValueChange={(m) => setFormData((p) => ({ ...p, petBirthMonth: m }))}
+                        >
+                          <SelectTrigger className={cn('h-10 w-[200px]', bookingFieldChrome)}>
+                            <SelectValue placeholder={bc.selectMonth} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {monthNames.map((name, i) => (
+                              <SelectItem key={name} value={String(i + 1)}>
+                                {name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div className="space-y-1">
                         <Input
-                          className="h-10 max-w-[160px]"
+                          className={cn('h-10 w-28', bookingFieldChrome)}
                           inputMode="numeric"
-                          placeholder={bc.ageYears}
-                          value={formData.petAgeYears}
+                          value={formData.petBirthYear}
                           onChange={(e) =>
-                            setFormData((p) => ({ ...p, petAgeYears: e.target.value }))
+                            setFormData((p) => ({ ...p, petBirthYear: e.target.value }))
                           }
-                          aria-label={bc.ageYears}
+                          placeholder={bc.year}
+                          aria-label={bc.year}
                         />
-                        {fieldErrors.petAge ? (
-                          <p className="text-sm text-destructive">{fieldErrors.petAge}</p>
-                        ) : null}
                       </div>
-                    )}
-                  </div>
+                      {fieldErrors.petBirth ? (
+                        <p className="w-full text-sm text-destructive">{fieldErrors.petBirth}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Input
+                        className={cn('h-10 max-w-[160px]', bookingFieldChrome)}
+                        inputMode="numeric"
+                        placeholder={bc.ageYears}
+                        value={formData.petAgeYears}
+                        onChange={(e) =>
+                          setFormData((p) => ({ ...p, petAgeYears: e.target.value }))
+                        }
+                        aria-label={bc.ageYears}
+                      />
+                      {fieldErrors.petAge ? (
+                        <p className="text-sm text-destructive">{fieldErrors.petAge}</p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
 
-                  <div className="space-y-1">
-                    <Input
-                      className="h-10"
-                      inputMode="decimal"
-                      value={formData.petWeight}
-                      onChange={(e) => setFormData((p) => ({ ...p, petWeight: e.target.value }))}
-                      placeholder={bc.weight}
-                      aria-label={bc.weight}
-                    />
-                  </div>
-
-                  <div className="space-y-3 border-t border-border/60 pt-4 md:col-span-2">
-                    <p className="text-sm font-semibold text-foreground">{bc.vacSubsection}</p>
-                    <div className="space-y-3">
-                      {formData.vaccineRows.map((row, rowIndex) => (
-                        <div
-                          key={row.id}
-                          className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
-                        >
-                          <div className="min-w-[140px] flex-1 sm:max-w-[220px]">
-                            {rowIndex === 0 ? (
-                              <div className="flex h-10 items-center rounded-md border-2 border-border bg-muted/40 px-3 text-sm font-medium">
-                                {bc.rabiesLabel}
-                              </div>
-                            ) : (
-                              <Input
-                                className="h-10 border-2"
-                                value={row.name}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setFormData((p) => ({
-                                    ...p,
-                                    vaccineRows: p.vaccineRows.map((r) =>
-                                      r.id === row.id ? { ...r, name: v } : r,
-                                    ),
-                                  }));
-                                }}
-                                placeholder={bc.vaccineType}
-                                aria-label={bc.vaccineType}
-                              />
-                            )}
-                          </div>
-                          <Select
-                            value={row.month || undefined}
-                            onValueChange={(m) =>
-                              setFormData((p) => ({
-                                ...p,
-                                vaccineRows: p.vaccineRows.map((r) =>
-                                  r.id === row.id ? { ...r, month: m } : r,
-                                ),
-                              }))
-                            }
-                          >
-                            <SelectTrigger className="h-10 w-full border-2 sm:w-[200px]">
-                              <SelectValue placeholder={bc.selectMonth} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {monthNames.map((name, i) => (
-                                <SelectItem key={name} value={String(i + 1)}>
-                                  {name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <div className="flex items-end gap-2">
+                <div className="space-y-3 rounded-lg border-2 border-border bg-muted/15 p-4">
+                  <p className="text-sm font-semibold text-foreground">{bc.vacSubsection}</p>
+                  <div className="space-y-3">
+                    {formData.vaccineRows.map((row, rowIndex) => (
+                      <div
+                        key={row.id}
+                        className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
+                      >
+                        <div className="min-w-[140px] flex-1 sm:max-w-[220px]">
+                          {rowIndex === 0 ? (
+                            <div
+                              className={cn(
+                                'flex h-10 items-center rounded-md px-3 text-sm font-medium',
+                                bookingFieldChrome,
+                                'bg-muted/40',
+                              )}
+                            >
+                              {bc.rabiesLabel}
+                            </div>
+                          ) : (
                             <Input
-                              className="h-10 w-28 border-2"
-                              inputMode="numeric"
-                              value={row.year}
+                              className={cn('h-10', bookingFieldChrome)}
+                              value={row.name}
                               onChange={(e) => {
-                                const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                const v = e.target.value;
                                 setFormData((p) => ({
                                   ...p,
                                   vaccineRows: p.vaccineRows.map((r) =>
-                                    r.id === row.id ? { ...r, year: v } : r,
+                                    r.id === row.id ? { ...r, name: v } : r,
                                   ),
                                 }));
                               }}
-                              placeholder={bc.year}
-                              aria-label={bc.year}
+                              placeholder={bc.vaccineType}
+                              aria-label={bc.vaccineType}
                             />
-                            {rowIndex > 0 ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-10 w-10 shrink-0 border-2"
-                                onClick={() =>
-                                  setFormData((p) => ({
-                                    ...p,
-                                    vaccineRows: p.vaccineRows.filter((r) => r.id !== row.id),
-                                  }))
-                                }
-                                aria-label="Remove vaccine row"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <span className="hidden w-10 sm:block" aria-hidden />
-                            )}
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-2"
-                      onClick={() =>
-                        setFormData((p) => ({
-                          ...p,
-                          vaccineRows: [
-                            ...p.vaccineRows,
-                            { id: newVaccineRowId(), name: '', month: '', year: '' },
-                          ],
-                        }))
-                      }
-                    >
-                      <Plus className="mr-1 h-4 w-4" />
-                      {bc.addVaccine}
-                    </Button>
+                        <Select
+                          value={row.month || undefined}
+                          onValueChange={(m) =>
+                            setFormData((p) => ({
+                              ...p,
+                              vaccineRows: p.vaccineRows.map((r) =>
+                                r.id === row.id ? { ...r, month: m } : r,
+                              ),
+                            }))
+                          }
+                        >
+                          <SelectTrigger className={cn('h-10 w-full sm:w-[200px]', bookingFieldChrome)}>
+                            <SelectValue placeholder={bc.selectMonth} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {monthNames.map((name, i) => (
+                              <SelectItem key={name} value={String(i + 1)}>
+                                {name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-end gap-2">
+                          <Input
+                            className={cn('h-10 w-28', bookingFieldChrome)}
+                            inputMode="numeric"
+                            value={row.year}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              setFormData((p) => ({
+                                ...p,
+                                vaccineRows: p.vaccineRows.map((r) =>
+                                  r.id === row.id ? { ...r, year: v } : r,
+                                ),
+                              }));
+                            }}
+                            placeholder={bc.year}
+                            aria-label={bc.year}
+                          />
+                          {rowIndex > 0 ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className={cn('h-10 w-10 shrink-0', bookingFieldChrome)}
+                              onClick={() =>
+                                setFormData((p) => ({
+                                  ...p,
+                                  vaccineRows: p.vaccineRows.filter((r) => r.id !== row.id),
+                                }))
+                              }
+                              aria-label="Remove vaccine row"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <span className="hidden w-10 sm:block" aria-hidden />
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={bookingFieldChrome}
+                    onClick={() =>
+                      setFormData((p) => ({
+                        ...p,
+                        vaccineRows: [
+                          ...p.vaccineRows,
+                          { id: newVaccineRowId(), name: '', month: '', year: '' },
+                        ],
+                      }))
+                    }
+                  >
+                    <Plus className="mr-1 h-4 w-4" />
+                    {bc.addVaccine}
+                  </Button>
                 </div>
               </div>
             ) : null}
@@ -1531,7 +1659,7 @@ export function BookingFormDialog({
               value={formData.notes}
               onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
               placeholder={bc.notes}
-              className="min-h-[100px]"
+              className={cn('min-h-[100px]', bookingFieldChrome)}
               aria-label={bc.notes}
             />
           </div>
@@ -1545,7 +1673,16 @@ export function BookingFormDialog({
             </Button>
           </div>
         </form>
+        </div>
       </DialogContent>
     </Dialog>
+    <PastBookingConfirmDialog
+      open={pastConfirm.open}
+      onOpenChange={(o) => setPastConfirm((p) => ({ ...p, open: o }))}
+      title={pastConfirm.title}
+      description={pastConfirm.description}
+      onConfirm={pastConfirm.onConfirm}
+    />
+    </>
   );
 }

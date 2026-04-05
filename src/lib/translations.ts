@@ -1413,6 +1413,10 @@ export const translations: Translations = {
     en: 'Cancel',
     es: 'Cancelar'
   },
+  'common.continue': {
+    en: 'Continue',
+    es: 'Continuar'
+  },
   'common.clear': {
     en: 'Clear',
     es: 'Borrar'
@@ -1674,6 +1678,22 @@ export const translations: Translations = {
   'booking.pastTimeConfirm': {
     en: 'The selected date and time have already passed. Do you want to continue?',
     es: 'La fecha y hora seleccionadas ya pasaron. ¿Deseas continuar?',
+  },
+  'booking.pastConfirmTitle': {
+    en: 'Past appointment',
+    es: 'Cita en el pasado',
+  },
+  'booking.pastTimeHoverHint': {
+    en: 'Past time period. Continue if you are recording a visit that already happened.',
+    es: 'Periodo en el pasado. ¿Continuar?',
+  },
+  'booking.pastDateConfirm': {
+    en: 'This day is in the past. Use this only if you are recording a visit that already happened. Continue?',
+    es: 'Este día ya pasó. Úsalo solo si registras una visita que ya ocurrió. ¿Continuar?',
+  },
+  'booking.pastTimeSlotConfirm': {
+    en: 'This time has already passed. Use this only if you are recording a visit that already happened. Continue?',
+    es: 'Esta hora ya pasó. Úsala solo si registras una visita que ya ocurrió. ¿Continuar?',
   },
   'booking.closedThisDay': {
     en: 'Closed — choose another date.',
@@ -3164,6 +3184,10 @@ export const translations: Translations = {
   'form.selectClient': {
     en: 'Select Client',
     es: 'Seleccionar Cliente'
+  },
+  'form.searchClient': {
+    en: 'Search client',
+    es: 'Buscar cliente'
   },
   'form.selectClientOrCreate': {
     en: 'Select Client or Create New',

@@ -30,6 +30,7 @@ import {
   findFirstOpenDayWithSlotsFrom,
   isBusinessClosedOnDate,
 } from '@/lib/businessHours';
+import { PastBookingConfirmDialog } from '@/components/PastBookingConfirmDialog';
 
 // Time slots in 24-hour format for internal use
 const TIME_SLOTS_24H = [
@@ -108,6 +109,17 @@ export function EditAppointmentDialog({
   });
   const [loading, setLoading] = useState(false);
   const [existingAppointments, setExistingAppointments] = useState<any[]>([]);
+  const [pastConfirm, setPastConfirm] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
 
   const resolvedDurationMin = useMemo(() => {
     let sum = 0;
@@ -411,13 +423,7 @@ export function EditAppointmentDialog({
       return;
     }
 
-    if (
-      employeeMayBookPast &&
-      isSlotStartInPast(selectedDate, selectedTime)
-    ) {
-      if (!window.confirm(t('booking.pastTimeConfirm'))) return;
-    }
-
+    const runUpdate = async () => {
     setLoading(true);
 
     try {
@@ -506,6 +512,21 @@ export function EditAppointmentDialog({
     } finally {
       setLoading(false);
     }
+    };
+
+    if (employeeMayBookPast && isSlotStartInPast(selectedDate, selectedTime)) {
+      setPastConfirm({
+        open: true,
+        title: t('booking.pastConfirmTitle'),
+        description: t('booking.pastTimeConfirm'),
+        onConfirm: () => {
+          void runUpdate();
+        },
+      });
+      return;
+    }
+
+    await runUpdate();
   };
 
   // Don't render if no appointment or dialog is closed
@@ -531,9 +552,11 @@ export function EditAppointmentDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] max-w-4xl min-h-0 flex-col gap-0 overflow-hidden p-0">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 pt-12">
+        <DialogHeader className="pr-10 sm:pr-12">
           <DialogTitle className="text-2xl">Edit Appointment</DialogTitle>
           <DialogDescription>
             Update appointment details, client information, and pet information
@@ -621,6 +644,11 @@ export function EditAppointmentDialog({
                           variant={isSelected ? 'default' : 'outline'}
                           onClick={() => slotSelectable && setSelectedTime(time24)}
                           disabled={!slotSelectable && !isSelected}
+                          title={
+                            isPast && employeeMayBookPast && (slotSelectable || isSelected)
+                              ? t('booking.pastTimeHoverHint')
+                              : undefined
+                          }
                           className={cn(
                             'h-10',
                             (isPast || (!slotSelectable && !isSelected)) &&
@@ -881,7 +909,16 @@ export function EditAppointmentDialog({
             </Button>
           </div>
         </form>
+        </div>
       </DialogContent>
     </Dialog>
+    <PastBookingConfirmDialog
+      open={pastConfirm.open}
+      onOpenChange={(o) => setPastConfirm((p) => ({ ...p, open: o }))}
+      title={pastConfirm.title}
+      description={pastConfirm.description}
+      onConfirm={pastConfirm.onConfirm}
+    />
+    </>
   );
 }
