@@ -3,6 +3,7 @@ import { CalendarAppointment, CalendarStaff, APPOINTMENT_COLORS } from '@/types/
 import { Appointment, Pet, Service } from '@/hooks/useBusinessData';
 import { Employee } from '@/types';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import { showOnActiveCalendar } from '@/lib/appointmentStatus';
 
 /** Parse calendar day for an appointment row (DATE / ISO string / legacy scheduled_date). */
@@ -155,7 +156,7 @@ export function convertAppointmentsToCalendar(
         endTime: endTime as string,
         color: serviceColor,
         staffId: employee?.id || staffRef || '',
-        staffName: employee?.name || 'Unassigned',
+        staffName: employee?.name ? formatStaffNameAggregated(employee.name) : 'Unassigned',
         hasAlert: false,
         notes: apt.notes || undefined,
         price: apt.total_price || (apt as any).price || (service as any)?.price || service?.price || 0,
@@ -244,7 +245,7 @@ export function convertAppointmentsToCalendarInRange(
       endTime: endTime as string,
       color: serviceColor,
       staffId: employee?.id || staffRef || '',
-      staffName: employee?.name || 'Unassigned',
+      staffName: employee?.name ? formatStaffNameAggregated(employee.name) : 'Unassigned',
       hasAlert: false,
       notes: apt.notes || undefined,
       price: apt.total_price || (apt as any).price || (service as any)?.price || service?.price || 0,

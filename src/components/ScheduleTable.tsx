@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { getShiftColor } from '@/lib/scheduleColors';
 import { formatHours1Decimal, scheduledHoursBetween } from '@/lib/scheduleHours';
 import { Plus } from 'lucide-react';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import {
   Popover,
   PopoverContent,
@@ -121,7 +122,7 @@ export function ScheduleTable({
                       getShiftColor(employee.id, activeEmployees).rowMarker
                     )}
                   >
-                    {employee.name}
+                    {formatStaffNameAggregated(employee.name)}
                   </td>
                   {weekDays.map((day) => {
                     const dayStr = format(day, 'yyyy-MM-dd');

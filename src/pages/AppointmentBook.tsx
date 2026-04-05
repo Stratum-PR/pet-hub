@@ -52,6 +52,7 @@ import {
   type ApptBookCalendarScope,
   type ApptBookSidebarFilterMode,
 } from '@/lib/apptBookCalendarPrefs';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 function apptBookPathMode(pathname: string): 'calendar' | 'list' {
   const parts = pathname.split('/').filter(Boolean);
@@ -116,6 +117,23 @@ export function AppointmentBook() {
     useServices();
   const { clients, error: clientsError, refetch: refetchClients } = useClients();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createPrefill, setCreatePrefill] = useState<{
+    staffId: string | null;
+    date: Date | null;
+  }>({ staffId: null, date: null });
+
+  const openCreate = useCallback(
+    (opts?: { staffId?: string | null; date?: Date | null }) => {
+      const day =
+        opts?.date != null ? startOfDay(opts.date) : startOfDay(selectedDate);
+      setCreatePrefill({
+        staffId: opts?.staffId ?? null,
+        date: day,
+      });
+      setCreateDialogOpen(true);
+    },
+    [selectedDate],
+  );
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
@@ -440,7 +458,7 @@ export function AppointmentBook() {
         waitlist={[]}
         waitlistCollapsed={waitlistCollapsed}
         onWaitlistToggle={() => setWaitlistCollapsed(!waitlistCollapsed)}
-        onCreateClick={() => setCreateDialogOpen(true)}
+        onCreateClick={() => openCreate()}
         showCalendarFilters={showCalendarChrome && !loading}
         sidebarFilterMode={sidebarFilterMode}
         onSidebarFilterModeChange={setSidebarFilterMode}
@@ -569,7 +587,7 @@ export function AppointmentBook() {
                       <SelectItem value="All Employees">{t('apptBook.allEmployees')}</SelectItem>
                       {calendarEmployees.map((emp) => (
                         <SelectItem key={emp.id} value={emp.name}>
-                          {emp.name}
+                          {formatStaffNameAggregated(emp.name)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -605,7 +623,7 @@ export function AppointmentBook() {
                     onCheckIn={(appointmentId) => {
                       console.log('Check in:', appointmentId);
                     }}
-                    onCreateClick={() => setCreateDialogOpen(true)}
+                    onCreateClick={() => openCreate()}
                     canMarkNoShow={canMarkNoShow}
                     onMarkNoShow={handleMarkNoShow}
                     suppressHeader
@@ -616,7 +634,7 @@ export function AppointmentBook() {
                     employees={calendarEmployees}
                     appointments={displayCalendarAppointments}
                     onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
-                    onCellClick={() => setCreateDialogOpen(true)}
+                    onCellClick={(employeeId, day) => openCreate({ staffId: employeeId, date: day })}
                   />
                 ) : (
                   <AppointmentBookDayGrid
@@ -625,6 +643,7 @@ export function AppointmentBook() {
                     onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
                     canMarkNoShow={canMarkNoShow}
                     onMarkNoShow={handleMarkNoShow}
+                    onStaffQuickBook={(employeeId) => openCreate({ staffId: employeeId })}
                   />
                 )}
               </PawRevealEnter>
@@ -682,14 +701,20 @@ export function AppointmentBook() {
 
       <BookingFormDialog
         open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
+        onOpenChange={(open) => {
+          setCreateDialogOpen(open);
+          if (!open) setCreatePrefill({ staffId: null, date: null });
+        }}
         clients={clients}
         pets={pets}
         services={services}
         appointments={appointments}
+        preselectedStaffId={createPrefill.staffId}
+        preselectedDate={createPrefill.date}
         onSuccess={() => {
           refetchAppointments();
           setCreateDialogOpen(false);
+          setCreatePrefill({ staffId: null, date: null });
         }}
         onAddAppointment={addAppointment}
       />

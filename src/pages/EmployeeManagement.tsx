@@ -41,6 +41,8 @@ import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 import { consumeLastStaffWriteError, useServices } from '@/hooks/useSupabaseData';
+import { useStaffJobTitles } from '@/hooks/useStaffJobTitles';
+import { employeeFullName } from '@/lib/employeeName';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { InviteEmployeeDialog } from '@/components/employee/InviteEmployeeDialog';
@@ -111,6 +113,16 @@ function formatJobTitleForBadge(role: string): string {
     .split(/[\s_-]+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(' ');
+}
+
+function resolveJobTitleIdFromEmployee(
+  employee: Employee,
+  titles: { id: string; title: string }[],
+): string {
+  if (employee.job_title_id) return employee.job_title_id;
+  const r = (employee.role ?? '').trim().toLowerCase();
+  if (!r) return '';
+  return titles.find((t) => t.title.toLowerCase() === r)?.id ?? '';
 }
 
 /** Job title (groomer, Manager, …) next to name; color hints at access tier. */
@@ -250,20 +262,24 @@ function EmployeeSelfReadOnlyProfile({
               )}
             </div>
             <div className="min-w-0 flex-1 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold tracking-tight">{emp.name}</h2>
-                  <JobTitleBadge employee={emp} />
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 space-y-1">
+                  <h2 className="text-xl font-semibold tracking-tight">{employeeFullName(emp)}</h2>
+                  <div>
+                    <JobTitleBadge employee={emp} />
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <span className="rounded-md bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
                     {emp.status}
                   </span>
+                  {emp.status === 'active' && onEdit ? (
+                    <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onEdit}>
+                      <Pencil className="h-3.5 w-3.5" />
+                      {t('common.edit')}
+                    </Button>
+                  ) : null}
                 </div>
-                {emp.status === 'active' && onEdit ? (
-                  <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={onEdit}>
-                    <Pencil className="h-3.5 w-3.5" />
-                    {t('common.edit')}
-                  </Button>
-                ) : null}
               </div>
               <div className="grid gap-1 text-sm sm:grid-cols-2">
                 <p>
@@ -435,6 +451,7 @@ export function EmployeeManagement({
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const businessId = useBusinessId();
   const { services: catalogServices } = useServices();
+  const { titles: jobTitles, addTitle } = useStaffJobTitles();
   const { staffId, isAdmin: isSuperAdmin, business, role } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
   const isEmployeeSelfService = role === 'employee';
@@ -480,13 +497,16 @@ export function EmployeeManagement({
   const [reactivateStartDate, setReactivateStartDate] = useState('');
   const [servicesOnlyDialogOpen, setServicesOnlyDialogOpen] = useState(false);
   const [servicesOnlyDraftIds, setServicesOnlyDraftIds] = useState<string[]>([]);
+  const [jobTitleDialogOpen, setJobTitleDialogOpen] = useState(false);
+  const [newJobTitleInput, setNewJobTitleInput] = useState('');
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
+    job_title_id: '',
     email: '',
     phone: '',
     pin: '',
     hourly_rate: 15,
-    role: 'groomer',
     access_role: 'staff' as StaffAccessRole,
     status: 'active' as 'active' | 'inactive',
     hire_date: '',
@@ -528,7 +548,7 @@ export function EmployeeManagement({
     const term = staffSearchTerm.trim().toLowerCase();
     if (!term) return filteredEmployees;
     return filteredEmployees.filter((e) => {
-      const name = (e.name ?? '').toLowerCase();
+      const name = employeeFullName(e).toLowerCase();
       const email = (e.email ?? '').toLowerCase();
       const phoneDigits = (e.phone ?? '').replace(/\D/g, '');
       const termDigits = term.replace(/\D/g, '');
@@ -601,6 +621,15 @@ export function EmployeeManagement({
     };
   }, [staffModalOpen, businessId, editingEmployee?.id, editingEmployee?.pin]);
 
+  useEffect(() => {
+    if (!staffModalOpen || !editingEmployee) return;
+    setFormData((fd) => {
+      if (fd.job_title_id) return fd;
+      const id = resolveJobTitleIdFromEmployee(editingEmployee, jobTitles);
+      return id ? { ...fd, job_title_id: id } : fd;
+    });
+  }, [staffModalOpen, editingEmployee, jobTitles]);
+
   const handleGenerateFormPin = useCallback(async () => {
     if (!businessId) return;
     try {
@@ -615,12 +644,13 @@ export function EmployeeManagement({
 
   const resetForm = () => {
     setFormData({
-      name: '',
+      first_name: '',
+      last_name: '',
+      job_title_id: '',
       email: '',
       phone: '',
       pin: '',
       hourly_rate: 15,
-      role: 'groomer',
       access_role: 'staff',
       status: 'active',
       hire_date: '',
@@ -724,6 +754,22 @@ export function EmployeeManagement({
     const allDob = birth_month !== null && birth_day !== null && birth_year !== null;
 
     if (!isEmployeeSelfService) {
+      if (!formData.first_name.trim()) {
+        toast.error(t('employeeManagement.firstNameRequired'));
+        return;
+      }
+      if (!formData.job_title_id) {
+        toast.error(t('employeeManagement.jobTitleRequired'));
+        return;
+      }
+    } else {
+      if (!formData.first_name.trim()) {
+        toast.error(t('employeeManagement.firstNameRequired'));
+        return;
+      }
+    }
+
+    if (!isEmployeeSelfService) {
       const activeAdmins = employees.filter(
         (e) => e.status === 'active' && resolvedAccessRole(e) === 'admin'
       );
@@ -797,7 +843,8 @@ export function EmployeeManagement({
         return;
       }
       const selfSubmit: Record<string, unknown> = {
-        name: formData.name.trim(),
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
         email: emailTrim,
         phone: unformatPhoneNumber(formData.phone),
         pin: formData.pin,
@@ -843,13 +890,23 @@ export function EmployeeManagement({
         ? Number(formData.commission_rate)
         : null;
 
+    const selectedJobTitle = jobTitles.find((x) => x.id === formData.job_title_id);
+    const roleForRow = selectedJobTitle?.title ?? 'Staff';
+    const displayName = [formData.first_name.trim(), formData.last_name.trim()]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
     const submitData: Record<string, unknown> = {
-      name: formData.name.trim(),
+      name: displayName || roleForRow,
+      first_name: formData.first_name.trim(),
+      last_name: formData.last_name.trim(),
+      job_title_id: formData.job_title_id || null,
       email: emailTrim,
       phone: unformatPhoneNumber(formData.phone),
       pin: formData.pin,
       hourly_rate: Number(formData.hourly_rate),
-      role: formData.role,
+      role: roleForRow,
       access_role: formData.access_role,
       status: formData.status,
       hire_date: hireIso,
@@ -920,12 +977,19 @@ export function EmployeeManagement({
     setEditingEmployee(employee);
     setOriginalStaffPhotoUrl(employee.photo_url ?? null);
     setFormData({
-      name: employee.name,
+      first_name:
+        (employee.first_name ?? '').trim() ||
+        (employee.name ?? '').trim().split(/\s+/)[0] ||
+        '',
+      last_name:
+        (employee.last_name ?? '').trim() ||
+        (employee.name ?? '').trim().split(/\s+/).slice(1).join(' ') ||
+        '',
+      job_title_id: employee.job_title_id ?? resolveJobTitleIdFromEmployee(employee, jobTitles),
       email: employee.email,
       phone: formatPhoneNumber(employee.phone),
       pin: employee.pin,
       hourly_rate: employee.hourly_rate,
-      role: employee.role,
       access_role: resolvedAccessRole(employee),
       status: employee.status,
       hire_date: timestamptzToDateInputValue(employee.hire_date),
@@ -973,6 +1037,27 @@ export function EmployeeManagement({
       navigate(`/${businessSlug}/reports/payroll/staff/${staffRowId}/timesheet`);
     } else {
       navigate(`/reports/payroll/staff/${staffRowId}/timesheet`);
+    }
+  };
+
+  const handleSaveNewJobTitle = async () => {
+    const r = await addTitle(newJobTitleInput);
+    if (r.error === 'empty') {
+      toast.error(t('employeeManagement.jobTitleEmpty'));
+      return;
+    }
+    if (r.error === 'duplicate') {
+      toast.error(t('employeeManagement.jobTitleDuplicate'));
+      return;
+    }
+    if (r.error === 'other') {
+      toast.error(t('common.genericError'));
+      return;
+    }
+    if (r.row) {
+      setFormData((fd) => ({ ...fd, job_title_id: r.row!.id }));
+      setJobTitleDialogOpen(false);
+      setNewJobTitleInput('');
     }
   };
 
@@ -1309,14 +1394,26 @@ export function EmployeeManagement({
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Full Name</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder="Jane Smith"
-                  />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t('employeeManagement.firstName')}</Label>
+                    <Input
+                      value={formData.first_name}
+                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                      required
+                      autoComplete="given-name"
+                      placeholder="Jane"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('employeeManagement.lastName')}</Label>
+                    <Input
+                      value={formData.last_name}
+                      onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                      autoComplete="family-name"
+                      placeholder="Smith"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
@@ -1454,14 +1551,48 @@ export function EmployeeManagement({
                 ) : null}
                 <div className="space-y-2">
                   <Label>{t('employeeManagement.jobTitle')}</Label>
-                  <Input
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    placeholder="Groomer"
-                    readOnly={isEmployeeSelfService}
-                    disabled={isEmployeeSelfService}
-                    className={isEmployeeSelfService ? 'bg-muted/50' : undefined}
-                  />
+                  {isEmployeeSelfService ? (
+                    <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm font-medium">
+                      {formatJobTitleForBadge(editingEmployee?.role ?? '')}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                          value={formData.job_title_id || undefined}
+                          onValueChange={(v) => setFormData({ ...formData, job_title_id: v })}
+                        >
+                          <SelectTrigger className="min-w-[12rem] flex-1 sm:max-w-md">
+                            <SelectValue placeholder={t('employeeManagement.selectJobTitle')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {jobTitles.map((jt) => (
+                              <SelectItem key={jt.id} value={jt.id}>
+                                {jt.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="default"
+                          className="shrink-0"
+                          onClick={() => {
+                            setNewJobTitleInput('');
+                            setJobTitleDialogOpen(true);
+                          }}
+                        >
+                          {t('employeeManagement.addJobTitle')}
+                        </Button>
+                      </div>
+                      {jobTitles.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          {t('employeeManagement.noJobTitlesYet')}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>{t('employeeManagement.accessRoleLabel')}</Label>
@@ -1769,8 +1900,7 @@ export function EmployeeManagement({
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold">{employee.name}</h3>
-                        <JobTitleBadge employee={employee} />
+                        <h3 className="text-lg font-semibold">{employeeFullName(employee)}</h3>
                         {employee.user_id ? (
                           <span className="rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
                             Cuenta activa
@@ -1781,6 +1911,9 @@ export function EmployeeManagement({
                           </span>
                         ) : null}
                       </div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {formatJobTitleForBadge(employee.role)}
+                      </p>
                       <p className="break-all text-sm text-muted-foreground">{employee.email}</p>
                       <p className="text-sm text-muted-foreground">{formatPhoneNumber(employee.phone)}</p>
                     </div>
@@ -1819,9 +1952,6 @@ export function EmployeeManagement({
                 <tr>
                   <th className="text-left px-3 py-2 font-medium w-14" aria-hidden />
                   <th className="text-left px-3 py-2 font-medium">{t('pets.listName')}</th>
-                  <th className="text-left px-3 py-2 font-medium whitespace-nowrap">
-                    {t('employeeManagement.jobTitle')}
-                  </th>
                   <th className="text-left px-3 py-2 font-medium">{t('form.email')}</th>
                   <th className="text-left px-3 py-2 font-medium">{t('form.phone')}</th>
                   <th className="text-left px-3 py-2 font-medium w-[140px]">{t('common.actions')}</th>
@@ -1843,7 +1973,10 @@ export function EmployeeManagement({
                     </td>
                     <td className="px-3 py-2 align-middle">
                       <div className="flex flex-col gap-1">
-                        <span className="font-medium">{employee.name}</span>
+                        <span className="font-medium">{employeeFullName(employee)}</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {formatJobTitleForBadge(employee.role)}
+                        </span>
                         {employee.user_id ? (
                           <span className="w-fit rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
                             Cuenta activa
@@ -1854,9 +1987,6 @@ export function EmployeeManagement({
                           </span>
                         ) : null}
                       </div>
-                    </td>
-                    <td className="px-3 py-2 align-middle">
-                      <JobTitleBadge employee={employee} />
                     </td>
                     <td className="px-3 py-2 align-middle text-muted-foreground break-all max-w-[200px]">
                       {employee.email || '—'}
@@ -2058,6 +2188,37 @@ export function EmployeeManagement({
       </Dialog>
       </>
       ) : null}
+
+      <Dialog open={jobTitleDialogOpen} onOpenChange={setJobTitleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('employeeManagement.addJobTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="new-job-title">{t('employeeManagement.jobTitle')}</Label>
+            <Input
+              id="new-job-title"
+              value={newJobTitleInput}
+              onChange={(e) => setNewJobTitleInput(e.target.value)}
+              placeholder={t('employeeManagement.newJobTitlePlaceholder')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleSaveNewJobTitle();
+                }
+              }}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setJobTitleDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="button" onClick={() => void handleSaveNewJobTitle()}>
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {!isEmployeeSelfService ? (
         <InviteEmployeeDialog

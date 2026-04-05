@@ -57,6 +57,7 @@ import {
   isNoShowStatus,
   normalizeAppointmentStatus,
 } from '@/lib/appointmentStatus';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 interface DashboardProps {
   clients: Client[];
@@ -1162,7 +1163,7 @@ export function Dashboard({
                             <p className="text-xs text-muted-foreground truncate">
                               {format(new Date(appointment.scheduled_date), 'h:mm a', { locale: dateLocale })} •{' '}
                               {client ? `${client.first_name} ${client.last_name}`.trim() : '—'}
-                              {employee && ` • ${employee.name}`}
+                              {employee && ` • ${formatStaffNameAggregated(employee.name)}`}
                             </p>
                           </div>
                           <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">

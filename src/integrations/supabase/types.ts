@@ -182,6 +182,9 @@ export type Database = {
           id: string
           business_id: string
           name: string
+          first_name: string
+          last_name: string
+          job_title_id: string | null
           email: string
           phone: string
           pin: string
@@ -212,6 +215,9 @@ export type Database = {
           id?: string
           business_id: string
           name: string
+          first_name?: string
+          last_name?: string
+          job_title_id?: string | null
           email?: string
           phone: string
           pin: string
@@ -242,6 +248,9 @@ export type Database = {
           id?: string
           business_id?: string
           name?: string
+          first_name?: string
+          last_name?: string
+          job_title_id?: string | null
           email?: string
           phone?: string
           pin?: string
@@ -265,6 +274,30 @@ export type Database = {
           bank_name?: string | null
           payment_notes?: string | null
           offered_service_ids?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_job_titles: {
+        Row: {
+          id: string
+          business_id: string
+          title: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          business_id: string
+          title: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          business_id?: string
+          title?: string
           created_at?: string
           updated_at?: string
         }

@@ -14,6 +14,7 @@ import { getShiftColor } from '@/lib/scheduleColors';
 import { hasSameEmployeeOverlap } from '@/lib/scheduleUtils';
 import { formatHours1Decimal, scheduledHoursBetween } from '@/lib/scheduleHours';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 const DEFAULT_START_MINUTES = 7 * 60;
 const DEFAULT_END_MINUTES = 21 * 60;
@@ -478,7 +479,7 @@ export function ManagerScheduleView({
                         )}
                       >
                         <User className="w-4 h-4 inline-block mr-2 text-muted-foreground" />
-                        {emp.name}
+                        {formatStaffNameAggregated(emp.name)}
                       </div>
                     ))}
                     {activeEmployees.length === 0 && (

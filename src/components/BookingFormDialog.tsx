@@ -8,6 +8,7 @@ import {
   Plus,
   UserCircle,
   Search,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, startOfDay, setHours, setMinutes } from 'date-fns';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { DOG_BREEDS } from '@/lib/dogBreeds';
@@ -117,8 +119,10 @@ function bookingPlaceholders(lang: Language) {
     year: es ? 'Año' : 'Year',
     ageYears: es ? 'Edad en años' : 'Age in years',
     weight: es ? 'Peso (lb)' : 'Weight (lbs)',
-    vaccination: es ? 'Vacunas (notas)' : 'Vaccination notes',
-    vacDate: es ? 'Fecha de vacunación (opcional)' : 'Vaccination date (optional)',
+    vacSubsection: es ? 'Vacunas' : 'Vaccination',
+    addVaccine: es ? 'Agregar tipo de vacuna' : 'Add vaccine type',
+    vaccineType: es ? 'Tipo de vacuna' : 'Vaccine type',
+    rabiesLabel: es ? 'Rabia' : 'Rabies',
     notes: es ? 'Notas del turno…' : 'Appointment notes…',
     species: es ? 'Especie' : 'Species',
     selectPet: es ? 'Seleccionar mascota' : 'Select pet',
@@ -143,6 +147,49 @@ function formatTime12H(time24: string): string {
 
 function isValidUsPhone(digits: string): boolean {
   return unformatPhoneNumber(digits).length === 10;
+}
+
+function newVaccineRowId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `v-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+type PetVaccineRowForm = { id: string; name: string; month: string; year: string };
+
+function defaultVaccineRows(): PetVaccineRowForm[] {
+  return [{ id: newVaccineRowId(), name: 'Rabies', month: '', year: '' }];
+}
+
+function buildVaccineSummary(rows: PetVaccineRowForm[], monthNames: string[]): string {
+  const parts: string[] = [];
+  const maxY = new Date().getFullYear() + 1;
+  for (const row of rows) {
+    const label = row.name.trim();
+    const m = parseInt(row.month, 10);
+    const y = parseInt(row.year, 10);
+    if (m >= 1 && m <= 12 && y >= 1900 && y <= maxY) {
+      parts.push(`${label || 'Vaccine'}: ${monthNames[m - 1]} ${y}`);
+    } else if (label || row.month.trim() || row.year.trim()) {
+      parts.push(
+        `${label || 'Vaccine'}${row.month || row.year ? ` (${row.month || '?'}/${row.year || '?'})` : ''}`,
+      );
+    }
+  }
+  return parts.join('; ');
+}
+
+function latestVaccineIsoDate(rows: PetVaccineRowForm[]): string | null {
+  let best: { y: number; m: number } | null = null;
+  const maxY = new Date().getFullYear() + 1;
+  for (const r of rows) {
+    const m = parseInt(r.month, 10);
+    const y = parseInt(r.year, 10);
+    if (m < 1 || m > 12 || y < 1900 || y > maxY) continue;
+    if (!best || y > best.y || (y === best.y && m > best.m)) best = { y, m };
+  }
+  if (!best) return null;
+  return `${best.y}-${String(best.m).padStart(2, '0')}-01`;
 }
 
 function UsPhoneFields({
@@ -170,20 +217,24 @@ function UsPhoneFields({
   };
 
   const phoneInputClass =
-    'h-9 shrink-0 px-1 text-center tabular-nums focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none';
+    'h-10 shrink-0 rounded-md border-2 border-border bg-background px-1 text-center text-base tabular-nums shadow-sm focus-visible:border-ring focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none';
 
   return (
     <div className="space-y-1" role="group" aria-label={groupAriaLabel}>
-      <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 font-mono text-base text-foreground tabular-nums">
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-x-1 gap-y-2 rounded-lg border-2 border-border bg-muted/30 px-3 py-2.5 font-mono text-base text-foreground tabular-nums',
+        )}
+      >
         <span className="select-none text-muted-foreground">(</span>
         <Input
           inputMode="numeric"
           autoComplete="tel-national"
           disabled={disabled}
-          className={cn(phoneInputClass, 'w-[3.25rem]')}
+          className={cn(phoneInputClass, 'w-[4.5rem] tracking-widest')}
           maxLength={3}
           value={a}
-          placeholder={a ? undefined : '___'}
+          placeholder={a ? undefined : '_ _ _'}
           onChange={(e) => {
             const raw = e.target.value.replace(/\D/g, '').slice(0, 3);
             merge(raw, b, c);
@@ -196,10 +247,10 @@ function UsPhoneFields({
           ref={refB}
           inputMode="numeric"
           disabled={disabled}
-          className={cn(phoneInputClass, 'ml-2 w-[3.25rem]')}
+          className={cn(phoneInputClass, 'ml-1 w-[4.5rem] tracking-widest')}
           maxLength={3}
           value={b}
-          placeholder={b ? undefined : '___'}
+          placeholder={b ? undefined : '_ _ _'}
           onChange={(e) => {
             const raw = e.target.value.replace(/\D/g, '').slice(0, 3);
             merge(a, raw, c);
@@ -212,10 +263,10 @@ function UsPhoneFields({
           ref={refC}
           inputMode="numeric"
           disabled={disabled}
-          className={cn(phoneInputClass, 'w-[4.25rem]')}
+          className={cn(phoneInputClass, 'w-[6rem] tracking-widest')}
           maxLength={4}
           value={c}
-          placeholder={c ? undefined : '____'}
+          placeholder={c ? undefined : '_ _ _ _'}
           onChange={(e) => {
             const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
             merge(a, b, raw);
@@ -237,6 +288,10 @@ interface BookingFormDialogProps {
   appointments: any[];
   onSuccess: (newAppointment?: any) => void;
   onAddAppointment?: (appointment: any) => void;
+  /** When opening the dialog, pre-select this staff member (must be active). */
+  preselectedStaffId?: string | null;
+  /** When opening the dialog, set the visit date (local calendar day). */
+  preselectedDate?: Date | null;
 }
 
 export function BookingFormDialog({
@@ -248,6 +303,8 @@ export function BookingFormDialog({
   appointments,
   onSuccess,
   onAddAppointment,
+  preselectedStaffId = null,
+  preselectedDate = null,
 }: BookingFormDialogProps) {
   const businessId = useBusinessId();
   const { staffId } = useAuth();
@@ -296,8 +353,7 @@ export function BookingFormDialog({
     petBirthMonth: '',
     petBirthYear: '',
     petWeight: '',
-    vaccinationInfo: '',
-    vaccinationDate: undefined as Date | undefined,
+    vaccineRows: defaultVaccineRows(),
     services: [] as string[],
     notes: '',
   });
@@ -323,8 +379,7 @@ export function BookingFormDialog({
       petBirthMonth: '',
       petBirthYear: '',
       petWeight: '',
-      vaccinationInfo: '',
-      vaccinationDate: undefined,
+      vaccineRows: defaultVaccineRows(),
       services: [],
       notes: '',
     });
@@ -378,6 +433,19 @@ export function BookingFormDialog({
     () => employees.filter((e) => e.status === 'active').map((e) => e.id),
     [employees],
   );
+
+  useEffect(() => {
+    if (!open) return;
+    if (preselectedDate && !Number.isNaN(preselectedDate.getTime())) {
+      setSelectedDate(startOfDay(preselectedDate));
+    }
+  }, [open, preselectedDate]);
+
+  useEffect(() => {
+    if (!open || !preselectedStaffId) return;
+    if (!activeStaffIds.includes(preselectedStaffId)) return;
+    setPreferredStaffId(preselectedStaffId);
+  }, [open, preselectedStaffId, activeStaffIds]);
 
   const serviceById = useMemo(
     () => new Map(safeServices.map((s) => [s.id, s])),
@@ -628,9 +696,11 @@ export function BookingFormDialog({
           const y = formData.petAgeYears.trim();
           if (y) notesParts.push(`Approx. age: ${y} years`);
         }
-        if (formData.vaccinationInfo.trim()) {
-          notesParts.push(`Vaccination: ${formData.vaccinationInfo.trim()}`);
+        const vaccineSummary = buildVaccineSummary(formData.vaccineRows, monthNames);
+        if (vaccineSummary) {
+          notesParts.push(`Vaccination: ${vaccineSummary}`);
         }
+        const lastVac = latestVaccineIsoDate(formData.vaccineRows);
 
         const { data: newPet } = await supabase
           .from('pets')
@@ -646,11 +716,9 @@ export function BookingFormDialog({
             weight: w ?? 0,
             color: null,
             notes: notesParts.length ? notesParts.join('\n') : null,
-            special_instructions: formData.vaccinationInfo.trim() || null,
-            vaccination_status: formData.vaccinationDate ? 'up_to_date' : 'unknown',
-            last_vaccination_date: formData.vaccinationDate
-              ? format(formData.vaccinationDate, 'yyyy-MM-dd')
-              : null,
+            special_instructions: vaccineSummary || null,
+            vaccination_status: lastVac ? 'up_to_date' : 'unknown',
+            last_vaccination_date: lastVac,
             photo_url: null,
           })
           .select()
@@ -788,7 +856,7 @@ export function BookingFormDialog({
                   .filter((e) => e.status === 'active')
                   .map((e) => (
                     <SelectItem key={e.id} value={e.id}>
-                      {e.name}
+                      {formatStaffNameAggregated(e.name)}
                     </SelectItem>
                   ))}
               </SelectContent>
@@ -926,6 +994,7 @@ export function BookingFormDialog({
                     petName: '',
                     petBreed: '',
                     petAgeMode: 'birthday',
+                    vaccineRows: defaultVaccineRows(),
                     clientFirstName: '',
                     clientLastName: '',
                     clientEmail: '',
@@ -1074,6 +1143,7 @@ export function BookingFormDialog({
                         petName: '',
                         petBreed: '',
                         petAgeMode: 'birthday',
+                        vaccineRows: defaultVaccineRows(),
                       }));
                     }}
                   >
@@ -1232,40 +1302,117 @@ export function BookingFormDialog({
                     />
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Input
-                      className="h-10"
-                      value={formData.vaccinationInfo}
-                      onChange={(e) =>
-                        setFormData((p) => ({ ...p, vaccinationInfo: e.target.value }))
-                      }
-                      placeholder={bc.vaccination}
-                      aria-label={bc.vaccination}
-                    />
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          type="button"
-                          className="h-10 w-full justify-start font-normal"
+                  <div className="space-y-3 border-t border-border/60 pt-4 md:col-span-2">
+                    <p className="text-sm font-semibold text-foreground">{bc.vacSubsection}</p>
+                    <div className="space-y-3">
+                      {formData.vaccineRows.map((row, rowIndex) => (
+                        <div
+                          key={row.id}
+                          className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            {formData.vaccinationDate
-                              ? format(formData.vaccinationDate, 'PPP')
-                              : bc.vacDate}
-                          </span>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={formData.vaccinationDate}
-                          onSelect={(d) => setFormData((p) => ({ ...p, vaccinationDate: d }))}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                          <div className="min-w-[140px] flex-1 sm:max-w-[220px]">
+                            {rowIndex === 0 ? (
+                              <div className="flex h-10 items-center rounded-md border-2 border-border bg-muted/40 px-3 text-sm font-medium">
+                                {bc.rabiesLabel}
+                              </div>
+                            ) : (
+                              <Input
+                                className="h-10 border-2"
+                                value={row.name}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setFormData((p) => ({
+                                    ...p,
+                                    vaccineRows: p.vaccineRows.map((r) =>
+                                      r.id === row.id ? { ...r, name: v } : r,
+                                    ),
+                                  }));
+                                }}
+                                placeholder={bc.vaccineType}
+                                aria-label={bc.vaccineType}
+                              />
+                            )}
+                          </div>
+                          <Select
+                            value={row.month || undefined}
+                            onValueChange={(m) =>
+                              setFormData((p) => ({
+                                ...p,
+                                vaccineRows: p.vaccineRows.map((r) =>
+                                  r.id === row.id ? { ...r, month: m } : r,
+                                ),
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="h-10 w-full border-2 sm:w-[200px]">
+                              <SelectValue placeholder={bc.selectMonth} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {monthNames.map((name, i) => (
+                                <SelectItem key={name} value={String(i + 1)}>
+                                  {name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="flex items-end gap-2">
+                            <Input
+                              className="h-10 w-28 border-2"
+                              inputMode="numeric"
+                              value={row.year}
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                setFormData((p) => ({
+                                  ...p,
+                                  vaccineRows: p.vaccineRows.map((r) =>
+                                    r.id === row.id ? { ...r, year: v } : r,
+                                  ),
+                                }));
+                              }}
+                              placeholder={bc.year}
+                              aria-label={bc.year}
+                            />
+                            {rowIndex > 0 ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10 shrink-0 border-2"
+                                onClick={() =>
+                                  setFormData((p) => ({
+                                    ...p,
+                                    vaccineRows: p.vaccineRows.filter((r) => r.id !== row.id),
+                                  }))
+                                }
+                                aria-label="Remove vaccine row"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span className="hidden w-10 sm:block" aria-hidden />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-2"
+                      onClick={() =>
+                        setFormData((p) => ({
+                          ...p,
+                          vaccineRows: [
+                            ...p.vaccineRows,
+                            { id: newVaccineRowId(), name: '', month: '', year: '' },
+                          ],
+                        }))
+                      }
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      {bc.addVaccine}
+                    </Button>
                   </div>
                 </div>
               </div>

@@ -38,6 +38,7 @@ import {
   normalizeAppointmentStatus,
 } from '@/lib/appointmentStatus';
 import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 function formatTime12H(timeRaw: string | null | undefined): string {
   if (!timeRaw) return '';
@@ -327,7 +328,7 @@ export function AppointmentBookListView({
                       <SelectItem value="All Employees">{t('apptBook.allEmployees')}</SelectItem>
                       {calendarEmployees.map((emp) => (
                         <SelectItem key={emp.id} value={emp.name}>
-                          {emp.name}
+                          {formatStaffNameAggregated(emp.name)}
                         </SelectItem>
                       ))}
                     </>
@@ -403,7 +404,9 @@ export function AppointmentBookListView({
                   const serviceLabel = svc?.name ?? aptAny.service_type ?? t('appointments.noService');
                   const staffRef = staffRecordIdFromRow(apt) ?? aptAny.staff_id;
                   const employee = employees.find((e) => e.id === staffRef);
-                  const staffName = employee?.name ?? t('apptBook.unassigned');
+                  const staffName = employee?.name
+                    ? formatStaffNameAggregated(employee.name)
+                    : t('apptBook.unassigned');
                   const aptDate = parseAppointmentDate(apt);
                   const dateStr = aptDate ? format(aptDate, 'MM/dd/yyyy') : '—';
                   const timeStr = formatTime12H(apt.start_time);

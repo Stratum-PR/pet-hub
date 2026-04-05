@@ -31,10 +31,17 @@ export function getDemoStaffSeed(): Employee[] {
   const ts = nowIso();
   const b = demoManagerBirthdayFields();
   const managerName = t('layout.demoUserName');
+  const split = (full: string) => {
+    const p = full.trim().split(/\s+/);
+    return { first_name: p[0] ?? full, last_name: p.slice(1).join(' ') };
+  };
+  const mgr = split(managerName);
   return [
     {
       id: DEMO_STAFF_IDS.manager,
       business_id: DEMO_WORKSPACE_BUSINESS_ID,
+      first_name: mgr.first_name,
+      last_name: mgr.last_name,
       name: managerName,
       email: 'demo.manager@pethub.demo',
       phone: '(787) 555-0000',
@@ -53,6 +60,8 @@ export function getDemoStaffSeed(): Employee[] {
     {
       id: DEMO_STAFF_IDS.juan,
       business_id: DEMO_WORKSPACE_BUSINESS_ID,
+      first_name: 'Juan',
+      last_name: 'Pérez',
       name: 'Juan Pérez',
       email: 'juan.perez@demo.com',
       phone: '(787) 555-1111',
@@ -71,6 +80,8 @@ export function getDemoStaffSeed(): Employee[] {
     {
       id: DEMO_STAFF_IDS.sofia,
       business_id: DEMO_WORKSPACE_BUSINESS_ID,
+      first_name: 'Sofía',
+      last_name: 'Rivera',
       name: 'Sofía Rivera',
       email: 'sofia.rivera@demo.com',
       phone: '(787) 555-2222',

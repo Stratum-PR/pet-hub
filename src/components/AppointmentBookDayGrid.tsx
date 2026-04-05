@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
 import { cn } from '@/lib/utils';
 import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 const START_HOUR = 7;
 const END_HOUR = 20;
@@ -46,6 +47,8 @@ export interface AppointmentBookDayGridProps {
   onAppointmentClick?: (apt: CalendarAppointment) => void;
   canMarkNoShow?: boolean;
   onMarkNoShow?: (appointmentId: string) => void | Promise<void>;
+  /** Header + button: quick-create with this staff pre-selected */
+  onStaffQuickBook?: (employeeId: string) => void;
 }
 
 export function AppointmentBookDayGrid({
@@ -54,6 +57,7 @@ export function AppointmentBookDayGrid({
   onAppointmentClick,
   canMarkNoShow,
   onMarkNoShow,
+  onStaffQuickBook,
 }: AppointmentBookDayGridProps) {
   const slots = useMemo(() => generateHalfHourSlots(), []);
   const totalHeight = slots.length * PX_PER_SLOT;
@@ -104,9 +108,18 @@ export function AppointmentBookDayGrid({
                 key={employee.id}
                 className="w-[160px] shrink-0 border-r border-border bg-muted/30 px-2 py-2 text-center"
               >
-                <div className="text-sm font-semibold text-foreground">{employee.name}</div>
+                <div className="text-sm font-semibold text-foreground">
+                  {formatStaffNameAggregated(employee.name)}
+                </div>
                 <div className="mt-1 flex items-center justify-center gap-0.5">
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Add">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    aria-label="Add"
+                    onClick={() => onStaffQuickBook?.(employee.id)}
+                  >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Settings">

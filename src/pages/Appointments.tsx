@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { t } from '@/lib/translations';
 import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
 import { normalizeAppointmentStatus, showOnActiveCalendar } from '@/lib/appointmentStatus';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 interface AppointmentsProps {
   appointments: Appointment[];
@@ -277,7 +278,7 @@ export function Appointments({
   const getEmployeeName = (employeeId?: string) => {
     if (!employeeId) return t('appointments.unassigned');
     const employee = employees.find(e => e.id === employeeId);
-    return employee ? employee.name : t('appointments.unassigned');
+    return employee ? formatStaffNameAggregated(employee.name) : t('appointments.unassigned');
   };
 
   const getServiceName = (serviceId?: string, serviceType?: string) => {
@@ -462,14 +463,14 @@ export function Appointments({
                                       <div 
                                         key={apt.id} 
                                         className="bg-primary/10 text-primary rounded px-2 py-1.5 text-xs"
-                                        title={`${format(new Date(apt.scheduled_date || apt.appointment_date || ''), 'h:mm a')} - ${getPetName(apt.pet_id)}${employee ? ` - ${employee.name}` : ''}`}
+                                        title={`${format(new Date(apt.scheduled_date || apt.appointment_date || ''), 'h:mm a')} - ${getPetName(apt.pet_id)}${employee ? ` - ${formatStaffNameAggregated(employee.name)}` : ''}`}
                                       >
                                         <div className="font-medium">
                                           {format(new Date(apt.scheduled_date || apt.appointment_date || ''), 'h:mm')} - {getPetName(apt.pet_id)}
                                         </div>
                                         {employee && (
                                           <div className="text-[10px] text-primary/70 mt-0.5 truncate">
-                                            {employee.name}
+                                            {formatStaffNameAggregated(employee.name)}
                                           </div>
                                         )}
                                       </div>

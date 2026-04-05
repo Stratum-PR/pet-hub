@@ -11,6 +11,7 @@ import { Service } from '@/hooks/useBusinessData';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 import type { ApptBookSidebarFilterMode } from '@/lib/apptBookCalendarPrefs';
+import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 interface AppointmentBookSidebarProps {
   selectedDate: Date;
@@ -285,7 +286,7 @@ export function AppointmentBookSidebar({
                           checked={checked}
                           onCheckedChange={() => onToggleEmployeeId(e.id)}
                         />
-                        <span className="truncate">{e.name}</span>
+                        <span className="truncate">{formatStaffNameAggregated(e.name)}</span>
                       </label>
                     );
                   })}
