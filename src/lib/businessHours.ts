@@ -3,6 +3,8 @@
  * Used by BusinessSettingsPage and the schedule calendar.
  */
 
+import { addDays, startOfDay } from 'date-fns';
+
 export const DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 export type DayKey = (typeof DAYS_OF_WEEK)[number];
 
@@ -133,4 +135,31 @@ export function getWeekTimeRange(hours: Record<DayKey, DayHours>): WeekTimeRange
     startMinutes,
     endMinutes,
   };
+}
+
+/** True when business hours mark this local calendar day closed. */
+export function isBusinessClosedOnDate(date: Date, hoursPerDay: Record<DayKey, DayHours>): boolean {
+  return hoursPerDay[dateToDayKey(date)]?.closed === true;
+}
+
+/**
+ * First local day on or after `startInclusive` that is open and fits at least one
+ * appointment start for `durationMin` (same rules as {@link appointmentStartSlotsForDuration}).
+ */
+export function findFirstOpenDayWithSlotsFrom(
+  startInclusive: Date,
+  hoursPerDay: Record<DayKey, DayHours>,
+  durationMin: number,
+  maxScanDays = 120,
+): Date | null {
+  let d = startOfDay(startInclusive);
+  for (let i = 0; i < maxScanDays; i++) {
+    const h = hoursPerDay[dateToDayKey(d)];
+    if (!h?.closed) {
+      const slots = appointmentStartSlotsForDuration(h, durationMin);
+      if (slots.length > 0) return d;
+    }
+    d = addDays(d, 1);
+  }
+  return null;
 }

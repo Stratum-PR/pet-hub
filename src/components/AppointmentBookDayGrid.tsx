@@ -5,37 +5,72 @@ import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
 import { cn } from '@/lib/utils';
 import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import { t } from '@/lib/translations';
+import {
+  appointmentTimeSlotsForDay,
+  dateToDayKey,
+  minutesToHHmm,
+  timeToMinutes,
+  type DayHours,
+  type DayKey,
+} from '@/lib/businessHours';
 
-const START_HOUR = 7;
-const END_HOUR = 20;
 const PX_PER_SLOT = 40;
 
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours * 60 + (minutes || 0);
+function formatTime12H(time24: string): string {
+  const [hStr, mStr] = time24.split(':');
+  const h = Number(hStr);
+  const m = Number(mStr) || 0;
+  if (Number.isNaN(h)) return time24;
+  const hour12 = h % 12 || 12;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${hour12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
-function generateHalfHourSlots(): { time: string; label: string }[] {
-  const slots: { time: string; label: string }[] = [];
-  for (let h = START_HOUR; h <= END_HOUR; h++) {
-    for (const m of [0, 30]) {
-      if (h === END_HOUR && m === 30) break;
-      const hour12 = h % 12 || 12;
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const mm = m === 0 ? '00' : '30';
-      slots.push({
-        time: `${h.toString().padStart(2, '0')}:${mm}`,
-        label: `${hour12}:${mm} ${ampm}`,
-      });
-    }
+function slotsForBusinessDay(
+  hoursPerDay: Record<DayKey, DayHours>,
+  selectedDate: Date,
+): { time: string; label: string }[] {
+  const day = hoursPerDay[dateToDayKey(selectedDate)];
+  return appointmentTimeSlotsForDay(day).map((time) => ({
+    time,
+    label: formatTime12H(time),
+  }));
+}
+
+/** When the business has no bookable grid for this day but appointments exist, show a minimal timeline so cards stay visible. */
+function slotsCoveringAppointments(appointments: CalendarAppointment[]): { time: string; label: string }[] {
+  let minM = 24 * 60;
+  let maxM = 0;
+  for (const apt of appointments) {
+    const s = timeToMinutes(apt.startTime);
+    const e = timeToMinutes(apt.endTime);
+    if (!Number.isFinite(s) || !Number.isFinite(e)) continue;
+    minM = Math.min(minM, s);
+    maxM = Math.max(maxM, e);
   }
-  return slots;
+  if (minM >= maxM) return [];
+  minM = Math.floor(minM / 30) * 30;
+  maxM = Math.ceil(maxM / 30) * 30;
+  const out: { time: string; label: string }[] = [];
+  for (let m = minM; m < maxM; m += 30) {
+    const time = minutesToHHmm(m);
+    out.push({ time, label: formatTime12H(time) });
+  }
+  return out;
 }
 
-function calculateAppointmentLayout(startTime: string, endTime: string) {
+function calculateAppointmentLayout(
+  startTime: string,
+  endTime: string,
+  slots: { time: string }[],
+) {
   const startMinutes = timeToMinutes(startTime);
   const endMinutes = timeToMinutes(endTime);
-  const startAnchor = START_HOUR * 60;
+  if (slots.length === 0) {
+    return { top: 0, height: PX_PER_SLOT };
+  }
+  const startAnchor = timeToMinutes(slots[0].time);
   const top = ((startMinutes - startAnchor) / 30) * PX_PER_SLOT;
   const height = Math.max(((endMinutes - startMinutes) / 30) * PX_PER_SLOT, PX_PER_SLOT);
   return { top, height };
@@ -44,6 +79,9 @@ function calculateAppointmentLayout(startTime: string, endTime: string) {
 export interface AppointmentBookDayGridProps {
   appointments: CalendarAppointment[];
   employees: CalendarStaff[];
+  /** Parsed business hours (same shape as {@link parseBusinessHours}). */
+  hoursPerDay: Record<DayKey, DayHours>;
+  selectedDate: Date;
   onAppointmentClick?: (apt: CalendarAppointment) => void;
   canMarkNoShow?: boolean;
   onMarkNoShow?: (appointmentId: string) => void | Promise<void>;
@@ -54,13 +92,19 @@ export interface AppointmentBookDayGridProps {
 export function AppointmentBookDayGrid({
   appointments,
   employees,
+  hoursPerDay,
+  selectedDate,
   onAppointmentClick,
   canMarkNoShow,
   onMarkNoShow,
   onStaffQuickBook,
 }: AppointmentBookDayGridProps) {
-  const slots = useMemo(() => generateHalfHourSlots(), []);
-  const totalHeight = slots.length * PX_PER_SLOT;
+  const slots = useMemo(() => {
+    const business = slotsForBusinessDay(hoursPerDay, selectedDate);
+    if (business.length > 0) return business;
+    return slotsCoveringAppointments(appointments);
+  }, [hoursPerDay, selectedDate, appointments]);
+  const totalHeight = slots.length === 0 ? 120 : slots.length * PX_PER_SLOT;
 
   const appointmentsByEmployee = useMemo(() => {
     const grouped: Record<string, CalendarAppointment[]> = {};
@@ -134,92 +178,104 @@ export function AppointmentBookDayGrid({
           </div>
 
           <div className="flex" style={{ minHeight: totalHeight, minWidth: 64 + employees.length * 160 }}>
-            <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-border bg-card">
-              {slots.map((slot) => (
-                <div
-                  key={slot.time}
-                  className="flex justify-end border-b border-border/60 pr-2 pt-0.5 text-[10px] text-muted-foreground"
-                  style={{ height: PX_PER_SLOT }}
-                >
-                  {slot.label}
+            {slots.length === 0 ? (
+              <>
+                <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-border bg-card" />
+                <div className="flex flex-1 items-center justify-center border-b border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
+                  {t('apptBook.noBusinessHoursThisDay')}
                 </div>
-              ))}
-            </div>
-
-            <div className="flex flex-1">
-              {employees.map((employee) => (
-                <div
-                  key={employee.id}
-                  className="relative w-[160px] shrink-0 border-r border-border"
-                  style={{ height: totalHeight }}
-                >
+              </>
+            ) : (
+              <>
+                <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-border bg-card">
                   {slots.map((slot) => (
                     <div
                       key={slot.time}
-                      className="border-b border-border/40"
+                      className="flex justify-end border-b border-border/60 pr-2 pt-0.5 text-[10px] text-muted-foreground"
                       style={{ height: PX_PER_SLOT }}
-                    />
+                    >
+                      {slot.label}
+                    </div>
                   ))}
-
-                  {appointmentsByEmployee[employee.id]?.map((appointment) => {
-                    const { top, height } = calculateAppointmentLayout(
-                      appointment.startTime,
-                      appointment.endTime,
-                    );
-
-                    return (
-                      <button
-                        key={appointment.id}
-                        type="button"
-                        className={cn(
-                          'absolute left-1 right-1 rounded-md border border-border p-1.5 text-left shadow-sm transition-shadow hover:shadow-md',
-                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        )}
-                        style={{
-                          top: `${top}px`,
-                          height: `${height}px`,
-                          backgroundColor: appointment.color,
-                          minHeight: PX_PER_SLOT,
-                        }}
-                        onClick={() => onAppointmentClick?.(appointment)}
-                      >
-                        <div className="flex items-start gap-0.5">
-                          <PawPrint className="mt-0.5 h-3 w-3 shrink-0 text-foreground/80" />
-                          {appointment.hasAlert ? (
-                            <Bell className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
-                          ) : null}
-                        </div>
-                        <div className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
-                          {appointment.service}
-                          {appointment.serviceSize ? ` · ${appointment.serviceSize}` : ''}
-                        </div>
-                        <div className="line-clamp-1 text-[10px] text-foreground/90">{appointment.ownerName}</div>
-                        <div className="line-clamp-1 text-[10px] font-medium text-foreground/80">
-                          {appointment.petName}
-                          {appointment.breed ? ` (${appointment.breed})` : ''}
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-foreground/70">
-                          {appointment.startTime} – {appointment.endTime}
-                        </div>
-                        {canMarkNoShow && onMarkNoShow && appointment.dbStatus ? (
-                          <div
-                            className="mt-1 border-t border-border/50 pt-1"
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => e.stopPropagation()}
-                          >
-                            <AppointmentNoShowControl
-                              status={appointment.dbStatus}
-                              compact
-                              onMarkNoShow={() => onMarkNoShow(appointment.id)}
-                            />
-                          </div>
-                        ) : null}
-                      </button>
-                    );
-                  })}
                 </div>
-              ))}
-            </div>
+
+                <div className="flex flex-1">
+                  {employees.map((employee) => (
+                    <div
+                      key={employee.id}
+                      className="relative w-[160px] shrink-0 border-r border-border"
+                      style={{ height: totalHeight }}
+                    >
+                      {slots.map((slot) => (
+                        <div
+                          key={slot.time}
+                          className="border-b border-border/40"
+                          style={{ height: PX_PER_SLOT }}
+                        />
+                      ))}
+
+                      {appointmentsByEmployee[employee.id]?.map((appointment) => {
+                        const { top, height } = calculateAppointmentLayout(
+                          appointment.startTime,
+                          appointment.endTime,
+                          slots,
+                        );
+
+                        return (
+                          <button
+                            key={appointment.id}
+                            type="button"
+                            className={cn(
+                              'absolute left-1 right-1 rounded-md border border-border p-1.5 text-left shadow-sm transition-shadow hover:shadow-md',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                            )}
+                            style={{
+                              top: `${top}px`,
+                              height: `${height}px`,
+                              backgroundColor: appointment.color,
+                              minHeight: PX_PER_SLOT,
+                            }}
+                            onClick={() => onAppointmentClick?.(appointment)}
+                          >
+                            <div className="flex items-start gap-0.5">
+                              <PawPrint className="mt-0.5 h-3 w-3 shrink-0 text-foreground/80" />
+                              {appointment.hasAlert ? (
+                                <Bell className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
+                              ) : null}
+                            </div>
+                            <div className="line-clamp-2 text-[11px] font-semibold leading-tight text-foreground">
+                              {appointment.service}
+                              {appointment.serviceSize ? ` · ${appointment.serviceSize}` : ''}
+                            </div>
+                            <div className="line-clamp-1 text-[10px] text-foreground/90">{appointment.ownerName}</div>
+                            <div className="line-clamp-1 text-[10px] font-medium text-foreground/80">
+                              {appointment.petName}
+                              {appointment.breed ? ` (${appointment.breed})` : ''}
+                            </div>
+                            <div className="mt-0.5 text-[10px] text-foreground/70">
+                              {appointment.startTime} – {appointment.endTime}
+                            </div>
+                            {canMarkNoShow && onMarkNoShow && appointment.dbStatus ? (
+                              <div
+                                className="mt-1 border-t border-border/50 pt-1"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              >
+                                <AppointmentNoShowControl
+                                  status={appointment.dbStatus}
+                                  compact
+                                  onMarkNoShow={() => onMarkNoShow(appointment.id)}
+                                />
+                              </div>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

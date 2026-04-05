@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format, startOfDay, setHours, setMinutes } from 'date-fns';
+import { format, startOfDay, setHours, setMinutes, addDays, isSameDay } from 'date-fns';
+import { isSlotStartInPast, isPastCalendarDay } from '@/lib/bookingPastSlots';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +38,8 @@ import {
   appointmentStartSlotsForDuration,
   timeToMinutes,
   minutesToHHmm,
+  isBusinessClosedOnDate,
+  findFirstOpenDayWithSlotsFrom,
 } from '@/lib/businessHours';
 import {
   appointmentBlockEndMinutes,
@@ -307,7 +310,8 @@ export function BookingFormDialog({
   preselectedDate = null,
 }: BookingFormDialogProps) {
   const businessId = useBusinessId();
-  const { staffId } = useAuth();
+  const { staffId, role } = useAuth();
+  const employeeMayBookPast = role === 'employee';
   const { settings } = useSettings();
   const { employees } = useEmployees();
 
@@ -362,6 +366,7 @@ export function BookingFormDialog({
   const [dayAppointmentRows, setDayAppointmentRows] = useState<DayAppointmentRow[]>([]);
   const [preferredStaffId, setPreferredStaffId] = useState<'anyone' | string>('anyone');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const autoDayJumpRef = useRef(0);
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -488,11 +493,69 @@ export function BookingFormDialog({
         preferredStaffId === 'anyone'
           ? slotFreeForAnyone(sm, bookingDurationMinutes, activeStaffIds, dayBlocks)
           : slotFreeForStaff(sm, bookingDurationMinutes, preferredStaffId, dayBlocks);
-      return { hhmm, available };
+      const isPast = selectedDate ? isSlotStartInPast(selectedDate, hhmm) : false;
+      return { hhmm, available, isPast };
     });
-  }, [candidateSlots, bookingDurationMinutes, preferredStaffId, activeStaffIds, dayBlocks]);
+  }, [candidateSlots, bookingDurationMinutes, preferredStaffId, activeStaffIds, dayBlocks, selectedDate]);
+
+  const firstSelectableHhmm = useMemo(() => {
+    const row = slotRows.find((r) => r.available && (!r.isPast || employeeMayBookPast));
+    return row?.hhmm ?? null;
+  }, [slotRows, employeeMayBookPast]);
 
   const isClosedDay = dayHours?.closed === true;
+
+  useEffect(() => {
+    if (!open) autoDayJumpRef.current = 0;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !businessId) return;
+    if (formData.services.length === 0 || bookingDurationMinutes <= 0) return;
+    if (!selectedDate) return;
+    if (autoDayJumpRef.current > 90) return;
+
+    const closed = Boolean(dayHours?.closed);
+    const noSlotsForDuration = candidateSlots.length === 0;
+    const hasSelectable = slotRows.some(
+      (r) => r.available && (!r.isPast || employeeMayBookPast),
+    );
+
+    if (!closed && !noSlotsForDuration && hasSelectable) return;
+
+    const next =
+      closed || noSlotsForDuration
+        ? findFirstOpenDayWithSlotsFrom(
+            startOfDay(selectedDate),
+            hoursPerDay,
+            bookingDurationMinutes,
+          )
+        : findFirstOpenDayWithSlotsFrom(
+            addDays(startOfDay(selectedDate), 1),
+            hoursPerDay,
+            bookingDurationMinutes,
+          );
+
+    if (!next) {
+      autoDayJumpRef.current = 100;
+      return;
+    }
+    if (!isSameDay(startOfDay(next), startOfDay(selectedDate))) {
+      autoDayJumpRef.current += 1;
+      setSelectedDate(next);
+    }
+  }, [
+    open,
+    businessId,
+    formData.services.length,
+    bookingDurationMinutes,
+    selectedDate,
+    dayHours?.closed,
+    candidateSlots.length,
+    slotRows,
+    employeeMayBookPast,
+    hoursPerDay,
+  ]);
   useEffect(() => {
     if (!selectedDate || isClosedDay || candidateSlots.length === 0 || bookingDurationMinutes <= 0) {
       setSelectedTime('');
@@ -501,6 +564,7 @@ export function BookingFormDialog({
     if (selectedTime) {
       const row = slotRows.find((r) => r.hhmm === selectedTime);
       if (!row || !row.available) setSelectedTime('');
+      else if (row.isPast && !employeeMayBookPast) setSelectedTime('');
     }
   }, [
     selectedDate,
@@ -509,6 +573,7 @@ export function BookingFormDialog({
     bookingDurationMinutes,
     selectedTime,
     slotRows,
+    employeeMayBookPast,
   ]);
 
   const clientPets = useMemo(() => {
@@ -606,6 +671,7 @@ export function BookingFormDialog({
     else {
       const slot = slotRows.find((r) => r.hhmm === selectedTime);
       if (!slot?.available) err.time = 'Choose an available time slot.';
+      else if (slot.isPast && !employeeMayBookPast) err.time = 'Choose a future time slot.';
     }
     if (isClosedDay) err.time = 'Business is closed on this date.';
 
@@ -645,6 +711,14 @@ export function BookingFormDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+    if (
+      employeeMayBookPast &&
+      selectedDate &&
+      selectedTime &&
+      isSlotStartInPast(selectedDate, selectedTime)
+    ) {
+      if (!window.confirm(t('booking.pastTimeConfirm'))) return;
+    }
     if (!businessId) {
       alert('Business not loaded. Please refresh and try again.');
       return;
@@ -933,7 +1007,27 @@ export function BookingFormDialog({
                     mode="single"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
-                    disabled={(date) => date < startOfDay(new Date())}
+                    disabled={(date) => {
+                      if (isBusinessClosedOnDate(date, hoursPerDay)) return true;
+                      if (employeeMayBookPast) return false;
+                      return date < startOfDay(new Date());
+                    }}
+                    modifiers={{
+                      ...(employeeMayBookPast
+                        ? { pastDay: (d: Date) => isPastCalendarDay(d) }
+                        : {}),
+                      closedDay: (d: Date) => isBusinessClosedOnDate(d, hoursPerDay),
+                    }}
+                    modifiersClassNames={{
+                      ...(employeeMayBookPast
+                        ? {
+                            pastDay:
+                              'opacity-50 text-muted-foreground aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:opacity-100',
+                          }
+                        : {}),
+                      closedDay:
+                        'opacity-45 text-muted-foreground line-through decoration-muted-foreground/50',
+                    }}
                     initialFocus
                   />
                 </PopoverContent>
@@ -951,21 +1045,34 @@ export function BookingFormDialog({
                 value={selectedTime || undefined}
                 onValueChange={setSelectedTime}
                 disabled={timeSelectDisabled}
+                onOpenChange={(opened) => {
+                  if (!opened || !firstSelectableHhmm) return;
+                  const id = `booking-time-slot-${firstSelectableHhmm.replace(':', '-')}`;
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      document.getElementById(id)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    });
+                  });
+                }}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={timePlaceholder} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[min(60vh,320px)]">
-                  {slotRows.map(({ hhmm, available }) => (
-                    <SelectItem
-                      key={hhmm}
-                      value={hhmm}
-                      disabled={!available}
-                      className={cn(!available && 'text-muted-foreground opacity-50')}
-                    >
-                      {formatTime12H(hhmm)}
-                    </SelectItem>
-                  ))}
+                  {slotRows.map(({ hhmm, available, isPast }) => {
+                    const itemDisabled = !available || (isPast && !employeeMayBookPast);
+                    return (
+                      <SelectItem
+                        key={hhmm}
+                        id={`booking-time-slot-${hhmm.replace(':', '-')}`}
+                        value={hhmm}
+                        disabled={itemDisabled}
+                        className={cn((!available || isPast) && 'text-muted-foreground opacity-60')}
+                      >
+                        {formatTime12H(hhmm)}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {fieldErrors.time ? (

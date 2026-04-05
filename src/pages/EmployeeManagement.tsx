@@ -18,7 +18,7 @@ import { Employee, StaffAccessRole } from '@/types';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
-import { t, getLanguage } from '@/lib/translations';
+import { t } from '@/lib/translations';
 import {
   employeeBirthPartsToDateInput,
   employeeDobInputBounds,
@@ -45,7 +45,9 @@ import { useStaffJobTitles } from '@/hooks/useStaffJobTitles';
 import { employeeFullName } from '@/lib/employeeName';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { InviteEmployeeDialog } from '@/components/employee/InviteEmployeeDialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SearchFilter } from '@/components/SearchFilter';
 import type { Service } from '@/types';
 
@@ -128,7 +130,7 @@ function resolveJobTitleIdFromEmployee(
 /** Job title (groomer, Manager, …) next to name; color hints at access tier. */
 function JobTitleBadge({ employee }: { employee: Employee }) {
   const tier: StaffAccessRole = resolvedAccessRole(employee);
-  const label = formatJobTitleForBadge(employee.role).toUpperCase();
+  const label = formatJobTitleForBadge(employee.role);
   const cls =
     tier === 'manager'
       ? 'bg-blue-600 text-white'
@@ -451,7 +453,8 @@ export function EmployeeManagement({
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const businessId = useBusinessId();
   const { services: catalogServices } = useServices();
-  const { titles: jobTitles, addTitle } = useStaffJobTitles();
+  const { titles: jobTitles, addTitle, jobTitlesSchemaUnavailable, refetch: refetchJobTitles } =
+    useStaffJobTitles();
   const { staffId, isAdmin: isSuperAdmin, business, role } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
   const isEmployeeSelfService = role === 'employee';
@@ -1051,7 +1054,7 @@ export function EmployeeManagement({
       return;
     }
     if (r.error === 'other') {
-      toast.error(t('common.genericError'));
+      toast.error(r.message ?? t('common.genericError'));
       return;
     }
     if (r.row) {
@@ -1124,7 +1127,7 @@ export function EmployeeManagement({
     setReactivateDialogOpen(false);
   };
 
-  const lang = getLanguage();
+  const { language: lang } = useLanguage();
   const todayLocal = atLocalDay(new Date());
   const dobInputBounds = employeeDobInputBounds();
 
@@ -1188,6 +1191,23 @@ export function EmployeeManagement({
             </Button>
           )}
         </div>
+      ) : null}
+
+      {!isEmployeeSelfService && !demoBrowseOnly && jobTitlesSchemaUnavailable ? (
+        <Alert variant="warning" className="mb-4 shrink-0">
+          <AlertTitle>{t('employeeManagement.jobTitlesSchemaAlertTitle')}</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{t('employeeManagement.jobTitlesSchemaAlertBody1')}</p>
+            <pre className="max-w-full overflow-x-auto rounded-md border border-border bg-muted/80 px-3 py-2 text-xs font-mono text-foreground">
+              {t('employeeManagement.jobTitlesSchemaAlertCodePush')}
+            </pre>
+            <p>{t('employeeManagement.jobTitlesSchemaAlertBody2')}</p>
+            <p>{t('employeeManagement.jobTitlesSchemaAlertBody3')}</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void refetchJobTitles()}>
+              {t('common.tryAgain')}
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       {isEmployeeSelfService && loading ? (
@@ -1586,7 +1606,9 @@ export function EmployeeManagement({
                           {t('employeeManagement.addJobTitle')}
                         </Button>
                       </div>
-                      {jobTitles.length === 0 ? (
+                      {jobTitlesSchemaUnavailable ? (
+                        <p className="text-xs text-muted-foreground">{t('employeeManagement.jobTitlesSchemaErrorShort')}</p>
+                      ) : jobTitles.length === 0 ? (
                         <p className="text-xs text-muted-foreground">
                           {t('employeeManagement.noJobTitlesYet')}
                         </p>
@@ -1903,11 +1925,11 @@ export function EmployeeManagement({
                         <h3 className="text-lg font-semibold">{employeeFullName(employee)}</h3>
                         {employee.user_id ? (
                           <span className="rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
-                            Cuenta activa
+                            {t('employeeManagement.accountActive')}
                           </span>
                         ) : pendingInviteStaffIds.has(employee.id) ? (
                           <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
-                            Invitación pendiente
+                            {t('employeeManagement.invitationPending')}
                           </span>
                         ) : null}
                       </div>
@@ -1936,7 +1958,7 @@ export function EmployeeManagement({
                           setInviteDialogOpen(true);
                         }}
                       >
-                        Enviar invitación al portal
+                        {t('employeeManagement.sendPortalInvite')}
                       </Button>
                     ) : null}
                     </div>
@@ -1979,11 +2001,11 @@ export function EmployeeManagement({
                         </span>
                         {employee.user_id ? (
                           <span className="w-fit rounded-full bg-green-600/15 px-2 py-0.5 text-[10px] font-semibold text-green-800 dark:text-green-400">
-                            Cuenta activa
+                            {t('employeeManagement.accountActive')}
                           </span>
                         ) : pendingInviteStaffIds.has(employee.id) ? (
                           <span className="w-fit rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
-                            Invitación pendiente
+                            {t('employeeManagement.invitationPending')}
                           </span>
                         ) : null}
                       </div>

@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { t } from '@/lib/translations';
 import { useAppointments, usePets, useServices, useClients, type Appointment } from '@/hooks/useBusinessData';
-import { useEmployees } from '@/hooks/useSupabaseData';
+import { useEmployees, useSettings } from '@/hooks/useSupabaseData';
 import {
   convertAppointmentsToCalendar,
   convertAppointmentsToCalendarInRange,
@@ -53,6 +53,7 @@ import {
   type ApptBookSidebarFilterMode,
 } from '@/lib/apptBookCalendarPrefs';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import { parseBusinessHours } from '@/lib/businessHours';
 
 function apptBookPathMode(pathname: string): 'calendar' | 'list' {
   const parts = pathname.split('/').filter(Boolean);
@@ -116,6 +117,7 @@ export function AppointmentBook() {
   const { services, loading: servicesLoading, error: servicesError, refetch: refetchServices } =
     useServices();
   const { clients, error: clientsError, refetch: refetchClients } = useClients();
+  const { settings } = useSettings();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createPrefill, setCreatePrefill] = useState<{
     staffId: string | null;
@@ -148,6 +150,10 @@ export function AppointmentBook() {
   };
 
   const calendarEmployees = useMemo(() => convertEmployeesToCalendar(employees), [employees]);
+  const hoursPerDay = useMemo(
+    () => parseBusinessHours(settings?.business_hours),
+    [settings?.business_hours],
+  );
   const activeServices = useMemo(
     () => services.filter((s) => s.is_active !== false),
     [services],
@@ -640,6 +646,8 @@ export function AppointmentBook() {
                   <AppointmentBookDayGrid
                     appointments={displayCalendarAppointments}
                     employees={calendarEmployees}
+                    hoursPerDay={hoursPerDay}
+                    selectedDate={selectedDate}
                     onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
                     canMarkNoShow={canMarkNoShow}
                     onMarkNoShow={handleMarkNoShow}

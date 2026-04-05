@@ -112,6 +112,7 @@ export function AppointmentBookListView({
   pets,
   clients,
   services,
+  employees,
   calendarEmployees,
   selectedDate,
   onSelectDate,

@@ -1,4 +1,7 @@
 -- Split staff display name into first/last; canonical job titles per business (case-insensitive unique).
+--
+-- Supabase SQL Editor may warn about "destructive" steps: DROP TRIGGER/POLICY IF EXISTS here only
+-- recreates policies and triggers idempotently; it does not drop tables or data.
 
 BEGIN;
 
@@ -42,8 +45,10 @@ UPDATE public.staff
 SET first_name = 'Staff'
 WHERE first_name IS NULL OR TRIM(first_name) = '';
 
+-- Normalize NULL last names only (same effect as COALESCE(last_name,'') for NOT NULL, without updating every row)
 UPDATE public.staff
-SET last_name = COALESCE(last_name, '');
+SET last_name = ''
+WHERE last_name IS NULL;
 
 ALTER TABLE public.staff ALTER COLUMN first_name SET NOT NULL;
 ALTER TABLE public.staff ALTER COLUMN last_name SET NOT NULL;

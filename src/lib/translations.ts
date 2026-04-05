@@ -689,6 +689,10 @@ export const translations: Translations = {
     en: 'Clear filters',
     es: 'Borrar filtros'
   },
+  'apptBook.noBusinessHoursThisDay': {
+    en: 'No business hours on this day.',
+    es: 'No hay horario comercial este día.'
+  },
   'apptBook.openAppointmentFailed': {
     en: 'Could not open this appointment.',
     es: 'No se pudo abrir esta cita.'
@@ -1429,6 +1433,10 @@ export const translations: Translations = {
     en: 'Loading...',
     es: 'Cargando...'
   },
+  'common.switchingLanguage': {
+    en: 'Updating language…',
+    es: 'Actualizando idioma…'
+  },
   'common.saving': {
     en: 'Saving...',
     es: 'Guardando...'
@@ -1452,6 +1460,10 @@ export const translations: Translations = {
   'common.welcome': {
     en: 'Welcome to your Hub!',
     es: 'Bienvenido a tu Hub!'
+  },
+  'common.tryAgain': {
+    en: 'Try again',
+    es: 'Intentar de nuevo'
   },
   'common.genericError': {
     en: 'Something went wrong. Please try again.',
@@ -1659,7 +1671,19 @@ export const translations: Translations = {
     en: 'Unknown Client',
     es: 'Cliente Desconocido'
   },
-  
+  'booking.pastTimeConfirm': {
+    en: 'The selected date and time have already passed. Do you want to continue?',
+    es: 'La fecha y hora seleccionadas ya pasaron. ¿Deseas continuar?',
+  },
+  'booking.closedThisDay': {
+    en: 'Closed — choose another date.',
+    es: 'Cerrado — elige otra fecha.',
+  },
+  'booking.noTimesInBusinessHours': {
+    en: 'No times fit within business hours for this day.',
+    es: 'No hay horarios dentro del horario del negocio para este día.',
+  },
+
   // Services page
   'services.title': {
     en: 'Services',
@@ -2491,6 +2515,82 @@ export const translations: Translations = {
     en: 'Invite',
     es: 'Invitar',
   },
+  'employeeManagement.sendPortalInvite': {
+    en: 'Send employee portal invitation',
+    es: 'Enviar invitación al portal',
+  },
+  'employeeManagement.invitationPending': {
+    en: 'Invitation pending',
+    es: 'Invitación pendiente',
+  },
+  'employeeManagement.accountActive': {
+    en: 'Account active',
+    es: 'Cuenta activa',
+  },
+  'employeeInvite.dialogTitle': {
+    en: 'Send employee portal invitation',
+    es: 'Enviar invitación al portal',
+  },
+  'employeeInvite.dialogDescriptionLead': {
+    en: 'Invite ',
+    es: 'Invitar a ',
+  },
+  'employeeInvite.dialogDescriptionTrail': {
+    en: ' to create their employee account.',
+    es: ' a crear su cuenta de empleado.',
+  },
+  'employeeInvite.dialogSelectStaff': {
+    en: 'Select a staff member.',
+    es: 'Selecciona un miembro del personal.',
+  },
+  'employeeInvite.emailLabel': {
+    en: 'Email',
+    es: 'Correo electrónico',
+  },
+  'employeeInvite.emailPlaceholder': {
+    en: 'you@example.com',
+    es: 'correo@ejemplo.com',
+  },
+  'employeeInvite.send': {
+    en: 'Send invitation',
+    es: 'Enviar invitación',
+  },
+  'employeeInvite.sending': {
+    en: 'Sending…',
+    es: 'Enviando…',
+  },
+  'employeeInvite.successSent': {
+    en: 'Invitation sent to {email}',
+    es: 'Invitación enviada a {email}',
+  },
+  'employeeInvite.errorMissingContext': {
+    en: 'Missing business or staff information.',
+    es: 'Falta información del negocio o del empleado.',
+  },
+  'employeeInvite.errorMissingEmail': {
+    en: 'Add an email address for the invitation.',
+    es: 'Agrega un correo electrónico para la invitación.',
+  },
+  'employeeInvite.errorSession': {
+    en: 'Session expired. Please sign in again.',
+    es: 'Sesión expirada. Vuelve a iniciar sesión.',
+  },
+  'employeeInvite.superAdminMissingBusiness': {
+    en: 'Business context is missing in this view.',
+    es: 'Falta business_id en este contexto.',
+  },
+  'employeeInvite.errorGeneric': {
+    en: 'Something went wrong while sending.',
+    es: 'Error al enviar.',
+  },
+  'employeeInvite.errorSendFailed': {
+    en: 'Could not send the invitation.',
+    es: 'No se pudo enviar la invitación.',
+  },
+  'employeeInvite.errorTimeout': {
+    en: 'Sending took too long (timed out). Check Supabase Edge Function logs for send-employee-invitation, confirm RESEND_API_KEY is set, and that api.resend.com is reachable.',
+    es: 'El envío tardó demasiado (tiempo agotado). Revisa los logs de la Edge Function send-employee-invitation en Supabase, confirma que RESEND_API_KEY esté configurada y que api.resend.com sea accesible.',
+  },
   'employeeManagement.noEmployeesYet': {
     en: 'No staff yet. Add your first team member above!',
     es: 'Aún no hay personal. ¡Agrega a tu primer miembro del equipo arriba!'
@@ -2530,6 +2630,30 @@ export const translations: Translations = {
   'employeeManagement.noJobTitlesYet': {
     en: 'No job titles yet. Add one to assign roles.',
     es: 'Aún no hay puestos. Agrega uno para asignar roles.'
+  },
+  'employeeManagement.jobTitlesSchemaErrorShort': {
+    en: 'Job titles table is missing on the server (migrations not applied or API schema cache stale).',
+    es: 'Falta la tabla de puestos en el servidor (migraciones sin aplicar o caché del API desactualizada).'
+  },
+  'employeeManagement.jobTitlesSchemaAlertTitle': {
+    en: 'Job titles are not available from the API yet',
+    es: 'Los puestos aún no están disponibles desde el API'
+  },
+  'employeeManagement.jobTitlesSchemaAlertBody1': {
+    en: 'Your database needs the staff_job_titles table and related changes. From your project folder run:',
+    es: 'Tu base de datos necesita la tabla staff_job_titles y los cambios relacionados. Desde la carpeta del proyecto ejecuta:'
+  },
+  'employeeManagement.jobTitlesSchemaAlertCodePush': {
+    en: 'npx supabase link && npx supabase db push',
+    es: 'npx supabase link && npx supabase db push'
+  },
+  'employeeManagement.jobTitlesSchemaAlertBody2': {
+    en: 'Or paste the SQL from supabase/migrations/20260404180000_staff_names_and_job_titles.sql and 20260404190000_sync_staff_job_titles_from_roles.sql into Supabase Dashboard → SQL (in that order).',
+    es: 'O pega el SQL de supabase/migrations/20260404180000_staff_names_and_job_titles.sql y luego 20260404190000_sync_staff_job_titles_from_roles.sql en Supabase → SQL (en ese orden).'
+  },
+  'employeeManagement.jobTitlesSchemaAlertBody3': {
+    en: 'If the table already exists but you still see this error, run NOTIFY pgrst, \'reload schema\'; (see supabase/manual_reload_postgrest_schema.sql).',
+    es: 'Si la tabla ya existe y sigue el error, ejecuta NOTIFY pgrst, \'reload schema\'; (ver supabase/manual_reload_postgrest_schema.sql).'
   },
   'employeeManagement.jobTitleEmpty': {
     en: 'Enter a job title.',

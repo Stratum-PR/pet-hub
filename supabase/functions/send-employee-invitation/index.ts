@@ -1,6 +1,7 @@
 // Sends staff portal invitation email via Resend. verify_jwt = false; validates JWT in-handler.
-// Secrets: RESEND_API_KEY, APP_URL (public site origin for invite links), SUPABASE_* (auto), optional ALLOWED_ORIGINS
-// Dev: vite.config uses port 8080 — default base URL must match. Production: set APP_URL (e.g. https://app.example.com).
+// Secrets: RESEND_API_KEY, APP_URL or SITE_URL (public site origin; optional if invite is sent from the live app),
+// SUPABASE_* (auto), optional ALLOWED_ORIGINS
+// Invite link base: APP_URL/SITE_URL if set; else request Origin (https://yourapp.com from browser); else http://localhost:8080.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
 
@@ -50,7 +51,26 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
-  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  const appUrlEnv = (Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL") ?? "").replace(/\/$/, "");
+
+  /** Public site base for invite links: explicit secret first, else browser Origin (live app), else dev default. */
+  function resolveInviteBaseUrl(req: Request, envBase: string): string {
+    if (envBase) return envBase;
+    const originHdr = (req.headers.get("Origin") ?? "").trim().replace(/\/$/, "");
+    if (originHdr) {
+      try {
+        const u = new URL(originHdr);
+        const local =
+          u.protocol === "http:" &&
+          (u.hostname === "localhost" || u.hostname === "127.0.0.1");
+        const prod = u.protocol === "https:";
+        if (local || prod) return u.origin;
+      } catch {
+        /* fall through */
+      }
+    }
+    return "http://localhost:8080";
+  }
 
   if (!supabaseUrl || !serviceKey || !anonKey) {
     return new Response(JSON.stringify({ error: "Server misconfigured" }), {
@@ -230,23 +250,17 @@ Deno.serve(async (req) => {
     );
   }
 
-  const baseUrl = appUrl || "http://localhost:8080";
+  const baseUrl = resolveInviteBaseUrl(req, appUrlEnv);
   const invitationUrl = `${baseUrl}/employee/accept-invitation?token=${encodeURIComponent(invitation.token)}`;
 
   const displayName = body.staff_member_name?.trim() || staffRow.name || "";
   const bizName = body.business_name?.trim() || "Tu negocio";
 
-  const resendResponse = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Pet Hub <noreply@stratumpr.com>",
-      to: [email],
-      subject: `${bizName} te invita a unirte a Pet Hub`,
-      html: `
+  const resendPayload = JSON.stringify({
+    from: "Pet Hub <noreply@stratumpr.com>",
+    to: [email],
+    subject: `${bizName} te invita a unirte a Pet Hub`,
+    html: `
         <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 12px 12px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 24px;">Pet Hub</h1>
@@ -270,8 +284,40 @@ Deno.serve(async (req) => {
           </div>
         </div>
       `,
-    }),
   });
+
+  const resendController = new AbortController();
+  const resendTimeout = setTimeout(() => resendController.abort(), 25_000);
+  let resendResponse: Response;
+  try {
+    resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      signal: resendController.signal,
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
+      body: resendPayload,
+    });
+  } catch (e) {
+    clearTimeout(resendTimeout);
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return new Response(
+      JSON.stringify({
+        error: aborted
+          ? "Tiempo de espera al contactar el servicio de correo (Resend)"
+          : "Error de red al enviar el correo",
+        detail: aborted
+          ? "La llamada a api.resend.com superó 25s. Comprueba RESEND_API_KEY y conectividad."
+          : e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200),
+      }),
+      {
+        status: 504,
+        headers: { "Content-Type": "application/json", ...corsHeaders(req) },
+      },
+    );
+  }
+  clearTimeout(resendTimeout);
 
   if (!resendResponse.ok) {
     const txt = await resendResponse.text();
