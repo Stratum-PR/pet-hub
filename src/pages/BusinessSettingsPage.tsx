@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,7 +14,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
-import { isDemoMode } from '@/lib/authRouting';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   isPublicSlugTakenByOtherBusiness,
@@ -26,20 +25,14 @@ import {
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
-import { Download, Plus, Trash2, Upload, ZoomIn, ZoomOut, X } from 'lucide-react';
+import { Download, Plus, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { GeofencingSettings } from '@/components/GeofencingSettings';
 import { KioskManagerPinSettings } from '@/components/KioskManagerPinSettings';
-import { SidebarLogoPreview } from '@/components/SidebarLogoPreview';
-import { TimeKioskPreview } from '@/components/TimeKioskPreview';
+import { BusinessBrandingColors } from '@/components/BusinessBrandingColors';
+import { BusinessTimezoneCombobox } from '@/components/BusinessTimezoneCombobox';
+import { BusinessBrandingAssets } from '@/components/BusinessBrandingAssets';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import type { TaxAppliesTo } from '@/types/transactions';
 import {
   DAYS_OF_WEEK,
@@ -94,7 +87,7 @@ export function BusinessSettingsPage() {
   const { business } = useAuth();
   const businessId = useBusinessId();
   const demoLocalOnly = useDemoLocalSettingsMode();
-  const { settings, updateSetting, refetch } = useSettings();
+  const { settings, updateSetting, saveAllSettings, refetch } = useSettings();
   const { isFeatureVisible } = useFeatureRollout();
 
   // Punch clock / deep links: scroll to kiosk manager PIN when navigating with #kiosk-manager-pin
@@ -120,31 +113,14 @@ export function BusinessSettingsPage() {
   const [receiptFooter, setReceiptFooter] = useState('');
   const [businessPhone, setBusinessPhone] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
-  type LogoVariant = 'light' | 'dark';
-  type LogoPreviewTarget = 'crop' | 'navbar' | 'kiosk';
-  const [companyLogoUrlLight, setCompanyLogoUrlLight] = useState<string | null>(() =>
-    typeof window !== 'undefined' && isDemoMode() ? '/pet-hub-icon.svg' : null
-  );
-  // Dark mode logo is optional; if missing, the app will fall back to the light logo.
-  const [companyLogoUrlDark, setCompanyLogoUrlDark] = useState<string | null>(null);
-  const [logoUploadVariant, setLogoUploadVariant] = useState<LogoVariant>('light');
-  const [logoUploading, setLogoUploading] = useState(false);
-  const [logoPreviewTarget, setLogoPreviewTarget] = useState<LogoPreviewTarget>('crop');
-  const [cropZoomByVariant, setCropZoomByVariant] = useState<Record<LogoVariant, number>>({ light: 1, dark: 1 });
-  const [navbarZoomByVariant, setNavbarZoomByVariant] = useState<Record<LogoVariant, number>>({ light: 1, dark: 1 });
-  const [kioskZoomByVariant, setKioskZoomByVariant] = useState<Record<LogoVariant, number>>({ light: 1, dark: 1 });
-  const [navbarSizeByVariant, setNavbarSizeByVariant] = useState<Record<LogoVariant, number>>({ light: 64, dark: 64 });
-  const [kioskLogoHeightByVariant, setKioskLogoHeightByVariant] = useState<Record<LogoVariant, number>>({ light: 48, dark: 48 });
-  const [navbarLogoMode, setNavbarLogoMode] = useState<'square' | 'wide'>(() => (settings.navbar_logo_mode as any) || 'square');
-  const [navbarLogoSizePx, setNavbarLogoSizePx] = useState(() => settings.navbar_logo_size_px || '80');
-  const [logoUploadPreview, setLogoUploadPreview] = useState<{ file: File; objectUrl: string } | null>(null);
   const [defaultLowStock, setDefaultLowStock] = useState(settings.default_low_stock_threshold || '5');
   const [exporting, setExporting] = useState(false);
   const [businessName, setBusinessName] = useState(settings.business_name || '');
   const [publicSlug, setPublicSlug] = useState(business?.slug?.trim() || '');
   const [publicSlugCheck, setPublicSlugCheck] = useState<PublicSlugCheckStatus>('idle');
   const [hoursPerDay, setHoursPerDay] = useState<Record<DayKey, DayHours>>(() => parseBusinessHours(settings.business_hours));
-  const [savingBusinessInfo, setSavingBusinessInfo] = useState(false);
+  const [savingGeneralBusiness, setSavingGeneralBusiness] = useState(false);
+  const [savingBusinessHours, setSavingBusinessHours] = useState(false);
   const todayIso = new Date().toISOString().slice(0, 10);
 
   // Pay schedule settings (pay periods used by payroll reports).
@@ -241,85 +217,23 @@ export function BusinessSettingsPage() {
     }
     Promise.all([
       supabase.from('receipt_settings' as any).select('*').eq('business_id', businessId).maybeSingle(),
-      supabase
-        .from('settings' as any)
-        .select('business_logo_url, business_logo_url_light, business_logo_url_dark')
-        .eq('business_id', businessId)
-        .maybeSingle(),
-      supabase.from('businesses').select('phone, logo_url').eq('id', businessId).maybeSingle(),
-    ]).then(([receiptRes, settingsRes, bizRes]) => {
+      supabase.from('businesses').select('phone').eq('id', businessId).maybeSingle(),
+    ]).then(([receiptRes, bizRes]) => {
       const receipt = receiptRes.data as any;
       const biz = (bizRes as any).data as any;
-      const settingsRow = (settingsRes as any).data as any;
       if (receipt) {
         setReceiptHeader(receipt.header_text || '');
         setReceiptFooter(receipt.footer_text || '');
         setBusinessAddress(receipt.receipt_location || '');
       }
       setBusinessPhone(biz?.phone || receipt?.receipt_phone || '');
-      // NOTE: `public.settings` is our single-row-per-business source of truth,
-      // but we also keep a fallback to `businesses.logo_url` for backward compatibility.
-      const legacyLogoUrl = settingsRow?.business_logo_url ?? biz?.logo_url ?? null;
-      const lightLogoUrl = settingsRow?.business_logo_url_light ?? legacyLogoUrl;
-      const darkLogoUrl = settingsRow?.business_logo_url_dark ?? null;
-
-      if (isDemoMode() && !lightLogoUrl) {
-        setCompanyLogoUrlLight('/pet-hub-icon.svg');
-        setCompanyLogoUrlDark(null);
-      } else {
-        setCompanyLogoUrlLight(lightLogoUrl);
-        setCompanyLogoUrlDark(darkLogoUrl);
-      }
     });
   }, [businessId, demoLocalOnly]);
-
-  useEffect(() => {
-    if (!businessId || !demoLocalOnly) return;
-    const light = settings.business_logo_url_light ?? settings.business_logo_url;
-    const dark = settings.business_logo_url_dark;
-    if (isDemoMode() && !light) {
-      setCompanyLogoUrlLight('/pet-hub-icon.svg');
-      setCompanyLogoUrlDark(null);
-    } else {
-      setCompanyLogoUrlLight(light ?? null);
-      setCompanyLogoUrlDark(dark ?? null);
-    }
-  }, [businessId, demoLocalOnly, settings.business_logo_url, settings.business_logo_url_light, settings.business_logo_url_dark]);
-
-  useEffect(() => {
-    setNavbarLogoMode((settings.navbar_logo_mode as any) || 'square');
-    setNavbarLogoSizePx(settings.navbar_logo_size_px || '80');
-  }, [settings.navbar_logo_mode, settings.navbar_logo_size_px]);
 
   const [businessTimezone, setBusinessTimezone] = useState(settings.timezone || '');
   useEffect(() => {
     setBusinessTimezone(settings.timezone || '');
   }, [settings.timezone]);
-
-  const timezoneOptions = useMemo(() => {
-    const fallback = [
-      'America/Puerto_Rico',
-      'America/New_York',
-      'America/Chicago',
-      'America/Denver',
-      'America/Los_Angeles',
-      'America/Santo_Domingo',
-      'America/Bogota',
-      'America/Mexico_City',
-      'America/Panama',
-      'Europe/London',
-      'Europe/Madrid',
-      'Europe/Paris',
-      'UTC',
-    ];
-
-    const supportedValuesOf = (Intl as any)?.supportedValuesOf as ((key: string) => string[]) | undefined;
-    const list = supportedValuesOf ? supportedValuesOf('timeZone') : fallback;
-    const unique = Array.from(new Set([...(list || []), ...fallback]));
-    // Ensure current value is selectable even if not in supported list.
-    if (businessTimezone) unique.unshift(businessTimezone);
-    return Array.from(new Set(unique)).filter(Boolean);
-  }, [businessTimezone]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -395,27 +309,20 @@ export function BusinessSettingsPage() {
       });
   }, [businessId, demoLocalOnly]);
 
-  const handleSaveBusinessInfo = async () => {
+  const handleSaveGeneralBusiness = async () => {
     if (!businessId) return;
-    setSavingBusinessInfo(true);
+    setSavingGeneralBusiness(true);
     try {
       if (demoLocalOnly) {
         const nameRes = await updateSetting('business_name', businessName.trim() || '');
         if (!nameRes.ok) throw new Error(nameRes.error);
-        const hoursRes = await updateSetting('business_hours', serializeBusinessHours(hoursPerDay));
-        if (!hoursRes.ok) throw new Error(hoursRes.error);
-        const modeRes = await updateSetting('navbar_logo_mode', navbarLogoMode);
-        if (!modeRes.ok) throw new Error(modeRes.error);
-        const sizeNum = Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80));
-        const sizeRes = await updateSetting('navbar_logo_size_px', String(sizeNum));
-        if (!sizeRes.ok) throw new Error(sizeRes.error);
         const tzRes = await updateSetting('timezone', businessTimezone.trim());
         if (!tzRes.ok) throw new Error(tzRes.error);
         patchDemoStored(businessId, {
           business_phone: businessPhone.trim() || undefined,
           business_address: businessAddress.trim() || undefined,
         });
-        toast.success(t('businessSettings.businessInfoSaved'));
+        toast.success(t('businessSettings.generalBusinessSaved'));
         return;
       }
       const nameTrimmed = businessName.trim() || '';
@@ -460,13 +367,6 @@ export function BusinessSettingsPage() {
       }
       const nameRes = await updateSetting('business_name', businessName.trim() || '');
       if (!nameRes.ok) throw new Error(nameRes.error);
-      const hoursRes = await updateSetting('business_hours', serializeBusinessHours(hoursPerDay));
-      if (!hoursRes.ok) throw new Error(hoursRes.error);
-      const modeRes = await updateSetting('navbar_logo_mode', navbarLogoMode);
-      if (!modeRes.ok) throw new Error(modeRes.error);
-      const sizeNum = Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80));
-      const sizeRes = await updateSetting('navbar_logo_size_px', String(sizeNum));
-      if (!sizeRes.ok) throw new Error(sizeRes.error);
       const tzRes = await updateSetting('timezone', businessTimezone.trim());
       if (!tzRes.ok) throw new Error(tzRes.error);
       await supabase.from('receipt_settings' as any).upsert(
@@ -478,7 +378,7 @@ export function BusinessSettingsPage() {
         },
         { onConflict: 'business_id' }
       );
-      toast.success(t('businessSettings.businessInfoSaved'));
+      toast.success(t('businessSettings.generalBusinessSaved'));
     } catch (e: any) {
       const code = e?.code as string | undefined;
       if (code === '23505') {
@@ -487,7 +387,21 @@ export function BusinessSettingsPage() {
         toast.error(e?.message || t('common.genericError'));
       }
     } finally {
-      setSavingBusinessInfo(false);
+      setSavingGeneralBusiness(false);
+    }
+  };
+
+  const handleSaveBusinessHours = async () => {
+    if (!businessId) return;
+    setSavingBusinessHours(true);
+    try {
+      const hoursRes = await updateSetting('business_hours', serializeBusinessHours(hoursPerDay));
+      if (!hoursRes.ok) throw new Error(hoursRes.error);
+      toast.success(t('businessSettings.businessHoursSaved'));
+    } catch (e: any) {
+      toast.error(e?.message || t('common.genericError'));
+    } finally {
+      setSavingBusinessHours(false);
     }
   };
 
@@ -576,174 +490,6 @@ export function BusinessSettingsPage() {
     );
     if (error) toast.error(error.message);
     else toast.success(t('businessSettings.receiptSaved'));
-  };
-
-  const MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5MB
-  const ACCEPT_IMAGES = 'image/jpeg,image/png,image/webp,image/gif';
-
-  const openLogoUploadPreview = (variant: LogoVariant) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLogoUploadVariant(variant);
-    setLogoPreviewTarget('crop');
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !businessId) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error(t('businessSettings.logoImageOnly'));
-      return;
-    }
-    if (file.size > MAX_LOGO_BYTES) {
-      toast.error(t('businessSettings.logoMax5MBError'));
-      return;
-    }
-    setLogoUploadPreview({ file, objectUrl: URL.createObjectURL(file) });
-  };
-
-  const closeLogoUploadPreview = () => {
-    if (logoUploadPreview) URL.revokeObjectURL(logoUploadPreview.objectUrl);
-    setLogoUploadPreview(null);
-  };
-
-  const confirmLogoUpload = async () => {
-    if (!logoUploadPreview || !businessId) return;
-    setLogoUploading(true);
-    try {
-      const { file, objectUrl } = logoUploadPreview;
-      const img = await new Promise<HTMLImageElement>((res, rej) => {
-        const el = new Image();
-        el.onload = () => res(el);
-        el.onerror = rej;
-        el.src = objectUrl;
-      });
-      const scale = cropZoomByVariant[logoUploadVariant] ?? 1;
-      const w = Math.round(img.naturalWidth * scale);
-      const h = Math.round(img.naturalHeight * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas 2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, file.type || 'image/png', 0.92));
-      if (!blob) throw new Error('toBlob failed');
-      const variant = logoUploadVariant;
-      if (demoLocalOnly) {
-        const dataUrl = canvas.toDataURL(file.type || 'image/png', 0.92);
-        if (variant === 'light') {
-          const lr = await updateSetting('business_logo_url', dataUrl);
-          if (!lr.ok) throw new Error(lr.error || 'Failed saving logo');
-          const l2 = await updateSetting('business_logo_url_light', dataUrl);
-          if (!l2.ok) throw new Error(l2.error || 'Failed saving logo');
-          setCompanyLogoUrlLight(dataUrl);
-        } else {
-          const dr = await updateSetting('business_logo_url_dark', dataUrl);
-          if (!dr.ok) throw new Error(dr.error || 'Failed saving logo');
-          setCompanyLogoUrlDark(dataUrl);
-        }
-        toast.success(t('businessSettings.logoUploaded'));
-        closeLogoUploadPreview();
-        return;
-      }
-      const ext = file.name.split('.').pop() || 'png';
-      const path = `${businessId}/logo_${variant}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('business-logos').upload(path, blob, { cacheControl: '3600', upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('business-logos').getPublicUrl(path);
-      if (variant === 'light') {
-        // Keep legacy fields in sync with the light logo for backward compatibility.
-        const { error: updateError } = await supabase
-          .from('businesses' as any)
-          .update({ logo_url: publicUrl, updated_at: new Date().toISOString() })
-          .eq('id', businessId);
-        if (updateError) throw updateError;
-
-        const legacyRes = await updateSetting('business_logo_url', publicUrl);
-        if (!legacyRes.ok) throw new Error(legacyRes.error || 'Failed saving legacy logo setting');
-      }
-
-      const key = variant === 'light' ? 'business_logo_url_light' : 'business_logo_url_dark';
-      const logoRes = await updateSetting(key, publicUrl);
-      if (!logoRes.ok) throw new Error(logoRes.error || 'Failed saving logo setting');
-
-      if (variant === 'light') setCompanyLogoUrlLight(publicUrl);
-      else setCompanyLogoUrlDark(publicUrl);
-
-      toast.success(t('businessSettings.logoUploaded'));
-      closeLogoUploadPreview();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t('common.genericError');
-      if (msg.includes('schema cache') && (msg.includes('business_logo_url_dark') || msg.includes('business_logo_url_light'))) {
-        toast.error(
-          "Logo fields aren't available yet. Apply the latest Supabase migrations and reload the schema cache, then try again."
-        );
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setLogoUploading(false);
-    }
-  };
-
-  const handleLogoDelete = async (variant: LogoVariant) => {
-    if (!businessId) return;
-    const companyLogoUrl = variant === 'light' ? companyLogoUrlLight : companyLogoUrlDark;
-    if (!companyLogoUrl) return;
-    setLogoUploading(true);
-    try {
-      if (demoLocalOnly) {
-        if (variant === 'light') {
-          const a = await updateSetting('business_logo_url', null);
-          if (!a.ok) throw new Error(a.error);
-          const b = await updateSetting('business_logo_url_light', null);
-          if (!b.ok) throw new Error(b.error);
-          setCompanyLogoUrlLight(isDemoMode() ? '/pet-hub-icon.svg' : null);
-        } else {
-          const d = await updateSetting('business_logo_url_dark', null);
-          if (!d.ok) throw new Error(d.error);
-          setCompanyLogoUrlDark(null);
-        }
-        setCropZoomByVariant((prev) => ({ ...prev, [variant]: 1 }));
-        toast.success(t('businessSettings.logoDeleted'));
-        return;
-      }
-      const pathMatch = companyLogoUrl.match(/\/storage\/v1\/object\/public\/business-logos\/(.+)$/);
-      const path = pathMatch ? pathMatch[1] : null;
-      if (path) await supabase.storage.from('business-logos').remove([path]);
-
-      if (variant === 'light') {
-        await supabase.from('businesses').update({ logo_url: null, updated_at: new Date().toISOString() }).eq('id', businessId);
-        const legacyRes = await updateSetting('business_logo_url', null);
-        if (!legacyRes.ok) throw new Error(legacyRes.error || 'Failed clearing legacy logo setting');
-      }
-
-      const key = variant === 'light' ? 'business_logo_url_light' : 'business_logo_url_dark';
-      const logoRes = await updateSetting(key, null);
-      if (!logoRes.ok) throw new Error(logoRes.error || 'Failed clearing logo setting');
-
-      if (variant === 'light') setCompanyLogoUrlLight(null);
-      else setCompanyLogoUrlDark(null);
-
-      setCropZoomByVariant((prev) => ({ ...prev, [variant]: 1 }));
-      toast.success(t('businessSettings.logoDeleted'));
-    } catch (err: unknown) {
-      toast.error(t('common.genericError'));
-    } finally {
-      setLogoUploading(false);
-    }
-  };
-
-  const adjustZoom = (dir: -1 | 1) => {
-    const clamp = (v: number) => Math.max(0.5, Math.min(2, v));
-    const step = 0.25 * dir;
-    const variant = logoUploadVariant;
-    if (logoPreviewTarget === 'crop') {
-      setCropZoomByVariant((prev) => ({ ...prev, [variant]: clamp((prev[variant] ?? 1) + step) }));
-      return;
-    }
-    if (logoPreviewTarget === 'navbar') {
-      setNavbarZoomByVariant((prev) => ({ ...prev, [variant]: clamp((prev[variant] ?? 1) + step) }));
-      return;
-    }
-    setKioskZoomByVariant((prev) => ({ ...prev, [variant]: clamp((prev[variant] ?? 1) + step) }));
   };
 
   const handleSaveTaxes = async () => {
@@ -853,13 +599,14 @@ export function BusinessSettingsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Business info: column 1 = name, phone, address, logo; column 2 = business hours (same height or less) */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            {/* First column: name, phone, address, logo */}
-            <div className="space-y-4">
+    <div className="space-y-10 animate-fade-in">
+        <section id="general" className="scroll-mt-24 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('businessSettings.sectionGeneralTitle')}</CardTitle>
+              <CardDescription>{t('businessSettings.sectionGeneralDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="business-name">{t('businessSettings.businessName')}</Label>
                 <Input id="business-name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Business name" />
@@ -934,157 +681,15 @@ export function BusinessSettingsPage() {
                 <Label htmlFor="business-address">{t('businessSettings.address')}</Label>
                 <Input id="business-address" value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)} placeholder="Trujillo Alto, Puerto Rico" />
               </div>
-              <div className="space-y-3">
-                <Label>{t('businessSettings.companyLogo')}</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Navbar logo mode</Label>
-                    <Select value={navbarLogoMode} onValueChange={(v: 'square' | 'wide') => setNavbarLogoMode(v)}>
-                      <SelectTrigger className="w-full max-w-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="square">Square</SelectItem>
-                        <SelectItem value="wide">Wide (wordmark)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Navbar logo size</Label>
-                    <Input
-                      type="number"
-                      min={48}
-                      max={120}
-                      value={navbarLogoSizePx}
-                      onChange={(e) => setNavbarLogoSizePx(e.target.value)}
-                      className="w-full max-w-xs"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Business timezone</Label>
-                    <Select value={businessTimezone || ''} onValueChange={setBusinessTimezone}>
-                      <SelectTrigger className="w-full max-w-xs">
-                        <SelectValue placeholder="Select timezone" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[320px]">
-                        {timezoneOptions.map((tz) => (
-                          <SelectItem key={tz} value={tz}>
-                            {tz}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">This should match your business’s local time.</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="text-sm font-medium">Light mode</div>
-                    <div className="relative flex h-24 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/50">
-                      {(companyLogoUrlLight || (typeof window !== 'undefined' && isDemoMode())) ? (
-                        <img
-                          src={companyLogoUrlLight || '/pet-hub-icon.svg'}
-                          alt=""
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{t('businessSettings.logoNoImage')}</span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <input
-                        type="file"
-                        accept={ACCEPT_IMAGES}
-                        className="hidden"
-                        id="logo-upload-light"
-                        onChange={openLogoUploadPreview('light')}
-                        disabled={logoUploading}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 w-fit"
-                        onClick={() => document.getElementById('logo-upload-light')?.click()}
-                        disabled={logoUploading}
-                      >
-                        <Upload className="h-4 w-4" />
-                        {companyLogoUrlLight ? t('businessSettings.logoReplace') : t('businessSettings.logoUpload')}
-                      </Button>
-                      {companyLogoUrlLight && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 text-destructive hover:text-destructive w-fit"
-                          onClick={() => handleLogoDelete('light')}
-                          disabled={logoUploading}
-                        >
-                          <X className="h-4 w-4" />
-                          {t('businessSettings.logoDelete')}
-                        </Button>
-                      )}
-                      <p className="text-xs text-muted-foreground">{t('businessSettings.logoMax5MB')}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <div className="text-sm font-medium">Dark mode</div>
-                    <div className="relative flex h-24 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/50">
-                      {(companyLogoUrlDark || companyLogoUrlLight || (typeof window !== 'undefined' && isDemoMode())) ? (
-                        <img
-                          src={companyLogoUrlDark || companyLogoUrlLight || '/pet-hub-icon.svg'}
-                          alt=""
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{t('businessSettings.logoNoImage')}</span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <input
-                        type="file"
-                        accept={ACCEPT_IMAGES}
-                        className="hidden"
-                        id="logo-upload-dark"
-                        onChange={openLogoUploadPreview('dark')}
-                        disabled={logoUploading}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 w-fit"
-                        onClick={() => document.getElementById('logo-upload-dark')?.click()}
-                        disabled={logoUploading}
-                      >
-                        <Upload className="h-4 w-4" />
-                        {companyLogoUrlDark ? t('businessSettings.logoReplace') : t('businessSettings.logoUpload')}
-                      </Button>
-                      {companyLogoUrlDark && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 text-destructive hover:text-destructive w-fit"
-                          onClick={() => handleLogoDelete('dark')}
-                          disabled={logoUploading}
-                        >
-                          <X className="h-4 w-4" />
-                          {t('businessSettings.logoDelete')}
-                        </Button>
-                      )}
-                      <p className="text-xs text-muted-foreground">{t('businessSettings.logoMax5MB')}</p>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">{t('businessSettings.timezoneLabel')}</Label>
+                <BusinessTimezoneCombobox value={businessTimezone || ''} onChange={setBusinessTimezone} />
+                <p className="text-xs text-muted-foreground">{t('businessSettings.timezoneHint')}</p>
               </div>
               <Button
-                onClick={handleSaveBusinessInfo}
+                onClick={handleSaveGeneralBusiness}
                 disabled={
-                  savingBusinessInfo ||
+                  savingGeneralBusiness ||
                   (!demoLocalOnly &&
                     (publicSlugCheck === 'checking' ||
                       publicSlugCheck === 'taken' ||
@@ -1092,14 +697,20 @@ export function BusinessSettingsPage() {
                       publicSlugCheck === 'reserved'))
                 }
               >
-                {savingBusinessInfo ? t('common.saving') : t('common.save')}
+                {savingGeneralBusiness ? t('common.saving') : t('common.save')}
               </Button>
-            </div>
+            </CardContent>
+          </Card>
+        </section>
 
-            {/* Second column: business hours as compact list */}
-            <div className="space-y-1.5">
-              <Label className="text-sm">{t('businessSettings.businessHours')}</Label>
-              <div className="rounded-md border border-border divide-y divide-border">
+        <section id="business-hours" className="scroll-mt-24">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('businessSettings.sectionHoursTitle')}</CardTitle>
+              <CardDescription>{t('businessSettings.sectionHoursDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-md border border-border divide-y divide-border max-w-xl">
                 {DAYS_OF_WEEK.map((day) => (
                   <div key={day} className="flex items-center gap-2 py-1.5 px-2 min-w-0">
                     <span className="w-20 shrink-0 text-xs font-medium capitalize">{t(`businessSettings.day.${day}`) || day}</span>
@@ -1127,123 +738,175 @@ export function BusinessSettingsPage() {
                   </div>
                 ))}
               </div>
-            </div>
+              <Button onClick={handleSaveBusinessHours} disabled={savingBusinessHours}>
+                {savingBusinessHours ? t('common.saving') : t('common.save')}
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section id="branding" className="scroll-mt-24">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('businessSettings.sectionBrandingTitle')}</CardTitle>
+              <CardDescription>{t('businessSettings.sectionBrandingDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <Label>{t('businessSettings.companyLogo')}</Label>
+                <BusinessBrandingAssets
+                  businessId={businessId}
+                  demoLocalOnly={demoLocalOnly}
+                  settings={settings}
+                  updateSetting={updateSetting}
+                  refetch={refetch}
+                />
+              </div>
+              <div className="border-t border-border pt-6">
+                <Label className="text-base font-medium">{t('businessSettings.colorPaletteSection')}</Label>
+                <p className="text-sm text-muted-foreground mb-4">{t('businessSettings.colorPaletteSectionDescription')}</p>
+                <BusinessBrandingColors
+                  primaryColorInitial={settings.primary_color}
+                  secondaryColorInitial={settings.secondary_color}
+                  onSaveSettings={(partial) => saveAllSettings(partial)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section id="inventory" className="scroll-mt-24">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('businessSettings.sectionInventoryTitle')}</CardTitle>
+              <CardDescription>{t('businessSettings.lowStockGlobalDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-end gap-4">
+              <div className="space-y-2">
+                <Label>{t('businessSettings.defaultLowStock')}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={defaultLowStock}
+                  onChange={(e) => setDefaultLowStock(e.target.value)}
+                  className="w-24"
+                />
+              </div>
+              <Button onClick={handleSaveLowStock}>{t('common.save')}</Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section id="payroll" className="scroll-mt-24 space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">{t('businessSettings.sectionPayrollTitle')}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{t('businessSettings.sectionPayrollDescription')}</p>
           </div>
 
-          {/* Logo upload preview dialog: zoom to adjust margins, then confirm */}
-          <Dialog open={!!logoUploadPreview} onOpenChange={(open) => !open && closeLogoUploadPreview()}>
-            <DialogContent className="max-w-5xl">
-              <DialogHeader>
-                <DialogTitle>{t('businessSettings.logoAdjustPreview')}</DialogTitle>
-              </DialogHeader>
-              {logoUploadPreview && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="rounded-lg border border-border bg-muted/30 p-4 flex items-center justify-center">
-                      <SidebarLogoPreview
-                        logoUrl={logoUploadPreview.objectUrl}
-                        zoom={navbarZoomByVariant[logoUploadVariant] ?? 1}
-                        sizePx={Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80))}
-                        mode={navbarLogoMode}
-                      />
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/30 p-4 overflow-auto max-h-[520px]">
-                      <TimeKioskPreview
-                        logoUrl={logoUploadPreview.objectUrl}
-                        zoom={kioskZoomByVariant[logoUploadVariant] ?? 1}
-                        logoHeightPx={kioskLogoHeightByVariant[logoUploadVariant] ?? 48}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        variant={logoPreviewTarget === 'crop' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setLogoPreviewTarget('crop')}
-                      >
-                        Crop (saved)
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={logoPreviewTarget === 'navbar' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setLogoPreviewTarget('navbar')}
-                      >
-                        Navbar preview
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={logoPreviewTarget === 'kiosk' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setLogoPreviewTarget('kiosk')}
-                      >
-                        Punch clock preview
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustZoom(-1)}>
-                      <ZoomOut className="h-4 w-4" />
-                    </Button>
-                    <span className="flex-1 text-center text-sm text-muted-foreground">
-                      {Math.round(
-                        (logoPreviewTarget === 'crop'
-                          ? cropZoomByVariant[logoUploadVariant]
-                          : logoPreviewTarget === 'navbar'
-                            ? navbarZoomByVariant[logoUploadVariant]
-                            : kioskZoomByVariant[logoUploadVariant]) * 100
-                      )}
-                      %
-                    </span>
-                    <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => adjustZoom(1)}>
-                      <ZoomIn className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Navbar logo size</div>
-                        <input
-                          type="range"
-                          min={48}
-                          max={120}
-                          value={Math.max(48, Math.min(120, parseInt(navbarLogoSizePx || '80', 10) || 80))}
-                          onChange={(e) => setNavbarLogoSizePx(e.target.value)}
-                          className="w-full"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-xs text-muted-foreground">Punch clock logo height</div>
-                        <input
-                          type="range"
-                          min={24}
-                          max={96}
-                          value={kioskLogoHeightByVariant[logoUploadVariant] ?? 48}
-                          onChange={(e) =>
-                            setKioskLogoHeightByVariant((prev) => ({ ...prev, [logoUploadVariant]: parseInt(e.target.value, 10) || 48 }))
-                          }
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('businessSettings.paySchedule')}</CardTitle>
+              <CardDescription>{t('businessSettings.payScheduleDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t('businessSettings.payScheduleAnchorDate')}</Label>
+                <Input
+                  type="date"
+                  value={payScheduleAnchorDate}
+                  onChange={(e) => setPayScheduleAnchorDate(e.target.value)}
+                  className="w-56"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('businessSettings.payScheduleCadenceWeeks')}</Label>
+                <Select value={payScheduleCadenceWeeks} onValueChange={setPayScheduleCadenceWeeks}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder={t('businessSettings.payScheduleCadenceWeeks')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">{t('businessSettings.cadenceEvery1Week')}</SelectItem>
+                    <SelectItem value="2">{t('businessSettings.cadenceEvery2Weeks')}</SelectItem>
+                    <SelectItem value="3">{t('businessSettings.cadenceEvery3Weeks')}</SelectItem>
+                    <SelectItem value="4">{t('businessSettings.cadenceEvery4Weeks')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 max-w-xl">
+                <div className="space-y-0.5">
+                  <Label htmlFor="payroll-pdf-logo">{t('businessSettings.payrollPdfIncludeLogo')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('businessSettings.payrollPdfIncludeLogoDescription')}</p>
                 </div>
-              )}
-              <DialogFooter>
-                <Button variant="outline" onClick={closeLogoUploadPreview}>{t('common.cancel')}</Button>
-                <Button onClick={confirmLogoUpload} disabled={logoUploading}>{logoUploading ? t('common.saving') : t('businessSettings.logoUseThis')}</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardContent>
-      </Card>
+                <Switch
+                  id="payroll-pdf-logo"
+                  checked={payrollPdfIncludeLogo}
+                  onCheckedChange={setPayrollPdfIncludeLogo}
+                />
+              </div>
+              <Button onClick={handleSavePaySchedule} disabled={savingPaySchedule} className="gap-2">
+                {savingPaySchedule ? t('common.saving') : t('businessSettings.payScheduleSave')}
+              </Button>
+            </CardContent>
+          </Card>
 
-      {/* Tax and Receipt side by side — feature_rollout min_tier (tax_settings / receipt_personalization) */}
+          {demoLocalOnly ? (
+            <p className="text-sm text-muted-foreground max-w-xl">{t('businessSettings.demoKioskGeofenceNote')}</p>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">{t('businessSettings.punchClockHeading')}</CardTitle>
+                  <CardDescription>{t('businessSettings.punchClockDescription')}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="kiosk-warn-off-schedule">{t('businessSettings.kioskWarnOffScheduleEnabledLabel')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('businessSettings.kioskWarnOffScheduleDescription')}</p>
+                    </div>
+                    <Switch
+                      id="kiosk-warn-off-schedule"
+                      checked={kioskWarnOffSchedule}
+                      onCheckedChange={handleKioskWarnOffScheduleChange}
+                    />
+                  </div>
+                  {isFeatureVisible('employee_mobile_punch') && (
+                    <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 border-t border-border pt-6">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allow-employee-mobile-punch">
+                          {t('businessSettings.allowEmployeeMobilePunchEnabledLabel')}
+                        </Label>
+                        <p className="text-sm text-muted-foreground">{t('businessSettings.allowEmployeeMobilePunchDescription')}</p>
+                      </div>
+                      <Switch
+                        id="allow-employee-mobile-punch"
+                        checked={allowEmployeeMobilePunch}
+                        onCheckedChange={handleAllowEmployeeMobilePunchChange}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <div id="kiosk-manager-pin" className="scroll-mt-24 space-y-3">
+                <h3 className="text-sm font-semibold">{t('businessSettings.kioskManagerHeading')}</h3>
+                <KioskManagerPinSettings />
+              </div>
+
+              {isFeatureVisible('geofencing_settings') || isFeatureVisible('geofencing') ? (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">{t('businessSettings.geofencingHeading')}</h3>
+                  <GeofencingSettings />
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+
       {(isFeatureVisible('tax_settings') || isFeatureVisible('receipt_personalization')) && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {isFeatureVisible('tax_settings') && (
+      <section id="tax" className="scroll-mt-24 min-w-0">
       <Card>
         <CardHeader>
           <CardTitle>{t('businessSettings.taxConfiguration')}</CardTitle>
@@ -1361,9 +1024,11 @@ export function BusinessSettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      </section>
       )}
 
       {isFeatureVisible('receipt_personalization') && (
+      <section id="receipts" className="scroll-mt-24 min-w-0">
       <Card>
         <CardHeader>
           <CardTitle>{t('businessSettings.receiptCustomization')}</CardTitle>
@@ -1381,16 +1046,17 @@ export function BusinessSettingsPage() {
           <Button onClick={handleSaveReceipt}>{t('common.save')}</Button>
         </CardContent>
       </Card>
+      </section>
       )}
       </div>
       )}
 
-      {/* Payment setup — feature_rollout: payment_configuration */}
       {isFeatureVisible('payment_configuration') && (
+      <section id="payments" className="scroll-mt-24">
       <Card>
         <CardHeader>
-          <CardTitle>{t('businessSettings.paymentSetup')}</CardTitle>
-          <CardDescription>{t('businessSettings.paymentSetupDescription')}</CardDescription>
+          <CardTitle>{t('businessSettings.paymentsTitle')}</CardTitle>
+          <CardDescription>{t('businessSettings.paymentsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4">
@@ -1425,147 +1091,23 @@ export function BusinessSettingsPage() {
           </div>
         </CardContent>
       </Card>
+      </section>
       )}
 
-      {/* Pay Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('businessSettings.paySchedule')}</CardTitle>
-          <CardDescription>{t('businessSettings.payScheduleDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>{t('businessSettings.payScheduleAnchorDate')}</Label>
-            <Input
-              type="date"
-              value={payScheduleAnchorDate}
-              onChange={(e) => setPayScheduleAnchorDate(e.target.value)}
-              className="w-56"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('businessSettings.payScheduleCadenceWeeks')}</Label>
-            <Select value={payScheduleCadenceWeeks} onValueChange={setPayScheduleCadenceWeeks}>
-              <SelectTrigger className="w-56">
-                <SelectValue placeholder={t('businessSettings.payScheduleCadenceWeeks')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">{t('businessSettings.cadenceEvery1Week')}</SelectItem>
-                <SelectItem value="2">{t('businessSettings.cadenceEvery2Weeks')}</SelectItem>
-                <SelectItem value="3">{t('businessSettings.cadenceEvery3Weeks')}</SelectItem>
-                <SelectItem value="4">{t('businessSettings.cadenceEvery4Weeks')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 max-w-xl">
-            <div className="space-y-0.5">
-              <Label htmlFor="payroll-pdf-logo">{t('businessSettings.payrollPdfIncludeLogo')}</Label>
-              <p className="text-sm text-muted-foreground">{t('businessSettings.payrollPdfIncludeLogoDescription')}</p>
-            </div>
-            <Switch
-              id="payroll-pdf-logo"
-              checked={payrollPdfIncludeLogo}
-              onCheckedChange={setPayrollPdfIncludeLogo}
-            />
-          </div>
-
-          <Button onClick={handleSavePaySchedule} disabled={savingPaySchedule} className="gap-2">
-            {savingPaySchedule ? t('common.saving') : t('businessSettings.payScheduleSave')}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Time Kiosk Settings — require a real account (no DB writes in public demo) */}
-      {demoLocalOnly ? (
-        <p className="text-sm text-muted-foreground max-w-xl">
-          {t('businessSettings.demoKioskGeofenceNote')}
-        </p>
-      ) : (
-        <div id="kiosk-manager-pin" className="space-y-6 scroll-mt-24">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('businessSettings.kioskWarnOffSchedule')}</CardTitle>
-              <CardDescription>{t('businessSettings.kioskWarnOffScheduleDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="kiosk-warn-off-schedule">{t('businessSettings.kioskWarnOffScheduleEnabledLabel')}</Label>
-                </div>
-                <Switch
-                  id="kiosk-warn-off-schedule"
-                  checked={kioskWarnOffSchedule}
-                  onCheckedChange={handleKioskWarnOffScheduleChange}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          {isFeatureVisible('employee_mobile_punch') && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('businessSettings.allowEmployeeMobilePunch')}</CardTitle>
-              <CardDescription>{t('businessSettings.allowEmployeeMobilePunchDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="allow-employee-mobile-punch">
-                    {t('businessSettings.allowEmployeeMobilePunchEnabledLabel')}
-                  </Label>
-                </div>
-                <Switch
-                  id="allow-employee-mobile-punch"
-                  checked={allowEmployeeMobilePunch}
-                  onCheckedChange={handleAllowEmployeeMobilePunchChange}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          )}
-          <KioskManagerPinSettings />
-          {isFeatureVisible('geofencing_settings') || isFeatureVisible('geofencing') ? (
-            <GeofencingSettings />
-          ) : null}
-        </div>
-      )}
-
-      {/* Low stock and Data export side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('businessSettings.lowStockGlobal')}</CardTitle>
-          <CardDescription>{t('businessSettings.lowStockGlobalDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="space-y-2">
-            <Label>{t('businessSettings.defaultLowStock')}</Label>
-            <Input
-              type="number"
-              min={0}
-              value={defaultLowStock}
-              onChange={(e) => setDefaultLowStock(e.target.value)}
-              className="w-24"
-            />
-          </div>
-          <Button onClick={handleSaveLowStock}>{t('common.save')}</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('businessSettings.dataExport')}</CardTitle>
-          <CardDescription>{t('businessSettings.dataExportDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={handleExport} disabled={exporting} className="gap-2">
-            <Download className="w-4 h-4" />
-            {exporting ? t('common.saving') : t('businessSettings.downloadData')}
-          </Button>
-        </CardContent>
-      </Card>
-      </div>
+      <section id="data-export" className="scroll-mt-24">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('businessSettings.sectionDataExportTitle')}</CardTitle>
+            <CardDescription>{t('businessSettings.dataExportDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleExport} disabled={exporting} className="gap-2">
+              <Download className="w-4 h-4" />
+              {exporting ? t('common.saving') : t('businessSettings.downloadData')}
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

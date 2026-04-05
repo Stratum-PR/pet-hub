@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
+import { BrandingLogoSidebarExpanded } from '@/components/BrandingMark';
 
 export function EmployeePortalRoute() {
   const { user, loading, role, business } = useAuth();
@@ -36,8 +37,6 @@ export function EmployeePortalRoute() {
   const rawName = settings.business_name?.trim() || '';
   const displayBusinessName =
     rawName && rawName.toLowerCase().includes('demo') ? 'Demo' : rawName || 'Grumi';
-  const navbarLogoSize = Math.max(32, Math.min(96, parseInt(settings.navbar_logo_size_px || '72', 10) || 72));
-
   async function handleLogout() {
     try {
       setTheme('light');
@@ -64,11 +63,10 @@ export function EmployeePortalRoute() {
             className="flex min-w-0 max-w-[min(100%,28rem)] items-center gap-3 rounded-lg outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
           >
             {logoToShow ? (
-              <img
-                src={logoToShow}
-                alt=""
-                className="shrink-0 object-contain w-auto"
-                style={{ height: navbarLogoSize, maxWidth: 140 }}
+              <BrandingLogoSidebarExpanded
+                logoUrl={logoToShow}
+                layout={settings.business_branding_layout.logo.sidebarExpanded}
+                className="shrink-0 max-w-[140px]"
               />
             ) : (
               <img src="/pet-hub-logo.svg" alt="" className="h-10 w-auto shrink-0 object-contain" />

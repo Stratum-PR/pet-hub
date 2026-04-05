@@ -4,6 +4,7 @@ import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import {
   LayoutDashboard,
   Users,
+  User,
   Dog,
   Calendar,
   CalendarDays,
@@ -20,6 +21,9 @@ import {
   Mail,
   ChevronDown,
   ChevronRight,
+  Building2,
+  CalendarCog,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +44,10 @@ import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { useEmployees } from '@/hooks/useSupabaseData';
 import { t } from '@/lib/translations';
 import { cn } from '@/lib/utils';
+import { getBusinessSettingsAnchorNavItems } from '@/lib/businessSettingsSidebarAnchors';
+import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
+import { DEFAULT_BUSINESS_BRANDING_LAYOUT } from '@/lib/businessBrandingLayout';
+import { BrandingIconCompact, BrandingLogoSidebarExpanded } from '@/components/BrandingMark';
 
 const SIDEBAR_COLLAPSED_KEY = 'pet-hub-sidebar-collapsed';
 
@@ -79,8 +87,9 @@ interface AppSidebarProps {
   onCollapsedChange: (collapsed: boolean) => void;
   businessName?: string;
   businessLogoUrl?: string | null;
-  navbarLogoMode?: 'square' | 'wide';
-  navbarLogoSizePx?: number;
+  /** Collapsed sidebar / mobile sheet; falls back to logo when unset. */
+  businessIconUrl?: string | null;
+  brandingLayout?: BusinessBrandingLayout;
   /** When true, employees may open punch clock from their own phones (business setting). */
   allowEmployeeMobilePunch?: boolean;
   /** When true, render for mobile sheet (no collapse button, full width) */
@@ -92,8 +101,8 @@ export function AppSidebar({
   onCollapsedChange,
   businessName,
   businessLogoUrl,
-  navbarLogoMode = 'square',
-  navbarLogoSizePx = 80,
+  businessIconUrl = null,
+  brandingLayout = DEFAULT_BUSINESS_BRANDING_LAYOUT,
   allowEmployeeMobilePunch = false,
   mobile,
 }: AppSidebarProps) {
@@ -175,6 +184,41 @@ export function AppSidebar({
   const employeeHomeSegment = employeeNavInactive ? 'staff-management' : 'clients';
   const logoTarget =
     isEmployeeRole && basePath ? `${basePath}/${employeeHomeSegment}` : basePath || '/';
+
+  const pathWithinBusiness = useMemo(() => {
+    if (!businessSlug) return '/';
+    const raw = location.pathname.replace(new RegExp(`^/${businessSlug}`), '') || '/';
+    return raw.replace(/\/$/, '') || '/';
+  }, [location.pathname, businessSlug]);
+
+  const isSettingsRoute =
+    pathWithinBusiness === '/settings' || pathWithinBusiness.startsWith('/settings/');
+  const settingsChildSegment = /^\/settings\/([^/]+)/.exec(pathWithinBusiness)?.[1] ?? null;
+  const isBusinessSettingsSubPage = settingsChildSegment === 'business';
+  const accountSettingsVisibleNav = isFeatureVisible('account_settings');
+  const bookingSettingsVisibleNav = isFeatureVisible('booking_settings');
+
+  const logoLinkTo =
+    isSettingsRoute && basePath
+      ? isEmployeeRole
+        ? `${basePath}/${employeeHomeSegment}`
+        : `${basePath}/dashboard`
+      : logoTarget;
+
+  const prevPathWithinBusinessRef = useRef(pathWithinBusiness);
+  useEffect(() => {
+    const prev = prevPathWithinBusinessRef.current;
+    prevPathWithinBusinessRef.current = pathWithinBusiness;
+    const nowSettings = pathWithinBusiness === '/settings' || pathWithinBusiness.startsWith('/settings/');
+    const prevSettings = prev === '/settings' || prev.startsWith('/settings/');
+    if (nowSettings && !prevSettings && !mobile) {
+      onCollapsedChange(false);
+    }
+  }, [pathWithinBusiness, mobile, onCollapsedChange]);
+
+  const hashId = (location.hash || '').replace(/^#/, '');
+  const businessAnchorActive = (id: string) =>
+    isBusinessSettingsSubPage && (hashId === id || (!hashId && id === 'general'));
   const staffNavSectionActive =
     location.pathname.includes('/staff-management') ||
     location.pathname.includes('/employee-management') ||
@@ -184,6 +228,10 @@ export function AppSidebar({
   const isActive = (path: string) => location.pathname === `${basePath}/${path}` || (path !== 'dashboard' && location.pathname.startsWith(`${basePath}/${path}`));
 
   const isPill = !mobile;
+  const useCompactBrand = mobile || collapsed;
+  const compactImageUrl = businessIconUrl || businessLogoUrl || null;
+  const expandedLogoUrl = businessLogoUrl || null;
+  const showBrandImage = useCompactBrand ? !!compactImageUrl : !!expandedLogoUrl;
   const linkClass = (active: boolean, isCollapsedNav = false) =>
     cn(
       'flex items-center gap-3 rounded-full text-sm font-medium transition-all duration-200 min-w-0',
@@ -247,38 +295,35 @@ export function AppSidebar({
         )}
       >
         <Link
-          to={logoTarget}
+          to={logoLinkTo}
           className={cn(
             'flex items-center gap-2 min-w-0 overflow-hidden',
             isPill && collapsed ? 'flex-none justify-center' : 'flex-1 justify-center min-w-0'
           )}
         >
-          {businessLogoUrl ? (
+          {showBrandImage ? (
             <span className="shrink-0 flex items-center justify-center overflow-visible animate-logo-appear">
-              <img
-                src={businessLogoUrl}
-                alt=""
-                aria-hidden
-                className="object-contain"
-                style={
-                  navbarLogoMode === 'wide' && !(collapsed && !mobile)
-                    ? { height: navbarLogoSizePx, maxWidth: Math.round(navbarLogoSizePx * 3) }
-                    : { width: navbarLogoSizePx, height: navbarLogoSizePx }
-                }
-              />
+              {useCompactBrand && compactImageUrl ? (
+                <BrandingIconCompact
+                  imageUrl={compactImageUrl}
+                  layout={mobile ? brandingLayout.icon.mobile : brandingLayout.icon.sidebarCollapsed}
+                />
+              ) : expandedLogoUrl ? (
+                <BrandingLogoSidebarExpanded logoUrl={expandedLogoUrl} layout={brandingLayout.logo.sidebarExpanded} />
+              ) : null}
             </span>
           ) : (
             <span className="shrink-0 w-8 h-8 flex items-center justify-center overflow-visible animate-logo-appear">
               <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 object-contain" aria-hidden />
             </span>
           )}
-          {(!collapsed || mobile) && !businessLogoUrl && (
+          {(!collapsed || mobile) && !showBrandImage && (
             <span className="font-bold truncate text-sidebar-foreground text-sm mt-1.5 block" style={{ fontFamily: 'var(--font-telegraf)' }}>
               {businessName?.toLowerCase().includes('demo') ? 'Demo' : businessName || 'Grumi'}
             </span>
           )}
         </Link>
-        {!mobile && (
+        {!mobile && !isSettingsRoute && (
           <Button
             variant="ghost"
             size="icon"
@@ -296,7 +341,63 @@ export function AppSidebar({
       </div>
 
       <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-1 space-y-0.5', isPill ? (collapsed ? 'px-3 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
-        {isEmployeeRole ? (
+        {isSettingsRoute ? (
+          <>
+            <Link
+              to={isEmployeeRole ? `${basePath}/${employeeHomeSegment}` : `${basePath}/dashboard`}
+              className={linkClass(false, collapsed && !mobile)}
+            >
+              <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                <LayoutDashboard className="h-5 w-5 shrink-0" />
+              </span>
+              {(!collapsed || mobile) && <span className="truncate">{t('nav.backToApp')}</span>}
+            </Link>
+            {isEmployeeRole ? (
+              accountSettingsVisibleNav ? (
+                <NavLink path="settings/account" labelKey="nav.accountSettings" icon={User} />
+              ) : null
+            ) : (
+              <>
+                {!isBusinessSettingsSubPage ? (
+                  <>
+                    {accountSettingsVisibleNav ? (
+                      <NavLink path="settings/account" labelKey="nav.accountSettings" icon={User} />
+                    ) : null}
+                    <NavLink path="settings/business" labelKey="nav.businessSettings" icon={Building2} />
+                    {bookingSettingsVisibleNav ? (
+                      <NavLink path="settings/booking" labelKey="nav.bookingSettings" icon={CalendarCog} />
+                    ) : null}
+                    <NavLink path="settings/billing" labelKey="nav.billing" icon={CreditCard} />
+                  </>
+                ) : null}
+                {isBusinessSettingsSubPage ? (
+                  <>
+                    {(!collapsed || mobile) && (
+                      <p className="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground">
+                        {t('businessSettings.onThisPage')}
+                      </p>
+                    )}
+                    {getBusinessSettingsAnchorNavItems(isFeatureVisible).map((item) => {
+                      const collapsedNav = collapsed && !mobile;
+                      return (
+                        <a
+                          key={item.id}
+                          href={`${basePath}/settings/business#${item.id}`}
+                          className={linkClass(businessAnchorActive(item.id), collapsedNav)}
+                        >
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                            <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" aria-hidden />
+                          </span>
+                          {(!collapsed || mobile) && <span className="truncate">{t(item.labelKey)}</span>}
+                        </a>
+                      );
+                    })}
+                  </>
+                ) : null}
+              </>
+            )}
+          </>
+        ) : isEmployeeRole ? (
           employeeFlatNav.map((item) => (
             <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
           ))

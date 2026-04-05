@@ -296,7 +296,7 @@ const Index = () => {
           {settingsLoading ? (
             <PawStagedLoadingFullscreen label="Loading business settings" />
           ) : (
-            <PawRevealEnter className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <PawRevealEnter className="flex h-[100svh] max-h-[100svh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <Layout settings={settings}>
               <TransitionRoutes>
               <Route
