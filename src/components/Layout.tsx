@@ -236,8 +236,12 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const logoLight = settings.business_logo_url_light ?? settings.business_logo_url;
   const logoDark = settings.business_logo_url_dark ?? settings.business_logo_url_light ?? settings.business_logo_url;
+  const iconLight = settings.business_icon_url_light;
+  const iconDark =
+    settings.business_icon_url_dark ?? settings.business_icon_url_light;
   const isDark = resolvedTheme === 'dark';
   const logoToShow = isDark ? logoDark : logoLight;
+  const iconToShow = isDark ? iconDark : iconLight;
   const unreadCount = notifications.filter((n) => !n.read).length;
   const recentAll = notifications.slice(0, 7);
   const recentUnread = notifications.filter((n) => !n.read).slice(0, 7);
@@ -267,26 +271,30 @@ export function Layout({ children, settings }: LayoutProps) {
 
   return (
     <>
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
       {showAdminHeader && <AdminImpersonationHeader />}
 
-      <div ref={layoutRootRef} className="flex flex-1" style={{ paddingTop: showAdminHeader ? 48 : 0 }}>
-        {/* Desktop sidebar: floating pill, detached from edge */}
-        <div className="hidden lg:flex flex-col shrink-0 h-full pt-4 pb-4 pl-5">
+      <div
+        ref={layoutRootRef}
+        className="flex min-h-0 w-full flex-1 overflow-hidden"
+        style={{ paddingTop: showAdminHeader ? 48 : 0 }}
+      >
+        {/* Desktop sidebar: fills column height; main area scrolls separately */}
+        <div className="hidden min-h-0 shrink-0 self-stretch pt-4 pb-4 pl-5 lg:flex lg:flex-col">
           <AppSidebar
             collapsed={sidebarCollapsed}
             onCollapsedChange={setCollapsed}
             businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Grumi'}
             businessLogoUrl={logoToShow}
-            navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
-            navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}
+            businessIconUrl={iconToShow}
+            brandingLayout={settings.business_branding_layout}
             allowEmployeeMobilePunch={settings.allow_employee_mobile_punch === 'true'}
             mobile={false}
           />
         </div>
 
-        {/* Main area: only this content scrolls when page is long */}
-        <div ref={contentRef} className="flex-1 flex flex-col min-w-0">
+        {/* Main area: header fixed in column; body + footer scroll together */}
+        <div ref={contentRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Transparent header — blends with page background */}
           <header
             className={cn(
@@ -591,45 +599,47 @@ export function Layout({ children, settings }: LayoutProps) {
           {!showAdminHeader && <ImpersonationBanner />}
           {!showAdminHeader && <SupportSessionBanner />}
 
-          <main
-            className={cn(
-              'flex-1 w-full px-4 lg:px-6 flex flex-col',
-              isHelpPage ? 'overflow-hidden py-3' : 'overflow-x-hidden py-6'
-            )}
-          >
-            <PageTransition>
-              {children}
-            </PageTransition>
-          </main>
+          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            <main
+              className={cn(
+                'flex w-full flex-1 flex-col px-4 lg:px-6',
+                isHelpPage ? 'min-h-0 overflow-hidden py-3' : 'min-h-0 overflow-x-hidden py-6'
+              )}
+            >
+              <PageTransition>
+                {children}
+              </PageTransition>
+            </main>
 
-          <footer className="border-t shrink-0 bg-muted/30">
-            <div className="max-w-[320px] mx-auto px-4 py-4 flex flex-col items-center gap-1">
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-xs text-muted-foreground">Powered by</span>
-                <a
-                  href="https://stratumpr.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center hover:opacity-90 transition-opacity shrink-0 rounded-sm"
-                >
-                  <span
-                    key={isDashboardPath ? normalizedPath : 'footer-stratum-logo'}
-                    className={cn(
-                      'relative inline-block rounded-sm',
-                      isDashboardPath && 'footer-logo-shine-mount'
-                    )}
+            <footer className="shrink-0 border-t bg-muted/30">
+              <div className="mx-auto flex max-w-[320px] flex-col items-center gap-1 px-4 py-4">
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-xs text-muted-foreground">Powered by</span>
+                  <a
+                    href="https://stratumpr.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex shrink-0 items-center rounded-sm transition-opacity hover:opacity-90"
                   >
-                    <img
-                      src={resolvedTheme === 'dark' ? '/Logo 2.svg' : '/Logo 4.svg'}
-                      alt="STRATUM PR LLC"
-                      className="relative z-0 block object-contain h-6 w-auto max-w-[100px] cursor-pointer"
-                    />
-                  </span>
-                </a>
+                    <span
+                      key={isDashboardPath ? normalizedPath : 'footer-stratum-logo'}
+                      className={cn(
+                        'relative inline-block rounded-sm',
+                        isDashboardPath && 'footer-logo-shine-mount'
+                      )}
+                    >
+                      <img
+                        src={resolvedTheme === 'dark' ? '/Logo 2.svg' : '/Logo 4.svg'}
+                        alt="STRATUM PR LLC"
+                        className="relative z-0 block h-6 max-w-[100px] cursor-pointer object-contain"
+                      />
+                    </span>
+                  </a>
+                </div>
+                <div className="text-[10px] text-muted-foreground">© 2025 STRATUM PR LLC</div>
               </div>
-              <div className="text-[10px] text-muted-foreground">© 2025 STRATUM PR LLC</div>
-            </div>
-          </footer>
+            </footer>
+          </div>
         </div>
       </div>
 
@@ -641,8 +651,8 @@ export function Layout({ children, settings }: LayoutProps) {
             onCollapsedChange={() => {}}
             businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Grumi'}
             businessLogoUrl={logoToShow}
-            navbarLogoMode={(settings.navbar_logo_mode as 'square' | 'wide') || 'square'}
-            navbarLogoSizePx={Math.max(48, Math.min(120, parseInt(settings.navbar_logo_size_px || '80', 10) || 80))}
+            businessIconUrl={iconToShow}
+            brandingLayout={settings.business_branding_layout}
             allowEmployeeMobilePunch={settings.allow_employee_mobile_punch === 'true'}
             mobile={true}
           />

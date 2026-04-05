@@ -30,6 +30,7 @@ import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths'
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSupabaseData';
+import { BrandingLogoKiosk } from '@/components/BrandingMark';
 
 type KioskState = 'pin_entry' | 'employee_verified' | 'success' | 'error' | 'off_schedule_warning';
 
@@ -50,8 +51,6 @@ export function TimeKiosk() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTimeEntry, setActiveTimeEntry] = useState<TimeEntry | null>(null);
   const [clockedInDuration, setClockedInDuration] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
-  const [businessLogoLightUrl, setBusinessLogoLightUrl] = useState<string | null>(null);
-  const [businessLogoDarkUrl, setBusinessLogoDarkUrl] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
   const pinCaptureInputRef = useRef<HTMLInputElement>(null);
   const [managerPinGate, setManagerPinGate] = useState<ManagerPinGate>('loading');
@@ -124,57 +123,14 @@ export function TimeKiosk() {
     setKioskLocked(false);
   }, [managerPinGate]);
 
-  // Fetch the current business logo for display on the punch clock screen.
-  useEffect(() => {
-    if (!businessId) return;
-
-    let isMounted = true;
-    (async () => {
-      // Prefer light/dark logo stored in `public.settings` (single-row-per-business).
-      let light: string | null = null;
-      let dark: string | null = null;
-      let legacy: string | null = null;
-      try {
-        const { data: settingsRow } = await supabase
-          .from('settings')
-          .select('business_logo_url_light, business_logo_url_dark, business_logo_url')
-          .eq('business_id', businessId)
-          .maybeSingle();
-        light = settingsRow?.business_logo_url_light ?? null;
-        dark = settingsRow?.business_logo_url_dark ?? null;
-        legacy = settingsRow?.business_logo_url ?? null;
-      } catch {
-        // ignore, fallback below
-      }
-
-      // Light falls back to legacy if no light was provided.
-      if (!light) light = legacy;
-
-      // If we still have neither light nor dark, fall back to `businesses.logo_url`.
-      if (!light && !dark) {
-        try {
-          const { data: bizRow } = await supabase
-            .from('businesses')
-            .select('logo_url')
-            .eq('id', businessId)
-            .maybeSingle();
-          light = bizRow?.logo_url ?? null;
-        } catch {
-          // ignore
-        }
-      }
-
-      if (!isMounted) return;
-      setBusinessLogoLightUrl(light);
-      setBusinessLogoDarkUrl(dark);
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [businessId]);
-
-  const selectedBusinessLogoUrl = resolvedTheme === 'dark' ? businessLogoDarkUrl || businessLogoLightUrl : businessLogoLightUrl;
+  const logoLight =
+    settings.business_logo_url_light ?? settings.business_logo_url;
+  const logoDark =
+    settings.business_logo_url_dark ??
+    settings.business_logo_url_light ??
+    settings.business_logo_url;
+  const selectedBusinessLogoUrl =
+    resolvedTheme === 'dark' ? logoDark || logoLight : logoLight;
 
   const kioskLang: KioskLang = getLanguage() === 'es' ? 'es' : 'en';
   const kioskDisplayName = employee ? toTitleCaseDisplayName(employee.name ?? '') : '';
@@ -709,10 +665,10 @@ export function TimeKiosk() {
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               {selectedBusinessLogoUrl ? (
-                <img
-                  src={selectedBusinessLogoUrl}
+                <BrandingLogoKiosk
+                  logoUrl={selectedBusinessLogoUrl}
+                  layout={settings.business_branding_layout.logo.kiosk}
                   alt={t('timeTracking.title')}
-                  className="h-12 w-auto max-w-[240px] object-contain"
                 />
               ) : (
                 <>

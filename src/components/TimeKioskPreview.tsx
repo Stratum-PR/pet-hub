@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { t } from '@/lib/translations';
+import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
+import { BrandingLogoKiosk } from '@/components/BrandingMark';
 
 interface TimeKioskPreviewProps {
   logoUrl: string;
-  zoom: number;
-  logoHeightPx?: number;
+  layout: BusinessBrandingLayout['logo']['kiosk'];
 }
 
 /**
@@ -14,22 +15,12 @@ interface TimeKioskPreviewProps {
  * - No Supabase calls
  * - Just enough layout to preview how the logo + spacing look.
  */
-export function TimeKioskPreview({ logoUrl, zoom, logoHeightPx = 48 }: TimeKioskPreviewProps) {
+export function TimeKioskPreview({ logoUrl, layout }: TimeKioskPreviewProps) {
   return (
     <div className="w-full">
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-3 mb-4">
-          <img
-            src={logoUrl}
-            alt=""
-            aria-hidden
-            className="w-auto max-w-[240px] object-contain"
-            style={{
-              height: logoHeightPx,
-              transform: `scale(${zoom})`,
-              transformOrigin: 'center',
-            }}
-          />
+          <BrandingLogoKiosk logoUrl={logoUrl} layout={layout} alt="" />
         </div>
         <p className="text-muted-foreground text-lg">{t('timeTracking.description')}</p>
       </div>

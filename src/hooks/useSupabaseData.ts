@@ -20,6 +20,13 @@ import {
 } from '@/lib/businessThemeCss';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
+import {
+  DEFAULT_BUSINESS_BRANDING_LAYOUT,
+  brandingLayoutToJson,
+  normalizeBusinessBrandingLayout,
+  parseBusinessBrandingLayout,
+} from '@/lib/businessBrandingLayout';
 
 /** When true, data hooks cap rows to avoid loading thousands of rows on demo (e.g. seed appointments until March 2026). */
 function isDemoRoute(): boolean {
@@ -1789,10 +1796,11 @@ export interface Settings {
   business_logo_url_light: string | null;
   /** Optional business logo URL for dark mode. */
   business_logo_url_dark: string | null;
-  /** Sidebar header logo mode ('square' | 'wide'). */
-  navbar_logo_mode: string;
-  /** Sidebar header logo size in pixels (bounded in UI). */
-  navbar_logo_size_px: string;
+  /** Small brand mark (collapsed sidebar / mobile). */
+  business_icon_url_light: string | null;
+  business_icon_url_dark: string | null;
+  /** Logo/icon display geometry (sidebar, kiosk, mobile). */
+  business_branding_layout: BusinessBrandingLayout;
   /** IANA timezone name (e.g. 'America/Puerto_Rico'). */
   timezone: string;
   /** Global default low-stock threshold (number). Used when product has no per-product reorder_level. */
@@ -1823,6 +1831,22 @@ function isUnauthenticatedDemoPath(pathname: string): boolean {
   return isPublicDemoPath(pathname);
 }
 
+/**
+ * Each `useSettings()` mount has its own React state. Mutations from one screen (e.g. Business Settings)
+ * must refresh other mounts (e.g. Index → Layout sidebar, TimeKiosk) so the app stays consistent.
+ */
+const businessSettingsRefreshSubscribers = new Set<() => void>();
+
+function notifyBusinessSettingsMutated() {
+  businessSettingsRefreshSubscribers.forEach((fn) => {
+    try {
+      fn();
+    } catch (e) {
+      if (import.meta.env.DEV) console.warn('[useSettings] refresh subscriber failed', e);
+    }
+  });
+}
+
 export function useSettings() {
   const { user, role, loading: authLoading } = useAuth();
   const { pathname } = useLocation();
@@ -1837,8 +1861,9 @@ export function useSettings() {
     business_logo_url: null,
     business_logo_url_light: null,
     business_logo_url_dark: null,
-    navbar_logo_mode: 'square',
-    navbar_logo_size_px: '80',
+    business_icon_url_light: null,
+    business_icon_url_dark: null,
+    business_branding_layout: structuredClone(DEFAULT_BUSINESS_BRANDING_LAYOUT),
     timezone: '',
     default_low_stock_threshold: '5',
     pay_schedule_anchor_date: todayIso,
@@ -1863,12 +1888,14 @@ export function useSettings() {
     if (cached) applyPrimarySecondaryToDocument(cached.primary, cached.secondary);
   }, [businessId]);
 
-  const fetchSettings = async () => {
+  const fetchSettings = async (options?: { background?: boolean }) => {
     if (!businessId) return;
+    const background = options?.background === true;
     const mergeLocalDemo = isUnauthenticatedDemoPath(pathname) && !user;
     const fetchGen = ++settingsFetchGeneration.current;
 
-    setLoading(true);
+    if (!background) setLoading(true);
+    try {
     const { data: business } = await supabase
       .from('businesses')
       .select('name')
@@ -1878,12 +1905,13 @@ export function useSettings() {
     // Prefer full settings row, but fall back gracefully if newer columns
     // (e.g. timezone/logo variants) haven't been migrated in this environment yet.
     const fullSelect =
-      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule, allow_employee_mobile_punch';
+      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, business_icon_url_light, business_icon_url_dark, business_branding_layout, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule, allow_employee_mobile_punch';
     const legacySelect =
       'business_name, business_hours, primary_color, secondary_color, business_logo_url, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
 
     let row: any = null;
     let error: any = null;
+    let usedLegacySettingsSelect = false;
     if (role === 'employee' && user && !mergeLocalDemo) {
       const res = await supabase.rpc('get_employee_portal_settings', {
         p_business_id: businessId,
@@ -1910,6 +1938,33 @@ export function useSettings() {
           .maybeSingle();
         row = res2.data as any;
         error = res2.error as any;
+        usedLegacySettingsSelect = true;
+      }
+    }
+
+    // Legacy SELECT omits newer columns; if any *other* column in `fullSelect` is missing from the DB
+    // or schema cache, we still need layout + logo variants + toggles that may exist on the row.
+    if (!error && row && usedLegacySettingsSelect && !(role === 'employee' && user && !mergeLocalDemo)) {
+      const mergeSettingsCols = async (selectList: string) =>
+        supabase.from('settings').select(selectList).eq('business_id', businessId).maybeSingle();
+
+      const brandingList =
+        'business_logo_url_light, business_logo_url_dark, business_icon_url_light, business_icon_url_dark, business_branding_layout, navbar_logo_mode, navbar_logo_size_px';
+      const brandingRes = await mergeSettingsCols(brandingList);
+      if (!brandingRes.error && brandingRes.data) {
+        row = { ...row, ...brandingRes.data };
+      } else {
+        const layoutOnly = await mergeSettingsCols('business_branding_layout');
+        if (!layoutOnly.error && layoutOnly.data) {
+          row = { ...row, ...layoutOnly.data };
+        }
+      }
+
+      const restList =
+        'timezone, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule, allow_employee_mobile_punch';
+      const restRes = await mergeSettingsCols(restList);
+      if (!restRes.error && restRes.data) {
+        row = { ...row, ...restRes.data };
       }
     }
 
@@ -1921,8 +1976,9 @@ export function useSettings() {
       business_logo_url: null as string | null,
       business_logo_url_light: null as string | null,
       business_logo_url_dark: null as string | null,
-      navbar_logo_mode: 'square',
-      navbar_logo_size_px: '80',
+      business_icon_url_light: null as string | null,
+      business_icon_url_dark: null as string | null,
+      business_branding_layout: structuredClone(DEFAULT_BUSINESS_BRANDING_LAYOUT),
       timezone: '',
       default_low_stock_threshold: '5',
       pay_schedule_anchor_date: todayIso,
@@ -1946,8 +2002,12 @@ export function useSettings() {
           business_logo_url: row.business_logo_url ?? defaults.business_logo_url,
           business_logo_url_light: row.business_logo_url_light ?? defaults.business_logo_url_light,
           business_logo_url_dark: row.business_logo_url_dark ?? defaults.business_logo_url_dark,
-          navbar_logo_mode: row.navbar_logo_mode ?? defaults.navbar_logo_mode,
-          navbar_logo_size_px: String(row.navbar_logo_size_px ?? defaults.navbar_logo_size_px),
+          business_icon_url_light: row.business_icon_url_light ?? defaults.business_icon_url_light,
+          business_icon_url_dark: row.business_icon_url_dark ?? defaults.business_icon_url_dark,
+          business_branding_layout: parseBusinessBrandingLayout(row.business_branding_layout, {
+            navbar_logo_mode: row.navbar_logo_mode,
+            navbar_logo_size_px: row.navbar_logo_size_px,
+          }),
           timezone: row.timezone ?? defaults.timezone,
           default_low_stock_threshold: row.default_low_stock_threshold ?? defaults.default_low_stock_threshold,
           pay_schedule_anchor_date: row.pay_schedule_anchor_date ?? defaults.pay_schedule_anchor_date,
@@ -1988,8 +2048,8 @@ export function useSettings() {
         'business_logo_url',
         'business_logo_url_light',
         'business_logo_url_dark',
-        'navbar_logo_mode',
-        'navbar_logo_size_px',
+        'business_icon_url_light',
+        'business_icon_url_dark',
         'timezone',
         'default_low_stock_threshold',
         'pay_schedule_anchor_date',
@@ -2010,6 +2070,16 @@ export function useSettings() {
         if (v === '') continue;
         (merged as Record<string, unknown>)[k] = v as string | null;
       }
+      if (Object.prototype.hasOwnProperty.call(blob, 'business_branding_layout') && blob.business_branding_layout) {
+        const raw = blob.business_branding_layout;
+        if (typeof raw === 'string') {
+          try {
+            merged.business_branding_layout = parseBusinessBrandingLayout(JSON.parse(raw), undefined);
+          } catch {
+            /* keep base layout */
+          }
+        }
+      }
       nextSettings = merged;
     } else {
       nextSettings = baseFromDb;
@@ -2022,8 +2092,23 @@ export function useSettings() {
       writeCachedBusinessTheme(businessId, nextSettings.primary_color, nextSettings.secondary_color);
     }
     setSettings(nextSettings);
-    setLoading(false);
+    } finally {
+      if (!background) setLoading(false);
+    }
   };
+
+  const fetchSettingsRef = useRef(fetchSettings);
+  fetchSettingsRef.current = fetchSettings;
+
+  useEffect(() => {
+    const runBackgroundRefresh = () => {
+      void fetchSettingsRef.current({ background: true });
+    };
+    businessSettingsRefreshSubscribers.add(runBackgroundRefresh);
+    return () => {
+      businessSettingsRefreshSubscribers.delete(runBackgroundRefresh);
+    };
+  }, []);
 
   // `demoLocalOnly` already depends on `user` for /demo; omitting `user?.id` avoids a second fetch
   // when auth hydrates (same businessId) — that was restarting the settings loader / paw animation.
@@ -2043,8 +2128,9 @@ export function useSettings() {
     business_logo_url: 'business_logo_url',
     business_logo_url_light: 'business_logo_url_light',
     business_logo_url_dark: 'business_logo_url_dark',
-    navbar_logo_mode: 'navbar_logo_mode',
-    navbar_logo_size_px: 'navbar_logo_size_px',
+    business_icon_url_light: 'business_icon_url_light',
+    business_icon_url_dark: 'business_icon_url_dark',
+    business_branding_layout: 'business_branding_layout',
     timezone: 'timezone',
     default_low_stock_threshold: 'default_low_stock_threshold',
     pay_schedule_anchor_date: 'pay_schedule_anchor_date',
@@ -2059,15 +2145,40 @@ export function useSettings() {
     allow_employee_mobile_punch: 'allow_employee_mobile_punch',
   };
 
-  const updateSetting = async (key: string, value: string | null): Promise<{ ok: boolean; error?: string }> => {
+  const updateSetting = async (
+    key: string,
+    value: string | null | BusinessBrandingLayout
+  ): Promise<{ ok: boolean; error?: string }> => {
     if (!businessId) return { ok: false, error: 'No business ID' };
     if (role === 'employee' && !demoLocalOnly) return { ok: false, error: 'Forbidden' };
     const column = settingsKeyToColumn[key];
     if (!column) return { ok: false, error: `Unknown setting key: ${key}` };
 
+    if (key === 'business_branding_layout' && value !== null && typeof value === 'object') {
+      const normalized = normalizeBusinessBrandingLayout(value);
+      if (demoLocalOnly) {
+        patchDemoStored(businessId, {
+          business_branding_layout: JSON.stringify(brandingLayoutToJson(normalized)),
+        });
+        setSettings((prev) => ({ ...prev, business_branding_layout: normalized }));
+        notifyBusinessSettingsMutated();
+        return { ok: true };
+      }
+      const payload = { business_id: businessId, [column]: brandingLayoutToJson(normalized) };
+      const { error } = await supabase.from('settings').upsert(payload, { onConflict: 'business_id' });
+      if (error) {
+        if (import.meta.env.DEV) console.error('[useSettings] upsert error:', error);
+        return { ok: false, error: error.message };
+      }
+      setSettings((prev) => ({ ...prev, business_branding_layout: normalized }));
+      notifyBusinessSettingsMutated();
+      return { ok: true };
+    }
+
     if (demoLocalOnly) {
-      patchDemoStored(businessId, { [key]: value ?? undefined });
+      patchDemoStored(businessId, { [key]: (value as string) ?? undefined });
       setSettings((prev) => ({ ...prev, [key]: value } as Settings));
+      notifyBusinessSettingsMutated();
       return { ok: true };
     }
 
@@ -2080,7 +2191,8 @@ export function useSettings() {
       if (import.meta.env.DEV) console.error('[useSettings] upsert error:', error);
       return { ok: false, error: error.message };
     }
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value } as Settings));
+    notifyBusinessSettingsMutated();
     return { ok: true };
   };
 
@@ -2092,10 +2204,22 @@ export function useSettings() {
       const patch: Record<string, string | null | undefined> = {};
       for (const [k, v] of Object.entries(newSettings)) {
         if (v === undefined) continue;
+        if (k === 'business_branding_layout' && typeof v === 'object' && v !== null) {
+          patch[k] = JSON.stringify(brandingLayoutToJson(normalizeBusinessBrandingLayout(v as BusinessBrandingLayout)));
+          continue;
+        }
         patch[k] = v as string | null;
       }
       patchDemoStored(businessId, patch);
-      setSettings((prev) => ({ ...prev, ...newSettings }));
+      setSettings((prev) => ({
+        ...prev,
+        ...newSettings,
+        business_branding_layout:
+          newSettings.business_branding_layout !== undefined
+            ? normalizeBusinessBrandingLayout(newSettings.business_branding_layout)
+            : prev.business_branding_layout,
+      }));
+      notifyBusinessSettingsMutated();
       return { ok: true };
     }
 
@@ -2108,8 +2232,8 @@ export function useSettings() {
       'business_logo_url',
       'business_logo_url_light',
       'business_logo_url_dark',
-      'navbar_logo_mode',
-      'navbar_logo_size_px',
+      'business_icon_url_light',
+      'business_icon_url_dark',
       'timezone',
       'default_low_stock_threshold',
       'pay_schedule_anchor_date',
@@ -2134,6 +2258,10 @@ export function useSettings() {
         }
       }
     }
+    if (newSettings.business_branding_layout !== undefined) {
+      const normalized = normalizeBusinessBrandingLayout(newSettings.business_branding_layout);
+      payload[settingsKeyToColumn.business_branding_layout] = brandingLayoutToJson(normalized);
+    }
 
     const { error } = await supabase
       .from('settings')
@@ -2143,9 +2271,23 @@ export function useSettings() {
       if (import.meta.env.DEV) console.error('[useSettings] saveAllSettings upsert error:', error);
       return { ok: false, error: error.message };
     }
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    setSettings((prev) => ({
+      ...prev,
+      ...newSettings,
+      business_branding_layout:
+        newSettings.business_branding_layout !== undefined
+          ? normalizeBusinessBrandingLayout(newSettings.business_branding_layout)
+          : prev.business_branding_layout,
+    }));
+    notifyBusinessSettingsMutated();
     return { ok: true };
   };
 
-  return { settings, loading, updateSetting, saveAllSettings, refetch: fetchSettings };
+  return {
+    settings,
+    loading,
+    updateSetting,
+    saveAllSettings,
+    refetch: () => fetchSettings({ background: true }),
+  };
 }
