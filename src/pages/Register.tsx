@@ -17,6 +17,7 @@ import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 import { useBusinessBySlug } from '@/hooks/useBusinessBySlug';
 import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 import { ensureBusinessClientLink } from '@/lib/businessClientLink';
+import { DEFAULT_BUSINESS_TIMEZONE } from '@/lib/businessTimezonePicker';
 
 const REGISTER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/registrarse')!;
 
@@ -78,8 +79,7 @@ export function Register() {
   };
 
   const setDefaultBusinessTimezoneIfMissing = async (userId: string) => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    if (!tz) return;
+    const tz = DEFAULT_BUSINESS_TIMEZONE;
 
     // Find newly created business_id for this manager.
     const { data: profileRow, error: profileErr } = await supabase

@@ -45,6 +45,9 @@ export function BusinessTimezoneCombobox({ value, onChange, disabled, className 
       </PopoverTrigger>
       <PopoverContent className="w-[min(100vw-2rem,380px)] p-0" align="start">
         <Command>
+          <div className="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground">
+            {t('businessSettings.timezoneLabel')}
+          </div>
           <CommandInput placeholder={t('businessSettings.timezoneSearchPlaceholder')} />
           <CommandList>
             <CommandEmpty>{t('businessSettings.timezoneNoResults')}</CommandEmpty>

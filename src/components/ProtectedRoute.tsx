@@ -187,12 +187,15 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     }
     if (showPostLoginLoading && user) {
       return (
-        <PostLoginLoading
-          onTimeout={() => {
-            if (import.meta.env.DEV) console.warn('[ProtectedRoute] Loading timeout reached');
-          }}
-          timeoutMs={10000}
-        />
+        <div className="relative flex min-h-[100dvh] flex-1 flex-col">
+          {children}
+          <PostLoginLoading
+            onTimeout={() => {
+              if (import.meta.env.DEV) console.warn('[ProtectedRoute] Loading timeout reached');
+            }}
+            timeoutMs={10000}
+          />
+        </div>
       );
     }
     return <PawStagedLoadingFullscreen label="Loading" />;
