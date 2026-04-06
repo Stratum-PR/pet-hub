@@ -288,7 +288,7 @@ export function AppSidebar({
       {/* Logo + collapse */}
       <div
         className={cn(
-          'flex shrink-0 items-center min-w-0',
+          'relative flex shrink-0 items-center min-w-0',
           isPill
             ? (collapsed ? 'h-20 px-0 justify-center' : 'h-20 px-3 gap-2 justify-between')
             : 'h-20 px-3 gap-2 border-b border-sidebar-border',
@@ -327,7 +327,12 @@ export function AppSidebar({
           <Button
             variant="ghost"
             size="icon"
-            className={cn('h-8 w-8 shrink-0 rounded-full', collapsed ? 'ml-0' : 'ml-auto')}
+            className={cn(
+              'h-8 w-8 shrink-0 rounded-full',
+              collapsed
+                ? 'absolute right-0 top-0'
+                : 'absolute right-2 top-2'
+            )}
             onClick={() => {
               const next = !collapsed;
               onCollapsedChange(next);
@@ -340,7 +345,7 @@ export function AppSidebar({
         )}
       </div>
 
-      <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-1 space-y-0.5', isPill ? (collapsed ? 'px-3 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
+      <nav className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-1 space-y-0.5', isPill ? (collapsed ? 'px-0 flex flex-col items-center' : 'px-3') : 'px-2')} style={{ overscrollBehavior: 'contain' }}>
         {isSettingsRoute ? (
           <>
             <Link
@@ -410,7 +415,7 @@ export function AppSidebar({
             {collapsed && !mobile ? (
               <>
                 <DropdownMenu open={employeesOpen} onOpenChange={setEmployeesOpen}>
-                  <div className="w-full">
+                  <div className="w-full flex justify-center">
                     <DropdownMenuTrigger asChild>
                       <button className={cn('w-full', linkClass(staffNavSectionActive, true))}>
                         <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
@@ -430,7 +435,7 @@ export function AppSidebar({
                   </div>
                 </DropdownMenu>
                 <DropdownMenu open={reportsOpen} onOpenChange={setReportsOpen}>
-                  <div className="w-full">
+                  <div className="w-full flex justify-center">
                     <DropdownMenuTrigger asChild>
                       <button className={cn('w-full', linkClass(location.pathname.includes('reports'), true))}>
                         <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">

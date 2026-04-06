@@ -27,6 +27,7 @@ import {
   normalizeBusinessBrandingLayout,
   parseBusinessBrandingLayout,
 } from '@/lib/businessBrandingLayout';
+import { DEFAULT_BUSINESS_TIMEZONE } from '@/lib/businessTimezonePicker';
 
 /** When true, data hooks cap rows to avoid loading thousands of rows on demo (e.g. seed appointments until March 2026). */
 function isDemoRoute(): boolean {
@@ -1864,7 +1865,7 @@ export function useSettings() {
     business_icon_url_light: null,
     business_icon_url_dark: null,
     business_branding_layout: structuredClone(DEFAULT_BUSINESS_BRANDING_LAYOUT),
-    timezone: '',
+    timezone: DEFAULT_BUSINESS_TIMEZONE,
     default_low_stock_threshold: '5',
     pay_schedule_anchor_date: todayIso,
     pay_schedule_cadence_weeks: '2',
@@ -1927,9 +1928,12 @@ export function useSettings() {
       row = res.data as any;
       error = res.error as any;
     }
+    const isMissingColumnError = (err: any) => {
+      const msg = (err?.message ?? '').toLowerCase();
+      return err?.code === '42703' || msg.includes('column') || msg.includes('schema cache');
+    };
     if (error) {
-      const msg = (error?.message ?? '').toLowerCase();
-      const isMissingColumn = error?.code === '42703' || msg.includes('column') || msg.includes('schema cache');
+      const isMissingColumn = isMissingColumnError(error);
       if (isMissingColumn) {
         const res2 = await supabase
           .from('settings')
@@ -1960,11 +1964,28 @@ export function useSettings() {
         }
       }
 
-      const restList =
-        'timezone, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule, allow_employee_mobile_punch';
-      const restRes = await mergeSettingsCols(restList);
+      const restColumns = [
+        'timezone',
+        'notify_appointment_unbilled',
+        'notify_inventory_low_stock',
+        'notify_payment_overdue',
+        'notify_birthdays',
+        'notify_general',
+        'payroll_pdf_include_logo',
+        'kiosk_warn_off_schedule',
+        'allow_employee_mobile_punch',
+      ] as const;
+      const restRes = await mergeSettingsCols(restColumns.join(', '));
       if (!restRes.error && restRes.data) {
         row = { ...row, ...restRes.data };
+      } else if (isMissingColumnError(restRes.error)) {
+        // Fall back to per-column fetches so one missing optional column does not hide timezone.
+        for (const col of restColumns) {
+          const singleRes = await mergeSettingsCols(col);
+          if (!singleRes.error && singleRes.data && Object.prototype.hasOwnProperty.call(singleRes.data, col)) {
+            row = { ...row, [col]: (singleRes.data as Record<string, unknown>)[col] };
+          }
+        }
       }
     }
 
@@ -1979,7 +2000,7 @@ export function useSettings() {
       business_icon_url_light: null as string | null,
       business_icon_url_dark: null as string | null,
       business_branding_layout: structuredClone(DEFAULT_BUSINESS_BRANDING_LAYOUT),
-      timezone: '',
+      timezone: DEFAULT_BUSINESS_TIMEZONE,
       default_low_stock_threshold: '5',
       pay_schedule_anchor_date: todayIso,
       pay_schedule_cadence_weeks: '2',
@@ -2008,7 +2029,7 @@ export function useSettings() {
             navbar_logo_mode: row.navbar_logo_mode,
             navbar_logo_size_px: row.navbar_logo_size_px,
           }),
-          timezone: row.timezone ?? defaults.timezone,
+          timezone: typeof row.timezone === 'string' && row.timezone.trim() ? row.timezone : defaults.timezone,
           default_low_stock_threshold: row.default_low_stock_threshold ?? defaults.default_low_stock_threshold,
           pay_schedule_anchor_date: row.pay_schedule_anchor_date ?? defaults.pay_schedule_anchor_date,
           pay_schedule_cadence_weeks: row.pay_schedule_cadence_weeks ?? defaults.pay_schedule_cadence_weeks,

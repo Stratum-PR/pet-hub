@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
+import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 
 interface PostLoginLoadingProps {
   onTimeout?: () => void;
@@ -19,9 +19,14 @@ export function PostLoginLoading({ onTimeout, timeoutMs = 10000 }: PostLoginLoad
   }, [timeoutMs, onTimeout]);
 
   return (
-    <PawStagedLoadingFullscreen
-      label={timeoutReached ? 'Still loading your workspace' : 'Loading your workspace'}
-      zIndex={50}
-    />
+    <div
+      className="pointer-events-none absolute inset-0 z-20 flex flex-col"
+      aria-hidden="true"
+    >
+      <PawStagedLoadingArea
+        label={timeoutReached ? 'Still loading your workspace' : 'Loading your workspace'}
+        className="min-h-0 flex-1"
+      />
+    </div>
   );
 }

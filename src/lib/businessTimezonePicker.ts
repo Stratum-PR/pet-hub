@@ -3,6 +3,8 @@
  * Current business timezone is always merged in when missing.
  */
 
+export const DEFAULT_BUSINESS_TIMEZONE = 'America/Puerto_Rico';
+
 const CURATED_IANA_TIMEZONES = [
   'Pacific/Midway',
   'Pacific/Honolulu',

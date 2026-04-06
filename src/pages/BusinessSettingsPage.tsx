@@ -41,6 +41,7 @@ import {
   parseBusinessHours,
   serializeBusinessHours,
 } from '@/lib/businessHours';
+import { DEFAULT_BUSINESS_TIMEZONE } from '@/lib/businessTimezonePicker';
 import { cn } from '@/lib/utils';
 
 type PublicSlugCheckStatus =
@@ -230,9 +231,11 @@ export function BusinessSettingsPage() {
     });
   }, [businessId, demoLocalOnly]);
 
-  const [businessTimezone, setBusinessTimezone] = useState(settings.timezone || '');
+  const [businessTimezone, setBusinessTimezone] = useState(
+    () => settings.timezone?.trim() || DEFAULT_BUSINESS_TIMEZONE
+  );
   useEffect(() => {
-    setBusinessTimezone(settings.timezone || '');
+    setBusinessTimezone(settings.timezone?.trim() || DEFAULT_BUSINESS_TIMEZONE);
   }, [settings.timezone]);
 
   useEffect(() => {
@@ -313,10 +316,11 @@ export function BusinessSettingsPage() {
     if (!businessId) return;
     setSavingGeneralBusiness(true);
     try {
+      const normalizedTimezone = businessTimezone.trim() || DEFAULT_BUSINESS_TIMEZONE;
       if (demoLocalOnly) {
         const nameRes = await updateSetting('business_name', businessName.trim() || '');
         if (!nameRes.ok) throw new Error(nameRes.error);
-        const tzRes = await updateSetting('timezone', businessTimezone.trim());
+        const tzRes = await updateSetting('timezone', normalizedTimezone);
         if (!tzRes.ok) throw new Error(tzRes.error);
         patchDemoStored(businessId, {
           business_phone: businessPhone.trim() || undefined,
@@ -367,7 +371,7 @@ export function BusinessSettingsPage() {
       }
       const nameRes = await updateSetting('business_name', businessName.trim() || '');
       if (!nameRes.ok) throw new Error(nameRes.error);
-      const tzRes = await updateSetting('timezone', businessTimezone.trim());
+      const tzRes = await updateSetting('timezone', normalizedTimezone);
       if (!tzRes.ok) throw new Error(tzRes.error);
       await supabase.from('receipt_settings' as any).upsert(
         {
@@ -682,8 +686,8 @@ export function BusinessSettingsPage() {
                 <Input id="business-address" value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)} placeholder="Trujillo Alto, Puerto Rico" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">{t('businessSettings.timezoneLabel')}</Label>
-                <BusinessTimezoneCombobox value={businessTimezone || ''} onChange={setBusinessTimezone} />
+                <Label className="block text-xs text-muted-foreground">{t('businessSettings.timezoneLabel')}</Label>
+                <BusinessTimezoneCombobox value={businessTimezone} onChange={setBusinessTimezone} />
                 <p className="text-xs text-muted-foreground">{t('businessSettings.timezoneHint')}</p>
               </div>
               <Button
