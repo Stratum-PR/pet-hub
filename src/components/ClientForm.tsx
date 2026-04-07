@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useBusinessId } from '@/hooks/useBusinessId';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +12,28 @@ import { t } from '@/lib/translations';
 
 interface ClientFormProps {
   initialData?: BusinessClient | null;
-  onSubmit: (data: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => void;
+  onSubmit: (data: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at' | 'business_id'> & { staff_notes_business?: string | null }) => void;
   onCancel?: () => void;
   isEditing?: boolean;
+  /** When true, omit outer Card (parent provides section chrome). */
+  embedded?: boolean;
+  /** Override CardTitle text (e.g. portal section heading). */
+  titleOverride?: string | null;
+  /** Business app: load/save client_business_notes (staff-only). */
+  showStaffInternalNotes?: boolean;
 }
 
-export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: ClientFormProps) {
+export function ClientForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  isEditing,
+  embedded,
+  titleOverride,
+  showStaffInternalNotes = false,
+}: ClientFormProps) {
+  const businessId = useBusinessId();
+  const [staffNotes, setStaffNotes] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -44,6 +62,27 @@ export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: Clien
     }
   }, [initialData]);
 
+  useEffect(() => {
+    if (!showStaffInternalNotes || !businessId || !initialData?.id) {
+      setStaffNotes('');
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('client_business_notes')
+        .select('notes')
+        .eq('client_id', initialData.id)
+        .eq('business_id', businessId)
+        .maybeSingle();
+      if (cancelled || error) return;
+      setStaffNotes(((data as { notes?: string | null } | null)?.notes ?? '') || '');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showStaffInternalNotes, businessId, initialData?.id]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
@@ -54,6 +93,7 @@ export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: Clien
       state: formData.state || null,
       zip_code: formData.zip_code || null,
       notes: formData.notes || null,
+      ...(showStaffInternalNotes ? { staff_notes_business: staffNotes.trim() || null } : {}),
     });
   };
 
@@ -62,14 +102,11 @@ export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: Clien
     setFormData({ ...formData, phone: formatted });
   };
 
-  return (
-    <Card id="client-form" className="animate-fade-in">
-      <CardHeader>
-        <CardTitle>
-          {isEditing ? t('form.editClient') : t('form.addNewClient')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+  const title =
+    titleOverride?.trim() ||
+    (isEditing ? t('form.editClient') : t('form.addNewClient'));
+
+  const formInner = (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -159,6 +196,18 @@ export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: Clien
                 rows={3}
               />
             </div>
+            {showStaffInternalNotes && (
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="staff_client_notes">Notas internas (solo personal)</Label>
+                <Textarea
+                  id="staff_client_notes"
+                  value={staffNotes}
+                  onChange={(e) => setStaffNotes(e.target.value)}
+                  placeholder="Notas visibles solo en este negocio."
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
           <div className="flex gap-3 pt-4">
             <Button type="submit" className="shadow-sm">
@@ -171,7 +220,22 @@ export function ClientForm({ initialData, onSubmit, onCancel, isEditing }: Clien
             )}
           </div>
         </form>
-      </CardContent>
+  );
+
+  if (embedded) {
+    return (
+      <div id="client-form" className="animate-fade-in">
+        {formInner}
+      </div>
+    );
+  }
+
+  return (
+    <Card id="client-form" className="animate-fade-in">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>{formInner}</CardContent>
     </Card>
   );
 }

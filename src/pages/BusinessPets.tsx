@@ -67,7 +67,9 @@ export function BusinessPets() {
     return filtered;
   }, [pets, clients, searchTerm]);
 
-  const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
+  const handleSubmit = async (
+    petData: Omit<Pet, 'id' | 'created_at' | 'updated_at' | 'business_id'> & { staff_notes_business?: string | null },
+  ) => {
     try {
       if (editingPet) {
         const result = await updatePet(editingPet.id, petData);

@@ -4,14 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   getDefaultRoute,
-  setAuthContext,
-  setBusinessSlugForSession,
   AUTH_CONTEXTS,
-  resolveSuperAdminLoginDestination,
-  fetchPreferAdminDashboardOnLogin,
+  setAuthContext,
+  resolveAuthenticatedDestination,
+  getPostAuthHint,
+  clearPostAuthHint,
 } from '@/lib/authRouting';
-import type { Business } from '@/lib/auth';
-import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
 import { broadcastAuthLogin } from '@/lib/authBroadcast';
 
 const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
@@ -89,73 +87,14 @@ export function AuthCallback() {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_super_admin, business_id, role')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (profile?.is_super_admin) {
-        let business: Business | null = null;
-        if (profile.business_id) {
-          const { data: biz } = await supabase
-            .from('businesses')
-            .select('*')
-            .eq('id', profile.business_id)
-            .single();
-          if (biz) business = biz as Business;
-        }
-        const preferAdminDashboard = await fetchPreferAdminDashboardOnLogin(session.user.id);
-        const route = resolveSuperAdminLoginDestination({
-          preferAdminDashboard,
-          businessId: profile.business_id ?? null,
-          business,
-        });
-        if (!cancelled) navigate(route, { replace: true });
-        return;
-      }
-
-      if (profile?.role === 'employee') {
-        let business: Business | null = null;
-        if (profile.business_id) {
-          const { data: biz } = await supabase
-            .from('businesses')
-            .select('*')
-            .eq('id', profile.business_id)
-            .single();
-          if (biz) {
-            business = biz as Business;
-            setBusinessSlugForSession(business);
-          }
-        }
-        setAuthContext(AUTH_CONTEXTS.BUSINESS);
-        if (!cancelled) navigate(getEmployeePostLoginPath(business), { replace: true });
-        return;
-      }
-
-      let business: Business | null = null;
-      if (profile?.business_id) {
-        const { data: biz } = await supabase
-          .from('businesses')
-          .select('*')
-          .eq('id', profile.business_id)
-          .single();
-        if (biz) {
-          business = biz as Business;
-          setBusinessSlugForSession(business);
-        }
-      }
-
-      setAuthContext(AUTH_CONTEXTS.BUSINESS);
-      let route = getDefaultRoute({ isAdmin: false, business });
-      if (route === '/login' && profile?.business_id) {
-        route = '/';
-      }
-      if (route === '/login' && profile && !profile.business_id) {
-        navigate('/cliente', { replace: true });
-        return;
-      }
-      if (!cancelled) navigate(route, { replace: true });
+      const route = await resolveAuthenticatedDestination(session.user.id);
+      const hint = getPostAuthHint();
+      const hintedRoute =
+        hint?.mode === 'pet_owner'
+          ? `/portal${hint.businessSlug ? `?business=${encodeURIComponent(hint.businessSlug)}` : ''}`
+          : route;
+      clearPostAuthHint();
+      if (!cancelled) navigate(hintedRoute, { replace: true });
     }
 
     run();

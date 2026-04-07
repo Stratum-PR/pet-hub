@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useState, useRef } from 'react';
+
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +16,10 @@ import { hasSameEmployeeOverlap } from '@/lib/scheduleUtils';
 import { formatHours1Decimal, scheduledHoursBetween } from '@/lib/scheduleHours';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import { Link } from 'react-router-dom';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
+import { Badge } from '@/components/ui/badge';
+import { usePendingShiftChangeRequestCount } from '@/hooks/useShiftChangeRequests';
 
 const DEFAULT_START_MINUTES = 7 * 60;
 const DEFAULT_END_MINUTES = 21 * 60;
@@ -89,6 +94,11 @@ export function ManagerScheduleView({
   deleteShift,
   timeRange,
 }: ManagerScheduleViewProps) {
+  const businessSlug = useResolvedBusinessSlug();
+  const changeRequestsHref = businessSlug
+    ? `/${businessSlug}/employee-schedule/change-requests`
+    : '/employee-schedule/change-requests';
+  const { pendingCount } = usePendingShiftChangeRequestCount();
   const isMobile = useIsMobile();
   const rangeStartMinutes = timeRange?.startMinutes ?? DEFAULT_START_MINUTES;
   const rangeEndMinutes = timeRange?.endMinutes ?? DEFAULT_END_MINUTES;
@@ -314,22 +324,31 @@ export function ManagerScheduleView({
     [handleMoveMove, handleMoveEnd]
   );
 
+  const weekShifts = useMemo(
+    () =>
+      shifts.filter((s) => {
+        const t = new Date(s.start_time).getTime();
+        return t >= weekStart.getTime() && t <= weekEnd.getTime();
+      }),
+    [shifts, weekStart, weekEnd]
+  );
+
   const shiftsByDay = useMemo(() => {
     const byDay: Record<string, EmployeeShift[]> = {};
     weekDays.forEach((day) => {
-      byDay[format(day, 'yyyy-MM-dd')] = shifts.filter((s) => isShiftOnDay(s, day));
+      byDay[format(day, 'yyyy-MM-dd')] = weekShifts.filter((s) => isShiftOnDay(s, day));
     });
     return byDay;
-  }, [shifts, weekDays]);
+  }, [weekShifts, weekDays]);
 
   const newShiftIds = useMemo(() => {
     const known = knownShiftIdsRef.current;
-    const current = new Set(shifts.map((s) => s.id));
+    const current = new Set(weekShifts.map((s) => s.id));
     const added = new Set<string>();
     for (const id of current) if (!known.has(id)) added.add(id);
-    knownShiftIdsRef.current = current;
+    knownShiftIdsRef.current = new Set(shifts.map((s) => s.id));
     return added;
-  }, [shifts]);
+  }, [weekShifts, shifts]);
 
   const laneLayoutByShiftId = useMemo(() => {
     const layout: Record<string, { laneIndex: number; laneCount: number }> = {};
@@ -368,13 +387,6 @@ export function ManagerScheduleView({
 
   const lastWeekStart = subWeeks(weekStart, 1);
   const lastWeekEnd = endOfWeek(lastWeekStart);
-  const shiftsInCurrentWeek = useMemo(
-    () => shifts.filter((s) => {
-      const t = new Date(s.start_time).getTime();
-      return t >= weekStart.getTime() && t <= weekEnd.getTime();
-    }),
-    [shifts, weekStart.getTime(), weekEnd.getTime()]
-  );
   const shiftsInLastWeek = useMemo(
     () => shifts.filter((s) => {
       const t = new Date(s.start_time).getTime();
@@ -382,7 +394,7 @@ export function ManagerScheduleView({
     }),
     [shifts, lastWeekStart.getTime(), lastWeekEnd.getTime()]
   );
-  const showCopyFromLastWeek = shiftsInCurrentWeek.length === 0 && shiftsInLastWeek.length > 0;
+  const showCopyFromLastWeek = weekShifts.length === 0 && shiftsInLastWeek.length > 0;
 
   const handleCopyFromLastWeek = useCallback(async () => {
     setCopyingFromLastWeek(true);
@@ -410,7 +422,7 @@ export function ManagerScheduleView({
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t('schedule.managerTitle')}</h1>
           <p className="text-muted-foreground mt-1">{t('schedule.managerDescription')}</p>
@@ -428,6 +440,27 @@ export function ManagerScheduleView({
           <Button variant="outline" size="sm" onClick={() => onWeekChange(startOfWeek(new Date()))}>
             {t('schedule.today')}
           </Button>
+          <Button type="button" variant="outline" size="sm" asChild>
+            <Link
+              to={changeRequestsHref}
+              className="inline-flex items-center gap-2"
+              aria-label={
+                pendingCount >= 1
+                  ? `${t('nav.shiftChangeRequests')}: ${pendingCount} ${t('schedule.shiftApproval.pending')}`
+                  : t('nav.shiftChangeRequests')
+              }
+            >
+              {t('nav.shiftChangeRequests')}
+              {pendingCount >= 1 && (
+                <Badge
+                  variant="secondary"
+                  className="h-5 min-w-[1.25rem] justify-center px-1.5 text-xs tabular-nums"
+                >
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </Badge>
+              )}
+            </Link>
+          </Button>
           {showCopyFromLastWeek && (
             <Button
               variant="secondary"
@@ -441,23 +474,8 @@ export function ManagerScheduleView({
         </div>
       </div>
 
-      <div className="space-y-4">
-        <ScheduleTable
-          shifts={shifts}
-          employees={employees}
-          weekDays={weekDays}
-          onEditShift={(shift) => {
-            setEditingShift(shift);
-            setAddShiftContext(null);
-            setEditOpen(true);
-          }}
-          onAddShift={(employeeId, date) => {
-            setEditingShift(null);
-            setAddShiftContext({ employeeId, date });
-            setEditOpen(true);
-          }}
-        />
-
+      <div className="flex flex-col gap-4">
+        <div className="min-w-0">
         <Card>
           <CardContent className="p-4">
             <div className="flex gap-4">
@@ -490,7 +508,7 @@ export function ManagerScheduleView({
               )}
 
               <div className="flex-1 min-w-0">
-                <div className="overflow-x-auto lg:overflow-x-visible overflow-y-hidden">
+                <div className="overflow-x-auto lg:overflow-x-visible overflow-y-visible">
                     <div
                       className="grid border-b border-border sticky top-0 z-20 bg-background"
                       style={{ gridTemplateColumns: `min(72px, 4.5rem) repeat(${weekDays.length}, minmax(100px, 1fr))` }}
@@ -782,6 +800,25 @@ export function ManagerScheduleView({
             </div>
           </CardContent>
         </Card>
+        </div>
+
+        <div className="min-w-0">
+          <ScheduleTable
+            shifts={weekShifts}
+            employees={employees}
+            weekDays={weekDays}
+            onEditShift={(shift) => {
+              setEditingShift(shift);
+              setAddShiftContext(null);
+              setEditOpen(true);
+            }}
+            onAddShift={(employeeId, date) => {
+              setEditingShift(null);
+              setAddShiftContext({ employeeId, date });
+              setEditOpen(true);
+            }}
+          />
+        </div>
       </div>
 
       <EditShiftDialog

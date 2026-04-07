@@ -84,7 +84,11 @@ export function BusinessCustomers() {
     setDeleteDialogOpen(false);
   };
 
-  const handleSubmit = async (clientData: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at' | 'business_id'>) => {
+  const handleSubmit = async (
+    clientData: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at' | 'business_id'> & {
+      staff_notes_business?: string | null;
+    },
+  ) => {
     if (editingClient) {
       const result = await updateClient(editingClient.id, clientData);
       if (result) {
@@ -180,6 +184,7 @@ export function BusinessCustomers() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isEditing={!!editingClient}
+            showStaffInternalNotes
           />
         </div>
       )}

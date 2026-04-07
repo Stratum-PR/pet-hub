@@ -150,6 +150,27 @@ export interface EmployeeShift {
   updated_at: string;
 }
 
+export type StaffShiftChangeKind = 'new' | 'change' | 'cancel';
+export type StaffShiftChangeStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface StaffShiftChangeRequest {
+  id: string;
+  business_id: string;
+  staff_id: string;
+  staff_shift_id: string | null;
+  request_kind: StaffShiftChangeKind;
+  proposed_start_time: string | null;
+  proposed_end_time: string | null;
+  reason: string;
+  status: StaffShiftChangeStatus;
+  requested_by: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Appointment {
   id: string;
   pet_id: string;

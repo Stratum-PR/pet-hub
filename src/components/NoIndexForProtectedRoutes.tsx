@@ -8,8 +8,10 @@ const PUBLIC_FIRST_SEGMENTS = new Set([
   'registrarse',
   'auth',
   'cliente',
+  'portal',
   'signup',
   'demo',
+  'directorio',
 ]);
 
 /**
@@ -19,10 +21,16 @@ const PUBLIC_FIRST_SEGMENTS = new Set([
 export function NoIndexForProtectedRoutes() {
   const { pathname } = useLocation();
   const firstSegment = pathname.slice(1).split('/')[0] ?? '';
+  const isClientPortalPublicRoute = /^\/[^/]+\/portal\/?$/.test(pathname);
+  const isDirectoryRoute = pathname === '/directorio';
 
   const isProtected =
     pathname.startsWith('/admin') ||
-    (pathname.length > 1 && pathname.includes('/') && !PUBLIC_FIRST_SEGMENTS.has(firstSegment));
+    (pathname.length > 1 &&
+      pathname.includes('/') &&
+      !PUBLIC_FIRST_SEGMENTS.has(firstSegment) &&
+      !isClientPortalPublicRoute &&
+      !isDirectoryRoute);
 
   if (!isProtected) return null;
 

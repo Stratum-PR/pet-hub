@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,17 +15,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  getDefaultRoute,
-  setAuthContext,
-  setBusinessSlugForSession,
-  AUTH_CONTEXTS,
   setDemoMode,
   clearAuthContext,
-  resolveSuperAdminLoginDestination,
-  fetchPreferAdminDashboardOnLogin,
+  resolveAuthenticatedDestination,
+  setPostAuthHint,
+  clearPostAuthHint,
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
-import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
 import { t } from '@/lib/translations';
 import { getBusinessClientLink, ensureBusinessClientLink } from '@/lib/businessClientLink';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
@@ -33,6 +29,8 @@ import { broadcastAuthLogin } from '@/lib/authBroadcast';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+const LOGIN_DEBUG_STORAGE_KEY = 'grumi-login-debug-logs';
+const LOGIN_DEBUG_ATTEMPT_KEY = 'grumi-login-debug-attempt';
 
 export interface LoginFormProps {
   onLoginSuccess: (destination: string) => void;
@@ -61,59 +59,96 @@ export function LoginForm({
   const [forgotMessage, setForgotMessage] = useState<'success' | 'too_many' | null>(null);
   const [showNotLinked, setShowNotLinked] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
+  const [uiDebugLogs, setUiDebugLogs] = useState<string[]>(() => {
+    try {
+      const raw = sessionStorage.getItem(LOGIN_DEBUG_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as string[];
+      return Array.isArray(parsed) ? parsed.slice(-40) : [];
+    } catch {
+      return [];
+    }
+  });
   const { refreshAuth } = useAuth();
+
+  const pushUiDebug = (message: string, data?: Record<string, unknown>) => {
+    const line = `${new Date().toISOString()} | ${message}${data ? ` | ${JSON.stringify(data)}` : ''}`;
+    setUiDebugLogs((prev) => {
+      const next = [...prev.slice(-39), line];
+      try {
+        sessionStorage.setItem(LOGIN_DEBUG_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore storage issues
+      }
+      return next;
+    });
+  };
+  const debugText = useMemo(() => uiDebugLogs.join('\n'), [uiDebugLogs]);
+
+  const markAttempt = (phase: string) => {
+    try {
+      sessionStorage.setItem(
+        LOGIN_DEBUG_ATTEMPT_KEY,
+        JSON.stringify({ phase, at: Date.now() })
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  const clearAttempt = () => {
+    try {
+      sessionStorage.removeItem(LOGIN_DEBUG_ATTEMPT_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (uiDebugLogs.length !== 0) return;
+    try {
+      const rawAttempt = sessionStorage.getItem(LOGIN_DEBUG_ATTEMPT_KEY);
+      if (!rawAttempt) return;
+      const parsed = JSON.parse(rawAttempt) as { phase?: string; at?: number };
+      pushUiDebug('login:detectedReloadDuringAttempt', {
+        phase: parsed.phase || 'unknown',
+        at: parsed.at || null,
+      });
+      clearAttempt();
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      try {
+        const rawAttempt = sessionStorage.getItem(LOGIN_DEBUG_ATTEMPT_KEY);
+        if (!rawAttempt) return;
+        const parsed = JSON.parse(rawAttempt) as { phase?: string; at?: number };
+        const line = `${new Date().toISOString()} | login:beforeunload | ${JSON.stringify({
+          phase: parsed.phase || 'unknown',
+          at: parsed.at || null,
+        })}`;
+        const rawLogs = sessionStorage.getItem(LOGIN_DEBUG_STORAGE_KEY);
+        const prev = rawLogs ? ((JSON.parse(rawLogs) as string[]) || []) : [];
+        const next = [...prev.slice(-39), line];
+        sessionStorage.setItem(LOGIN_DEBUG_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
 
   const getRedirectForAuthenticatedUser = async (): Promise<string> => {
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    pushUiDebug('redirect:getUser', { hasUser: !!userRes?.user, userErr: userErr?.message || null });
     if (userErr || !userRes.user) return '/login';
-    const authUser = userRes.user;
-    const { data: profile, error: profileErr } = await supabase
-      .from('profiles' as any)
-      .select('is_super_admin,business_id,role')
-      .eq('id', authUser.id)
-      .maybeSingle();
-    if (profileErr) return '/login';
-    const isSuperAdmin = !!profile?.is_super_admin;
-    if (isSuperAdmin) {
-      let business: Business | null = null;
-      if (profile?.business_id) {
-        const { data: biz } = await supabase
-          .from('businesses')
-          .select('*')
-          .eq('id', profile.business_id)
-          .single();
-        if (biz) business = biz as Business;
-      }
-      const preferAdminDashboard = await fetchPreferAdminDashboardOnLogin(authUser.id);
-      return resolveSuperAdminLoginDestination({
-        preferAdminDashboard,
-        businessId: profile?.business_id ?? null,
-        business,
-      });
-    }
-    if (profile?.role === 'employee') {
-      setAuthContext(AUTH_CONTEXTS.BUSINESS);
-      let employeeBiz: Business | null = null;
-      if (profile.business_id) {
-        const { data: b } = await supabase.from('businesses').select('*').eq('id', profile.business_id).single();
-        if (b) {
-          employeeBiz = b as Business;
-          setBusinessSlugForSession(employeeBiz);
-        }
-      }
-      return getEmployeePostLoginPath(employeeBiz);
-    }
-    setAuthContext(AUTH_CONTEXTS.BUSINESS);
-    let business: Business | null = null;
-    if (profile?.business_id) {
-      const { data: biz } = await supabase.from('businesses').select('*').eq('id', profile.business_id).single();
-      if (biz) {
-        business = biz as Business;
-        setBusinessSlugForSession(business);
-      }
-    }
-    if (!profile?.business_id) return '/cliente';
-    const route = getDefaultRoute({ isAdmin: false, business });
+    const route = await resolveAuthenticatedDestination(userRes.user.id);
+    pushUiDebug('redirect:routeComputed', { route });
     // Splash (and other) login: never send a session back to /login — use marketing home instead.
     if (route === '/login') return '/';
     return route;
@@ -234,25 +269,50 @@ export function LoginForm({
     e.preventDefault();
     setLoading(true);
     setShowNotLinked(false);
+    markAttempt('submit');
     try {
       setDemoMode(false);
+      if (businessSlug) {
+        setPostAuthHint({ mode: 'pet_owner', businessSlug });
+      } else {
+        clearPostAuthHint();
+      }
+      pushUiDebug('login:start', { hasBusinessSlug: !!businessSlug, hasBusinessId: !!businessId });
       const ok = await credentialsLogin(email, password);
+      pushUiDebug('login:credentialsResult', { ok });
       if (ok) {
+        markAttempt('post-credentials-ok');
+        pushUiDebug('login:refreshAuth:start');
         await refreshAuth();
+        pushUiDebug('login:refreshAuth:done');
         const { data: sessionWrap } = await supabase.auth.getSession();
         if (sessionWrap?.session?.user) {
           broadcastAuthLogin(sessionWrap.session.user);
         }
         toast.success('Signed in successfully');
-        let destination =
-          postLoginNavigateTo != null && postLoginNavigateTo !== ''
-            ? postLoginNavigateTo
-            : await getRedirectForAuthenticatedUser();
-        if (destination === '/cliente' && businessSlug && businessId) {
+        let destination: string;
+        if (postLoginNavigateTo != null && postLoginNavigateTo !== '') {
+          destination = postLoginNavigateTo;
+        } else {
+          const redirectResolverPromise = getRedirectForAuthenticatedUser();
+          const redirectTimeoutPromise = new Promise<string>((resolve) =>
+            setTimeout(() => resolve('/portal'), 6000)
+          );
+          destination = await Promise.race([redirectResolverPromise, redirectTimeoutPromise]);
+          if (destination === '/portal') {
+            pushUiDebug('login:destinationTimeoutFallback', { fallback: '/portal', timeoutMs: 6000 });
+          }
+        }
+        if (businessSlug && destination.startsWith('/portal')) {
+          destination = `/portal?business=${encodeURIComponent(businessSlug)}`;
+        }
+        pushUiDebug('login:destinationInitial', { destination });
+        if (destination === '/portal' && businessSlug && businessId) {
           const { data: { user: u } } = await supabase.auth.getUser();
           if (u) {
             try {
               const link = await getBusinessClientLink(u.id, businessId);
+              pushUiDebug('login:linkLookup', { hasLink: !!link, linkStatus: link?.status || null });
               if (link?.status === 'revoked') {
                 setShowNotLinked(true);
                 toast.error(t('login.revokedMessage', { businessName: business?.name ?? businessSlug }));
@@ -266,13 +326,20 @@ export function LoginForm({
               setShowNotLinked(true);
               return;
             }
-            destination = `/${businessSlug}/dashboard`;
-            if (business) setBusinessSlugForSession(business);
+            destination = '/portal';
+            pushUiDebug('login:destinationOverride', { destination });
           }
         }
         onLoginSuccess(destination);
+        pushUiDebug('login:onLoginSuccessCalled', { destination });
+        clearPostAuthHint();
+        clearAttempt();
       }
     } catch (error: any) {
+      pushUiDebug('login:catch', {
+        message: error?.message || String(error),
+        name: error?.name || null,
+      });
       if (import.meta.env.DEV) console.error('[Login] Unexpected error:', error);
       toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
     } finally {
@@ -394,6 +461,39 @@ export function LoginForm({
             {t('login.startTrial')}
           </Link>
         </p>
+      </div>
+      <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Debug logs</p>
+        <textarea
+          readOnly
+          value={debugText}
+          className="mt-2 h-36 w-full rounded-md border bg-background p-2 font-mono text-[11px]"
+          placeholder="Run login to populate logs..."
+        />
+        <div className="mt-2 flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => navigator.clipboard.writeText(debugText || '')}
+          >
+            Copy logs
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setUiDebugLogs([])}>
+            Clear
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              sessionStorage.removeItem(LOGIN_DEBUG_STORAGE_KEY);
+              setUiDebugLogs([]);
+            }}
+          >
+            Clear persisted
+          </Button>
+        </div>
       </div>
     </>
   );

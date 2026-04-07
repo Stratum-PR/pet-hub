@@ -1,4 +1,5 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { t } from '@/lib/translations';
 import { Footer } from '@/components/Footer';
@@ -7,17 +8,22 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { LoginForm } from '@/components/LoginForm';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
-import { useBusinessBySlug } from '@/hooks/useBusinessBySlug';
-import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
+import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
+import { supabase } from '@/integrations/supabase/client';
 
 const LOGIN_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/login')!;
 
 export function Login() {
   const navigate = useNavigate();
-  const { businessSlug } = useParams<{ businessSlug?: string }>();
-  const { business, businessId } = useBusinessBySlug();
-  useCanonicalSlugRedirect(business);
+  const [searchParams] = useSearchParams();
   useLanguage(); // Force re-render on language change
+  const businessSlug = searchParams.get('business')?.trim() || undefined;
+
+  const { data: business } = useQuery({
+    queryKey: ['loginBusinessBySlug', businessSlug],
+    enabled: !!businessSlug,
+    queryFn: async () => fetchBusinessByPublicSlug(supabase, businessSlug!),
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex flex-col">
@@ -36,15 +42,15 @@ export function Login() {
             </div>
             <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
             <CardDescription>
-              {businessSlug && business?.name ? t('login.subtitleBusiness', { businessName: business.name }) : t('login.subtitle')}
+              {t('login.subtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <LoginForm
+              businessSlug={businessSlug}
+              businessId={business?.id}
+              business={business}
               onLoginSuccess={(destination) => navigate(destination, { replace: true })}
-              businessSlug={businessSlug ?? undefined}
-              businessId={businessId ?? undefined}
-              business={business ?? undefined}
             />
           </CardContent>
         </Card>

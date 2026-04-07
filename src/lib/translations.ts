@@ -412,6 +412,95 @@ export const translations: Translations = {
     es: 'El portal de clientes está en construcción. Puedes cerrar sesión y volver más tarde.'
   },
 
+  'portal.section.myInformation': {
+    en: 'My information',
+    es: 'Mi información'
+  },
+  'portal.section.myPets': {
+    en: 'My pets',
+    es: 'Mis mascotas'
+  },
+  'portal.section.appointments': {
+    en: 'My appointments',
+    es: 'Mis citas'
+  },
+  'portal.section.directory': {
+    en: 'Business directory',
+    es: 'Directorio de negocios'
+  },
+  'portal.section.payments': {
+    en: 'Payment methods',
+    es: 'Métodos de pago'
+  },
+  'portal.section.locator': {
+    en: 'Store locator',
+    es: 'Ubicación'
+  },
+  'portal.section.purchases': {
+    en: 'Purchase history',
+    es: 'Historial de compras'
+  },
+  'portal.paymentsComingSoon': {
+    en: 'Saved cards will be available soon.',
+    es: 'Las tarjetas guardadas estarán disponibles pronto.'
+  },
+  'portal.completeProfileFirst': {
+    en: 'Save your contact information below before adding pets.',
+    es: 'Guarda tu información de contacto antes de agregar mascotas.'
+  },
+  'portal.directoryCta': {
+    en: 'Browse all businesses and open their client portal.',
+    es: 'Explora negocios y abre su portal de clientes.'
+  },
+  'portal.goToDirectory': {
+    en: 'Open directory',
+    es: 'Ir al directorio'
+  },
+  'portal.petsNeedBusinessContext': {
+    en: 'To add pets, open the portal from a business link (directory or QR) or connect your account to a business. Your profile does not require a business until you choose one.',
+    es: 'Para agregar mascotas, abre el portal desde el enlace de un negocio (directorio o QR) o vincula tu cuenta a un negocio. Tu perfil no requiere un negocio hasta que elijas uno.'
+  },
+  'portal.multiBusinessExplainer': {
+    en: 'You have one client profile for all businesses. Pick a business above to filter appointments, map, and purchases; pets are stored under the business you select when you add them.',
+    es: 'Tienes un solo perfil de cliente para todos los negocios. Elige un negocio arriba para filtrar citas, mapa y compras; las mascotas se guardan bajo el negocio que tengas seleccionado al agregarlas.'
+  },
+  'portal.selectBusinessBeforePet': {
+    en: 'Choose a business in the selector above (or open the portal from a business link).',
+    es: 'Elige un negocio en el selector de arriba (o abre el portal desde el enlace de un negocio).'
+  },
+  'portal.petBusinessLabel': {
+    en: 'Register pets under this business',
+    es: 'Registrar mascotas en este negocio'
+  },
+  'portal.petNoAppointmentNeeded': {
+    en: 'No appointment is required—you can add pets as soon as your profile is saved and a business is selected.',
+    es: 'No necesitas cita previa: puedes agregar mascotas en cuanto guardes tu perfil y elijas un negocio.'
+  },
+  'portal.removePetTitle': {
+    en: 'Remove this pet?',
+    es: '¿Quitar esta mascota?'
+  },
+  'portal.removePetConfirm': {
+    en: 'Remove {name} from your profile? Related appointment rows tied to this pet may also be deleted.',
+    es: '¿Quitar a {name} de tu perfil? Las citas vinculadas a esta mascota también pueden eliminarse.'
+  },
+  'portal.removePetSuccess': {
+    en: 'Pet removed from your profile.',
+    es: 'Mascota quitada de tu perfil.'
+  },
+  'portal.removePetError': {
+    en: 'Could not remove this pet. Try again or contact support.',
+    es: 'No se pudo quitar la mascota. Intenta de nuevo o contacta soporte.'
+  },
+  'portal.removePetAria': {
+    en: 'Remove pet',
+    es: 'Quitar mascota'
+  },
+  'portal.removePetButton': {
+    en: 'Remove pet from profile',
+    es: 'Quitar mascota del perfil'
+  },
+
   // Navigation
   'nav.dashboard': {
     en: 'Dashboard',
@@ -3642,6 +3731,158 @@ export const translations: Translations = {
     en: 'Copy schedule from last week',
     es: 'Copiar horario de la semana pasada'
   },
+  'schedule.print': {
+    en: 'Print',
+    es: 'Imprimir'
+  },
+  'schedule.printWeekRange': {
+    en: 'Week of {start} – {end}',
+    es: 'Semana del {start} – {end}'
+  },
+  'schedule.myScheduleNoStaffLink': {
+    en: 'Your account is not linked to a staff profile yet. Ask a manager to connect your login to your staff record.',
+    es: 'Tu cuenta aún no está vinculada a un perfil de personal. Pídele a un administrador que conecte tu acceso a tu registro de personal.'
+  },
+  'nav.shiftChangeRequests': {
+    en: 'Shift requests',
+    es: 'Solicitudes de horario'
+  },
+  'schedule.shiftRequest.openButton': {
+    en: 'Request change',
+    es: 'Solicitar cambio'
+  },
+  'schedule.shiftRequest.sectionTitle': {
+    en: 'Schedule change requests',
+    es: 'Solicitudes de cambio de horario'
+  },
+  'schedule.shiftRequest.title': {
+    en: 'Request a schedule change',
+    es: 'Solicitar un cambio de horario'
+  },
+  'schedule.shiftRequest.kind': {
+    en: 'Request type',
+    es: 'Tipo de solicitud'
+  },
+  'schedule.shiftRequest.kindNew': {
+    en: 'New shift',
+    es: 'Nuevo turno'
+  },
+  'schedule.shiftRequest.kindChange': {
+    en: 'Change shift',
+    es: 'Cambiar turno'
+  },
+  'schedule.shiftRequest.kindCancel': {
+    en: 'Cancel shift',
+    es: 'Cancelar turno'
+  },
+  'schedule.shiftRequest.pickShift': {
+    en: 'Select shift',
+    es: 'Seleccionar turno'
+  },
+  'schedule.shiftRequest.was': {
+    en: 'Current:',
+    es: 'Actual:'
+  },
+  'schedule.shiftRequest.reason': {
+    en: 'Reason',
+    es: 'Motivo'
+  },
+  'schedule.shiftRequest.reasonPlaceholder': {
+    en: 'Explain what you need…',
+    es: 'Explica lo que necesitas…'
+  },
+  'schedule.shiftRequest.submit': {
+    en: 'Submit request',
+    es: 'Enviar solicitud'
+  },
+  'schedule.shiftRequest.myRequests': {
+    en: 'Your requests',
+    es: 'Tus solicitudes'
+  },
+  'schedule.shiftRequest.noRequests': {
+    en: 'No requests yet.',
+    es: 'Aún no hay solicitudes.'
+  },
+  'schedule.shiftRequest.cancelRequest': {
+    en: 'Cancel request',
+    es: 'Cancelar solicitud'
+  },
+  'schedule.shiftRequest.statusPending': {
+    en: 'Pending',
+    es: 'Pendiente'
+  },
+  'schedule.shiftRequest.statusApproved': {
+    en: 'Approved',
+    es: 'Aprobada'
+  },
+  'schedule.shiftRequest.statusRejected': {
+    en: 'Rejected',
+    es: 'Rechazada'
+  },
+  'schedule.shiftRequest.statusCancelled': {
+    en: 'Cancelled',
+    es: 'Cancelada'
+  },
+  'schedule.shiftRequest.tabPending': {
+    en: 'Pending',
+    es: 'Pendientes'
+  },
+  'schedule.shiftRequest.tabHistory': {
+    en: 'History',
+    es: 'Historial'
+  },
+  'schedule.shiftRequest.noPending': {
+    en: 'You have no pending requests.',
+    es: 'No tienes solicitudes pendientes.'
+  },
+  'schedule.shiftRequest.noHistory': {
+    en: 'No past requests yet.',
+    es: 'Aún no hay solicitudes anteriores.'
+  },
+  'schedule.shiftRequest.submittedAt': {
+    en: 'Submitted',
+    es: 'Enviada'
+  },
+  'schedule.shiftRequest.reviewedAt': {
+    en: 'Reviewed',
+    es: 'Revisada'
+  },
+  'schedule.shiftApproval.empty': {
+    en: 'No pending shift requests.',
+    es: 'No hay solicitudes de horario pendientes.'
+  },
+  'schedule.shiftApproval.pending': {
+    en: 'Pending',
+    es: 'Pendiente'
+  },
+  'schedule.shiftApproval.kind': {
+    en: 'Type',
+    es: 'Tipo'
+  },
+  'schedule.shiftApproval.previousShift': {
+    en: 'Current shift',
+    es: 'Turno actual'
+  },
+  'schedule.shiftApproval.proposed': {
+    en: 'Proposed',
+    es: 'Propuesto'
+  },
+  'schedule.shiftApproval.reviewNotes': {
+    en: 'Review notes (optional)',
+    es: 'Notas de revisión (opcional)'
+  },
+  'schedule.shiftApproval.reject': {
+    en: 'Reject',
+    es: 'Rechazar'
+  },
+  'schedule.shiftApproval.approve': {
+    en: 'Approve',
+    es: 'Aprobar'
+  },
+  'schedule.shiftApproval.backToSchedule': {
+    en: 'Back to schedule',
+    es: 'Volver al horario'
+  },
 
   // Payroll page
   'payroll.title': {
@@ -4769,6 +5010,14 @@ export const translations: Translations = {
   'businessSettings.allowEmployeeMobilePunchEnabledLabel': {
     en: 'Let employees use punch clock on their phones',
     es: 'Permitir fichar desde el teléfono del empleado'
+  },
+  'businessSettings.mapsEmbedUrl': {
+    en: 'Google Maps embed',
+    es: 'Mapa de Google (embed)'
+  },
+  'businessSettings.mapsEmbedUrlHint': {
+    en: 'Paste the Maps share link or the iframe src URL. Shown on the client portal store locator.',
+    es: 'Pega el enlace de compartir o la URL src del iframe. Se muestra en el portal del cliente.'
   },
 
   'transactions.status': {

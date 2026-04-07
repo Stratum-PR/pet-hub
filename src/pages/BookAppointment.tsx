@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { DOG_BREEDS } from '@/lib/dogBreeds';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useAuth } from '@/contexts/AuthContext';
+import { ensureBusinessClientLink } from '@/lib/businessClientLink';
 
 const CAT_BREEDS = [
   'Mixed Breed - Shorthair',
@@ -74,6 +76,7 @@ const formatTime12H = (time24: string): string => {
 
 export function BookAppointment() {
   const businessId = useBusinessId();
+  const { user, role } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -208,11 +211,11 @@ export function BookAppointment() {
         setMatchingClient(clientData);
         
         // Get pets for this client
-        const { data: pets } = await supabase
-          .from('pets')
-          .select('*')
-          .eq('client_id', matchingClientData.id)
-          .eq('business_id', businessId);
+        let petsQuery = supabase.from('pets').select('*').eq('client_id', matchingClientData.id);
+        if (role !== 'client') {
+          petsQuery = petsQuery.eq('business_id', businessId);
+        }
+        const { data: pets } = await petsQuery;
         
         setMatchingPets(pets || []);
         setFormData(prev => ({
@@ -270,9 +273,22 @@ export function BookAppointment() {
     try {
       const phoneDigits = unformatPhoneNumber(formData.phone);
       let clientId: string | null = null;
+      const isAuthenticatedClient = !!user?.id && role === 'client';
+
+      if (isAuthenticatedClient) {
+        const { data: ownClient, error: ownClientErr } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('profile_id', user!.id)
+          .maybeSingle();
+        if (ownClientErr) throw ownClientErr;
+        if (ownClient?.id) {
+          clientId = ownClient.id;
+        }
+      }
       
       // Check if we have a matching client from phone lookup
-      if (matchingClient) {
+      if (!clientId && matchingClient) {
         // Verify name or pet name matches
         const fullName = `${matchingClient.first_name} ${matchingClient.last_name}`.trim().toLowerCase();
         const nameMatches = fullName.includes(formData.clientName.toLowerCase()) ||
@@ -314,7 +330,7 @@ export function BookAppointment() {
             clientId = newCustomer.id;
           }
         }
-      } else {
+      } else if (!clientId) {
         // No matching client found, create new one
         if (!businessId) {
           alert('Business ID not available. Please refresh the page.');
@@ -326,17 +342,30 @@ export function BookAppointment() {
         const first_name = nameParts[0] || '';
         const last_name = nameParts.slice(1).join(' ') || '';
         
+        const newClientPayload = isAuthenticatedClient
+          ? {
+              id: crypto.randomUUID(),
+              profile_id: user!.id,
+              business_id: null,
+              first_name,
+              last_name,
+              email: formData.email || '',
+              phone: phoneDigits,
+              address: '',
+            }
+          : {
+              id: crypto.randomUUID(),
+              business_id: businessId,
+              first_name,
+              last_name,
+              email: formData.email || '',
+              phone: phoneDigits,
+              address: '',
+            };
+
         const { data: newCustomer } = await supabase
           .from('clients' as any)
-          .insert({
-            id: crypto.randomUUID(),
-            business_id: businessId,
-            first_name,
-            last_name,
-            email: formData.email || '',
-            phone: phoneDigits,
-            address: '',
-          })
+          .insert(newClientPayload)
           .select()
           .single();
         
@@ -363,7 +392,7 @@ export function BookAppointment() {
             .from('pets')
             .insert({
               id: crypto.randomUUID(),
-              business_id: businessId,
+              business_id: isAuthenticatedClient ? null : businessId,
               client_id: clientId,
               name: formData.petName,
               species: formData.petSpecies || 'other',
@@ -382,6 +411,9 @@ export function BookAppointment() {
 
       // Create appointment
       if (petId && selectedDate && businessId) {
+        if (isAuthenticatedClient && user?.id) {
+          await ensureBusinessClientLink(user.id, businessId, 'pet_owner');
+        }
         const [hours, minutes] = selectedTime.split(':');
         const appointmentDate = setMinutes(setHours(selectedDate, parseInt(hours)), parseInt(minutes));
         

@@ -33,6 +33,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [clientLinkChecked, setClientLinkChecked] = useState(false);
   const [clientLinkAllowed, setClientLinkAllowed] = useState<boolean | null>(null);
+  const userId = user?.id ?? null;
 
   const isDemoRoute = isPublicDemoPath(location.pathname);
   // Only the demo portal is public; all real business portals (including Pet Esthetic)
@@ -72,8 +73,8 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       return;
     }
 
-    if (!user?.id || !businessSlug || profile?.business_id != null || requireAdmin) {
-      if (businessSlug && user && !profile?.business_id && !requireAdmin) setClientLinkAllowed(true);
+    if (!userId || !businessSlug || profile?.business_id != null || requireAdmin) {
+      if (businessSlug && userId && !profile?.business_id && !requireAdmin) setClientLinkAllowed(true);
       return;
     }
     let cancelled = false;
@@ -85,7 +86,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           if (!biz?.id) setClientLinkAllowed(false);
           return;
         }
-        const link = await getBusinessClientLink(user.id, biz.id);
+        const link = await getBusinessClientLink(userId, biz.id);
         if (cancelled) return;
         setClientLinkChecked(true);
         if (link?.status === 'approved') {
@@ -101,14 +102,18 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id, businessSlug, profile?.business_id, requireAdmin, isPublicBusinessRoute]);
+  }, [userId, businessSlug, profile?.business_id, requireAdmin, isPublicBusinessRoute]);
 
   useEffect(() => {
     if (isPublicBusinessRoute) return;
     if (clientLinkChecked && clientLinkAllowed === false && businessSlug) {
+      if (user?.id) {
+        navigate(`/portal?business=${encodeURIComponent(businessSlug)}`, { replace: true });
+        return;
+      }
       navigate(`/${businessSlug}/login`, { replace: true });
     }
-  }, [clientLinkChecked, clientLinkAllowed, businessSlug, navigate, isPublicBusinessRoute]);
+  }, [clientLinkChecked, clientLinkAllowed, businessSlug, navigate, isPublicBusinessRoute, user?.id]);
 
   // Show post-login loading screen if user is logged in but data is still loading
   // CRITICAL: This useEffect must be called before any conditional returns to maintain hooks order

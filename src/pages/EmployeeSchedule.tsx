@@ -35,7 +35,8 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
     [role, employeeId, dateRange]
   );
 
-  const { shifts, loading, error, refetch, addShift, updateShift, deleteShift } = useEmployeeShifts(shiftsOptions);
+  const { shifts, loading, error, refetch, addShift, updateShift, deleteShift } =
+    useEmployeeShifts(shiftsOptions);
   const { settings } = useSettings();
   const timeRange = useMemo(() => {
     const hours = parseBusinessHours(settings.business_hours);
@@ -77,6 +78,9 @@ export function EmployeeSchedule({ employees, timeEntries }: EmployeeSchedulePro
       employees={employees}
       weekStart={weekStart}
       onWeekChange={setWeekStart}
+      staffId={employeeId ?? null}
+      timeRange={timeRange}
+      onShiftsUpdated={() => void refetch()}
     />
       )}
     </PawLoadedContent>

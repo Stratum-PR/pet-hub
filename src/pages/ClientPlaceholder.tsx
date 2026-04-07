@@ -8,7 +8,7 @@ import { Footer } from '@/components/Footer';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 
-const CLIENT_PLACEHOLDER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/cliente')!;
+const CLIENT_PLACEHOLDER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/portal')!;
 
 export function ClientPlaceholder() {
   const handleSignOut = async () => {

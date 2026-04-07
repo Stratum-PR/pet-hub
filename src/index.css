@@ -403,3 +403,28 @@ body.menu-open {
     transform: none;
   }
 }
+
+@media print {
+  @page {
+    margin: 0.35in;
+  }
+
+  /* Let printed content flow past the viewport; scroll parents otherwise clip print. */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* App shell: main scroll region uses overflow-y-auto on screen. */
+  [data-print-chain-root],
+  [data-print-chain-root] > div,
+  [data-print-main-column],
+  [data-print-scroll-region],
+  [data-print-chain-root] main {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+  }
+}

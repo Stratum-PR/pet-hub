@@ -29,12 +29,34 @@ interface PetFormProps {
   isEditing?: boolean;
   /** When adding a pet (not editing), pre-select this client id (e.g. from Clients page). */
   defaultClientId?: string | null;
+  /** Client portal: fixed business for storage and breed of businessId hook may be null. */
+  variant?: 'default' | 'portal';
+  portalBusinessId?: string | null;
+  /** Omit outer Card (parent provides section chrome). */
+  embedded?: boolean;
+  /** Client portal: shown at bottom when editing to open parent confirm dialog. */
+  onRequestRemove?: () => void;
 }
 
-export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, defaultClientId }: PetFormProps) {
+export function PetForm({
+  clients,
+  onSubmit,
+  onCancel,
+  initialData,
+  isEditing,
+  defaultClientId,
+  variant = 'default',
+  portalBusinessId = null,
+  embedded = false,
+  onRequestRemove,
+}: PetFormProps) {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
-  const businessId = useBusinessId();
+  const { isAdmin, user } = useAuth();
+  const hookBusinessId = useBusinessId();
+  const businessId = portalBusinessId ?? hookBusinessId;
+  const isPortal = variant === 'portal';
+  /** Client portal users have no business_id; storage RLS allows pet-photos under auth.uid()/ */
+  const storagePrefix = isPortal && user?.id ? user.id : businessId;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -47,7 +69,9 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
   const [breedOpen, setBreedOpen] = useState(false);
   const [ownerSearch, setOwnerSearch] = useState('');
   const [breedSearch, setBreedSearch] = useState('');
-  
+  /** Staff-only; saved to pet_business_notes (not sent from portal). */
+  const [staffNotes, setStaffNotes] = useState('');
+
   // Check if user is in demo mode (read-only for photos)
   const isDemoUser = isDemoMode() && !isAdmin;
   
@@ -174,6 +198,33 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
       setPhotoToDelete(false);
     }
   }, [initialData, safeClients, defaultClientId]);
+
+  useEffect(() => {
+    if (!isPortal || !defaultClientId) return;
+    const cid = String(defaultClientId).trim();
+    setFormData((prev) => (prev.client_id === cid ? prev : { ...prev, client_id: cid }));
+  }, [isPortal, defaultClientId]);
+
+  useEffect(() => {
+    if (isPortal || !businessId || !initialData?.id) {
+      setStaffNotes('');
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('pet_business_notes')
+        .select('notes')
+        .eq('pet_id', initialData.id)
+        .eq('business_id', businessId)
+        .maybeSingle();
+      if (cancelled || error) return;
+      setStaffNotes(((data as { notes?: string | null } | null)?.notes ?? '') || '');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPortal, businessId, initialData?.id]);
 
   // CRITICAL: Re-initialize breed_id when breeds load (if we have initialData but breeds weren't loaded yet)
   useEffect(() => {
@@ -463,9 +514,13 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
         }
       };
       
-      // Security: only allow storage operations when pet belongs to current business
-      const petBusinessId = initialData ? (initialData as { business_id?: string }).business_id : null;
-      const canTouchStorage = !businessId || !petBusinessId || petBusinessId === businessId;
+      // Security: only allow storage operations when pet belongs to current business (or portal user folder)
+      const petBusinessId = initialData ? (initialData as { business_id?: string | null }).business_id : null;
+      const canTouchStorage =
+        (isPortal && user?.id) ||
+        !businessId ||
+        !petBusinessId ||
+        petBusinessId === businessId;
       if (!canTouchStorage) {
         toast({
           title: 'Error',
@@ -503,7 +558,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
         } else {
           // Real mode: Upload to Supabase Storage (path = business_id/filename for RLS)
           try {
-            if (!businessId) {
+            if (!storagePrefix) {
               toast({
                 title: 'Error',
                 description: t('common.genericError') || t('pets.saveError'),
@@ -516,10 +571,10 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
             const response = await fetch(formData.photo_url);
             const blob = await response.blob();
             
-            // Generate unique filename; path prefix by business_id for Storage RLS
+            // Generate unique filename; path prefix by business_id (staff) or auth.uid() (portal) for Storage RLS
             const fileExt = blob.type.split('/')[1] || 'jpg';
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `${businessId}/${fileName}`;
+            const filePath = `${storagePrefix}/${fileName}`;
 
             // Upload to Supabase Storage
             const { data: uploadData, error: uploadError } = await supabase.storage
@@ -569,6 +624,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
         ...formData,
         photo_url: finalPhotoUrl,
         vaccination_status,
+        ...(!isPortal ? { staff_notes_business: staffNotes.trim() || null } : {}),
       };
 
       onSubmit(petData as any);
@@ -583,8 +639,12 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
       setPhotoToDelete(false); // Reset deletion flag
 
       if (!isEditing) {
+        const nextClientId =
+          isPortal && defaultClientId
+            ? String(defaultClientId).trim()
+            : '';
         setFormData({
-          client_id: '', // CRITICAL: Use client_id
+          client_id: nextClientId,
           name: '',
           species: '' as 'dog' | 'cat' | 'other',
           breed_id: null, // CRITICAL: Use breed_id
@@ -651,14 +711,10 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
   const vaccinationStatusText = formatVaccinationStatusSpanish(calculatedVaccinationStatus);
   const vaccinationStatusColor = getVaccinationStatusColor(calculatedVaccinationStatus);
 
-  return (
-    <Card className="animate-fade-in transition-all duration-300" id="pet-form">
-      <CardHeader>
-        <CardTitle>{isEditing ? 'Editar Mascota' : 'Agregar Nueva Mascota'}</CardTitle>
-      </CardHeader>
-      <CardContent>
+  const formBody = (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {!isPortal && (
             <div className="space-y-2">
               <Label htmlFor="clientId">Propietario *</Label>
               <Popover open={ownerOpen} onOpenChange={setOwnerOpen}>
@@ -747,6 +803,7 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
                 <p className="text-sm text-destructive">{errors.client_id}</p>
               )}
             </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="name">Nombre de la Mascota *</Label>
               <Input
@@ -1070,7 +1127,19 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
               rows={3}
             />
           </div>
-          <div className="flex gap-3 pt-4">
+          {!isPortal && (
+            <div className="space-y-2">
+              <Label htmlFor="staff_notes">Notas internas (solo personal)</Label>
+              <Textarea
+                id="staff_notes"
+                value={staffNotes}
+                onChange={(e) => setStaffNotes(e.target.value)}
+                placeholder="Visible solo en el panel del negocio, por ubicación."
+                rows={3}
+              />
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3 pt-4">
             <Button type="submit" className="shadow-sm" disabled={uploading}>
               {isEditing ? 'Guardar cambios' : 'Agregar Mascota'}
             </Button>
@@ -1080,8 +1149,35 @@ export function PetForm({ clients, onSubmit, onCancel, initialData, isEditing, d
               </Button>
             )}
           </div>
+          {isPortal && isEditing && onRequestRemove && (
+            <div className="mt-6 border-t border-border/60 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={onRequestRemove}
+              >
+                {t('portal.removePetButton')}
+              </Button>
+            </div>
+          )}
         </form>
-      </CardContent>
+  );
+
+  if (embedded) {
+    return (
+      <div id="pet-form" className="animate-fade-in transition-all duration-300">
+        {formBody}
+      </div>
+    );
+  }
+
+  return (
+    <Card className="animate-fade-in transition-all duration-300" id="pet-form">
+      <CardHeader>
+        <CardTitle>{isEditing ? 'Editar Mascota' : 'Agregar Nueva Mascota'}</CardTitle>
+      </CardHeader>
+      <CardContent>{formBody}</CardContent>
     </Card>
   );
 }
