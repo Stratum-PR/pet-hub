@@ -76,6 +76,9 @@ function getPageTitle(
   if (segment === 'employee-schedule' && role === 'employee') {
     return t('nav.mySchedule');
   }
+  if (pathParts[0] === 'employee-schedule' && pathParts[1] === 'change-requests') {
+    return t('nav.shiftChangeRequests');
+  }
   if (pathParts[0] === 'reports' && pathParts[1] === 'payroll' && pathParts.length === 2) {
     return t('nav.payroll');
   }
@@ -271,16 +274,19 @@ export function Layout({ children, settings }: LayoutProps) {
 
   return (
     <>
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+    <div
+      data-print-chain-root
+      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background print:h-auto print:min-h-0 print:overflow-visible"
+    >
       {showAdminHeader && <AdminImpersonationHeader />}
 
       <div
         ref={layoutRootRef}
-        className="flex min-h-0 w-full flex-1 overflow-hidden"
+        className="flex min-h-0 w-full flex-1 overflow-hidden print:h-auto print:min-h-0 print:overflow-visible"
         style={{ paddingTop: showAdminHeader ? 48 : 0 }}
       >
         {/* Desktop sidebar: fills column height; main area scrolls separately */}
-        <div className="hidden min-h-0 shrink-0 self-stretch pt-4 pb-4 pl-5 lg:flex lg:flex-col">
+        <div className="hidden min-h-0 shrink-0 self-stretch pt-4 pb-4 pl-5 lg:flex lg:flex-col print:hidden">
           <AppSidebar
             collapsed={sidebarCollapsed}
             onCollapsedChange={setCollapsed}
@@ -294,11 +300,15 @@ export function Layout({ children, settings }: LayoutProps) {
         </div>
 
         {/* Main area: header fixed in column; body + footer scroll together */}
-        <div ref={contentRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          ref={contentRef}
+          data-print-main-column
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden print:h-auto print:min-h-0 print:overflow-visible"
+        >
           {/* Transparent header — blends with page background */}
           <header
             className={cn(
-              'shrink-0 items-center px-4 py-2 lg:px-6 bg-transparent',
+              'shrink-0 items-center px-4 py-2 lg:px-6 bg-transparent print:hidden',
               demoLocalOnly
                 ? 'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 gap-y-1.5 py-2.5 sm:gap-x-3 sm:py-3'
                 : 'flex justify-between gap-4'
@@ -596,14 +606,21 @@ export function Layout({ children, settings }: LayoutProps) {
             </div>
           </header>
 
-          {!showAdminHeader && <ImpersonationBanner />}
-          {!showAdminHeader && <SupportSessionBanner />}
+          {!showAdminHeader && (
+            <div className="print:hidden">
+              <ImpersonationBanner />
+              <SupportSessionBanner />
+            </div>
+          )}
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+          <div
+            data-print-scroll-region
+            className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto print:h-auto print:min-h-0 print:overflow-visible"
+          >
             <main
               className={cn(
-                'flex w-full flex-1 flex-col px-4 lg:px-6',
-                isHelpPage ? 'min-h-0 overflow-hidden py-3' : 'min-h-0 overflow-x-hidden py-6'
+                'flex w-full flex-1 flex-col px-4 lg:px-6 print:overflow-visible print:min-h-0',
+                isHelpPage ? 'min-h-0 overflow-hidden py-3 print:overflow-visible' : 'min-h-0 overflow-x-hidden py-6'
               )}
             >
               <PageTransition>
@@ -611,7 +628,7 @@ export function Layout({ children, settings }: LayoutProps) {
               </PageTransition>
             </main>
 
-            <footer className="shrink-0 border-t bg-muted/30">
+            <footer className="shrink-0 border-t bg-muted/30 print:hidden">
               <div className="mx-auto flex max-w-[320px] flex-col items-center gap-1 px-4 py-4">
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-xs text-muted-foreground">Powered by</span>

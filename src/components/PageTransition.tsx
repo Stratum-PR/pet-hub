@@ -18,9 +18,12 @@ export function PageTransition({ children }: PageTransitionProps) {
   }, [isRevealing]);
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col">
+    <div className="relative flex-1 min-h-0 flex flex-col print:min-h-0 print:h-auto print:overflow-visible">
       {/* Main content (old page while covering, new page after) — behind the cover when isCovering */}
-      <div className={contentClass} data-active={dataActive}>
+      <div
+        className={`${contentClass} print:min-h-0 print:overflow-visible`.trim()}
+        data-active={dataActive}
+      >
         {children}
       </div>
       {/* Cover: on TOP of main content so it visibly rolls down over current page; gives time for next page to load */}

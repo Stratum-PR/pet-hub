@@ -198,9 +198,13 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     return filtered;
   }, [pets, clients, searchTerm, lastAppointmentFilter, lastAppointmentByPet, upcomingAppointmentsByPet, sortKey, sortAsc]);
 
-  const handleSubmit = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
+  const handleSubmit = async (
+    petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'> & { staff_notes_business?: string | null },
+  ) => {
+    const { staff_notes_business: _sn, ...rest } = petData;
+    void _sn;
     if (editingPet) {
-      const result = await onUpdatePet(editingPet.id, petData);
+      const result = await onUpdatePet(editingPet.id, rest);
       if (result) {
         toast.success(t('pets.updateSuccess') || 'Mascota actualizada exitosamente.');
         setEditingPet(null);
@@ -211,7 +215,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
       return;
     }
 
-    const result = await onAddPet(petData);
+    const result = await onAddPet(rest);
     if (result) {
       toast.success(t('pets.saveSuccess') || 'Mascota guardada exitosamente.');
       setShowForm(false);

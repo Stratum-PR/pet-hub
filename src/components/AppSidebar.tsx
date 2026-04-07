@@ -24,6 +24,7 @@ import {
   Building2,
   CalendarCog,
   CreditCard,
+  Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -74,6 +75,7 @@ const mainNavItems = [
 const employeeItems = [
   { path: 'staff-management', labelKey: 'nav.employeeInfo', icon: UserCog },
   { path: 'employee-schedule', labelKey: 'nav.schedule', icon: Calendar },
+  { path: 'employee-schedule/change-requests', labelKey: 'nav.shiftChangeRequests', icon: Inbox },
   { path: 'time-kiosk', labelKey: 'nav.timeKiosk', icon: Clock },
 ];
 
@@ -244,11 +246,14 @@ export function AppSidebar({
 
   const NavLink = ({ path, labelKey, label, icon: Icon }: { path: string; labelKey?: string; label?: string; icon: React.ElementType }) => {
     const to = `${basePath}/${path}`;
-    const active = path.startsWith('appt-book')
-      ? basePath
-        ? location.pathname.startsWith(`${basePath}/appt-book`)
-        : location.pathname.includes('/appt-book')
-      : isActive(path);
+    const active =
+      path === 'employee-schedule'
+        ? location.pathname === `${basePath}/employee-schedule`
+        : path.startsWith('appt-book')
+          ? basePath
+            ? location.pathname.startsWith(`${basePath}/appt-book`)
+            : location.pathname.includes('/appt-book')
+          : isActive(path);
     const collapsedNav = collapsed && !mobile;
     return (
       <Link to={to} className={linkClass(active, collapsedNav)}>

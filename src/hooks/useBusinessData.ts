@@ -47,10 +47,13 @@ export interface BusinessClient {
 
 export interface Pet {
   id: string;
-  business_id: string;
+  /** NULL = account-owned (client portal); set when created by staff for a business. */
+  business_id: string | null;
   client_id: string;
   name: string;
   species: 'dog' | 'cat' | 'other';
+  /** FK to public.breeds (preferred over legacy breed text). */
+  breed_id?: string | null;
   breed: string | null;
   birth_month: number | null;
   birth_year: number | null;
@@ -125,8 +128,33 @@ export function useClients() {
     if (err) {
       setError(err.message ?? 'Failed to load clients');
     } else if (data) {
+      const scopedClients = (data as BusinessClient[]) ?? [];
+      const scopedIds = new Set(scopedClients.map((c) => c.id));
+
+      const { data: appointmentRefs } = await supabase
+        .from('appointments')
+        .select('client_id')
+        .eq('business_id', businessId)
+        .not('client_id', 'is', null);
+      const appointmentClientIds = [
+        ...new Set(
+          ((appointmentRefs as { client_id: string | null }[] | null) ?? [])
+            .map((r) => r.client_id)
+            .filter((id): id is string => !!id && !scopedIds.has(id))
+        ),
+      ];
+
+      let appointmentClients: BusinessClient[] = [];
+      if (appointmentClientIds.length > 0) {
+        const { data: linkedClients } = await supabase
+          .from('clients')
+          .select('*')
+          .in('id', appointmentClientIds);
+        appointmentClients = (linkedClients as BusinessClient[] | null) ?? [];
+      }
+
       setError(null);
-      setClients(data as BusinessClient[]);
+      setClients([...scopedClients, ...appointmentClients]);
     }
     setLoading(false);
   };
@@ -141,9 +169,12 @@ export function useClients() {
     fetchClients();
   }, [businessId]);
 
-  const addClient = async (clientData: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at'>) => {
+  const addClient = async (
+    clientData: Omit<BusinessClient, 'id' | 'created_at' | 'updated_at'> & { staff_notes_business?: string | null },
+  ) => {
     if (!businessId) return null;
-    const validation = validateClientPayload(clientData);
+    const { staff_notes_business, ...rest } = clientData;
+    const validation = validateClientPayload(rest);
     if (!validation.valid) {
       if (import.meta.env.DEV) console.warn('[useClients] addClient validation:', validation.error);
       return null;
@@ -152,7 +183,7 @@ export function useClients() {
       const now = new Date().toISOString();
       const newClient: BusinessClient = {
         id: uuidv4(),
-        ...clientData,
+        ...rest,
         business_id: businessId,
         created_at: now,
         updated_at: now,
@@ -160,15 +191,27 @@ export function useClients() {
       setClients([newClient, ...clients]);
       return newClient;
     }
+    const newId = uuidv4();
     const { data, error } = await supabase
       .from('clients')
-      .insert({ id: uuidv4(), ...clientData, business_id: businessId } as any)
+      .insert({ id: newId, ...rest, business_id: businessId } as never)
       .select()
       .single();
 
     if (error) {
       if (import.meta.env.DEV) console.error('[useClients] addClient error:', error.message, error.code, error.details);
       return null;
+    }
+    if (staff_notes_business !== undefined && staff_notes_business?.trim()) {
+      await supabase.from('client_business_notes').upsert(
+        {
+          client_id: newId,
+          business_id: businessId,
+          notes: staff_notes_business.trim(),
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: 'client_id,business_id' },
+      );
     }
     if (data) {
       const newClient = data as BusinessClient;
@@ -178,31 +221,42 @@ export function useClients() {
     return null;
   };
 
-  const updateClient = async (id: string, clientData: Partial<BusinessClient>) => {
+  const updateClient = async (
+    id: string,
+    clientData: Partial<BusinessClient> & { staff_notes_business?: string | null },
+  ) => {
     if (!businessId) return null;
+    const { staff_notes_business, ...row } = clientData;
     if (demoBrowseOnly) {
       const prev = clients.find((c) => c.id === id);
       if (!prev) return null;
-      const updated = { ...prev, ...clientData, id: prev.id, updated_at: new Date().toISOString() };
+      const updated = { ...prev, ...row, id: prev.id, updated_at: new Date().toISOString() };
       setClients(clients.map((c) => (c.id === id ? updated : c)));
       return updated;
     }
 
-    const { data, error } = await supabase
-      .from('clients')
-      .update(clientData)
-      .eq('id', id)
-      .eq('business_id', businessId)
-      .select()
-      .single();
+    const { data, error } = await supabase.from('clients').update(row).eq('id', id).select().single();
 
     if (error) {
       if (import.meta.env.DEV) console.error('[useClients] updateClient error:', error.message, error.code, error.details);
       return null;
     }
+
+    if (staff_notes_business !== undefined) {
+      await supabase.from('client_business_notes').upsert(
+        {
+          client_id: id,
+          business_id: businessId,
+          notes: staff_notes_business?.trim() || null,
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: 'client_id,business_id' },
+      );
+    }
+
     if (data) {
       const updated = data as BusinessClient;
-      setClients(clients.map(c => c.id === id ? updated : c));
+      setClients(clients.map((c) => (c.id === id ? updated : c)));
       return updated;
     }
     return null;
@@ -215,11 +269,7 @@ export function useClients() {
       return true;
     }
 
-    const { error } = await supabase
-      .from('clients')
-      .delete()
-      .eq('id', id)
-      .eq('business_id', businessId);
+    const { error } = await supabase.from('clients').delete().eq('id', id);
 
     if (error) {
       if (import.meta.env.DEV) console.error('[useClients] deleteClient error:', error.message, error.code, error.details);
@@ -262,9 +312,42 @@ export function usePets() {
     if (err) {
       setError(err.message ?? 'Failed to load pets');
     } else if (data) {
+      const scopedPets = (data as Pet[]) ?? [];
+      const scopedIds = new Set(scopedPets.map((p) => p.id));
+      const { data: appointmentRefs } = await supabase
+        .from('appointments')
+        .select('pet_id')
+        .eq('business_id', businessId)
+        .not('pet_id', 'is', null);
+      const appointmentPetIds = [
+        ...new Set(
+          ((appointmentRefs as { pet_id: string | null }[] | null) ?? [])
+            .map((r) => r.pet_id)
+            .filter((id): id is string => !!id && !scopedIds.has(id))
+        ),
+      ];
+
+      let appointmentPets: Pet[] = [];
+      if (appointmentPetIds.length > 0) {
+        const { data: linkedPets } = await supabase
+          .from('pets')
+          .select(`
+            *,
+            clients:client_id(
+              id,
+              first_name,
+              last_name,
+              email
+            )
+          `)
+          .in('id', appointmentPetIds);
+        appointmentPets = (linkedPets as Pet[] | null) ?? [];
+      }
+
+      const mergedPets = [...scopedPets, ...appointmentPets];
       setError(null);
-      if (import.meta.env.DEV) console.log('[usePets] Fetched pets with client data:', data.length);
-      setPets(data as any);
+      if (import.meta.env.DEV) console.log('[usePets] Fetched pets with client data:', mergedPets.length);
+      setPets(mergedPets as any);
     }
     setLoading(false);
   };
@@ -279,22 +362,26 @@ export function usePets() {
     fetchPets();
   }, [businessId]);
 
-  const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
+  const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'> & { staff_notes_business?: string | null }) => {
     if (!businessId) return null;
-    const validation = validatePetPayload(petData);
+    const { staff_notes_business, ...rest } = petData as Omit<Pet, 'id' | 'created_at' | 'updated_at'> & {
+      staff_notes_business?: string | null;
+    };
+    const validation = validatePetPayload(rest);
     if (!validation.valid) {
       if (import.meta.env.DEV) console.warn('[usePets] addPet validation:', validation.error);
       return null;
     }
     if (demoBrowseOnly) {
       const now = new Date().toISOString();
-      const row = { id: uuidv4(), ...petData, business_id: businessId, created_at: now, updated_at: now } as Pet;
+      const row = { id: uuidv4(), ...rest, business_id: businessId, created_at: now, updated_at: now } as Pet;
       setPets([row, ...pets]);
       return row;
     }
+    const newId = uuidv4();
     const { data, error } = await supabase
       .from('pets')
-      .insert({ id: uuidv4(), ...petData, business_id: businessId })
+      .insert({ id: newId, ...rest, business_id: businessId })
       .select(`
         *,
         clients:client_id(
@@ -305,20 +392,30 @@ export function usePets() {
         )
       `)
       .single();
-    
+
     if (error) {
       if (import.meta.env.DEV) console.error('[usePets] addPet error:', error.message, error.code, error.details);
       return null;
     }
+    if (staff_notes_business !== undefined && staff_notes_business?.trim()) {
+      await supabase.from('pet_business_notes').upsert(
+        {
+          pet_id: newId,
+          business_id: businessId,
+          notes: staff_notes_business.trim(),
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: 'pet_id,business_id' },
+      );
+    }
     if (data) {
-      // Refetch all pets with JOIN to ensure consistency
       await fetchPets();
       return data;
     }
     return null;
   };
 
-  const updatePet = async (id: string, petData: Partial<Pet>) => {
+  const updatePet = async (id: string, petData: Partial<Pet> & { staff_notes_business?: string | null }) => {
     if (!businessId) return null;
     if (demoBrowseOnly) {
       const prev = pets.find((p) => p.id === id);
@@ -328,11 +425,14 @@ export function usePets() {
       return data;
     }
 
+    const { staff_notes_business, ...petRow } = petData as Partial<Pet> & {
+      staff_notes_business?: string | null;
+    };
+
     const { data, error } = await supabase
       .from('pets')
-      .update(petData)
+      .update(petRow)
       .eq('id', id)
-      .eq('business_id', businessId)
       .select(`
         *,
         clients:client_id(
@@ -343,11 +443,24 @@ export function usePets() {
         )
       `)
       .single();
-    
+
     if (error) {
       if (import.meta.env.DEV) console.error('[usePets] updatePet error:', error.message, error.code, error.details);
       return null;
     }
+
+    if (staff_notes_business !== undefined) {
+      await supabase.from('pet_business_notes').upsert(
+        {
+          pet_id: id,
+          business_id: businessId,
+          notes: staff_notes_business?.trim() || null,
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: 'pet_id,business_id' },
+      );
+    }
+
     if (data) {
       // Refetch all pets with JOIN to ensure consistency
       await fetchPets();
@@ -363,11 +476,7 @@ export function usePets() {
       return true;
     }
 
-    const { error } = await supabase
-      .from('pets')
-      .delete()
-      .eq('id', id)
-      .eq('business_id', businessId);
+    const { error } = await supabase.from('pets').delete().eq('id', id);
     
     if (error) {
       if (import.meta.env.DEV) console.error('[usePets] deletePet error:', error.message, error.code, error.details);

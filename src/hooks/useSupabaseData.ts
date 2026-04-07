@@ -1404,6 +1404,24 @@ export function useAppointments() {
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
 
+  const maybeTriggerReminder = useCallback(async (appointment: Partial<Appointment> & { id?: string }) => {
+    if (!appointment.id) return;
+    const appointmentDate = (appointment as any).appointment_date as string | null | undefined;
+    if (!appointmentDate) return;
+    const dt = new Date(`${appointmentDate}T${(appointment as any).start_time || '00:00:00'}`);
+    if (Number.isNaN(dt.getTime()) || dt.getTime() <= Date.now()) return;
+    if (!(appointment as any).client_id) return;
+    try {
+      await supabase.functions.invoke('send-appointment-reminder', {
+        body: { appointment_id: appointment.id },
+      });
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('[useAppointments] send-appointment-reminder failed', err);
+      }
+    }
+  }, []);
+
   const fetchAppointments = useCallback(async () => {
     if (!businessId) {
       if (import.meta.env.DEV) console.warn('[useAppointments] No businessId, skipping fetch');
@@ -1547,6 +1565,7 @@ export function useAppointments() {
       setAppointments([...appointments, data as Appointment].sort((a, b) => 
         new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime()
       ));
+      void maybeTriggerReminder(data as Appointment);
       return data;
     }
     return null;
@@ -1590,6 +1609,7 @@ export function useAppointments() {
           : row.scheduled_date,
       } as Appointment;
       setAppointments((curr) => curr.map((a) => (a.id === id ? normalized : a)));
+      void maybeTriggerReminder(normalized);
       return normalized;
     }
     return null;

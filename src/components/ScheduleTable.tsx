@@ -20,6 +20,10 @@ interface ScheduleTableProps {
   weekDays: Date[];
   onEditShift: (shift: EmployeeShift) => void;
   onAddShift: (employeeId: string, date: string) => void;
+  /** Hide add/edit affordances (e.g. while printing). */
+  readOnly?: boolean;
+  /** Only show this staff member’s row (e.g. “My schedule”). */
+  singleStaffId?: string | null;
 }
 
 function isShiftOnDay(shift: EmployeeShift, day: Date): boolean {
@@ -41,11 +45,16 @@ export function ScheduleTable({
   weekDays,
   onEditShift,
   onAddShift,
+  readOnly = false,
+  singleStaffId = null,
 }: ScheduleTableProps) {
-  const activeEmployees = useMemo(
-    () => employees.filter((e) => e.status === 'active'),
-    [employees]
-  );
+  const activeEmployees = useMemo(() => {
+    const act = employees.filter((e) => e.status === 'active');
+    if (singleStaffId) {
+      return act.filter((e) => e.id === singleStaffId);
+    }
+    return act;
+  }, [employees, singleStaffId]);
 
   const shiftsByEmployeeDay = useMemo(() => {
     const map: Record<string, Record<string, EmployeeShift[]>> = {};
@@ -74,15 +83,17 @@ export function ScheduleTable({
   }, [shifts, activeEmployees, weekDays]);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="print:shadow-none print:border print:overflow-visible">
+      <CardHeader className={readOnly ? 'print:py-2' : undefined}>
         <CardTitle className="text-base">{t('schedule.tableTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {t('schedule.tableDescription')}
-        </p>
+        {!readOnly && (
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {t('schedule.tableDescription')}
+          </p>
+        )}
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto lg:overflow-x-visible">
+      <CardContent className="p-0 print:overflow-visible">
+        <div className="overflow-x-auto lg:overflow-x-visible print:overflow-visible">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
@@ -137,7 +148,8 @@ export function ScheduleTable({
                       <td
                         key={dayStr}
                         className={cn(
-                          'p-2 align-top cursor-pointer border-r border-border min-w-[100px] max-w-[140px] relative group',
+                          'p-2 align-top border-r border-border min-w-[100px] max-w-[140px] relative group',
+                          !readOnly && 'cursor-pointer',
                           'transition-colors',
                           isEmpty
                             ? 'hover:bg-muted/50'
@@ -145,6 +157,7 @@ export function ScheduleTable({
                           isToday && isEmpty && 'bg-primary/5'
                         )}
                         onClick={() => {
+                          if (readOnly) return;
                           if (isEmpty) {
                             onAddShift(employee.id, dayStr);
                           } else if (cellShifts.length === 1) {
@@ -153,7 +166,7 @@ export function ScheduleTable({
                           // else: multiple shifts handled via popover
                         }}
                       >
-                        {!isEmpty && (
+                        {!isEmpty && !readOnly && (
                           <button
                             type="button"
                             className={cn(
@@ -173,11 +186,15 @@ export function ScheduleTable({
                         )}
                         {isEmpty ? (
                           <span className="text-muted-foreground text-xs italic block py-1">
-                            {t('schedule.clickToAdd')}
+                            {readOnly ? '—' : t('schedule.clickToAdd')}
                           </span>
                         ) : cellShifts.length === 1 ? (
                           <span className="block py-0.5 text-xs">
                             {formatShiftRange(cellShifts[0])}
+                          </span>
+                        ) : readOnly ? (
+                          <span className="block py-0.5 text-xs">
+                            {cellShifts.map(formatShiftRange).join(', ')}
                           </span>
                         ) : (
                           <Popover>

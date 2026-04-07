@@ -142,11 +142,14 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
   '/registrarse': {
     sections: [{ heading: 'Sign up', body: 'Create your Grumi account. Sign up as a business owner or client.' }],
   },
-  '/cliente': {
-    sections: [{ heading: 'Client portal', body: 'Grumi client portal. View your appointments and pet care info.' }],
+  '/portal': {
+    sections: [{ heading: 'Client portal', body: 'Grumi global client portal. Choose businesses and view your own appointments and pet care info.' }],
   },
   '/demo': {
     sections: [{ heading: 'Demo', body: 'Try Grumi with our interactive demo. No signup required.' }],
+  },
+  '/directorio': {
+    sections: [{ heading: 'Directorio', body: 'Encuentra negocios y accede a sus portales de clientes.' }],
   },
   '/signup/success': {
     sections: [{ heading: 'Success', body: 'Your Grumi account has been created. Check your email to activate.' }],

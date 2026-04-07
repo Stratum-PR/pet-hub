@@ -71,9 +71,9 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
     priority: 0.3,
   },
   {
-    path: '/cliente',
+    path: '/portal',
     title: 'Client portal – Grumi',
-    description: 'Grumi client portal. View your appointments and pet care info.',
+    description: 'Grumi client portal. Choose a business and view your own pet and appointment info.',
     indexable: true,
     noindex: false,
     changefreq: 'weekly',
@@ -86,6 +86,14 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
     indexable: true,
     changefreq: 'monthly',
     priority: 0.8,
+  },
+  {
+    path: '/directorio',
+    title: 'Directorio de negocios – Grumi',
+    description: 'Encuentra negocios y abre su portal de clientes.',
+    indexable: true,
+    changefreq: 'weekly',
+    priority: 0.7,
   },
 ];
 

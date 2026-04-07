@@ -18,6 +18,7 @@ import { Payroll } from '@/pages/Payroll';
 import { EmployeePayroll } from '@/pages/EmployeePayroll';
 import { EmployeeTimesheet } from '@/pages/EmployeeTimesheet';
 import { TimeEditApproval } from '@/components/TimeEditApproval';
+import { ShiftChangeApproval } from '@/components/ShiftChangeApproval';
 import { Services } from '@/pages/Services';
 import { Checkout } from '@/pages/Checkout';
 import { Payment } from '@/pages/Payment';
@@ -462,6 +463,7 @@ const Index = () => {
                 />
               }
             />
+            <Route path="employee-schedule/change-requests" element={<ShiftChangeApproval />} />
             <Route
               path="reports/analytics"
               element={

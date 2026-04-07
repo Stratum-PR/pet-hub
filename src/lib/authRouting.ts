@@ -2,6 +2,7 @@ import type { Business } from '@/lib/auth';
 import { clearAllDemoStoredSettings } from '@/lib/demoLocalSettings';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { supabase } from '@/integrations/supabase/client';
+import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
 
 export const DEMO_LANGUAGE_STORAGE_KEY = 'pet-hub-demo-language';
 const DEMO_THEME_STORAGE_KEY = 'pet-hub-theme-demo';
@@ -14,6 +15,12 @@ export const AUTH_CONTEXTS = {
 } as const;
 
 export type AuthContextType = (typeof AUTH_CONTEXTS)[keyof typeof AUTH_CONTEXTS];
+const POST_AUTH_HINT_STORAGE_KEY = 'post_auth_hint';
+
+type PostAuthHint = {
+  mode: 'work' | 'pet_owner';
+  businessSlug?: string;
+};
 
 function slugify(input: string) {
   return input
@@ -42,6 +49,28 @@ export function clearAuthContext() {
   sessionStorage.removeItem('authContext');
   sessionStorage.removeItem('demoMode');
   sessionStorage.removeItem('business_slug');
+  sessionStorage.removeItem(POST_AUTH_HINT_STORAGE_KEY);
+}
+
+export function setPostAuthHint(hint: PostAuthHint) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(POST_AUTH_HINT_STORAGE_KEY, JSON.stringify(hint));
+}
+
+export function getPostAuthHint(): PostAuthHint | null {
+  if (typeof window === 'undefined') return null;
+  const raw = sessionStorage.getItem(POST_AUTH_HINT_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as PostAuthHint;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPostAuthHint() {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(POST_AUTH_HINT_STORAGE_KEY);
 }
 
 export function setBusinessSlugForSession(business: Business | null) {
@@ -147,5 +176,59 @@ export function getLastRoute(): string | null {
 export function setLastRoute(path: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem('lastRoute', path);
+}
+
+type LoginProfile = {
+  is_super_admin: boolean | null;
+  business_id: string | null;
+  role: string | null;
+};
+
+async function fetchBusinessById(businessId: string | null): Promise<Business | null> {
+  if (!businessId) return null;
+  const { data } = await supabase.from('businesses').select('*').eq('id', businessId).maybeSingle();
+  return (data as Business | null) ?? null;
+}
+
+/**
+ * Unified post-auth destination resolver used by credentials and OAuth flows.
+ * Routes by persisted profile role, not by UI selection.
+ */
+export async function resolveAuthenticatedDestination(userId: string): Promise<string> {
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('is_super_admin, business_id, role')
+    .eq('id', userId)
+    .maybeSingle<LoginProfile>();
+
+  if (error) return '/login';
+
+  if (profile?.is_super_admin) {
+    const business = await fetchBusinessById(profile.business_id ?? null);
+    const preferAdminDashboard = await fetchPreferAdminDashboardOnLogin(userId);
+    return resolveSuperAdminLoginDestination({
+      preferAdminDashboard,
+      businessId: profile.business_id ?? null,
+      business,
+    });
+  }
+
+  if (profile?.role === 'employee') {
+    const business = await fetchBusinessById(profile.business_id ?? null);
+    setAuthContext(AUTH_CONTEXTS.BUSINESS);
+    if (business) setBusinessSlugForSession(business);
+    return getEmployeePostLoginPath(business);
+  }
+
+  if (profile?.role === 'client') {
+    setAuthContext(AUTH_CONTEXTS.BUSINESS);
+    return '/portal';
+  }
+
+  setAuthContext(AUTH_CONTEXTS.BUSINESS);
+  const business = await fetchBusinessById(profile?.business_id ?? null);
+  if (business) setBusinessSlugForSession(business);
+  const route = getDefaultRoute({ isAdmin: false, business });
+  return route === '/login' ? '/' : route;
 }
 

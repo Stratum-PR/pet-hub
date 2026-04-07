@@ -22,7 +22,8 @@
     "supabase:restart": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-supabase.ps1",
     "supabase:status": "supabase status",
     "setup-env": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-env.ps1",
-    "move-hero-fallback": "powershell -ExecutionPolicy Bypass -File ./scripts/move-hero-background.ps1"
+    "move-hero-fallback": "powershell -ExecutionPolicy Bypass -File ./scripts/move-hero-background.ps1",
+    "backfill:business-qr": "tsx scripts/backfill-business-qr.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -71,6 +72,7 @@
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",

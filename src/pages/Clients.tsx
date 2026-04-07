@@ -122,9 +122,13 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
     );
   }, [clients, searchTerm]);
 
-  const handleSubmit = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<boolean> => {
+  const handleSubmit = async (
+    clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'> & { staff_notes_business?: string | null },
+  ): Promise<boolean> => {
+    const { staff_notes_business: _sn, ...rest } = clientData;
+    void _sn;
     if (editingClient) {
-      const result = await onUpdateClient(editingClient.id, clientData);
+      const result = await onUpdateClient(editingClient.id, rest);
       if (result) {
         toast.success(t('clients.updateSuccess'));
         setEditingClient(null);
@@ -136,7 +140,7 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
       return false;
     }
 
-    const result = await onAddClient(clientData);
+    const result = await onAddClient(rest);
     if (result) {
       toast.success(t('clients.saveSuccess'));
       setShowForm(false);
