@@ -197,6 +197,14 @@ export const translations: Translations = {
     en: 'Thanks for your answers!',
     es: '¡Gracias por tus respuestas!'
   },
+  'waitlist.surveySubmitError': {
+    en: 'We could not save your answers. Please try again.',
+    es: 'No pudimos guardar tus respuestas. Intenta de nuevo.'
+  },
+  'waitlist.surveyStep1': { en: 'Step 1', es: 'Paso 1' },
+  'waitlist.surveyStep2': { en: 'Step 2', es: 'Paso 2' },
+  'waitlist.surveyStep3': { en: 'Step 3', es: 'Paso 3' },
+  'waitlist.surveyStep4': { en: 'Step 4', es: 'Paso 4' },
   'waitlist.surveyQ1': {
     en: 'How many groomers work at your business?',
     es: '¿Cuántos groomers trabajan en tu negocio?'
