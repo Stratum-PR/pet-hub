@@ -154,4 +154,12 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
   '/signup/success': {
     sections: [{ heading: 'Success', body: 'Your Grumi account has been created. Check your email to activate.' }],
   },
+  '/waitlist/confirmed': {
+    sections: [
+      {
+        heading: 'Confirmed',
+        body: "You are on the Grumi waitlist with Founder's Price locked in. Optional short survey to help prioritize features.",
+      },
+    ],
+  },
 };

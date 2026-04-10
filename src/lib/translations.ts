@@ -132,6 +132,127 @@ export const translations: Translations = {
     es: 'Regístrate'
   },
 
+  // Waitlist (pre-launch)
+  'waitlist.navCta': {
+    en: 'Join the Waitlist',
+    es: 'Únete a la Lista'
+  },
+  'waitlist.emailPlaceholder': {
+    en: 'your@email.com',
+    es: 'tu@email.com'
+  },
+  'waitlist.submitCta': {
+    en: 'Secure my spot',
+    es: 'Asegurar mi lugar'
+  },
+  'waitlist.founderLine': {
+    en: "Founder's Price: 25% off your first year at launch",
+    es: 'Precio Fundador: 25% off tu primer año al lanzar'
+  },
+  'waitlist.socialProof': {
+    en: '{n} groomers already on the list',
+    es: '{n} groomers ya están en la lista'
+  },
+  'waitlist.successCheckEmail': {
+    en: 'Check your email to confirm!',
+    es: '¡Revisa tu email para confirmar!'
+  },
+  'waitlist.alreadyRegistered': {
+    en: "You're already on the list. We'll notify you soon!",
+    es: 'Ya estás en la lista. ¡Te notificaremos pronto!'
+  },
+  'waitlist.errorInvalidEmail': {
+    en: 'Please enter a valid email',
+    es: 'Por favor ingresa un email válido'
+  },
+  'waitlist.errorGeneric': {
+    en: 'Something went wrong. Please try again.',
+    es: 'Algo salió mal. Intenta de nuevo.'
+  },
+  'waitlist.confirmedTitle': {
+    en: "You're in!",
+    es: '¡Estás dentro!'
+  },
+  'waitlist.confirmedSubtitle': {
+    en: "Your Founder's Price is locked in.",
+    es: 'Tu Precio Fundador está asegurado.'
+  },
+  'waitlist.confirmedNext': {
+    en: "We'll notify you when Grumi is ready.",
+    es: 'Te notificaremos cuando Grumi esté listo.'
+  },
+  'waitlist.surveyIntro': {
+    en: 'Help us with 3 quick questions?',
+    es: '¿Nos ayudas con 3 preguntas rápidas?'
+  },
+  'waitlist.surveyHint': {
+    en: 'This helps us build exactly what you need.',
+    es: 'Esto nos ayuda a construir exactamente lo que necesitas.'
+  },
+  'waitlist.surveySubmit': {
+    en: 'Submit answers',
+    es: 'Enviar respuestas'
+  },
+  'waitlist.surveySkip': {
+    en: 'Skip — thanks anyway',
+    es: 'Saltar — gracias de todos modos'
+  },
+  'waitlist.surveyThanks': {
+    en: 'Thanks for your answers!',
+    es: '¡Gracias por tus respuestas!'
+  },
+  'waitlist.surveyQ1': {
+    en: 'How many groomers work at your business?',
+    es: '¿Cuántos groomers trabajan en tu negocio?'
+  },
+  'waitlist.surveyQ1solo': { en: 'Just me', es: 'Solo yo' },
+  'waitlist.surveyQ1_2_3': { en: '2–3', es: '2–3' },
+  'waitlist.surveyQ1_4_6': { en: '4–6', es: '4–6' },
+  'waitlist.surveyQ1_7plus': { en: '7+', es: '7+' },
+  'waitlist.surveyQ2': {
+    en: 'What do you use to run your business today?',
+    es: '¿Qué usas actualmente para manejar tu negocio?'
+  },
+  'waitlist.toolPenPaper': { en: 'Pen and paper', es: 'Papel y libreta' },
+  'waitlist.toolSheet': { en: 'Excel / Google Sheets', es: 'Excel / Google Sheets' },
+  'waitlist.toolGingr': { en: 'Gingr', es: 'Gingr' },
+  'waitlist.toolDaySmart': { en: 'DaySmart Pet', es: 'DaySmart Pet' },
+  'waitlist.toolOther': { en: 'Other', es: 'Otro' },
+  'waitlist.surveyQ3': {
+    en: "What's your biggest operational headache?",
+    es: '¿Cuál es tu mayor dolor de cabeza operacional?'
+  },
+  'waitlist.surveyQ4': {
+    en: 'Which of these matter to you?',
+    es: '¿Cuáles de estas funciones son importantes para ti?'
+  },
+  'waitlist.featureAth': { en: 'ATH Móvil integration', es: 'ATH Móvil integrado' },
+  'waitlist.featureNomina': {
+    en: 'Payroll with SINOT / Choferil',
+    es: 'Nómina con SINOT/Choferil'
+  },
+  'waitlist.featureSpanish': { en: 'Spanish UI', es: 'Interfaz en español' },
+  'waitlist.featureBooking': {
+    en: 'Online booking for clients',
+    es: 'Citas en línea para clientes'
+  },
+  'waitlist.businessNameOptional': {
+    en: 'Business name (optional)',
+    es: 'Nombre del negocio (opcional)'
+  },
+  'waitlist.invalidLink': {
+    en: 'This confirmation link is invalid or expired.',
+    es: 'Este enlace de confirmación no es válido o expiró.'
+  },
+  'waitlist.confirmedNoSurveyToken': {
+    en: 'Thanks for confirming. We will email you when Grumi launches.',
+    es: 'Gracias por confirmar. Te escribiremos cuando Grumi lance.'
+  },
+  'waitlist.backHome': {
+    en: 'Back to home',
+    es: 'Volver al inicio'
+  },
+
   // Login page
   'login.title': {
     en: 'Welcome Back',

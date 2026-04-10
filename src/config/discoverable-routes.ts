@@ -30,7 +30,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   {
     path: '/',
     title: 'Grumi – Pet Grooming Business Management',
-    description: 'Grumi - Pet Grooming Business Management. Manage appointments, clients, pets, and more.',
+    description:
+      'Grumi — software for pet grooming businesses in Puerto Rico. Join the waitlist for early access and Founders Price (25% off your first year).',
     indexable: true,
     changefreq: 'weekly',
     priority: 1,
@@ -38,7 +39,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   {
     path: '/pricing',
     title: 'Pricing – Grumi',
-    description: 'Simple, transparent pricing for pet grooming businesses. Choose the plan that fits. All plans include a 14-day free trial.',
+    description:
+      'Simple, transparent pricing for pet grooming businesses. Join the waitlist to lock in Founders Price (25% off your first year at launch).',
     indexable: true,
     changefreq: 'monthly',
     priority: 0.9,
@@ -69,6 +71,15 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
     noindex: true,
     changefreq: 'yearly',
     priority: 0.3,
+  },
+  {
+    path: '/waitlist/confirmed',
+    title: 'Waitlist confirmed – Grumi',
+    description: 'Your email is confirmed. Optional survey for Grumi waitlist.',
+    indexable: true,
+    noindex: true,
+    changefreq: 'yearly',
+    priority: 0.2,
   },
   {
     path: '/portal',

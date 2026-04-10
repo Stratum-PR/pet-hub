@@ -16,6 +16,7 @@ import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { AuthCallback } from "@/pages/AuthCallback";
 import { SignupSuccess } from "@/pages/SignupSuccess";
+import { WaitlistConfirmed } from "@/pages/WaitlistConfirmed";
 import Index from "@/pages/Index";
 import { AdminDashboard } from "@/pages/AdminDashboard";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
@@ -83,6 +84,7 @@ const App = () => (
               <Route path="/portal" element={<ClientPortalPublicPage />} />
               <Route path="/cliente" element={<Navigate to="/portal" replace />} />
               <Route path="/signup/success" element={<SignupSuccess />} />
+              <Route path="/waitlist/confirmed" element={<WaitlistConfirmed />} />
               <Route path="/employee/accept-invitation" element={<AcceptInvitation />} />
               <Route path="/employee/hub" element={<EmployeeLegacyRedirect />} />
               <Route element={<EmployeePortalRoute />}>
