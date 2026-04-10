@@ -5,14 +5,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { t } from '@/lib/translations';
 import { waitlistFetch } from '@/lib/waitlistApi';
+import { cn } from '@/lib/utils';
 
 const PAIN_MAX = 500;
 
 type Props = {
   surveyToken: string;
 };
+
+function SelectableRadioRow({
+  value,
+  labelText,
+  selected,
+  namePrefix,
+}: {
+  value: string;
+  labelText: string;
+  selected: boolean;
+  namePrefix: string;
+}) {
+  const rid = `${namePrefix}-${value.replace(/[^a-z0-9]+/gi, '-')}`;
+  return (
+    <label
+      htmlFor={rid}
+      className={cn(
+        'w-full text-left rounded-2xl border-2 px-4 py-3.5 transition-all duration-200 flex items-center gap-3 cursor-pointer',
+        selected
+          ? 'border-[#D4FF00] bg-[#D4FF00]/15 shadow-sm ring-1 ring-[#D4FF00]/40'
+          : 'border-border/70 bg-white/50 hover:border-slate-300 hover:bg-white/80',
+      )}
+    >
+      <RadioGroupItem value={value} id={rid} className="border-slate-400 shrink-0" />
+      <span className="font-medium text-slate-900 flex-1">{labelText}</span>
+    </label>
+  );
+}
 
 export function WaitlistSurvey({ surveyToken }: Props) {
   const [businessName, setBusinessName] = useState('');
@@ -26,8 +56,10 @@ export function WaitlistSurvey({ surveyToken }: Props) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [skipped, setSkipped] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit() {
+    setError(null);
     setLoading(true);
     try {
       const res = await waitlistFetch('waitlist-survey', {
@@ -44,7 +76,13 @@ export function WaitlistSurvey({ surveyToken }: Props) {
           wants_online_booking: onlineBooking,
         }),
       });
-      if (res.ok) setDone(true);
+      if (res.ok) {
+        setDone(true);
+      } else {
+        setError(t('waitlist.surveySubmitError'));
+      }
+    } catch {
+      setError(t('waitlist.surveySubmitError'));
     } finally {
       setLoading(false);
     }
@@ -52,113 +90,163 @@ export function WaitlistSurvey({ surveyToken }: Props) {
 
   if (skipped || done) {
     return (
-      <p className="text-center text-muted-foreground py-4">
-        {done ? t('waitlist.surveyThanks') : t('waitlist.surveySkip')}
-      </p>
+      <div
+        className={cn(
+          'rounded-2xl border border-border/60 bg-white/50 px-6 py-8 text-center',
+          done && 'border-emerald-200/80 bg-emerald-50/40',
+        )}
+      >
+        <p className="text-slate-800 font-medium">
+          {done ? t('waitlist.surveyThanks') : t('waitlist.surveySkip')}
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="mt-8 space-y-6 text-left max-w-lg mx-auto">
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium mb-2">{t('waitlist.surveyQ1')}</legend>
-        {(
-          [
-            ['1', 'waitlist.surveyQ1solo'],
-            ['2-3', 'waitlist.surveyQ1_2_3'],
-            ['4-6', 'waitlist.surveyQ1_4_6'],
-            ['7+', 'waitlist.surveyQ1_7plus'],
-          ] as const
-        ).map(([value, key]) => (
-          <label key={value} className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="groomer_count"
+    <div className="space-y-8 text-left">
+      <section className="rounded-2xl border border-border/60 bg-white/45 backdrop-blur-sm p-5 md:p-6 space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {t('waitlist.surveyStep1')}
+        </h3>
+        <p className="text-base font-semibold text-slate-900 -mt-1">{t('waitlist.surveyQ1')}</p>
+        <RadioGroup
+          value={groomerCount}
+          onValueChange={setGroomerCount}
+          className="grid gap-2 sm:grid-cols-2"
+        >
+          {(
+            [
+              ['1', 'waitlist.surveyQ1solo'],
+              ['2-3', 'waitlist.surveyQ1_2_3'],
+              ['4-6', 'waitlist.surveyQ1_4_6'],
+              ['7+', 'waitlist.surveyQ1_7plus'],
+            ] as const
+          ).map(([value, key]) => (
+            <SelectableRadioRow
+              key={value}
               value={value}
-              checked={groomerCount === value}
-              onChange={() => setGroomerCount(value)}
-              className="accent-[#D4FF00]"
+              labelText={t(key)}
+              selected={groomerCount === value}
+              namePrefix="groomer"
             />
-            <span className="text-sm">{t(key)}</span>
-          </label>
-        ))}
-      </fieldset>
+          ))}
+        </RadioGroup>
+      </section>
 
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium mb-2">{t('waitlist.surveyQ2')}</legend>
-        {(
-          [
-            ['pen-paper', 'waitlist.toolPenPaper'],
-            ['spreadsheet', 'waitlist.toolSheet'],
-            ['gingr', 'waitlist.toolGingr'],
-            ['daysmart', 'waitlist.toolDaySmart'],
-            ['other', 'waitlist.toolOther'],
-          ] as const
-        ).map(([value, key]) => (
-          <label key={value} className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="current_tools"
+      <section className="rounded-2xl border border-border/60 bg-white/45 backdrop-blur-sm p-5 md:p-6 space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {t('waitlist.surveyStep2')}
+        </h3>
+        <p className="text-base font-semibold text-slate-900 -mt-1">{t('waitlist.surveyQ2')}</p>
+        <RadioGroup
+          value={currentTools}
+          onValueChange={setCurrentTools}
+          className="grid gap-2 sm:grid-cols-1"
+        >
+          {(
+            [
+              ['pen-paper', 'waitlist.toolPenPaper'],
+              ['spreadsheet', 'waitlist.toolSheet'],
+              ['gingr', 'waitlist.toolGingr'],
+              ['daysmart', 'waitlist.toolDaySmart'],
+              ['other', 'waitlist.toolOther'],
+            ] as const
+          ).map(([value, key]) => (
+            <SelectableRadioRow
+              key={value}
               value={value}
-              checked={currentTools === value}
-              onChange={() => setCurrentTools(value)}
-              className="accent-[#D4FF00]"
+              labelText={t(key)}
+              selected={currentTools === value}
+              namePrefix="tool"
             />
-            <span className="text-sm">{t(key)}</span>
-          </label>
-        ))}
-      </fieldset>
+          ))}
+        </RadioGroup>
+      </section>
 
-      <div className="space-y-2">
-        <Label htmlFor="waitlist-pain">{t('waitlist.surveyQ3')}</Label>
+      <section className="rounded-2xl border border-border/60 bg-white/45 backdrop-blur-sm p-5 md:p-6 space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {t('waitlist.surveyStep3')}
+        </h3>
+        <Label htmlFor="waitlist-pain" className="text-base font-semibold text-slate-900">
+          {t('waitlist.surveyQ3')}
+        </Label>
         <Textarea
           id="waitlist-pain"
           maxLength={PAIN_MAX}
           value={biggestPain}
           onChange={(e) => setBiggestPain(e.target.value)}
-          rows={3}
-          className="resize-y min-h-[80px]"
+          rows={4}
+          className="resize-y min-h-[100px] rounded-xl border-2 border-border/80 bg-white/90 text-slate-900 placeholder:text-slate-400 focus-visible:ring-[#D4FF00] focus-visible:border-[#D4FF00]/60"
+          placeholder=""
         />
-        <p className="text-xs text-muted-foreground text-right">
+        <p className="text-xs text-muted-foreground text-right tabular-nums">
           {biggestPain.length}/{PAIN_MAX}
         </p>
-      </div>
+      </section>
 
-      <div className="space-y-2">
-        <Label htmlFor="waitlist-biz">{t('waitlist.businessNameOptional')}</Label>
-        <Input id="waitlist-biz" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
-      </div>
+      <section className="rounded-2xl border border-border/60 bg-white/45 backdrop-blur-sm p-5 md:p-6 space-y-3">
+        <Label htmlFor="waitlist-biz" className="text-base font-semibold text-slate-900">
+          {t('waitlist.businessNameOptional')}
+        </Label>
+        <Input
+          id="waitlist-biz"
+          value={businessName}
+          onChange={(e) => setBusinessName(e.target.value)}
+          className="rounded-xl border-2 border-border/80 bg-white/90 h-11 text-slate-900 focus-visible:ring-[#D4FF00]"
+        />
+      </section>
 
-      <div className="space-y-3">
-        <p className="text-sm font-medium">{t('waitlist.surveyQ4')}</p>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox checked={ath} onCheckedChange={(v) => setAth(v === true)} />
-          <span className="text-sm">{t('waitlist.featureAth')}</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox checked={nomina} onCheckedChange={(v) => setNomina(v === true)} />
-          <span className="text-sm">{t('waitlist.featureNomina')}</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox checked={spanishUi} onCheckedChange={(v) => setSpanishUi(v === true)} />
-          <span className="text-sm">{t('waitlist.featureSpanish')}</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox checked={onlineBooking} onCheckedChange={(v) => setOnlineBooking(v === true)} />
-          <span className="text-sm">{t('waitlist.featureBooking')}</span>
-        </label>
-      </div>
+      <section className="rounded-2xl border border-border/60 bg-white/45 backdrop-blur-sm p-5 md:p-6 space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {t('waitlist.surveyStep4')}
+        </h3>
+        <p className="text-base font-semibold text-slate-900">{t('waitlist.surveyQ4')}</p>
+        <div className="space-y-2">
+          {(
+            [
+              [ath, setAth, 'waitlist.featureAth'],
+              [nomina, setNomina, 'waitlist.featureNomina'],
+              [spanishUi, setSpanishUi, 'waitlist.featureSpanish'],
+              [onlineBooking, setOnlineBooking, 'waitlist.featureBooking'],
+            ] as const
+          ).map(([checked, setChecked, key], i) => (
+            <label
+              key={i}
+              className="flex items-start gap-3 rounded-xl border border-border/70 bg-white/50 px-4 py-3.5 cursor-pointer hover:bg-white/80 transition-colors"
+            >
+              <Checkbox
+                checked={checked}
+                onCheckedChange={(v) => setChecked(v === true)}
+                className="mt-0.5 border-slate-400 data-[state=checked]:bg-[#D4FF00] data-[state=checked]:text-slate-900 data-[state=checked]:border-[#D4FF00]"
+              />
+              <span className="text-sm font-medium text-slate-900 leading-snug">{t(key)}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {error ? (
+        <p className="text-sm text-destructive text-center font-medium" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
         <Button
           type="button"
           onClick={() => void submit()}
           disabled={loading}
-          className="bg-[#D4FF00] text-black hover:bg-[#BFEF00] rounded-full font-semibold"
+          className="rounded-full bg-[#D4FF00] text-black hover:bg-[#BFEF00] font-semibold px-8 h-11 shadow-md"
         >
-          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t('waitlist.surveySubmit')}
+          {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : t('waitlist.surveySubmit')}
         </Button>
-        <Button type="button" variant="ghost" className="rounded-full" onClick={() => setSkipped(true)}>
+        <Button
+          type="button"
+          variant="outline"
+          className="rounded-full border-2 border-slate-200 bg-white/70 text-slate-800 hover:bg-white font-medium"
+          onClick={() => setSkipped(true)}
+        >
           {t('waitlist.surveySkip')}
         </Button>
       </div>

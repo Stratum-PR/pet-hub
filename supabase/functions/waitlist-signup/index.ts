@@ -245,6 +245,8 @@ Deno.serve(async (req) => {
 
   let waitlistId: string;
   let confirmToken: string;
+  /** True only when a new waitlist row was inserted (not a resend to an unconfirmed email). */
+  let isNewSignup = false;
 
   if (existing && !existing.confirmed) {
     const newToken = crypto.randomUUID();
@@ -295,6 +297,7 @@ Deno.serve(async (req) => {
     }
     waitlistId = inserted.id;
     confirmToken = inserted.confirm_token as string;
+    isNewSignup = true;
   }
 
   let confirmUrl = `${functionsBase()}/waitlist-confirm?token=${encodeURIComponent(confirmToken)}`;
@@ -314,6 +317,29 @@ Deno.serve(async (req) => {
       status: 502,
       headers: { "Content-Type": "application/json", ...cors },
     });
+  }
+
+  if (isNewSignup) {
+    const notifyTo = Deno.env.get("WAITLIST_NOTIFY_EMAIL")?.trim() ?? "";
+    if (notifyTo && EMAIL_RE.test(notifyTo)) {
+      const esc = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const adminHtml = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0;padding:16px;">
+  <p style="font-weight:700;color:#0f1923;margin:0 0 12px;">New Grumi waitlist signup</p>
+  <p style="color:#374151;margin:0 0 8px;"><strong>Email:</strong> ${esc(rawEmail)}</p>
+  <p style="color:#374151;margin:0 0 8px;"><strong>Locale:</strong> ${esc(locale)}</p>
+  <p style="color:#374151;margin:0;"><strong>Source:</strong> ${esc(source)}</p>
+</div>`;
+      const n = await sendResendEmail({
+        to: notifyTo,
+        subject: `New waitlist: ${rawEmail}`,
+        html: adminHtml,
+      });
+      if (!n.ok) {
+        console.error("Resend waitlist admin notify", n.status, n.body);
+      }
+    }
   }
 
   return new Response(
