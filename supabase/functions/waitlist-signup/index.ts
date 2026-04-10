@@ -1,7 +1,111 @@
+/**
+ * Waitlist signup — single file (Supabase dashboard/remote bundle often only ships index.ts).
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
-import { corsJsonHeaders } from "../_shared/waitlist_cors.ts";
-import { confirmationEmail, sendResendEmail } from "../_shared/waitlist_email_html.ts";
 
+// --- CORS ---
+function getCorsOrigin(req: Request): string {
+  const origin = req.headers.get("Origin") ?? "";
+  if (origin && (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:"))) {
+    return origin;
+  }
+  const allowed = Deno.env.get("ALLOWED_ORIGINS")?.trim();
+  if (allowed) {
+    const origins = allowed.split(",").map((o) => o.trim()).filter(Boolean);
+    if (origins.includes(origin)) return origin;
+    if (origins.length > 0) return origins[0]!;
+  }
+  return origin || "*";
+}
+
+function corsJsonHeaders(req: Request, methods = "POST, OPTIONS"): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": getCorsOrigin(req),
+    "Access-Control-Allow-Methods": methods,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+}
+
+// --- Resend: confirmation email only ---
+const FROM = "Grumi <noreply@stratumpr.com>";
+
+function resendFrom(): string {
+  return Deno.env.get("RESEND_FROM_EMAIL")
+    ? `${Deno.env.get("RESEND_FROM_NAME") ?? "Grumi"} <${Deno.env.get("RESEND_FROM_EMAIL")}>`
+    : FROM;
+}
+
+function footer(es: boolean): string {
+  const line = "Stratum PR LLC · Trujillo Alto, PR";
+  const unsub = es
+    ? "Si no solicitaste esto, ignora este correo."
+    : "If you did not request this, you can ignore this email.";
+  return `<p style="color:#9ca3af;font-size:11px;margin-top:24px;">${line}<br/>${unsub}</p>`;
+}
+
+function confirmationHtmlEs(confirmUrl: string): string {
+  return `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#ffffff;">
+  <p style="font-size:18px;font-weight:700;color:#0f1923;margin:0 0 12px;">Grumi</p>
+  <p style="color:#1f2937;line-height:1.6;">¡Gracias por tu interés en Grumi!</p>
+  <p style="color:#4b5563;line-height:1.6;">Grumi es software para gestionar citas, clientes y tu negocio de grooming en Puerto Rico. Confirma tu correo para quedar en la lista de espera.</p>
+  <div style="text-align:center;margin:28px 0;">
+    <a href="${confirmUrl}" style="display:inline-block;padding:14px 28px;background:#D4FF00;color:#0f1923;text-decoration:none;border-radius:9999px;font-weight:700;">Confirmar mi email</a>
+  </div>
+  <p style="color:#374151;font-size:14px;">Al confirmar, aseguras tu <strong>Precio Fundador</strong>: 25% de descuento en tu primer año al lanzar.</p>
+  <p style="color:#4b5563;font-size:14px;line-height:1.5;">Al hacer clic en el botón, abriremos Grumi en tu navegador: ahí podrás, si quieres, responder unas preguntas cortas (opcional) para ayudarnos a priorizar lo que más necesitas.</p>
+  ${footer(true)}
+</div>`;
+}
+
+function confirmationHtmlEn(confirmUrl: string): string {
+  return `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#ffffff;">
+  <p style="font-size:18px;font-weight:700;color:#0f1923;margin:0 0 12px;">Grumi</p>
+  <p style="color:#1f2937;line-height:1.6;">Thanks for your interest in Grumi!</p>
+  <p style="color:#4b5563;line-height:1.6;">Grumi helps pet grooming businesses run appointments and clients in one place. Confirm your email to join the waitlist.</p>
+  <div style="text-align:center;margin:28px 0;">
+    <a href="${confirmUrl}" style="display:inline-block;padding:14px 28px;background:#D4FF00;color:#0f1923;text-decoration:none;border-radius:9999px;font-weight:700;">Confirm my email</a>
+  </div>
+  <p style="color:#374151;font-size:14px;">When you confirm, you lock in the <strong>Founder's Price</strong>: 25% off your first year at launch.</p>
+  <p style="color:#4b5563;font-size:14px;line-height:1.5;">After you click the button, we'll open Grumi in your browser where you can optionally answer a few quick questions to help us prioritize what you need most.</p>
+  ${footer(false)}
+</div>`;
+}
+
+function confirmationEmail(params: { confirmUrl: string; locale: string }): { subject: string; html: string } {
+  const es = params.locale === "es";
+  const subject = es
+    ? "Confirma tu lugar en la lista de espera de Grumi"
+    : "Confirm your spot on the Grumi waitlist";
+  const html = es ? confirmationHtmlEs(params.confirmUrl) : confirmationHtmlEn(params.confirmUrl);
+  return { subject, html };
+}
+
+async function sendResendEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<{ ok: boolean; status: number; body: string }> {
+  const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: resendFrom(),
+      to: [params.to],
+      subject: params.subject,
+      html: params.html,
+    }),
+  });
+  const body = await res.text();
+  return { ok: res.ok, status: res.status, body };
+}
+
+// --- Handler ---
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Body = {
@@ -12,11 +116,49 @@ type Body = {
   utm_medium?: string;
   utm_campaign?: string;
   metadata?: Record<string, unknown>;
+  /** Optional: e.g. http://localhost:8080 — appended to confirm link if allowlisted (local/staging). */
+  redirect_after_confirm?: string;
 };
 
 function functionsBase(): string {
   const u = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
   return `${u}/functions/v1`;
+}
+
+function normalizeRedirectOrigin(input: string): string | null {
+  try {
+    const u = new URL(input);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedRedirectOrigin(origin: string): boolean {
+  const site = (Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL") ?? "").trim();
+  if (site) {
+    try {
+      if (new URL(site).origin === origin) return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  const extra = Deno.env.get("WAITLIST_ALLOWED_REDIRECT_ORIGINS")?.trim() ?? "";
+  for (const chunk of extra.split(",").map((x) => x.trim()).filter(Boolean)) {
+    try {
+      if (new URL(chunk).origin === origin) return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    const u = new URL(origin);
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
 }
 
 Deno.serve(async (req) => {
@@ -155,7 +297,15 @@ Deno.serve(async (req) => {
     confirmToken = inserted.confirm_token as string;
   }
 
-  const confirmUrl = `${functionsBase()}/waitlist-confirm?token=${encodeURIComponent(confirmToken)}`;
+  let confirmUrl = `${functionsBase()}/waitlist-confirm?token=${encodeURIComponent(confirmToken)}`;
+  const rawRedirect =
+    typeof body.redirect_after_confirm === "string" ? body.redirect_after_confirm.trim() : "";
+  if (rawRedirect) {
+    const o = normalizeRedirectOrigin(rawRedirect);
+    if (o && isAllowedRedirectOrigin(o)) {
+      confirmUrl += `&redirect_to=${encodeURIComponent(o)}`;
+    }
+  }
   const { subject, html } = confirmationEmail({ confirmUrl, locale });
   const sent = await sendResendEmail({ to: rawEmail, subject, html });
   if (!sent.ok) {

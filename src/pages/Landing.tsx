@@ -13,7 +13,6 @@ import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES, getPublicBaseUrl } from '@/config/discoverable-routes';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { WaitlistForm } from '@/components/waitlist/WaitlistForm';
-import { WaitlistCounter } from '@/components/waitlist/WaitlistCounter';
 
 const LANDING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/')!;
 
@@ -355,7 +354,6 @@ export function Landing() {
               className="w-full max-w-xl mx-auto space-y-3 opacity-0 motion-reduce:!animate-none motion-reduce:opacity-100 motion-reduce:!scale-100 animate-cta-reveal shrink-0"
             >
               <WaitlistForm className="w-full" />
-              <WaitlistCounter className="text-center" />
               <p className="flex items-center justify-center gap-2 text-xs sm:text-sm text-white/85 text-center px-2">
                 <Lock className="w-3.5 h-3.5 shrink-0 text-[#D4FF00]" aria-hidden />
                 <span>{t('waitlist.founderLine')}</span>
