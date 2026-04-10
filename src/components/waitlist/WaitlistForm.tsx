@@ -46,6 +46,12 @@ export function WaitlistForm({ className = '', animate = true }: Props) {
     try {
       const metadata: Record<string, string> = {};
       if (tier) metadata.pricing_tier = tier;
+      const redirectAfterConfirm =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+          ? window.location.origin
+          : undefined;
+
       const res = await waitlistFetch('waitlist-signup', {
         method: 'POST',
         body: JSON.stringify({
@@ -54,6 +60,7 @@ export function WaitlistForm({ className = '', animate = true }: Props) {
           source: 'website',
           ...utm,
           metadata: Object.keys(metadata).length ? metadata : undefined,
+          ...(redirectAfterConfirm ? { redirect_after_confirm: redirectAfterConfirm } : {}),
         }),
       });
       const data = (await res.json()) as WaitlistSignupResponse;

@@ -7,8 +7,3 @@ export type WaitlistSignupResponse = {
   messageKey?: string;
   error?: string;
 };
-
-export type WaitlistStatsResponse = {
-  confirmedCount: number;
-  error?: string;
-};

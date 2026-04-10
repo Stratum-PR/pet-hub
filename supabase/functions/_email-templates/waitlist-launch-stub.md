@@ -13,4 +13,4 @@ Body outline:
 - 3–4 feature bullets
 - Footer: Stratum PR LLC · Trujillo Alto, PR
 
-Implement as inline HTML next to `waitlist_email_html.ts` or a dedicated `waitlist-launch-email.ts` when sending from a cron or one-off script.
+Waitlist Edge Functions use a **single `index.ts` per function** (Supabase deploy often bundles only that file). Add launch email HTML inside a new function or script when sending from cron or one-off.

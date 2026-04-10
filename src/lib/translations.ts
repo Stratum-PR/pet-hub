@@ -149,10 +149,6 @@ export const translations: Translations = {
     en: "Founder's Price: 25% off your first year at launch",
     es: 'Precio Fundador: 25% off tu primer año al lanzar'
   },
-  'waitlist.socialProof': {
-    en: '{n} groomers already on the list',
-    es: '{n} groomers ya están en la lista'
-  },
   'waitlist.successCheckEmail': {
     en: 'Check your email to confirm!',
     es: '¡Revisa tu email para confirmar!'
