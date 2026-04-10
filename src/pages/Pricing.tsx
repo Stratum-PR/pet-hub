@@ -174,9 +174,9 @@ export function Pricing() {
               >
                 {t('landing.login')}
               </Link>
-              <Link to="/registrarse" className="hidden sm:block">
+              <Link to="/#waitlist" className="hidden sm:block">
                 <Button className="bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]">
-                  {t('landing.startFreeTrial')}
+                  {t('waitlist.navCta')}
                 </Button>
               </Link>
             </div>
@@ -202,8 +202,8 @@ export function Pricing() {
                       {t('landing.login')}
                     </Button>
                   </Link>
-                  <Link to="/registrarse" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="w-full justify-start">{t('landing.startFreeTrial')}</Button>
+                  <Link to="/#waitlist" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
                   </Link>
                   <Link to="/pricing" onClick={() => setMobileMenuOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start">
@@ -435,7 +435,7 @@ function PricingCard({
           asChild
           className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          <Link to={`/registrarse?tier=${tier.id}`}>
+          <Link to={`/?tier=${encodeURIComponent(tier.id)}#waitlist`}>
             {tier.buttonLabel}
             <ArrowRight className="ml-2 w-4 h-4" />
           </Link>

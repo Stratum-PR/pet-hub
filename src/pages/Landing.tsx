@@ -1,12 +1,10 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
-import { Calendar, Users, DollarSign, ArrowRight, Eye, Menu, ChevronDown } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { Eye, Menu, ChevronDown, Lock } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { getDefaultRoute, getLastRoute } from '@/lib/authRouting';
 import { t } from '@/lib/translations';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SplashAuthModal } from '@/components/SplashAuthModal';
@@ -14,13 +12,8 @@ import { LoginForm } from '@/components/LoginForm';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES, getPublicBaseUrl } from '@/config/discoverable-routes';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
-import { FAQ_ENTRIES } from '@/content/discoverable-content';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { WaitlistForm } from '@/components/waitlist/WaitlistForm';
+import { WaitlistCounter } from '@/components/waitlist/WaitlistCounter';
 
 const LANDING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/')!;
 
@@ -53,13 +46,22 @@ function getLandingJsonLd(): string {
 
 export function Landing() {
   const navigate = useNavigate();
-  const { user, isAdmin, business, loading } = useAuth();
-  const { language } = useLanguage();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [signupModalOpen, setSignupModalOpen] = useState(false);
   const [heroFallbackImageError, setHeroFallbackImageError] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
+
+  const scrollToWaitlist = useCallback(() => {
+    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
+  useEffect(() => {
+    if (location.pathname === '/' && location.hash === '#waitlist') {
+      const timer = window.setTimeout(() => scrollToWaitlist(), 150);
+      return () => window.clearTimeout(timer);
+    }
+  }, [location.pathname, location.hash, scrollToWaitlist]);
 
   // Two-line headline: 0.5s delay, then 0.8s total with decremental timing (first letters faster, last slower)
   const headlineLine1 = t('landing.splashHeadlineLine1');
@@ -162,10 +164,11 @@ export function Landing() {
                 {t('landing.login')}
               </button>
               <Button
-                onClick={() => setSignupModalOpen(true)}
+                type="button"
+                onClick={scrollToWaitlist}
                 className="bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
               >
-                {t('landing.startFreeTrial')}
+                {t('waitlist.navCta')}
               </Button>
             </div>
 
@@ -202,11 +205,11 @@ export function Landing() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSignupModalOpen(true);
                       setMobileMenuOpen(false);
+                      scrollToWaitlist();
                     }}
                   >
-                    <Button className="w-full justify-start">{t('landing.startFreeTrial')}</Button>
+                    <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
                   </button>
                   {navLinks.map(({ id, key }) => (
                     <Button
@@ -346,28 +349,29 @@ export function Landing() {
               {t('landing.splashSubheadline')}
             </p>
 
-            {/* CTA buttons: start 1.5s, duration 0.5s — ends same time as subtitle */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-center justify-center w-full max-w-md sm:max-w-none opacity-0 motion-reduce:!animate-none motion-reduce:opacity-100 motion-reduce:!scale-100 animate-cta-reveal shrink-0">
-            <Button
-              onClick={() => setSignupModalOpen(true)}
-              className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-8 sm:py-4 text-sm sm:text-base font-semibold text-black bg-[#D4FF00] hover:bg-[#BFEF00] hover:-translate-y-0.5 hover:scale-[1.02] transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-              style={{
-                boxShadow: '0 4px 16px rgba(205,255,0,0.25), 0 1px 3px rgba(0,0,0,0.1)',
-              }}
+            {/* Waitlist + demo */}
+            <div
+              id="waitlist"
+              className="w-full max-w-xl mx-auto space-y-3 opacity-0 motion-reduce:!animate-none motion-reduce:opacity-100 motion-reduce:!scale-100 animate-cta-reveal shrink-0"
             >
-              {t('landing.startFreeTrial')}
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-            <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-8 sm:py-4 text-sm sm:text-base font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-              >
-                <Eye className="w-4 h-4" />
-                {t('landing.viewDemo')}
-              </Button>
-            </Link>
+              <WaitlistForm className="w-full" />
+              <WaitlistCounter className="text-center" />
+              <p className="flex items-center justify-center gap-2 text-xs sm:text-sm text-white/85 text-center px-2">
+                <Lock className="w-3.5 h-3.5 shrink-0 text-[#D4FF00]" aria-hidden />
+                <span>{t('waitlist.founderLine')}</span>
+              </p>
+              <div className="flex justify-center pt-1">
+                <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                  >
+                    <Eye className="w-4 h-4" />
+                    {t('landing.viewDemo')}
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -408,15 +412,6 @@ export function Landing() {
         />
       </SplashAuthModal>
 
-      {/* Signup modal - Start free trial */}
-      <SplashAuthModal
-        isOpen={signupModalOpen}
-        onClose={() => setSignupModalOpen(false)}
-        title={t('landing.modalSignUp')}
-        titleId="splash-signup-modal-title"
-      >
-        {/* Form content to be added by you */}
-      </SplashAuthModal>
     </div>
   );
 }

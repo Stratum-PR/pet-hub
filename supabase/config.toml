@@ -16,3 +16,15 @@ verify_jwt = false
 
 [functions.send-appointment-reminder]
 verify_jwt = false
+
+[functions.waitlist-signup]
+verify_jwt = false
+
+[functions.waitlist-confirm]
+verify_jwt = false
+
+[functions.waitlist-survey]
+verify_jwt = false
+
+[functions.waitlist-stats]
+verify_jwt = false
