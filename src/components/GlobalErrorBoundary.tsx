@@ -1,4 +1,5 @@
 import React from 'react';
+import { isIgnorableWindowErrorEvent } from '@/lib/ignorableWindowErrorEvent';
 
 type Props = {
   children: React.ReactNode;
@@ -46,6 +47,9 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
   }
 
   onWindowError = (event: ErrorEvent) => {
+    if (isIgnorableWindowErrorEvent(event)) {
+      return;
+    }
     const err = event.error || event.message;
     // Ignore AbortErrors
     if (isAbortError(err)) {

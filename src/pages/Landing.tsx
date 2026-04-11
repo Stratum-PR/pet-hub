@@ -18,29 +18,31 @@ const LANDING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/')!;
 
 function getLandingJsonLd(): string {
   const base = getPublicBaseUrl();
-  return JSON.stringify([
-    {
-      '@context': 'https://schema.org',
-      '@type': 'Organization',
-      name: 'Grumi',
-      url: base,
-      description: 'Pet grooming business management. Manage appointments, clients, pets, and more.',
-      logo: `${base}/pet-hub-icon.svg`,
-    },
-    {
-      '@context': 'https://schema.org',
-      '@type': 'WebSite',
-      name: 'Grumi',
-      url: base,
-      description: LANDING_ROUTE.description,
-      // Nested nodes must include @context where parsers walk the tree (Safari JSON-LD can call @context.toLowerCase).
-      publisher: {
-        '@context': 'https://schema.org',
+  // Use @graph + single root @context — Safari/WebKit structured-data parsing can throw
+  // (e.g. undefined @context + .toLowerCase) on a root-level JSON array in ld+json scripts.
+  const payload = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
         '@type': 'Organization',
         name: 'Grumi',
+        url: base,
+        description: 'Pet grooming business management. Manage appointments, clients, pets, and more.',
+        logo: `${base}/pet-hub-icon.svg`,
       },
-    },
-  ]);
+      {
+        '@type': 'WebSite',
+        name: 'Grumi',
+        url: base,
+        description: LANDING_ROUTE.description,
+        publisher: {
+          '@type': 'Organization',
+          name: 'Grumi',
+        },
+      },
+    ],
+  };
+  return JSON.stringify(payload);
 }
 
 export function Landing() {

@@ -3,6 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
 import { HelmetProvider } from "react-helmet-async";
+import { isIgnorableWindowErrorEvent } from "./lib/ignorableWindowErrorEvent";
 
 function isAbortError(err: unknown): boolean {
   if (err instanceof Error) {
@@ -12,6 +13,20 @@ function isAbortError(err: unknown): boolean {
     return err.includes('AbortError') || err.includes('aborted');
   }
   return false;
+}
+
+function formatBootstrapError(err: unknown): string {
+  if (err instanceof Error) {
+    return err.stack || err.message;
+  }
+  if (typeof err === "string") {
+    return err;
+  }
+  try {
+    return JSON.stringify(err, null, 2);
+  } catch {
+    return String(err);
+  }
 }
 
 function renderFatalError(err: unknown) {
@@ -28,8 +43,7 @@ function renderFatalError(err: unknown) {
     // eslint-disable-next-line no-console
     console.error("[bootstrap] fatal error", err);
   }
-  const msg =
-    err instanceof Error ? (err.stack || err.message) : JSON.stringify(err, null, 2);
+  const msg = formatBootstrapError(err);
 
   // Render a minimal fallback even if React can't mount. Use textContent for error
   // message and createElement for structure so no innerHTML with dynamic content (XSS-safe).
@@ -44,7 +58,9 @@ function renderFatalError(err: unknown) {
   const pre = document.createElement("pre");
   pre.setAttribute("style", "background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto;max-height:360px;font-size:12px;line-height:1.4");
   pre.textContent = msg;
-  root.append(h2, p, pre);
+  root.appendChild(h2);
+  root.appendChild(p);
+  root.appendChild(pre);
   // Avoid replaceChildren: missing on Safari < 14 (WebKit); keep fatal UI working everywhere.
   while (document.body.firstChild) {
     document.body.removeChild(document.body.firstChild);
@@ -54,6 +70,9 @@ function renderFatalError(err: unknown) {
 
 // Capture early runtime errors before React mounts.
 window.addEventListener("error", (e) => {
+  if (isIgnorableWindowErrorEvent(e)) {
+    return;
+  }
   if (!isAbortError(e.error || e.message)) {
     renderFatalError(e.error || e.message);
   }
