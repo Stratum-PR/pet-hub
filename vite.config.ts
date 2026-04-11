@@ -15,7 +15,12 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     strictPort: true, // Fail if port 8080 is in use instead of trying another port
   },
-  plugins: [react()].filter(Boolean),
+  plugins: [
+    react({
+      /** Align dev SWC output with production (defaults to es2020 and skips Vite esbuild). */
+      devTarget: "es2018",
+    }),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -26,8 +31,11 @@ export default defineConfig(({ mode }) => ({
     target: "es2018",
   },
   build: {
-    /** Rollup output baseline (keep in sync with esbuild.target). */
-    target: "es2018",
+    /**
+     * Force downleveling across the full graph (deps included). Plain "es2018" has left
+     * `??` / `?.` in vendor chunks before, which breaks older WebKit at parse time.
+     */
+    target: ["es2018", "safari12", "ios12"],
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, "index.html"),
