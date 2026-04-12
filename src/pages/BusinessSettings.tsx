@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { devConsole } from '@/lib/clientDebug';
 
 export function BusinessSettings() {
   const { business } = useAuth();
@@ -65,7 +66,7 @@ export function BusinessSettings() {
 
       toast.success(t('personalization.settingsSaved'));
     } catch (error: any) {
-      console.error('Error updating business:', error);
+      devConsole.error('Error updating business:', error);
       toast.error(t('common.genericError') || t('personalization.saveError'));
     } finally {
       setLoading(false);

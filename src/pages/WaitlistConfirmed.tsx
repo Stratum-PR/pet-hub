@@ -7,12 +7,14 @@ import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 import { WaitlistSurvey } from '@/components/waitlist/WaitlistSurvey';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { t } from '@/lib/translations';
+import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
 
 const ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/waitlist/confirmed')!;
 
 export function WaitlistConfirmed() {
   const [searchParams] = useSearchParams();
   const surveyToken = searchParams.get('survey_token')?.trim() ?? '';
+  const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -45,10 +47,13 @@ export function WaitlistConfirmed() {
           <div className="flex items-center justify-between gap-4 rounded-full border border-white/30 bg-white/60 backdrop-blur-xl px-4 py-2 sm:px-6 sm:py-3 shadow-lg shadow-black/10">
             <Link
               to="/"
-              className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] rounded-full"
+              className="flex items-center shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] rounded-full"
             >
-              <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
-              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Grumi</span>
+              <img
+                src={themedGrumiWordmarkSrc}
+                alt="Grumi"
+                className="h-8 sm:h-9 w-auto max-w-[min(200px,42vw)] object-contain object-left"
+              />
             </Link>
             <div className="flex items-center gap-2">
               <LanguageSwitcher

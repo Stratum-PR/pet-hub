@@ -31,7 +31,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
-import { DataDiagnostics } from '@/components/DataDiagnostics';
 import { AccountSettings } from '@/pages/AccountSettings';
 import { BusinessSettingsPage } from '@/pages/BusinessSettingsPage';
 import { BookingSettings } from '@/pages/BookingSettings';

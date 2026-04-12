@@ -12,6 +12,7 @@ import { t } from '@/lib/translations';
 import { APPOINTMENT_COLORS } from '@/types/calendar';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { SearchFilter } from '@/components/SearchFilter';
+import { devConsole } from '@/lib/clientDebug';
 
 export function BusinessServices() {
   const { services, loading, error, refetch, addService, updateService, deleteService } = useServices();
@@ -125,7 +126,7 @@ export function BusinessServices() {
         }
       }
     } catch (error) {
-      console.error('Error saving service:', error);
+      devConsole.error('Error saving service:', error);
       toast.error(t('services.saveError'));
     }
   };

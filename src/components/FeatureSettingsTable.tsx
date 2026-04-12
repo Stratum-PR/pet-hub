@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { devConsole } from '@/lib/clientDebug';
 
 type FeatureRow = {
   feature_key: string;
@@ -194,7 +195,7 @@ export function FeatureSettingsTable() {
       void queryClient.invalidateQueries({ queryKey: ['feature_visibility_rules'] });
     },
     onError: (error) => {
-      console.error('Save feature settings error', error);
+      devConsole.error('Save feature settings error', error);
       toast.error('Failed to save feature settings');
     },
   });
@@ -231,8 +232,8 @@ export function FeatureSettingsTable() {
       void queryClient.invalidateQueries({ queryKey: ['feature_visibility_rules'] });
     },
     onError: (error) => {
-      console.error('Add feature error', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add feature');
+      devConsole.error('Add feature error', error);
+      toast.error('Failed to add feature');
     },
   });
 

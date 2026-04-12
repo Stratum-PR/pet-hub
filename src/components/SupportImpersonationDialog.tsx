@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
+import { devConsole } from '@/lib/clientDebug';
 import {
   saveSupportAdminSnapshot,
   markSupportUserSessionActive,
@@ -136,7 +137,8 @@ export function SupportImpersonationDialogContent({ open, onOpenChange }: Suppor
       if (cancelled) return;
       setLoadingBiz(false);
       if (error) {
-        toast.error(error.message);
+        devConsole.error('[SupportImpersonation] businesses list', error);
+        toast.error(t('common.genericError'));
         setBusinesses([]);
         return;
       }
@@ -164,7 +166,8 @@ export function SupportImpersonationDialogContent({ open, onOpenChange }: Suppor
       if (cancelled) return;
       setLoadingStaff(false);
       if (error) {
-        toast.error(error.message);
+        devConsole.error('[SupportImpersonation] staff list', error);
+        toast.error(t('common.genericError'));
         setStaff([]);
         return;
       }
@@ -205,7 +208,8 @@ export function SupportImpersonationDialogContent({ open, onOpenChange }: Suppor
       if (sessErr || !sessionData.session) {
         const msg = formatAuthError(sessErr ?? new Error('No session'));
         setDiagnosticError(msg);
-        toast.error(sessErr?.message || 'No session');
+        devConsole.error('[SupportImpersonation] getSession', sessErr);
+        toast.error(t('common.genericError'));
         return;
       }
 
@@ -214,7 +218,8 @@ export function SupportImpersonationDialogContent({ open, onOpenChange }: Suppor
       if (refreshErr && !session?.access_token) {
         const msg = formatAuthError(refreshErr);
         setDiagnosticError(msg);
-        toast.error(refreshErr.message);
+        devConsole.error('[SupportImpersonation] refreshSession', refreshErr);
+        toast.error(t('common.genericError'));
         return;
       }
 

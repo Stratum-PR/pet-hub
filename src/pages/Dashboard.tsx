@@ -40,6 +40,7 @@ import { es as dateFnsEs } from 'date-fns/locale';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DataDiagnostics } from '@/components/DataDiagnostics';
+import { devConsole, isClientDebugSurfacesEnabled } from '@/lib/clientDebug';
 import { useTransactions, loadDemoTransactionEntries } from '@/hooks/useTransactions';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { supabase } from '@/integrations/supabase/client';
@@ -619,7 +620,7 @@ export function Dashboard({
           }
         }
       } else if (import.meta.env.DEV && error) {
-        console.warn('[Dashboard] top services: transactions + line items', error);
+        devConsole.warn('[Dashboard] top services: transactions + line items', error);
       }
 
       const totalCents = [...centsByName.values()].reduce((s, v) => s + v, 0);
@@ -1335,18 +1336,20 @@ export function Dashboard({
         </div>
       </div>
 
-      {/* Collapsible Data Diagnostics at bottom */}
-      <DashboardStaggerItem key={`dsk-${chartEnterKey}-10`} index={10}>
-      <details className="mt-8 border border-border rounded-lg bg-card/50">
-        <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center justify-between">
-          <span>Show Diagnostics</span>
-          <span className="text-xs text-muted-foreground">(for troubleshooting only)</span>
-        </summary>
-        <div className="pt-2">
-          <DataDiagnostics />
-        </div>
-      </details>
-      </DashboardStaggerItem>
+      {/* Collapsible Data Diagnostics at bottom (localhost / dev only) */}
+      {isClientDebugSurfacesEnabled() && (
+        <DashboardStaggerItem key={`dsk-${chartEnterKey}-10`} index={10}>
+          <details className="mt-8 border border-border rounded-lg bg-card/50">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium flex items-center justify-between">
+              <span>Show Diagnostics</span>
+              <span className="text-xs text-muted-foreground">(for troubleshooting only)</span>
+            </summary>
+            <div className="pt-2">
+              <DataDiagnostics />
+            </div>
+          </details>
+        </DashboardStaggerItem>
+      )}
     </div>
     </PawLoadedContent>
   );

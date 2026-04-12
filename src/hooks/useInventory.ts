@@ -3,6 +3,7 @@ import { Product } from '@/types/inventory';
 import { useBusinessId } from './useBusinessId';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { supabase } from '@/integrations/supabase/client';
+import { devConsole } from '@/lib/clientDebug';
 
 function uuidv4(): string {
   if (typeof crypto !== 'undefined') {
@@ -296,7 +297,7 @@ export function useInventory() {
     const filePath = `${businessId}/${productId}/${fileName}`;
     const { error } = await supabase.storage.from('product-photos').upload(filePath, file, { cacheControl: '3600', upsert: false });
     if (error) {
-      console.error('[useInventory] upload error:', error);
+      devConsole.error('[useInventory] upload error:', error);
       return null;
     }
     const { data: { publicUrl } } = supabase.storage.from('product-photos').getPublicUrl(filePath);

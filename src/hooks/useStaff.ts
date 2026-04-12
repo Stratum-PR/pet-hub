@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { StaffMember } from '@/types';
+import { devConsole } from '@/lib/clientDebug';
 
 export type StaffWithBusiness = StaffMember & {
   businesses?: { slug: string | null; name: string } | null;
@@ -39,7 +40,7 @@ export function useStaff() {
         setStaffMember({ ...(rest as StaffMember), businesses });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Error loading staff';
-        console.error('useStaff:', err);
+        devConsole.error('useStaff:', err);
         setError(message);
         setStaffMember(null);
       } finally {

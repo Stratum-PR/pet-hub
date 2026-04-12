@@ -26,6 +26,7 @@ import { PetForm } from '@/components/PetForm';
 import type { BusinessClient, Pet } from '@/hooks/useBusinessData';
 import { validateClientPayload } from '@/lib/businessValidation';
 import { t } from '@/lib/translations';
+import { devConsole } from '@/lib/clientDebug';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
 
 type Membership = { businessId: string; businessName: string; businessSlug: string };
@@ -256,7 +257,8 @@ export function ClientPortalPublicPage() {
         .select('id, first_name, last_name, phone, email, address, city, state, zip_code, notes, business_id, profile_id')
         .maybeSingle();
       if (retry) return retry as PortalClientRow;
-      toast.error(error.message || 'No se pudo crear tu perfil.');
+      devConsole.error('[portal] insertClientRow', error);
+      toast.error(t('common.genericError'));
       return null;
     }
     return (data as PortalClientRow | null) ?? null;
@@ -420,7 +422,7 @@ export function ClientPortalPublicPage() {
       },
       { onConflict: 'user_id,business_id' },
     );
-    if (error && import.meta.env.DEV) console.warn('[portal] business_client_links upsert', error);
+    if (error) devConsole.warn('[portal] business_client_links upsert', error);
     await queryClient.invalidateQueries({ queryKey: ['portalMemberships', user.id] });
   };
 

@@ -11,6 +11,7 @@ import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoginForm } from '@/components/LoginForm';
 import { t } from '@/lib/translations';
+import { devConsole } from '@/lib/clientDebug';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -44,9 +45,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     // Skip auth redirects for public demo / Pet Esthetic routes
     if (isPublicBusinessRoute) return;
 
-    if (import.meta.env.DEV) {
-      console.log('[ProtectedRoute] effect', { path: location.pathname, loading, hasUser: !!user, isAdmin, requireAdmin });
-    }
+    devConsole.log('[ProtectedRoute] effect', { path: location.pathname, loading, hasUser: !!user, isAdmin, requireAdmin });
 
     if (loading) return;
 
@@ -145,7 +144,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
-          if (import.meta.env.DEV) console.error('[ProtectedRoute] Error checking session:', error);
+          devConsole.error('[ProtectedRoute] Error checking session:', error);
           setHasSession(false);
           setSessionChecked(true);
           return;
@@ -162,7 +161,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           setSessionChecked(true);
         }
       } catch (err) {
-        if (import.meta.env.DEV) console.error('[ProtectedRoute] Exception checking session:', err);
+        devConsole.error('[ProtectedRoute] Exception checking session:', err);
         setHasSession(false);
         setSessionChecked(true);
       }
@@ -196,7 +195,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
           {children}
           <PostLoginLoading
             onTimeout={() => {
-              if (import.meta.env.DEV) console.warn('[ProtectedRoute] Loading timeout reached');
+              devConsole.warn('[ProtectedRoute] Loading timeout reached');
             }}
             timeoutMs={10000}
           />

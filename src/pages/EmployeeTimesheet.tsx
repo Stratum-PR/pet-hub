@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { downloadEmployeeTimesheetPdf } from '@/lib/payrollPdf';
+import { devConsole } from '@/lib/clientDebug';
 import {
   buildStandardDetailRows,
   buildStandardSummaryRows,
@@ -262,7 +263,7 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
         });
       }
     } catch (e) {
-      if (import.meta.env.DEV) console.error(e);
+      devConsole.error(e);
       toast.error(t('common.genericError'));
     } finally {
       setExportLoading(false);

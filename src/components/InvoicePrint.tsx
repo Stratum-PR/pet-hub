@@ -1,6 +1,7 @@
 /** Invoice print for 8.5" x 11" letter. Opens print window with styled invoice. */
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
 import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
+import { DEFAULT_GRUMI_WORDMARK_SRC } from '@/lib/marketingLogoFromTheme';
 
 function fromCents(c: number): number {
   return c / 100;
@@ -15,7 +16,7 @@ export interface InvoicePrintProps {
   businessName: string;
   businessPhone?: string | null;
   businessAddress?: string | null;
-  /** Logo URL for invoice header (absolute URL for print). Demo: Grumi icon at /pet-hub-icon.svg */
+  /** Logo URL for invoice header (absolute URL for print). Fallback: default Grumi wordmark. */
   logoUrl?: string | null;
   transaction: Transaction;
   lineItems: TransactionLineItem[];
@@ -135,7 +136,7 @@ function buildInvoiceHtml(props: InvoicePrintProps, resolvedLogoUrl: string, bas
 /** Open a new window and print the invoice (8.5" x 11" letter). */
 export function printInvoice(props: InvoicePrintProps) {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const resolvedLogoUrl = props.logoUrl || (baseUrl ? `${baseUrl}/pet-hub-icon.svg` : '');
+  const resolvedLogoUrl = props.logoUrl || (baseUrl ? `${baseUrl}${DEFAULT_GRUMI_WORDMARK_SRC}` : '');
   const bodyHtml = buildInvoiceHtml(props, resolvedLogoUrl, baseUrl);
   const title = escapeHtml(props.displayId);
   const fullHtml = `<!DOCTYPE html>
@@ -223,7 +224,7 @@ export function printInvoice(props: InvoicePrintProps) {
 /** Open invoice in a new window for viewing (no print dialog). */
 export function viewInvoice(props: InvoicePrintProps) {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const resolvedLogoUrl = props.logoUrl || (baseUrl ? `${baseUrl}/pet-hub-icon.svg` : '');
+  const resolvedLogoUrl = props.logoUrl || (baseUrl ? `${baseUrl}${DEFAULT_GRUMI_WORDMARK_SRC}` : '');
   const bodyHtml = buildInvoiceHtml(props, resolvedLogoUrl, baseUrl);
   const title = escapeHtml(props.displayId);
   const fullHtml = `<!DOCTYPE html>

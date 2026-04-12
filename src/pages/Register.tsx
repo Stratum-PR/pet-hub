@@ -20,6 +20,8 @@ import { ensureBusinessClientLink } from '@/lib/businessClientLink';
 import { DEFAULT_BUSINESS_TIMEZONE } from '@/lib/businessTimezonePicker';
 import { generateBusinessPortalQrSvg, resolvePortalBaseUrl } from '@/lib/qrCode';
 import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
+import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
+import { devConsole, isClientDebugSurfacesEnabled } from '@/lib/clientDebug';
 
 const REGISTER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/registrarse')!;
 
@@ -111,6 +113,7 @@ const SIGNUP_TIERS: { tier: SignupTier; nameKey: string; descKey: string; price:
 export function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
   const { refreshAuth } = useAuth();
   const [signupType, setSignupType] = useState<SignupType | null>(null);
   const [step, setStep] = useState(1);
@@ -205,11 +208,10 @@ export function Register() {
   };
 
   const addLog = (msg: string) => {
+    devConsole.log('[Register]', msg);
+    if (!isClientDebugSurfacesEnabled()) return;
     const time = new Date().toISOString().slice(11, 23);
     setSignupLogs((prev) => [...prev, `${time} ${msg}`]);
-    if (import.meta.env.DEV) {
-      console.log('[Register]', msg);
-    }
   };
 
   const handleCompleteManagerSignup = async (name: string, tier: SignupTier) => {
@@ -605,7 +607,8 @@ export function Register() {
         if (error.message?.toLowerCase().includes('invalid') || error.message?.toLowerCase().includes('password')) {
           toast.error(t('register.linkIncorrectPassword'));
         } else {
-          toast.error(error.message);
+          devConsole.error('[Register] link account signIn', error);
+          toast.error(t('register.errorGeneric'));
         }
         setLinkLoading(false);
         return;
@@ -715,7 +718,11 @@ export function Register() {
               className="flex justify-center mb-4 cursor-pointer"
               onClick={() => navigate('/')}
             >
-              <img src="/pet-hub-logo.svg" alt="Grumi" className="h-12" />
+              <img
+                src={themedGrumiWordmarkSrc}
+                alt="Grumi"
+                className="h-12 w-auto max-w-[min(240px,85vw)] object-contain object-center"
+              />
             </div>
             <CardTitle className="text-2xl">{t('register.title')}</CardTitle>
             <CardDescription>{t('register.subtitle')}</CardDescription>
@@ -1334,7 +1341,7 @@ export function Register() {
               </form>
             )}
 
-            {signupLogs.length > 0 && (
+            {isClientDebugSurfacesEnabled() && signupLogs.length > 0 && (
               <div className="mt-4 rounded-md border border-muted bg-muted/30 p-3">
                 <p className="text-xs font-medium text-muted-foreground mb-2">Registration log</p>
                 <pre className="text-xs font-mono overflow-auto max-h-32 whitespace-pre-wrap break-words">

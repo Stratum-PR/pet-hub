@@ -23,6 +23,7 @@ import {
   parseEmployeeDobDateInput,
 } from '@/lib/employeeDob';
 import { Switch } from '@/components/ui/switch';
+import { devConsole } from '@/lib/clientDebug';
 
 interface AccountSettingsProps {
   settings: Settings;
@@ -107,7 +108,10 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     });
     setSavingNotifications(false);
     if (result.ok) toast.success(t('notifications.settingsSaved'));
-    else toast.error(result.error || t('common.genericError'));
+    else {
+      if (result.error) devConsole.error('[AccountSettings] save notifications', result.error);
+      toast.error(t('common.genericError'));
+    }
   };
 
   const handleSaveStaffBirthday = async (e: React.FormEvent) => {
@@ -136,12 +140,17 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     setStaffDobSaving(true);
     const { error } = await supabase.from('staff').update(payload as any).eq('id', profile.staff_id);
     setStaffDobSaving(false);
-    if (error) toast.error(error.message);
-    else {
+    if (error) {
+      devConsole.error('[AccountSettings] staff DOB update', error);
+      toast.error(t('common.genericError'));
+    } else {
       toast.success(t('accountSettings.staffBirthdaySaved'));
       if (payload.birth_month != null && payload.birth_day != null && !demoBrowseOnly) {
         const { error: bdayErr } = await dispatchStaffBirthdaysForBusiness(businessId);
-        if (bdayErr) toast.error(bdayErr);
+        if (bdayErr) {
+          devConsole.warn('[AccountSettings] dispatchStaffBirthdaysForBusiness', bdayErr);
+          toast.error(t('common.genericError'));
+        }
         else if (isDemoWorkspaceBusiness(businessId)) clearPetHubBirthdayJobLocalKey(businessId);
         requestNotificationsRefetch();
       }
@@ -169,7 +178,8 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     const { error: signInError } = await supabase.auth.signInWithPassword(credentials as Parameters<typeof supabase.auth.signInWithPassword>[0]);
     if (signInError) {
       setChangingPassword(false);
-      toast.error(signInError.message);
+      devConsole.error('[AccountSettings] signInWithPassword for change password', signInError);
+      toast.error(t('register.linkIncorrectPassword'));
       return;
     }
     const updatePayload: Record<string, string> = {};
@@ -179,8 +189,10 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    if (error) toast.error(error.message);
-    else toast.success(t('accountSettings.passwordUpdated'));
+    if (error) {
+      devConsole.error('[AccountSettings] updateUser password', error);
+      toast.error(t('common.genericError'));
+    } else toast.success(t('accountSettings.passwordUpdated'));
   };
 
   return (
@@ -239,7 +251,8 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                     .eq('id', user.id);
                   setSavingLoginPreference(false);
                   if (error) {
-                    toast.error(error.message);
+                    devConsole.error('[AccountSettings] prefer_admin_dashboard_on_login', error);
+                    toast.error(t('common.genericError'));
                     setPreferAdminDashboardOnLogin(!checked);
                     return;
                   }

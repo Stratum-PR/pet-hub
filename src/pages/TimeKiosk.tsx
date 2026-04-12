@@ -28,6 +28,7 @@ import { setKioskLocked } from '@/lib/kioskLock';
 import { useTheme } from 'next-themes';
 import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
+import { devConsole } from '@/lib/clientDebug';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { BrandingLogoKiosk } from '@/components/BrandingMark';
@@ -94,7 +95,7 @@ export function TimeKiosk() {
         if (gen !== managerPinGateFetchGen.current) return;
 
         if (error) {
-          if (import.meta.env.DEV) console.warn('TimeKiosk: could not load kiosk_manager_pin', error);
+          devConsole.warn('TimeKiosk: could not load kiosk_manager_pin', error);
           setManagerPinGate('missing');
           return;
         }
@@ -209,7 +210,7 @@ export function TimeKiosk() {
             .maybeSingle();
           setActiveTimeEntry(activeEntry ? (activeEntry as TimeEntry) : null);
         } catch (err) {
-          if (import.meta.env.DEV) console.warn('Failed to fetch active time entry:', err);
+          devConsole.warn('Failed to fetch active time entry:', err);
           setActiveTimeEntry(null);
         }
       } else {
@@ -352,7 +353,7 @@ export function TimeKiosk() {
       } catch (geoErr) {
         // Continue without geolocation
         if (import.meta.env.DEV) {
-          console.warn('Geolocation not available:', geoErr);
+          devConsole.warn('Geolocation not available:', geoErr);
         }
       }
 

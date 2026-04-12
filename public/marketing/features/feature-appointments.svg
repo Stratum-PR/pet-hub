@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" fill="none" aria-hidden="true">
+  <rect width="400" height="220" rx="16" fill="#f8fcf4"/>
+  <rect x="1" y="1" width="398" height="218" rx="15" stroke="#cfe8b8" stroke-width="2"/>
+  <text x="200" y="36" text-anchor="middle" fill="#3b6d11" font-family="system-ui,Segoe UI,sans-serif" font-size="13" font-weight="700">April</text>
+  <line x1="24" y1="52" x2="376" y2="52" stroke="#cfe8b8" stroke-width="1"/>
+  <rect x="88" y="64" width="88" height="20" rx="6" fill="#eaf3de"/>
+  <rect x="184" y="64" width="88" height="20" rx="6" fill="#eaf3de"/>
+  <rect x="280" y="64" width="88" height="20" rx="6" fill="#eaf3de"/>
+  <text x="56" y="104" fill="#5c7d4a" font-family="system-ui,Segoe UI,sans-serif" font-size="11" font-weight="600">8:00</text>
+  <rect x="88" y="92" width="88" height="28" rx="8" fill="#fff" stroke="#86c06a" stroke-width="1.5"/>
+  <rect x="184" y="92" width="88" height="28" rx="8" fill="#fff" stroke="#d4a84b" stroke-width="1.5"/>
+  <rect x="280" y="92" width="88" height="28" rx="8" fill="#fff" stroke="#5ba3d9" stroke-width="1.5"/>
+  <text x="56" y="148" fill="#5c7d4a" font-family="system-ui,Segoe UI,sans-serif" font-size="11" font-weight="600">11:00</text>
+  <rect x="88" y="136" width="88" height="28" rx="8" fill="#fff" stroke="#86c06a" stroke-width="1.5" opacity="0.85"/>
+  <rect x="184" y="136" width="88" height="28" rx="8" fill="#eaf3de" stroke="#86c06a" stroke-width="1.5" opacity="0.6"/>
+  <rect x="280" y="136" width="88" height="28" rx="8" fill="#fff" stroke="#5ba3d9" stroke-width="1.5" opacity="0.85"/>
+  <circle cx="200" cy="192" r="4" fill="#3b6d11" opacity="0.35"/>
+</svg>

@@ -9,13 +9,12 @@ import { t } from '@/lib/translations';
 import { formatAgeFromBirth, formatVaccinationStatusSpanish, getVaccinationStatusColor } from '@/lib/petHelpers';
 import { isDemoMode } from '@/lib/authRouting';
 import { format, parseISO } from 'date-fns';
+import { devConsole } from '@/lib/clientDebug';
 
 interface PetListProps {
   pets: Pet[] | any[];
-  /** New multi-tenant clients */
+  /** Business clients (multi-tenant or legacy shape) */
   clients?: BusinessClient[] | any[];
-  /** Legacy /app clients (clients table) */
-  clients?: any[];
   /** Appointments for visit history */
   appointments?: Appointment[] | any[];
   /** Open pet detail (view-only); when set, cards show Eye only and no Edit/Delete */
@@ -55,7 +54,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
   
   useEffect(() => {
     if (import.meta.env.DEV && safeAppointments.length === 0) {
-      console.warn('[PetList] No appointments provided to PetList component');
+      devConsole.warn('[PetList] No appointments provided to PetList component');
     }
   }, [safeAppointments.length]);
 
@@ -119,7 +118,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
       if (aptPetId === targetPetId) return true;
       
       if (import.meta.env.DEV && aptPetId && targetPetId && aptPetId !== targetPetId) {
-        console.debug('[PetList] Pet ID mismatch:', { appointmentPetId: aptPetId, targetPetId, appointmentId: apt.id });
+        devConsole.debug('[PetList] Pet ID mismatch:', { appointmentPetId: aptPetId, targetPetId, appointmentId: apt.id });
       }
       return false;
     });

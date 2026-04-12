@@ -17,6 +17,7 @@ import type { TransactionLineItemInput, PaymentMethod } from '@/types/transactio
 import { getPaymentStatusFromAmount } from '@/types/transactions';
 import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
 import { validateCreatePayload } from '@/lib/transactionValidation';
+import { devConsole } from '@/lib/clientDebug';
 
 function toCents(d: number): number {
   return Math.round(d * 100);
@@ -201,7 +202,8 @@ export function TransactionCreate() {
     const result = await createTransaction(payload as any);
     setSaving(false);
     if (result.error) {
-      toast.error(result.error);
+      devConsole.error('[TransactionCreate] createTransaction', result.error);
+      toast.error(t('common.genericError'));
       return;
     }
     const created = result.data;

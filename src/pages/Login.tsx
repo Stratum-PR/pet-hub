@@ -10,12 +10,14 @@ import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
 import { supabase } from '@/integrations/supabase/client';
+import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
 
 const LOGIN_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/login')!;
 
 export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
   useLanguage(); // Force re-render on language change
   const businessSlug = searchParams.get('business')?.trim() || undefined;
 
@@ -38,7 +40,11 @@ export function Login() {
               className="flex justify-center mb-4 cursor-pointer transition-opacity hover:opacity-80 active:opacity-60"
               onClick={() => navigate('/')}
             >
-              <img src="/pet-hub-logo.svg" alt="Grumi" className="h-12" />
+              <img
+                src={themedGrumiWordmarkSrc}
+                alt="Grumi"
+                className="h-12 w-auto max-w-[min(240px,85vw)] object-contain object-center"
+              />
             </div>
             <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
             <CardDescription>

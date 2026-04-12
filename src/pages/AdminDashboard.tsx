@@ -16,6 +16,7 @@ import {
   getBusinessDashboardPath,
 } from '@/lib/authRouting';
 import { useAuth } from '@/contexts/AuthContext';
+import { t } from '@/lib/translations';
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FeatureSettingsTable } from '@/components/FeatureSettingsTable';
+import { devConsole } from '@/lib/clientDebug';
 
 const PROFILE_ROLES = ['client', 'employee', 'manager', 'super_admin'] as const;
 
@@ -73,7 +75,7 @@ export function AdminDashboard() {
       if (error) throw error;
       setBusinesses((data as Business[]) || []);
     } catch (error) {
-      console.error('Error fetching businesses:', error);
+      devConsole.error('Error fetching businesses:', error);
       toast.error('Failed to load businesses');
     } finally {
       setLoadingBiz(false);
@@ -90,7 +92,7 @@ export function AdminDashboard() {
       if (error) throw error;
       setProfiles((data as ListedProfile[]) || []);
     } catch (error) {
-      console.error('Error fetching profiles:', error);
+      devConsole.error('Error fetching profiles:', error);
       toast.error('Failed to load users');
     } finally {
       setLoadingProfiles(false);
@@ -107,7 +109,7 @@ export function AdminDashboard() {
       await signOut();
       navigate('/login');
     } catch (error) {
-      console.error('Logout error:', error);
+      devConsole.error('Logout error:', error);
     }
   };
 
@@ -153,8 +155,8 @@ export function AdminDashboard() {
       toast.success(`Opening ${business.name}`);
       navigate(`/${slug}/dashboard`);
     } catch (err: unknown) {
-      console.error('View business error:', err);
-      toast.error(err instanceof Error ? err.message : 'Could not open business');
+      devConsole.error('View business error:', err);
+      toast.error(t('common.genericError'));
     } finally {
       setViewingId(null);
     }
@@ -173,8 +175,8 @@ export function AdminDashboard() {
       );
       toast.success('Role updated');
     } catch (err: unknown) {
-      console.error('Role update error:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to update user role');
+      devConsole.error('Role update error:', err);
+      toast.error(t('common.genericError'));
       void fetchProfiles();
     } finally {
       setRoleUpdatingId(null);

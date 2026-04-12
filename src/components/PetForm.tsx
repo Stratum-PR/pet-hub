@@ -20,6 +20,7 @@ import { useBreeds } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { PhotoCropDialog } from '@/components/PhotoCropDialog';
+import { devConsole } from '@/lib/clientDebug';
 
 interface PetFormProps {
   clients: BusinessClient[];
@@ -121,18 +122,18 @@ export function PetForm({
       if (safeClients.length > 0 && clientId) {
         const foundCustomer = safeClients.find(c => String(c.id).trim() === String(clientId).trim());
         if (!foundCustomer) {
-          if (import.meta.env.DEV) console.warn('[PetForm] Client not found in list:', clientId);
+          devConsole.warn('[PetForm] Client not found in list:', clientId);
         } else {
           const firstName = (foundCustomer as any).first_name || '';
           const lastName = (foundCustomer as any).last_name || '';
-          if (import.meta.env.DEV) console.log('[PetForm] Found client in list:', {
+          devConsole.log('[PetForm] Found client in list:', {
             clientId,
             clientName: `${firstName} ${lastName}`.trim(),
           });
         }
       }
       
-      if (import.meta.env.DEV) console.log('[PetForm] Initializing form data from Supabase:', {
+      devConsole.log('[PetForm] Initializing form data from Supabase:', {
         clientId,
         validClientId,
         breedId,
@@ -235,7 +236,7 @@ export function PetForm({
         const breedIdStr = String(breedId).trim();
         const breedExists = breeds.find(b => String(b.id).trim() === breedIdStr);
         if (breedExists) {
-          if (import.meta.env.DEV) console.log('[PetForm] Re-initializing breed_id after breeds loaded:', breedIdStr);
+          devConsole.log('[PetForm] Re-initializing breed_id after breeds loaded:', breedIdStr);
           setFormData(prev => ({ ...prev, breed_id: breedIdStr }));
         }
       }
@@ -359,7 +360,7 @@ export function PetForm({
       };
       reader.readAsDataURL(file);
     } catch (error: any) {
-      if (import.meta.env.DEV) console.error('Error processing photo:', error);
+      devConsole.error('Error processing photo:', error);
       toast({
         title: 'Error',
         description: t('common.genericError') || 'Error al procesar la foto. Por favor intenta de nuevo.',
@@ -485,7 +486,7 @@ export function PetForm({
           }
           return null;
         } catch (e) {
-          if (import.meta.env.DEV) console.error('Error extracting file path from URL:', e);
+          devConsole.error('Error extracting file path from URL:', e);
           return null;
         }
       };
@@ -496,7 +497,7 @@ export function PetForm({
         
         const filePath = extractFilePathFromUrl(photoUrl);
         if (!filePath) {
-          if (import.meta.env.DEV) console.warn('[PetForm] Could not extract file path from URL');
+          devConsole.warn('[PetForm] Could not extract file path from URL');
           return;
         }
         
@@ -506,10 +507,10 @@ export function PetForm({
             .remove([filePath]);
           
           if (deleteError) {
-            if (import.meta.env.DEV) console.error('[PetForm] Error deleting photo from Storage:', deleteError);
+            devConsole.error('[PetForm] Error deleting photo from Storage:', deleteError);
           }
         } catch (err) {
-          if (import.meta.env.DEV) console.error('[PetForm] Exception deleting photo:', err);
+          devConsole.error('[PetForm] Exception deleting photo:', err);
           // Continue with update even if deletion fails
         }
       };
@@ -595,7 +596,7 @@ export function PetForm({
 
             finalPhotoUrl = publicUrl;
           } catch (uploadError: any) {
-            if (import.meta.env.DEV) console.error('Error uploading photo:', uploadError);
+            devConsole.error('Error uploading photo:', uploadError);
             toast({
               title: 'Error',
               description: 'Error al subir la foto. Por favor intenta de nuevo.',
@@ -678,20 +679,20 @@ export function PetForm({
   // Get the selected breed object for display
   const selectedBreed = useMemo(() => {
     if (!formData.breed_id) {
-      if (import.meta.env.DEV) console.log('[PetForm] No breed_id in formData');
+      devConsole.log('[PetForm] No breed_id in formData');
       return null;
     }
     if (breeds.length === 0) {
-      if (import.meta.env.DEV) console.log('[PetForm] Breeds array is empty');
+      devConsole.log('[PetForm] Breeds array is empty');
       return null;
     }
     // Ensure we're comparing strings
     const breedIdStr = String(formData.breed_id).trim();
     const found = breeds.find(b => String(b.id).trim() === breedIdStr);
     if (found) {
-      if (import.meta.env.DEV) console.log('[PetForm] Found selected breed:', found.name);
+      devConsole.log('[PetForm] Found selected breed:', found.name);
     } else {
-      if (import.meta.env.DEV) console.warn('[PetForm] Breed not found in breeds list:', {
+      devConsole.warn('[PetForm] Breed not found in breeds list:', {
         breedId: formData.breed_id,
         breedIdType: typeof formData.breed_id,
         breedIdStr,

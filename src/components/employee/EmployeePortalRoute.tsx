@@ -12,11 +12,14 @@ import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
 import { BrandingLogoSidebarExpanded } from '@/components/BrandingMark';
+import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
+import { devConsole } from '@/lib/clientDebug';
 
 export function EmployeePortalRoute() {
   const { user, loading, role, business } = useAuth();
   const { settings } = useSettings();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
 
   if (loading) {
     return <PawStagedLoadingFullscreen label="Cargando" />;
@@ -48,7 +51,7 @@ export function EmployeePortalRoute() {
       toast.success(t('logout.success'));
       window.location.href = '/';
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Logout error:', err);
+      devConsole.error('Logout error:', err);
       toast.error('Error al cerrar sesión');
       window.location.href = '/';
     }
@@ -69,7 +72,11 @@ export function EmployeePortalRoute() {
                 className="shrink-0 max-w-[140px]"
               />
             ) : (
-              <img src="/pet-hub-logo.svg" alt="" className="h-10 w-auto shrink-0 object-contain" />
+              <img
+                src={themedGrumiWordmarkSrc}
+                alt="Grumi"
+                className="h-10 w-auto max-w-[160px] shrink-0 object-contain object-left"
+              />
             )}
             <div className="min-w-0 text-left">
               <div

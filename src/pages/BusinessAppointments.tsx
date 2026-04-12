@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { useAppointments, usePets, useClients, useServices } from '@/hooks/useBusinessData';
 import { t } from '@/lib/translations';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { devConsole } from '@/lib/clientDebug';
 
 export function BusinessAppointments() {
   const navigate = useNavigate();
@@ -364,7 +365,7 @@ export function BusinessAppointments() {
         services={services}
         appointments={appointments}
         onSuccess={(newAppointment?: any) => {
-          console.log('[BusinessAppointments] onSuccess fired, appointment:', newAppointment?.id);
+          devConsole.log('[BusinessAppointments] onSuccess fired, appointment:', newAppointment?.id);
           // Immediately add to local state so the UI updates right away
           if (newAppointment?.id) {
             pushAppointment(newAppointment);

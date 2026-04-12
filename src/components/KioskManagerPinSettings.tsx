@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
 import { KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
+import { devConsole } from '@/lib/clientDebug';
 import {
   fetchEmployeePinsForBusiness,
   managerPinPrefixCollidesWithEmployeePins,
@@ -34,7 +35,7 @@ export function KioskManagerPinSettings() {
   const [error, setError] = useState<string | null>(null);
   const [hasExistingPin, setHasExistingPin] = useState(false);
   const [pinResetOpen, setPinResetOpen] = useState(false);
-  const canResetWithPassword = useCanResetKioskManagerPin();
+  const canResetPinWithAuth = useCanResetKioskManagerPin();
 
   useEffect(() => {
     if (!businessId) return;
@@ -58,7 +59,7 @@ export function KioskManagerPinSettings() {
       );
     } catch (err) {
       if (import.meta.env.DEV) {
-        console.error('Failed to check existing PIN:', err);
+        devConsole.error('Failed to check existing PIN:', err);
       }
     }
   };
@@ -255,7 +256,7 @@ export function KioskManagerPinSettings() {
           {saving ? t('kioskManagerPinSettings.save') : hasExistingPin ? t('kioskManagerPinSettings.changePin') : t('kioskManagerPinSettings.setPin')}
         </Button>
 
-        {hasExistingPin && canResetWithPassword ? (
+        {hasExistingPin && canResetPinWithAuth ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground text-center">{t('kioskManagerPinSettings.forgetHint')}</p>
             <Button type="button" variant="outline" className="w-full" onClick={() => setPinResetOpen(true)}>

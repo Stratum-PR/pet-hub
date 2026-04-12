@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { devConsole } from '@/lib/clientDebug';
 
 const BUCKET = 'staff-photos';
 
@@ -23,7 +24,7 @@ export async function deleteStaffPhotoFromStorage(
   const filePath = extractStaffPhotoPathFromUrl(photoUrl);
   if (!filePath) return;
   const { error } = await supabase.storage.from(BUCKET).remove([filePath]);
-  if (error && import.meta.env.DEV) console.warn('[staffPhoto] delete failed', error);
+  if (error) devConsole.warn('[staffPhoto] delete failed', error);
 }
 
 export async function uploadStaffPhotoDataUrl(

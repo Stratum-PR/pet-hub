@@ -6,6 +6,7 @@ import { type Profile, type Business, isAuthLocalSignOutInProgress } from '@/lib
 import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { subscribeAuthBroadcast } from '@/lib/authBroadcast';
+import { devConsole } from '@/lib/clientDebug';
 
 interface AuthContextType {
   user: User | null;
@@ -118,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshAuth = async (userOverride?: User | null) => {
-    console.log('[AuthContext] refreshAuth start');
+    devConsole.log('[AuthContext] refreshAuth start');
 
     // 1) Determine effective user (never hang here; avoid infinite loading on refresh)
     let effectiveUser: User | null = userOverride ?? user ?? null;
@@ -127,22 +128,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!effectiveUser) {
       try {
         const { data: { session }, error: sessionError } = await withTimeout(supabase.auth.getSession(), 15000, 'auth.getSession');
-        if (sessionError) console.error('[AuthContext] Error getting session:', sessionError);
+        if (sessionError) devConsole.error('[AuthContext] Error getting session:', sessionError);
         effectiveUser = session?.user ?? null;
         if (!sessionError && !session) emptySessionFromStorage = true;
       } catch (e) {
-        console.warn('[AuthContext] getSession timed out/failed:', e);
+        devConsole.warn('[AuthContext] getSession timed out/failed:', e);
       }
     }
     if (!effectiveUser && !emptySessionFromStorage) {
       try {
         const { data: { user: apiUser }, error: userError } = await withTimeout(supabase.auth.getUser(), 15000, 'auth.getUser');
         if (userError && userError.name !== 'AuthSessionMissingError') {
-          console.error('[AuthContext] Error getting user:', userError);
+          devConsole.error('[AuthContext] Error getting user:', userError);
         }
         effectiveUser = apiUser ?? null;
       } catch (e) {
-        console.warn('[AuthContext] getUser timed out/failed:', e);
+        devConsole.warn('[AuthContext] getUser timed out/failed:', e);
       }
     }
 
@@ -153,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear query caches on sign-out/anonymous state
       queryClient.removeQueries({ queryKey: ['profile'] });
       queryClient.removeQueries({ queryKey: ['business'] });
-      console.log('[AuthContext] refreshAuth end (no user)');
+      devConsole.log('[AuthContext] refreshAuth end (no user)');
       return;
     }
 
@@ -168,17 +169,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (p.business_id) {
           fetchBusiness(p.business_id)
             .then((b) => queryClient.setQueryData(['business', p.business_id], b))
-            .catch((bizErr) => console.warn('[AuthContext] prefetchBusiness failed (non-blocking):', bizErr));
+            .catch((bizErr) => devConsole.warn('[AuthContext] prefetchBusiness failed (non-blocking):', bizErr));
         }
       })
       .catch((profileErr) => {
-        console.warn('[AuthContext] prefetchProfile failed (non-blocking):', profileErr);
+        devConsole.warn('[AuthContext] prefetchProfile failed (non-blocking):', profileErr);
       });
 
     // Trigger background revalidation via React Query (also non-blocking)
     queryClient.invalidateQueries({ queryKey: ['profile', userId] }).catch(() => {});
 
-    console.log('[AuthContext] refreshAuth end');
+    devConsole.log('[AuthContext] refreshAuth end');
   };
 
   const refreshAuthRef = useRef(refreshAuth);
@@ -186,13 +187,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      console.error('[AuthContext] Supabase not configured; skipping auth hydration.');
+      devConsole.error('[AuthContext] Supabase not configured; skipping auth hydration.');
       setAuthInitialized(true);
       return;
     }
 
-    console.log('[AuthContext] mount – hydrating initial session');
-    refreshAuth().catch((e) => console.error('[AuthContext] initial refreshAuth failed:', e));
+    devConsole.log('[AuthContext] mount – hydrating initial session');
+    refreshAuth().catch((e) => devConsole.error('[AuthContext] initial refreshAuth failed:', e));
 
     // Check impersonation status
     const checkImpersonation = () => {
@@ -212,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[AuthContext] onAuthStateChange', {
+        devConsole.log('[AuthContext] onAuthStateChange', {
           event,
           hasSession: !!session,
           userId: session?.user?.id,
@@ -262,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (msg.type === 'LOGIN') {
-        void refreshAuthRef.current().catch((e) => console.warn('[AuthContext] refreshAuth after LOGIN broadcast:', e));
+        void refreshAuthRef.current().catch((e) => devConsole.warn('[AuthContext] refreshAuth after LOGIN broadcast:', e));
       }
     });
 
@@ -299,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData.user);
         void queryClient.invalidateQueries({ queryKey: ['profile', userData.user.id] }).catch(() => {});
       } catch (e) {
-        console.warn('[AuthContext] focus session revalidation failed:', e);
+        devConsole.warn('[AuthContext] focus session revalidation failed:', e);
       }
     };
 

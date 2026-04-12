@@ -4,6 +4,7 @@ import {
   DEFAULT_PRIMARY_COLOR_HSL,
   DEFAULT_SECONDARY_COLOR_HSL,
 } from '@/lib/defaultThemeColors';
+import { applyPrimarySecondaryToDocument } from '@/lib/businessThemeCss';
 import { Palette, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,8 @@ import { Settings } from '@/hooks/useSupabaseData';
 import { Services } from '@/pages/Services';
 import { Service } from '@/types';
 import { toast } from 'sonner';
+import { devConsole } from '@/lib/clientDebug';
+import { t } from '@/lib/translations';
 
 interface AdminProps {
   settings: Settings;
@@ -69,14 +72,13 @@ export function Admin({
     
     if (result.ok) {
       toast.success('Settings saved successfully!');
-      // Apply colors immediately
-      const root = document.documentElement;
-      const primaryValue = settingsFormData.primary_color.replace(/hsl\(|\)/g, '').trim();
-      const secondaryValue = settingsFormData.secondary_color.replace(/hsl\(|\)/g, '').trim();
-      root.style.setProperty('--primary', primaryValue);
-      root.style.setProperty('--secondary', secondaryValue);
+      applyPrimarySecondaryToDocument(
+        settingsFormData.primary_color,
+        settingsFormData.secondary_color
+      );
     } else {
-      toast.error(result.error || 'Failed to save settings. Please try again.');
+      if (result.error) devConsole.error('[Admin] save settings', result.error);
+      toast.error(t('common.genericError'));
     }
   };
 

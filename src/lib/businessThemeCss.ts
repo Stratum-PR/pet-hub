@@ -9,6 +9,12 @@ function normalizeCssHslTriplet(raw: string): string {
   return raw.replace(/hsl\(|\)/g, '').trim().replace(/\s+/g, ' ');
 }
 
+/** Last-applied document theme; used when reading brand colors outside business layout (e.g. marketing). */
+export const DOC_THEME_STORAGE_KEY = 'pet-hub-doc-theme-v1';
+
+/** Fired after `--primary` / `--secondary` are updated (e.g. marketing nav logo). */
+export const PET_HUB_THEME_APPLIED_EVENT = 'pet-hub-theme-applied';
+
 /**
  * Skips DOM writes when values already match computed vars — avoids repaints that restart
  * `currentColor` / loader animations on repeated apply (cache + fetch + Layout).
@@ -23,6 +29,14 @@ export function applyPrimarySecondaryToDocument(primary: string, secondary: stri
   if (curP === p && curS === s) return;
   root.style.setProperty('--primary', p);
   root.style.setProperty('--secondary', s);
+  try {
+    sessionStorage.setItem(DOC_THEME_STORAGE_KEY, JSON.stringify({ primary: p, secondary: s }));
+  } catch {
+    /* ignore */
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(PET_HUB_THEME_APPLIED_EVENT, { detail: { primary: p, secondary: s } }));
+  }
 }
 
 export function readCachedBusinessTheme(businessId: string): { primary: string; secondary: string } | null {

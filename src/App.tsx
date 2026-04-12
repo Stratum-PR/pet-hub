@@ -7,11 +7,17 @@ import { DEMO_WORKSPACE_SLUG } from "@/lib/demoWorkspace";
 import { DemoLegacyRedirect } from "@/components/DemoLegacyRedirect";
 import { DemoAwareThemeProvider } from "@/components/DemoAwareThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BusinessLayout } from "@/components/BusinessLayout";
 import { Landing } from "@/pages/Landing";
 import { Pricing } from "@/pages/Pricing";
+import { WhyGrumi } from "@/pages/WhyGrumi";
+import { Contact } from "@/pages/Contact";
+import { TermsOfService } from "@/pages/legal/TermsOfService";
+import { WebsiteTerms } from "@/pages/legal/WebsiteTerms";
+import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { AuthCallback } from "@/pages/AuthCallback";
@@ -22,12 +28,14 @@ import { AdminDashboard } from "@/pages/AdminDashboard";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
+import { ThemedFavicon } from "@/components/ThemedFavicon";
 import { NoIndexForProtectedRoutes } from "@/components/NoIndexForProtectedRoutes";
 import AcceptInvitation from "@/pages/employee/AcceptInvitation";
 import EmployeeProfile from "@/pages/employee/EmployeeProfile";
 import { EmployeeLegacyRedirect } from "@/pages/employee/EmployeeLegacyRedirect";
 import { EmployeePortalRoute } from "@/components/employee/EmployeePortalRoute";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import { CookieConsentBar } from "@/components/cookies/CookieConsentBar";
 import { ClientPortalPublicPage } from "@/pages/ClientPortalPublicPage";
 import { ClientDirectoryPage } from "@/pages/ClientDirectoryPage";
 import { useAuth } from "@/contexts/AuthContext";
@@ -68,16 +76,23 @@ const App = () => (
     <LanguageProvider>
       <AuthProvider>
         <BrowserRouter>
-          <DemoAwareThemeProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
+          <CookieConsentProvider>
+            <DemoAwareThemeProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
             <NoIndexForProtectedRoutes />
             <ThemeGuard />
+            <ThemedFavicon />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
               <Route path="/pricing" element={<Pricing />} />
+              <Route path="/why-grumi" element={<WhyGrumi />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/website-terms" element={<WebsiteTerms />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/login" element={<Login />} />
               <Route path="/registrarse" element={<Register />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
@@ -137,7 +152,9 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </TooltipProvider>
+            <CookieConsentBar />
           </DemoAwareThemeProvider>
+          </CookieConsentProvider>
         </BrowserRouter>
       </AuthProvider>
     </LanguageProvider>

@@ -5,29 +5,15 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
-import {
-  DEFAULT_PRIMARY_COLOR_HSL,
-  DEFAULT_SECONDARY_COLOR_HSL,
-  DEFAULT_PRIMARY_HEX,
-  DEFAULT_SECONDARY_HEX,
-} from '@/lib/defaultThemeColors';
+import { DEFAULT_PRIMARY_COLOR_HSL, DEFAULT_SECONDARY_COLOR_HSL } from '@/lib/defaultThemeColors';
+import { BRANDING_THEME_PRESETS } from '@/lib/brandingThemePresets';
+import { applyPrimarySecondaryToDocument } from '@/lib/businessThemeCss';
 import { hexToHsl, hslToHex, hslToRgb, rgbStringToHsl } from '@/lib/colorFormat';
 import { Check } from 'lucide-react';
-
-const THEME_PRESETS = [
-  { id: 'pet-hub', name: 'Grumi', primary: DEFAULT_PRIMARY_HEX, secondary: DEFAULT_SECONDARY_HEX },
-  { id: 'ocean', name: 'Ocean', primary: '#0077B6', secondary: '#90E0EF' },
-  { id: 'forest', name: 'Forest', primary: '#2D6A4F', secondary: '#B7E4C7' },
-  { id: 'sunset', name: 'Sunset', primary: '#E76F51', secondary: '#F4A261' },
-  { id: 'midnight', name: 'Midnight', primary: '#1B1B2F', secondary: '#E94560' },
-  { id: 'lavender', name: 'Lavender', primary: '#7B2D8B', secondary: '#DDA0DD' },
-  { id: 'slate', name: 'Slate', primary: '#334155', secondary: '#94A3B8' },
-];
+import { devConsole } from '@/lib/clientDebug';
 
 function applyPreview(primary: string, secondary: string) {
-  const root = document.documentElement;
-  root.style.setProperty('--primary', primary.replace(/hsl\(|\)/g, '').trim());
-  root.style.setProperty('--secondary', secondary.replace(/hsl\(|\)/g, '').trim());
+  applyPrimarySecondaryToDocument(primary, secondary);
 }
 
 interface BusinessBrandingColorsProps {
@@ -117,10 +103,13 @@ export function BusinessBrandingColors({
       applyPreview(p, s);
       toast.success(t('businessSettings.brandingColorsSaved'));
       setSelectedThemeId(null);
-    } else toast.error(result.error || t('common.genericError'));
+    } else {
+      if (result.error) devConsole.error('[BusinessBrandingColors] save colors', result.error);
+      toast.error(t('common.genericError'));
+    }
   };
 
-  const handleThemePreview = (preset: (typeof THEME_PRESETS)[0]) => {
+  const handleThemePreview = (preset: (typeof BRANDING_THEME_PRESETS)[number]) => {
     const primaryHsl = hexToHsl(preset.primary);
     const secondaryHsl = hexToHsl(preset.secondary);
     setPrimaryColor(primaryHsl);
@@ -281,7 +270,7 @@ export function BusinessBrandingColors({
         </TabsContent>
         <TabsContent value="themes" className="pt-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {THEME_PRESETS.map((preset) => (
+            {BRANDING_THEME_PRESETS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
@@ -315,7 +304,10 @@ export function BusinessBrandingColors({
                   applyPreview(primaryColor, secondaryColor);
                   toast.success(t('businessSettings.brandingColorsSaved'));
                   setSelectedThemeId(null);
-                } else toast.error(result.error || t('common.genericError'));
+                } else {
+                  if (result.error) devConsole.error('[BusinessBrandingColors] save colors (theme)', result.error);
+                  toast.error(t('common.genericError'));
+                }
               });
             }}
             disabled={savingColor}

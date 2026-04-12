@@ -28,3 +28,6 @@ verify_jwt = false
 
 [functions.waitlist-stats]
 verify_jwt = false
+
+[functions.cookie-consent]
+verify_jwt = false

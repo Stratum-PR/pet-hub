@@ -46,6 +46,7 @@ import type { SuperAdminViewerTier } from '@/lib/featureRollout';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import { clearStaffSummaryFilterIfOutsidePayroll } from '@/lib/timesheetsStaffSummaryFilterStorage';
+import { devConsole } from '@/lib/clientDebug';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -184,7 +185,7 @@ export function Layout({ children, settings }: LayoutProps) {
       toast.success(t('logout.success'));
       window.location.href = '/';
     } catch (err) {
-      if (import.meta.env.DEV) console.error('Logout error:', err);
+      devConsole.error('Logout error:', err);
       toast.error('Error al cerrar sesión');
       window.location.href = '/';
     }

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" fill="none" aria-hidden="true">
+  <rect width="400" height="220" rx="16" fill="#faf9f7"/>
+  <rect x="1" y="1" width="398" height="218" rx="15" stroke="#ddd8cf" stroke-width="2"/>
+  <line x1="48" y1="56" x2="352" y2="56" stroke="#ddd8cf" stroke-width="1"/>
+  <text x="56" y="48" fill="#7a756c" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="700">Item</text>
+  <text x="220" y="48" fill="#7a756c" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="700">Qty</text>
+  <text x="300" y="48" fill="#7a756c" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="700">Par</text>
+  <rect x="40" y="68" width="48" height="64" rx="10" fill="#fff" stroke="#ddd8cf" stroke-width="1.5"/>
+  <rect x="52" y="80" width="24" height="36" rx="4" fill="#c4bcb0" opacity="0.35"/>
+  <rect x="104" y="68" width="48" height="64" rx="10" fill="#fff" stroke="#ddd8cf" stroke-width="1.5"/>
+  <rect x="116" y="80" width="24" height="36" rx="4" fill="#c4bcb0" opacity="0.28"/>
+  <rect x="168" y="68" width="48" height="72" rx="10" fill="#fff" stroke="#e85d5d" stroke-width="2"/>
+  <rect x="180" y="82" width="24" height="40" rx="4" fill="#f5c4c4" opacity="0.5"/>
+  <path d="M184 148 L192 160 L200 148" stroke="#c24141" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <text x="232" y="112" fill="#5f5e5a" font-family="system-ui,Segoe UI,sans-serif" font-size="11" font-weight="600">Shampoo</text>
+  <text x="232" y="132" fill="#c24141" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="800">Low stock</text>
+  <circle cx="312" cy="104" r="14" fill="#fff5f5" stroke="#e85d5d" stroke-width="2"/>
+  <text x="312" y="109" text-anchor="middle" fill="#c24141" font-family="system-ui,Segoe UI,sans-serif" font-size="14" font-weight="900">1</text>
+</svg>

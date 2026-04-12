@@ -9,6 +9,7 @@ import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { profileIdForTransactionFkOrNull } from '@/lib/staffFkGuard';
 import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import { devConsole } from '@/lib/clientDebug';
 import type {
   Transaction,
   TransactionLineItem,
@@ -405,7 +406,7 @@ export function useTransactions() {
       .select()
       .single();
     if (txnError) {
-      if (import.meta.env.DEV) console.error('[useTransactions] createTransaction insert error', txnError);
+      devConsole.error('[useTransactions] createTransaction insert error', txnError);
       return { data: null, error: txnError.message || 'Failed to create transaction.' };
     }
     if (!txn) return { data: null, error: 'Failed to create transaction.' };
@@ -423,7 +424,7 @@ export function useTransactions() {
     }));
     const { error: lineError } = await supabase.from('transaction_line_items' as any).insert(lineRows);
     if (lineError) {
-      if (import.meta.env.DEV) console.error('[useTransactions] line items insert error', lineError);
+      devConsole.error('[useTransactions] line items insert error', lineError);
       return { data: null, error: lineError.message || 'Failed to save line items.' };
     }
 
@@ -482,7 +483,7 @@ export function useTransactions() {
       .select('id')
       .maybeSingle();
     if (error) {
-      if (import.meta.env.DEV) console.error('[useTransactions] updateTransactionStatus', error);
+      devConsole.error('[useTransactions] updateTransactionStatus', error);
       return false;
     }
     if (!updatedRow) return false;
@@ -526,7 +527,7 @@ export function useTransactions() {
       .select('id')
       .maybeSingle();
     if (error) {
-      if (import.meta.env.DEV) console.error('[useTransactions] updateTransaction', error);
+      devConsole.error('[useTransactions] updateTransaction', error);
       return { ok: false, error: error.message || 'Failed to update transaction.' };
     }
     if (!updatedRow) {
@@ -551,7 +552,7 @@ export function useTransactions() {
           changed_by_user_id: user?.id ?? null,
           change_summary: summary,
         });
-        if (histErr && import.meta.env.DEV) console.warn('[useTransactions] transaction_history insert', histErr);
+        if (histErr) devConsole.warn('[useTransactions] transaction_history insert', histErr);
       }
     }
     return { ok: true };

@@ -20,6 +20,7 @@ import {
 } from '@/lib/businessThemeCss';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import { devConsole } from '@/lib/clientDebug';
 import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
 import {
   DEFAULT_BUSINESS_BRANDING_LAYOUT,
@@ -82,16 +83,16 @@ export function useBreeds() {
         .order('name', { ascending: true });
 
       if (err) {
-        if (import.meta.env.DEV) console.error('[useBreeds] Error fetching breeds:', err);
+        devConsole.error('[useBreeds] Error fetching breeds:', err);
         setError(err.message ?? 'Failed to load breeds');
       } else if (data) {
-        if (import.meta.env.DEV) console.log('[useBreeds] Fetched', data.length, 'breeds');
+        devConsole.log('[useBreeds] Fetched', data.length, 'breeds');
         setBreeds(data as Breed[]);
       } else {
         setBreeds([]);
       }
     } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[useBreeds] Exception:', err);
+      devConsole.error('[useBreeds] Exception:', err);
       setError(err?.message ?? 'Failed to load breeds');
     } finally {
       setLoading(false);
@@ -140,7 +141,7 @@ export function useClientNames() {
     setError(null);
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (import.meta.env.DEV && (sessionError || (!session && !sessionError))) {
-      if (sessionError) console.error('[useClientNames] Session error:', sessionError);
+      if (sessionError) devConsole.error('[useClientNames] Session error:', sessionError);
     }
     try {
       let query = supabase
@@ -152,7 +153,7 @@ export function useClientNames() {
       if (isDemoRoute()) query = query.range(0, DEMO_CAP_CLIENTS - 1);
       const { data, error } = await query;
       if (error) {
-        if (import.meta.env.DEV) console.error('[useClientNames] Error:', error);
+        devConsole.error('[useClientNames] Error:', error);
         setError(error.message ?? 'Failed to load clients');
       } else {
         setError(null);
@@ -164,7 +165,7 @@ export function useClientNames() {
         })));
       }
     } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[useClientNames] Exception:', err);
+      devConsole.error('[useClientNames] Exception:', err);
       setError(err?.message ?? 'Failed to load clients');
     } finally {
       setLoading(false);
@@ -195,7 +196,7 @@ export function useClients() {
   const fetchClients = async () => {
     if (!businessId) {
       if (import.meta.env.DEV) {
-        console.warn('[useClients] No businessId, skipping fetch.', {
+        devConsole.warn('[useClients] No businessId, skipping fetch.', {
           profile: profile ? { email: profile.email, business_id: profile.business_id } : null,
           location: window.location.pathname,
         });
@@ -208,9 +209,9 @@ export function useClients() {
     // CRITICAL: Verify session exists before querying (RLS requires auth.uid())
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (import.meta.env.DEV) {
-      if (sessionError) console.error('[useClients] Session error:', sessionError);
-      if (!session && !sessionError) console.warn('[useClients] No active session - RLS may block query. This is OK for demo mode.');
-      console.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId, 'Has session:', !!session);
+      if (sessionError) devConsole.error('[useClients] Session error:', sessionError);
+      if (!session && !sessionError) devConsole.warn('[useClients] No active session - RLS may block query. This is OK for demo mode.');
+      devConsole.log('[useClients] Fetching clients for businessId:', businessId, 'Type:', typeof businessId, 'Has session:', !!session);
     }
 
     try {
@@ -225,14 +226,14 @@ export function useClients() {
 
       if (error) {
         if (import.meta.env.DEV) {
-          console.error('[useClients] Error fetching clients:', error);
-          console.error('[useClients] Error details:', JSON.stringify(error, null, 2));
+          devConsole.error('[useClients] Error fetching clients:', error);
+          devConsole.error('[useClients] Error details:', JSON.stringify(error, null, 2));
         }
         setError(error.message ?? 'Failed to load clients');
       } else {
         setError(null);
         if (import.meta.env.DEV) {
-          console.log('[useClients] Query successful.', {
+          devConsole.log('[useClients] Query successful.', {
             count,
             dataLength: data?.length || 0,
             businessId,
@@ -257,11 +258,11 @@ export function useClients() {
           created_at: c.created_at,
           updated_at: c.updated_at,
         }));
-        if (import.meta.env.DEV) console.log('[useClients] Fetched clients:', mappedClients.length);
+        devConsole.log('[useClients] Fetched clients:', mappedClients.length);
         setClients(mappedClients);
       }
     } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[useClients] Exception:', err);
+      devConsole.error('[useClients] Exception:', err);
       setError(err?.message ?? 'Failed to load clients');
     } finally {
       setLoading(false);
@@ -280,7 +281,7 @@ export function useClients() {
 
   const addClient = async (clientData: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useClients] addClient skipped: no businessId');
+      devConsole.warn('[useClients] addClient skipped: no businessId');
       return null;
     }
 
@@ -323,7 +324,7 @@ export function useClients() {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useClients] addClient error:', error.message, error.code, error.details);
+      devConsole.error('[useClients] addClient error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -347,7 +348,7 @@ export function useClients() {
 
   const updateClient = async (id: string, clientData: Partial<Client>) => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useClients] updateClient skipped: no businessId');
+      devConsole.warn('[useClients] updateClient skipped: no businessId');
       return null;
     }
 
@@ -385,7 +386,7 @@ export function useClients() {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useClients] updateClient error:', error.message, error.code, error.details);
+      devConsole.error('[useClients] updateClient error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -409,7 +410,7 @@ export function useClients() {
 
   const deleteClient = async (id: string) => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useClients] deleteClient skipped: no businessId');
+      devConsole.warn('[useClients] deleteClient skipped: no businessId');
       return false;
     }
     if (demoBrowseOnly) {
@@ -422,7 +423,7 @@ export function useClients() {
       .eq('id', id)
       .eq('business_id', businessId);
     if (error) {
-      if (import.meta.env.DEV) console.error('[useClients] deleteClient error:', error.message, error.code, error.details);
+      devConsole.error('[useClients] deleteClient error:', error.message, error.code, error.details);
       return false;
     }
     setClients(clients.filter(c => c.id !== id));
@@ -441,12 +442,12 @@ export function usePets() {
 
   const fetchPets = async () => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[usePets] No businessId, skipping fetch');
+      devConsole.warn('[usePets] No businessId, skipping fetch');
       setLoading(false);
       return;
     }
     setError(null);
-    if (import.meta.env.DEV) console.log('[usePets] Fetching pets for businessId:', businessId);
+    devConsole.log('[usePets] Fetching pets for businessId:', businessId);
 
     // CRITICAL: JOIN with clients table and breeds table to get owner and canonical breed information
     // Supabase PostgREST syntax: 
@@ -476,16 +477,16 @@ export function usePets() {
     
     if (error) {
       if (import.meta.env.DEV) {
-        console.error('[usePets] Error fetching pets:', error);
-        console.error('[usePets] Error details:', JSON.stringify(error, null, 2));
+        devConsole.error('[usePets] Error fetching pets:', error);
+        devConsole.error('[usePets] Error details:', JSON.stringify(error, null, 2));
       }
       setError(error.message ?? 'Failed to load pets');
     } else if (data) {
       setError(null);
       if (import.meta.env.DEV) {
-        console.log('[usePets] Fetched', data.length, 'pets with client data');
+        devConsole.log('[usePets] Fetched', data.length, 'pets with client data');
         if (data.length > 0) {
-          console.log('[usePets] Sample pet with client and breed:', {
+          devConsole.log('[usePets] Sample pet with client and breed:', {
             petId: data[0].id,
             petName: data[0].name,
             clientId: data[0].client_id,
@@ -498,7 +499,7 @@ export function usePets() {
       }
       setPets(data as Pet[]);
     } else {
-      if (import.meta.env.DEV) console.warn('[usePets] No data returned');
+      devConsole.warn('[usePets] No data returned');
       setPets([]);
     }
     setLoading(false);
@@ -551,7 +552,7 @@ export function usePets() {
       .single();
     
     if (error) {
-      if (import.meta.env.DEV) console.error('[usePets] addPet error:', error.message, error.code, error.details);
+      devConsole.error('[usePets] addPet error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -595,7 +596,7 @@ export function usePets() {
       .single();
     
     if (error) {
-      if (import.meta.env.DEV) console.error('[usePets] updatePet error:', error.message, error.code, error.details);
+      devConsole.error('[usePets] updatePet error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -615,7 +616,7 @@ export function usePets() {
       .delete()
       .eq('id', id);
     if (error) {
-      if (import.meta.env.DEV) console.error('[usePets] deletePet error:', error.message, error.code, error.details);
+      devConsole.error('[usePets] deletePet error:', error.message, error.code, error.details);
       return false;
     }
     setPets(pets.filter(p => p.id !== id));
@@ -907,7 +908,7 @@ export function useEmployees() {
     if (!error && data && didStripInsertForPgrst204 && hadStripFollowUpInsert) {
       const fr = await staffApplyStripFollowUp(supabase, (data as { id: string }).id, stripFollowUpInsert);
       if (fr.fatalError) {
-        console.error('[useEmployees] addEmployee strip follow-up error:', fr.fatalError.message, fr.fatalError.code);
+        devConsole.error('[useEmployees] addEmployee strip follow-up error:', fr.fatalError.message, fr.fatalError.code);
         setLastStaffWriteError(fr.fatalError);
         return null;
       }
@@ -921,7 +922,7 @@ export function useEmployees() {
       return data;
     }
     if (error) {
-      console.error('[useEmployees] addEmployee error:', error.message, error.code, error.details);
+      devConsole.error('[useEmployees] addEmployee error:', error.message, error.code, error.details);
       setLastStaffWriteError({
         code: error.code,
         message: error.message,
@@ -1026,7 +1027,7 @@ export function useEmployees() {
     if (!error && data && didStripUpdateForPgrst204 && hadStripFollowUpUpdate) {
       const fr = await staffApplyStripFollowUp(supabase, id, stripFollowUpUpdate);
       if (fr.fatalError) {
-        console.error('[useEmployees] updateEmployee strip follow-up error:', fr.fatalError.message, fr.fatalError.code);
+        devConsole.error('[useEmployees] updateEmployee strip follow-up error:', fr.fatalError.message, fr.fatalError.code);
         setLastStaffWriteError(fr.fatalError);
         return null;
       }
@@ -1040,7 +1041,7 @@ export function useEmployees() {
       return data;
     }
     if (error) {
-      console.error('[useEmployees] updateEmployee error:', error.message, error.code, error.details);
+      devConsole.error('[useEmployees] updateEmployee error:', error.message, error.code, error.details);
       setLastStaffWriteError({
         code: error.code,
         message: error.message,
@@ -1347,7 +1348,7 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       setShifts((prev) => [...prev, row].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()));
       return row;
     }
-    if (import.meta.env.DEV) console.error('[useEmployeeShifts] addShift error:', err?.message);
+    devConsole.error('[useEmployeeShifts] addShift error:', err?.message);
     return null;
   };
 
@@ -1376,7 +1377,7 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       );
       return normalized;
     }
-    if (import.meta.env.DEV) console.error('[useEmployeeShifts] updateShift error:', err?.message);
+    devConsole.error('[useEmployeeShifts] updateShift error:', err?.message);
     throw new Error(err?.message ?? 'Failed to update shift');
   };
 
@@ -1390,7 +1391,7 @@ export function useEmployeeShifts(options?: { employeeId?: string; dateRange?: {
       setShifts((prev) => prev.filter((s) => s.id !== id));
       return true;
     }
-    if (import.meta.env.DEV) console.error('[useEmployeeShifts] deleteShift error:', err?.message);
+    devConsole.error('[useEmployeeShifts] deleteShift error:', err?.message);
     return false;
   };
 
@@ -1417,19 +1418,19 @@ export function useAppointments() {
       });
     } catch (err) {
       if (import.meta.env.DEV) {
-        console.warn('[useAppointments] send-appointment-reminder failed', err);
+        devConsole.warn('[useAppointments] send-appointment-reminder failed', err);
       }
     }
   }, []);
 
   const fetchAppointments = useCallback(async () => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useAppointments] No businessId, skipping fetch');
+      devConsole.warn('[useAppointments] No businessId, skipping fetch');
       setLoading(false);
       return;
     }
     setError(null);
-    if (import.meta.env.DEV) console.log('[useAppointments] Fetching appointments for businessId:', businessId);
+    devConsole.log('[useAppointments] Fetching appointments for businessId:', businessId);
 
     let query = supabase
       .from('appointments')
@@ -1439,7 +1440,7 @@ export function useAppointments() {
     try {
       query = query.eq('business_id', businessId);
     } catch (err) {
-      if (import.meta.env.DEV) console.warn('[useAppointments] business_id filter failed, trying without it');
+      devConsole.warn('[useAppointments] business_id filter failed, trying without it');
     }
     query = query
       .order('appointment_date', { ascending: true, nullsFirst: false })
@@ -1448,9 +1449,9 @@ export function useAppointments() {
     const { data, error } = await query;
     if (error) {
       setError(error.message ?? 'Failed to load appointments');
-      if (import.meta.env.DEV) console.error('[useAppointments] Error fetching appointments:', error);
+      devConsole.error('[useAppointments] Error fetching appointments:', error);
       if (error.code === '42703' || error.message?.includes('business_id')) {
-        if (import.meta.env.DEV) console.warn('[useAppointments] business_id column not found, trying without filter');
+        devConsole.warn('[useAppointments] business_id column not found, trying without filter');
         let fallbackQuery = supabase
           .from('appointments')
           .select('*')
@@ -1478,7 +1479,7 @@ export function useAppointments() {
       }
     } else if (data) {
       setError(null);
-      if (import.meta.env.DEV) console.log('[useAppointments] Fetched', data.length, 'appointments');
+      devConsole.log('[useAppointments] Fetched', data.length, 'appointments');
       const convertedAppointments = data.map((apt: any) => {
         const staff_id = staffRecordIdFromRow(apt) ?? apt.staff_id;
         return {
@@ -1491,7 +1492,7 @@ export function useAppointments() {
       });
       setAppointments(convertedAppointments as Appointment[]);
     } else {
-      if (import.meta.env.DEV) console.warn('[useAppointments] No data returned');
+      devConsole.warn('[useAppointments] No data returned');
       setAppointments([]);
     }
     setLoading(false);
@@ -1646,12 +1647,12 @@ export function useServices() {
 
   const fetchServices = async () => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useServices] No businessId, skipping fetch');
+      devConsole.warn('[useServices] No businessId, skipping fetch');
       setLoading(false);
       return;
     }
     setError(null);
-    if (import.meta.env.DEV) console.log('[useServices] Fetching services for businessId:', businessId);
+    devConsole.log('[useServices] Fetching services for businessId:', businessId);
     const { data, error: err } = await supabase
       .from('services')
       .select('*')
@@ -1660,7 +1661,7 @@ export function useServices() {
     if (err) {
       setError(err.message ?? 'Failed to load services');
       if (err.code === '42703' || err.message?.includes('business_id')) {
-        if (import.meta.env.DEV) console.warn('[useServices] business_id column not found, trying without filter');
+        devConsole.warn('[useServices] business_id column not found, trying without filter');
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('services')
           .select('*')
@@ -1674,10 +1675,10 @@ export function useServices() {
       }
     } else if (data) {
       setError(null);
-      if (import.meta.env.DEV) console.log('[useServices] Fetched', data.length, 'services');
+      devConsole.log('[useServices] Fetched', data.length, 'services');
       setServices(data as Service[]);
     } else {
-      if (import.meta.env.DEV) console.warn('[useServices] No data returned');
+      devConsole.warn('[useServices] No data returned');
       setServices([]);
     }
     setLoading(false);
@@ -1695,7 +1696,7 @@ export function useServices() {
 
   const addService = async (serviceData: Omit<Service, 'id' | 'created_at'>) => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useServices] addService skipped: no businessId');
+      devConsole.warn('[useServices] addService skipped: no businessId');
       return null;
     }
     if (demoBrowseOnly) {
@@ -1729,7 +1730,7 @@ export function useServices() {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useServices] addService error:', error.message, error.code, error.details);
+      devConsole.error('[useServices] addService error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -1741,7 +1742,7 @@ export function useServices() {
 
   const updateService = async (id: string, serviceData: Partial<Service>) => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useServices] updateService skipped: no businessId');
+      devConsole.warn('[useServices] updateService skipped: no businessId');
       return null;
     }
     if (demoBrowseOnly) {
@@ -1771,7 +1772,7 @@ export function useServices() {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useServices] updateService error:', error.message, error.code, error.details);
+      devConsole.error('[useServices] updateService error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -1783,7 +1784,7 @@ export function useServices() {
 
   const deleteService = async (id: string) => {
     if (!businessId) {
-      if (import.meta.env.DEV) console.warn('[useServices] deleteService skipped: no businessId');
+      devConsole.warn('[useServices] deleteService skipped: no businessId');
       return false;
     }
     if (demoBrowseOnly) {
@@ -1796,7 +1797,7 @@ export function useServices() {
       .eq('id', id)
       .eq('business_id', businessId);
     if (error) {
-      if (import.meta.env.DEV) console.error('[useServices] deleteService error:', error.message, error.code, error.details);
+      devConsole.error('[useServices] deleteService error:', error.message, error.code, error.details);
       return false;
     }
     setServices(services.filter(s => s.id !== id));
@@ -1863,7 +1864,7 @@ function notifyBusinessSettingsMutated() {
     try {
       fn();
     } catch (e) {
-      if (import.meta.env.DEV) console.warn('[useSettings] refresh subscriber failed', e);
+      devConsole.warn('[useSettings] refresh subscriber failed', e);
     }
   });
 }
@@ -2208,7 +2209,7 @@ export function useSettings() {
       const payload = { business_id: businessId, [column]: brandingLayoutToJson(normalized) };
       const { error } = await supabase.from('settings').upsert(payload, { onConflict: 'business_id' });
       if (error) {
-        if (import.meta.env.DEV) console.error('[useSettings] upsert error:', error);
+        devConsole.error('[useSettings] upsert error:', error);
         return { ok: false, error: error.message };
       }
       setSettings((prev) => ({ ...prev, business_branding_layout: normalized }));
@@ -2229,7 +2230,7 @@ export function useSettings() {
       .upsert(payload, { onConflict: 'business_id' });
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useSettings] upsert error:', error);
+      devConsole.error('[useSettings] upsert error:', error);
       return { ok: false, error: error.message };
     }
     setSettings((prev) => ({ ...prev, [key]: value } as Settings));
@@ -2309,7 +2310,7 @@ export function useSettings() {
       .upsert(payload, { onConflict: 'business_id' });
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useSettings] saveAllSettings upsert error:', error);
+      devConsole.error('[useSettings] saveAllSettings upsert error:', error);
       return { ok: false, error: error.message };
     }
     setSettings((prev) => ({

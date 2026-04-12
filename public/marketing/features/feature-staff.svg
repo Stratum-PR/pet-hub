@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" fill="none" aria-hidden="true">
+  <rect width="400" height="220" rx="16" fill="#fffbf6"/>
+  <rect x="1" y="1" width="398" height="218" rx="15" stroke="#e8d4b0" stroke-width="2"/>
+  <g font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="600" fill="#a08050">
+    <text x="108" y="38" text-anchor="middle">M</text>
+    <text x="148" y="38" text-anchor="middle">T</text>
+    <text x="188" y="38" text-anchor="middle">W</text>
+    <text x="228" y="38" text-anchor="middle">T</text>
+    <text x="268" y="38" text-anchor="middle">F</text>
+    <text x="308" y="38" text-anchor="middle">S</text>
+    <text x="348" y="38" text-anchor="middle">S</text>
+  </g>
+  <line x1="24" y1="48" x2="376" y2="48" stroke="#e8d4b0" stroke-width="1"/>
+  <rect x="32" y="60" width="56" height="14" rx="4" fill="#faeeda"/>
+  <rect x="108" y="64" width="96" height="10" rx="5" fill="#5cb88a" opacity="0.85"/>
+  <rect x="32" y="96" width="56" height="14" rx="4" fill="#faeeda"/>
+  <rect x="148" y="100" width="120" height="10" rx="5" fill="#d4a84b" opacity="0.9"/>
+  <rect x="32" y="132" width="56" height="14" rx="4" fill="#faeeda"/>
+  <rect x="228" y="136" width="72" height="10" rx="5" fill="#5ba3d9" opacity="0.88"/>
+  <rect x="120" y="168" width="160" height="36" rx="10" fill="#fff" stroke="#e8d4b0" stroke-width="1.5"/>
+  <circle cx="142" cy="186" r="6" fill="#d4a84b" opacity="0.35"/>
+  <text x="200" y="192" text-anchor="middle" fill="#854f0b" font-family="system-ui,Segoe UI,sans-serif" font-size="11" font-weight="700">PIN</text>
+</svg>

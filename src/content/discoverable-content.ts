@@ -121,11 +121,14 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
   '/': {
     sections: [
       { heading: 'Hero', body: 'Transform How You Run Your Pet Business. Save hours every week with software built specifically for your industry.' },
-      { heading: 'Features', body: 'Easy Scheduling: Manage appointments effortlessly with our intuitive calendar system. Never double-book again with real-time availability. Customer Management: Keep detailed records of your clients and their pets. Track preferences, history, and special instructions all in one place. Revenue Tracking: Monitor your business performance with comprehensive analytics. Track revenue, appointments, and growth metrics.' },
-      { heading: 'Why Grumi', body: 'Ready to Get Started? Choose the plan that fits your business. All plans include a 14-day free trial.' },
-      { heading: 'Pricing', body: 'View pricing plans. All plans include a 14-day free trial. No credit card required.' },
-      ...FAQ_ENTRIES.flatMap((f) => [{ heading: `FAQ: ${f.question}`, body: f.answer }] as PageSection[]),
-      { heading: 'About', body: 'Grumi is a pet grooming business management platform. Manage appointments, clients, pets, inventory, and employees in one place.' },
+      {
+        heading: 'Features',
+        body: 'Marketing features section: appointments and calendar, staff management and PIN punch, SMS/WhatsApp reminders, clients and pets, dashboard and reports, inventory with low-stock alerts. Mini UI previews on the public landing page.',
+      },
+      {
+        heading: 'Call to action',
+        body: 'Join the waitlist for Founders Price (25% off your first year at launch). Link anchors to #waitlist on the home page.',
+      },
     ],
   },
   '/pricing': {
@@ -134,6 +137,54 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       ...PRICING_TIERS.flatMap((t) => [
         { heading: t.price != null ? `${t.name} - $${t.price}/month` : `${t.name} - Contact us for custom pricing`, body: [t.description, ...t.features].join('. ') } as PageSection,
       ]),
+    ],
+  },
+  '/why-grumi': {
+    sections: [
+      {
+        heading: 'Problem',
+        body: 'Existing salon software is not built for Puerto Rico: language, payments without ATH Móvil, and unnecessary POS hardware expectations.',
+      },
+      {
+        heading: 'Solution',
+        body: 'Grumi is co-built with local groomers: Spanish-first, local payments, and workflows that match how salons operate in PR.',
+      },
+      {
+        heading: 'Stratum PR',
+        body: 'Stratum PR LLC is a Puerto Rican decision-systems company; Grumi is its first product collaboration with the grooming industry.',
+      },
+    ],
+  },
+  '/contact': {
+    sections: [
+      {
+        heading: 'Contact',
+        body: 'Email support for questions about Grumi. Waitlist signup form on the same page. Grumi is in active development.',
+      },
+    ],
+  },
+  '/terms': {
+    sections: [
+      {
+        heading: 'Terms of Use (platform)',
+        body: 'Full Terms of Service for the Grumi application are published on this path as Markdown in Spanish and English, selectable via the site language control.',
+      },
+    ],
+  },
+  '/website-terms': {
+    sections: [
+      {
+        heading: 'Website terms',
+        body: 'Terms for using the public grumi.pet site and waitlist, in Spanish and English, selectable via the site language control. Opens with definitions (Sitio, Site Terms, Grumi).',
+      },
+    ],
+  },
+  '/privacy': {
+    sections: [
+      {
+        heading: 'Privacy',
+        body: 'Privacy practices for the site and platform, third-party processors (e.g. Stripe, ATH Móvil, Supabase), user rights, and defined terms (Sitio, Plataforma, Cuenta) in Spanish.',
+      },
     ],
   },
   '/login': {

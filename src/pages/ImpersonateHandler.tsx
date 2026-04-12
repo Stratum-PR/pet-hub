@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { setImpersonation } from '@/lib/auth';
 import { toast } from 'sonner';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { devConsole } from '@/lib/clientDebug';
+import { t } from '@/lib/translations';
 
 /** One-time tokens + React 18 Strict Mode double-mount: dedupe redemption per token in-session. */
 const impersonationRedemptionByToken = new Map<string, Promise<void>>();
@@ -68,10 +70,10 @@ export function ImpersonateHandler() {
         await p;
       } catch (err: unknown) {
         if (!cancelled) {
-          console.error('Impersonation error:', err);
-          const message = err instanceof Error ? err.message : 'Failed to validate impersonation token';
-          setError(message);
-          toast.error(message, { id: `impersonate-fail-${token}` });
+          devConsole.error('Impersonation error:', err);
+          const userMessage = t('common.genericError');
+          setError(userMessage);
+          toast.error(userMessage, { id: `impersonate-fail-${token}` });
           setTimeout(() => {
             navigate('/admin');
           }, 3000);

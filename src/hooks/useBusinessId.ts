@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { DEMO_WORKSPACE_BUSINESS_ID, isPublicDemoPath } from '@/lib/demoWorkspace';
 import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
+import { devConsole } from '@/lib/clientDebug';
 
 /**
  * Hook to get the active business ID (supports impersonation)
@@ -23,7 +24,7 @@ export function useBusinessId(): string | null {
     // Special case: public demo route, allow reading demo business data even without profile
     const isDemoRoute = isPublicDemoPath(location.pathname);
     if (isDemoRoute) {
-      console.log('[useBusinessId] Using DEMO business id for public demo route', {
+      devConsole.log('[useBusinessId] Using DEMO business id for public demo route', {
         path: location.pathname,
       });
       setBusinessId(DEMO_WORKSPACE_BUSINESS_ID);
@@ -35,7 +36,7 @@ export function useBusinessId(): string | null {
     if (isImpersonating()) {
       const impersonatingId = getActiveBusinessId();
       if (impersonatingId) {
-        console.log('[useBusinessId] Using impersonation ID:', impersonatingId);
+        devConsole.log('[useBusinessId] Using impersonation ID:', impersonatingId);
         setBusinessId(impersonatingId);
         setSlugResolvedId(null);
         return;

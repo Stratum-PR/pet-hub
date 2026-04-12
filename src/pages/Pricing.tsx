@@ -2,12 +2,11 @@ import { useState, useCallback, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
-import { Check, ArrowRight, Menu, ChevronDown } from 'lucide-react';
-import { t } from '@/lib/translations';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Check, ArrowRight, ChevronDown } from 'lucide-react';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
+import { MarketingSiteHeader } from '@/components/marketing/MarketingSiteHeader';
+import { MarketingPageHero } from '@/components/marketing/MarketingPageHero';
 import {
   PRICING_TIERS_CONFIG,
   PRICING_ADDONS,
@@ -19,14 +18,6 @@ import {
 const PRICING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/pricing')!;
 const COMPARISON_TABLE_ID = 'comparison-table';
 const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'sales@example.com';
-
-const LANDING_NAV_LINKS = [
-  { id: 'features', key: 'landing.navFeatures' as const },
-  { id: 'why-pet-hub', key: 'landing.navWhyPetHub' as const },
-  { id: 'pricing', key: 'landing.navPricing' as const },
-  { id: 'faq', key: 'landing.navFaq' as const },
-  { id: 'about', key: 'landing.navAbout' as const },
-];
 
 function scrollToComparison() {
   const el = document.getElementById(COMPARISON_TABLE_ID);
@@ -44,7 +35,7 @@ function BillingToggle({
     <div
       role="group"
       aria-label="Billing period"
-      className="inline-flex rounded-full p-1 bg-white/40 backdrop-blur-md border border-border shadow-sm"
+      className="inline-flex rounded-full p-1 bg-muted/60 border border-border shadow-sm"
     >
       <button
         type="button"
@@ -54,7 +45,7 @@ function BillingToggle({
         className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
           value === 'annual'
             ? 'bg-[#D4FF00] text-black shadow'
-            : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
         }`}
       >
         Annual billing <span className="text-xs opacity-90">(Save 15%)</span>
@@ -67,7 +58,7 @@ function BillingToggle({
         className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
           value === 'monthly'
             ? 'bg-[#D4FF00] text-black shadow'
-            : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
         }`}
       >
         Monthly billing
@@ -101,148 +92,45 @@ export function Pricing() {
   const scrollToComparisonCb = useCallback(scrollToComparison, []);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <PageMeta route={PRICING_ROUTE} />
 
-      {/* Hero background — same as Landing for consistent transition feel */}
-      <section className="fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/90 via-teal-900/80 to-slate-900/90">
-          <img
-            src="/hero_background.png"
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover object-right md:object-center"
-            aria-hidden
-          />
-          <div className="absolute inset-0 bg-black/[0.125] pointer-events-none" aria-hidden />
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ backgroundColor: 'rgba(140, 125, 100, 0.22)' }}
-            aria-hidden
-          />
-        </div>
-      </section>
-
-      {/* Blur overlay — same animation as login modal */}
-      <div
-        className="fixed inset-0 z-[1] animate-backdrop-blur-in bg-transparent pointer-events-none"
-        aria-hidden
+      <MarketingSiteHeader
+        mode="standard"
+        mobileMenuOpen={mobileMenuOpen}
+        onMobileMenuOpenChange={setMobileMenuOpen}
       />
 
-      {/* Nav — pill-shaped glass header, shared look with Landing */}
-      <header className="fixed top-3 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <nav className="container mx-auto px-4 pointer-events-auto">
-          <div className="relative flex items-center justify-between gap-4 rounded-full border border-white/30 bg-white/60 backdrop-blur-xl px-4 py-2 sm:px-6 sm:py-3 shadow-lg shadow-black/10">
-            <Link
-              to="/"
-              className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] rounded-full"
-            >
-              <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
-              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Grumi</span>
-            </Link>
-            {/* Center nav - desktop, same entries as Landing */}
-            <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
-              {LANDING_NAV_LINKS.map(({ id, key }) =>
-                id === 'pricing' ? (
-                  <Link
-                    key={id}
-                    to="/pricing"
-                    className="px-3 py-1.5 text-sm font-medium text-slate-900/85 hover:text-slate-900 rounded-full hover:bg-white/80 transition-colors"
-                  >
-                    {t(key)}
-                  </Link>
-                ) : (
-                  <Link
-                    key={id}
-                    to={`/#${id}`}
-                    className="px-3 py-1.5 text-sm font-medium text-slate-900/85 hover:text-slate-900 rounded-full hover:bg-white/80 transition-colors"
-                  >
-                    {t(key)}
-                  </Link>
-                )
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-              <LanguageSwitcher
-                variant="ghost"
-                size="sm"
-                className="text-slate-900 hover:bg-white/70 hover:text-slate-900"
-              />
-              <Link
-                to="/login"
-                className="hidden sm:inline-flex items-center px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-white/80 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-              >
-                {t('landing.login')}
-              </Link>
-              <Link to="/#waitlist" className="hidden sm:block">
-                <Button className="bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]">
-                  {t('waitlist.navCta')}
-                </Button>
-              </Link>
-            </div>
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="sm:hidden text-white hover:bg-white/10 rounded-full"
-                  aria-label="Menu"
-                >
-                  <Menu className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="flex flex-col gap-6 pt-8">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Idioma / Language</p>
-                  <LanguageSwitcher />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full justify-start">
-                      {t('landing.login')}
-                    </Button>
-                  </Link>
-                  <Link to="/#waitlist" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
-                  </Link>
-                  <Link to="/pricing" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full justify-start">
-                      {t('landing.viewPricingPlans')}
-                    </Button>
-                  </Link>
-                </div>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </nav>
-      </header>
-
-      {/* Glass modal container — wider and more transparent than login modal */}
-      <div className="relative z-10 flex flex-col items-center pt-24 pb-20 px-4 flex-1">
+      <main className="relative flex-1 pt-28 pb-12 px-4">
         <div
-          className="w-full max-w-[1400px] rounded-3xl bg-white/65 backdrop-blur-xl border border-white/40 shadow-2xl animate-zoom-out-up mt-4"
-          style={{
-            boxShadow: '0 32px 64px rgba(0,0,0,0.18), 0 0 1px rgba(255,255,255,0.5)',
-          }}
-          role="article"
-          aria-label="Pricing plans"
-        >
-          <div className="px-6 py-8 md:px-12 md:py-10 lg:px-16 lg:py-12">
-            {/* Modal header */}
-            <header className="text-center mb-8 md:mb-10">
-              <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-2">
-                Start Free. Scale with Confidence.
-              </h1>
-              <p className="text-muted-foreground text-base sm:text-lg">
-                Pay only as your pet care business grows
-              </p>
-              <p className="text-muted-foreground text-xs sm:text-sm mt-1 mb-4">
-                All plans include 14-day free trial. No credit card required.
-              </p>
-              <BillingToggle value={billing} onChange={setBilling} />
-            </header>
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_75%_40%_at_50%_-18%,rgba(212,255,0,0.11),transparent_52%)]"
+          aria-hidden
+        />
 
-            {/* Pricing grid: 4 → 2 → 1 */}
+        <div className="w-full max-w-6xl mx-auto space-y-10 pb-4">
+          <MarketingPageHero>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">Pricing</p>
+            <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-2 max-w-3xl mx-auto">
+              Start free. Scale with confidence.
+            </h1>
+            <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
+              Pay only as your pet care business grows.
+            </p>
+            <p className="text-muted-foreground text-xs sm:text-sm mt-2 max-w-xl mx-auto">
+              All plans include a 14-day free trial. No credit card required.
+            </p>
+          </MarketingPageHero>
+
+          <div
+            className="rounded-3xl border border-border/80 bg-card text-card-foreground shadow-md overflow-hidden"
+            role="article"
+            aria-label="Pricing plans"
+          >
+            <div className="px-5 py-8 sm:px-8 sm:py-9 md:px-10 md:py-10 lg:px-12 lg:py-11">
+              <header className="text-center mb-8 md:mb-9">
+                <BillingToggle value={billing} onChange={setBilling} />
+              </header>
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
               {PRICING_TIERS_CONFIG.map((tier) => (
                 <PricingCard key={tier.id} tier={tier} billing={billing} />
@@ -256,7 +144,7 @@ export function Pricing() {
                 variant="outline"
                 size="lg"
                 onClick={scrollToComparisonCb}
-                className="inline-flex w-full sm:w-auto items-center justify-center rounded-full border-white/50 bg-white/40 backdrop-blur-md text-sm font-semibold text-foreground hover:bg-white/60 hover:border-primary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="inline-flex w-full sm:w-auto items-center justify-center rounded-full border border-border bg-muted/40 text-sm font-semibold text-foreground hover:bg-muted/60 hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 Compare Plans in Detail
                 <ChevronDown className="ml-2 w-4 h-4" />
@@ -272,7 +160,7 @@ export function Pricing() {
                 {PRICING_ADDONS.map((addon) => (
                   <div
                     key={addon.id}
-                    className="rounded-xl border bg-white/50 backdrop-blur-sm border-border p-4 hover:border-primary/30 transition-colors"
+                    className="rounded-xl border border-border bg-muted/20 p-4 hover:border-primary/30 transition-colors"
                   >
                     <h3 className="font-medium text-foreground mb-1">{addon.title}</h3>
                     <p className="text-sm font-medium text-primary mb-1">{addon.price}</p>
@@ -294,7 +182,7 @@ export function Pricing() {
               <h2 id="comparison-heading" className="text-xl font-semibold text-center mb-6">
                 Compare Plans in Detail
               </h2>
-              <div className="rounded-xl border border-border bg-white/50 backdrop-blur-sm overflow-hidden overflow-x-auto">
+              <div className="rounded-xl border border-border bg-background overflow-hidden overflow-x-auto">
                 <table className="w-full min-w-[720px] text-sm" role="grid" aria-label="Plan comparison">
                   <thead>
                     <tr className="border-b border-border bg-muted/50 sticky top-0 z-10">
@@ -357,14 +245,15 @@ export function Pricing() {
               </div>
             </section>
 
-            {/* Footer note + global footer */}
-            <footer className="mt-4 pt-6 border-t border-border text-center text-xs sm:text-sm text-muted-foreground">
-              <p className="mb-3">Prices in USD. Cancel anytime.</p>
-              <Footer />
+            <footer className="mt-6 pt-6 border-t border-border text-center text-xs sm:text-sm text-muted-foreground">
+              <p>Prices in USD. Cancel anytime.</p>
             </footer>
           </div>
+          </div>
         </div>
-      </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }
@@ -386,7 +275,7 @@ function PricingCard({
 
   return (
     <article
-      className="relative rounded-2xl border border-border bg-white/60 backdrop-blur-sm p-6 flex flex-col h-full transition-colors hover:border-primary/30"
+      className="relative rounded-2xl border border-border bg-background p-6 flex flex-col h-full transition-colors hover:border-primary/30 shadow-sm"
       aria-labelledby={`tier-${tier.id}-name`}
     >
       <div className="mb-4">
@@ -425,7 +314,7 @@ function PricingCard({
       {tier.buttonVariant === 'contact' ? (
         <a
           href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20pricing%20inquiry`}
-          className="inline-flex items-center justify-center rounded-xl border-2 border-primary/50 bg-white/60 backdrop-blur-sm px-4 py-3 text-sm font-semibold text-foreground hover:bg-primary/10 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex items-center justify-center rounded-xl border-2 border-primary/50 bg-muted/30 px-4 py-3 text-sm font-semibold text-foreground hover:bg-primary/10 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {tier.buttonLabel}
           <ArrowRight className="ml-2 w-4 h-4" />

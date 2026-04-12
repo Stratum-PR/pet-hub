@@ -20,6 +20,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
+import { devConsole } from '@/lib/clientDebug';
 
 interface BusinessLayoutProps {
   children: React.ReactNode;
@@ -31,6 +33,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
   const { business } = useAuth();
   const businessId = useBusinessId();
   const { resolvedTheme } = useTheme();
+  const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
   const [settingsLogoLightUrl, setSettingsLogoLightUrl] = useState<string | null>(null);
   const [settingsLogoDarkUrl, setSettingsLogoDarkUrl] = useState<string | null>(null);
 
@@ -71,7 +74,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
       window.location.href = '/';
       toast.success(t('logout.confirmButton'));
     } catch (error) {
-      console.error('Logout error:', error);
+      devConsole.error('Logout error:', error);
       toast.error('Error al cerrar sesión');
       window.location.href = '/';
     }
@@ -94,24 +97,19 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
       {/* Header */}
       <header className="border-b border-border bg-card shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-[140px] h-[50px] flex items-center justify-center overflow-hidden bg-transparent -my-2">
-              <img src="/pet-hub-logo.svg" alt="Grumi" className="w-full h-full object-contain" />
-            </div>
-
-            {/* Replace business name with logo (when present). */}
+          <Link to="/" className="flex items-center gap-2 min-w-0">
             {logoToShow ? (
               <img
                 src={logoToShow}
                 alt={business?.name || 'Business logo'}
-                className="h-8 w-auto max-w-[240px] object-contain"
+                className="h-10 w-auto max-w-[min(240px,55vw)] object-contain object-left"
               />
             ) : (
-              !!business && (
-                <span className="text-xl font-semibold tracking-tight">
-                  {business.name && business.name.toLowerCase().includes('demo') ? 'Demo' : business.name}
-                </span>
-              )
+              <img
+                src={themedGrumiWordmarkSrc}
+                alt="Grumi"
+                className="h-10 w-auto max-w-[min(220px,55vw)] object-contain object-left"
+              />
             )}
           </Link>
 

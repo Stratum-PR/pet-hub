@@ -49,6 +49,7 @@ import { getBusinessSettingsAnchorNavItems } from '@/lib/businessSettingsSidebar
 import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
 import { DEFAULT_BUSINESS_BRANDING_LAYOUT } from '@/lib/businessBrandingLayout';
 import { BrandingIconCompact, BrandingLogoSidebarExpanded } from '@/components/BrandingMark';
+import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
 
 const SIDEBAR_COLLAPSED_KEY = 'pet-hub-sidebar-collapsed';
 
@@ -117,6 +118,7 @@ export function AppSidebar({
   const { isFeatureVisible } = useFeatureRollout();
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
 
   const featureGateSnapshot = {
     appointments: isFeatureVisible('appointments'),
@@ -318,13 +320,22 @@ export function AppSidebar({
               ) : null}
             </span>
           ) : (
-            <span className="shrink-0 w-8 h-8 flex items-center justify-center overflow-visible animate-logo-appear">
-              <img src="/pet-hub-icon.svg" alt="" className="h-8 w-8 object-contain" aria-hidden />
-            </span>
-          )}
-          {(!collapsed || mobile) && !showBrandImage && (
-            <span className="font-bold truncate text-sidebar-foreground text-sm mt-1.5 block" style={{ fontFamily: 'var(--font-telegraf)' }}>
-              {businessName?.toLowerCase().includes('demo') ? 'Demo' : businessName || 'Grumi'}
+            <span
+              className={cn(
+                'shrink-0 flex items-center justify-center overflow-visible animate-logo-appear',
+                collapsed && !mobile ? 'max-w-[52px]' : 'min-w-0 max-w-full'
+              )}
+            >
+              <img
+                src={themedGrumiWordmarkSrc}
+                alt="Grumi"
+                className={cn(
+                  'object-contain object-left',
+                  collapsed && !mobile
+                    ? 'h-8 w-auto max-w-[52px]'
+                    : 'h-8 sm:h-9 w-auto max-w-[min(200px,calc(100%-0.5rem))]'
+                )}
+              />
             </span>
           )}
         </Link>
