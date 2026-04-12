@@ -24,11 +24,14 @@ type Draft = Pick<StoredCookieConsent, 'preferences' | 'analytics' | 'marketing'
 type CookieConsentContextValue = {
   consent: StoredCookieConsent | null;
   needsBanner: boolean;
+  /** First-visit modal: user opened category toggles (Settings, or Cookie settings from the footer). */
+  bannerGranularOpen: boolean;
   preferenceCookiesAllowed: boolean;
   analyticsCookiesAllowed: boolean;
   marketingCookiesAllowed: boolean;
   openPreferences: () => void;
   closePreferences: () => void;
+  dismissBannerGranular: () => void;
   preferencesOpen: boolean;
   draft: Draft;
   setDraft: (next: Partial<Draft>) => void;
@@ -68,6 +71,7 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
   const [consent, setConsent] = useState<StoredCookieConsent | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [bannerGranularOpen, setBannerGranularOpen] = useState(false);
   const [draft, setDraftState] = useState<Draft>({
     preferences: false,
     analytics: false,
@@ -78,6 +82,13 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     setConsent(readStoredCookieConsent());
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (consentIsCurrent(consent)) {
+      setBannerGranularOpen(false);
+    }
+  }, [consent, hydrated]);
 
   const needsBanner = hydrated && !consentIsCurrent(consent);
 
@@ -105,11 +116,19 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
       analytics: base?.analytics ?? false,
       marketing: base?.marketing ?? false,
     });
-    setPreferencesOpen(true);
+    if (!consentIsCurrent(consent)) {
+      setBannerGranularOpen(true);
+    } else {
+      setPreferencesOpen(true);
+    }
   }, [consent]);
 
   const closePreferences = useCallback(() => {
     setPreferencesOpen(false);
+  }, []);
+
+  const dismissBannerGranular = useCallback(() => {
+    setBannerGranularOpen(false);
   }, []);
 
   const acceptAll = useCallback(() => {
@@ -117,6 +136,7 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     applyAndPersist(nextDraft);
     setDraftState(nextDraft);
     setPreferencesOpen(false);
+    setBannerGranularOpen(false);
   }, [applyAndPersist]);
 
   const rejectOptional = useCallback(() => {
@@ -124,23 +144,27 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     applyAndPersist(nextDraft);
     setDraftState(nextDraft);
     setPreferencesOpen(false);
+    setBannerGranularOpen(false);
   }, [applyAndPersist]);
 
   const saveCustom = useCallback(() => {
     applyAndPersist(draft);
     setPreferencesOpen(false);
+    setBannerGranularOpen(false);
   }, [applyAndPersist, draft]);
 
   const value = useMemo<CookieConsentContextValue>(
     () => ({
       consent,
       needsBanner,
+      bannerGranularOpen,
       preferenceCookiesAllowed:
         consentIsCurrent(consent) && Boolean(consent?.preferences),
       analyticsCookiesAllowed: consentIsCurrent(consent) && Boolean(consent?.analytics),
       marketingCookiesAllowed: consentIsCurrent(consent) && Boolean(consent?.marketing),
       openPreferences,
       closePreferences,
+      dismissBannerGranular,
       preferencesOpen,
       draft,
       setDraft,
@@ -151,8 +175,10 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     [
       consent,
       needsBanner,
+      bannerGranularOpen,
       openPreferences,
       closePreferences,
+      dismissBannerGranular,
       preferencesOpen,
       draft,
       setDraft,
