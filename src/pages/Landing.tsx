@@ -13,7 +13,7 @@ import { WaitlistForm } from '@/components/waitlist/WaitlistForm';
 import { MarketingSiteHeader } from '@/components/marketing/MarketingSiteHeader';
 import { FeaturesMarketingSection } from '@/components/marketing/FeaturesMarketingSection';
 import { MarketingBottomCta } from '@/components/marketing/MarketingBottomCta';
-import { LandingWaitlistBrandMotifs } from '@/components/marketing/MarketingBrandMotifs';
+import { LandingWaitlistBrandMotifs } from '../components/marketing/MarketingBrandMotifs';
 
 const LANDING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/')!;
 

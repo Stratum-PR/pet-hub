@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MarketingHeroBrandMotifs } from '@/components/marketing/MarketingBrandMotifs';
+import { MarketingHeroBrandMotifs } from './MarketingBrandMotifs';
 
 type Props = {
   children: ReactNode;

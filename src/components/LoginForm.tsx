@@ -20,10 +20,11 @@ import {
   resolveAuthenticatedDestination,
   setPostAuthHint,
   clearPostAuthHint,
+  setBusinessSlugForSession,
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
 import { t } from '@/lib/translations';
-import { devConsole } from '@/lib/clientDebug';
+import { devConsole, isClientDebugSurfacesEnabled } from '@/lib/clientDebug';
 import { getBusinessClientLink, ensureBusinessClientLink } from '@/lib/businessClientLink';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { broadcastAuthLogin } from '@/lib/authBroadcast';
@@ -51,6 +52,7 @@ export function LoginForm({
   business,
   postLoginNavigateTo,
 }: LoginFormProps) {
+  const loginDebugSurfacesOn = useMemo(() => isClientDebugSurfacesEnabled(), []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -61,6 +63,7 @@ export function LoginForm({
   const [showNotLinked, setShowNotLinked] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
   const [uiDebugLogs, setUiDebugLogs] = useState<string[]>(() => {
+    if (!isClientDebugSurfacesEnabled()) return [];
     try {
       const raw = sessionStorage.getItem(LOGIN_DEBUG_STORAGE_KEY);
       if (!raw) return [];
@@ -73,6 +76,7 @@ export function LoginForm({
   const { refreshAuth } = useAuth();
 
   const pushUiDebug = (message: string, data?: Record<string, unknown>) => {
+    if (!loginDebugSurfacesOn) return;
     const line = `${new Date().toISOString()} | ${message}${data ? ` | ${JSON.stringify(data)}` : ''}`;
     setUiDebugLogs((prev) => {
       const next = [...prev.slice(-39), line];
@@ -106,6 +110,7 @@ export function LoginForm({
   };
 
   useEffect(() => {
+    if (!loginDebugSurfacesOn) return;
     if (uiDebugLogs.length !== 0) return;
     try {
       const rawAttempt = sessionStorage.getItem(LOGIN_DEBUG_ATTEMPT_KEY);
@@ -120,9 +125,10 @@ export function LoginForm({
       // ignore
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loginDebugSurfacesOn]);
 
   useEffect(() => {
+    if (!loginDebugSurfacesOn) return;
     const onBeforeUnload = () => {
       try {
         const rawAttempt = sessionStorage.getItem(LOGIN_DEBUG_ATTEMPT_KEY);
@@ -142,7 +148,7 @@ export function LoginForm({
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, []);
+  }, [loginDebugSurfacesOn]);
 
   const getRedirectForAuthenticatedUser = async (): Promise<string> => {
     const { data: userRes, error: userErr } = await supabase.auth.getUser();
@@ -463,39 +469,41 @@ export function LoginForm({
           </Link>
         </p>
       </div>
-      <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Debug logs</p>
-        <textarea
-          readOnly
-          value={debugText}
-          className="mt-2 h-36 w-full rounded-md border bg-background p-2 font-mono text-[11px]"
-          placeholder="Run login to populate logs..."
-        />
-        <div className="mt-2 flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigator.clipboard.writeText(debugText || '')}
-          >
-            Copy logs
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setUiDebugLogs([])}>
-            Clear
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              sessionStorage.removeItem(LOGIN_DEBUG_STORAGE_KEY);
-              setUiDebugLogs([]);
-            }}
-          >
-            Clear persisted
-          </Button>
+      {loginDebugSurfacesOn && (
+        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Debug logs</p>
+          <textarea
+            readOnly
+            value={debugText}
+            className="mt-2 h-36 w-full rounded-md border bg-background p-2 font-mono text-[11px]"
+            placeholder="Run login to populate logs..."
+          />
+          <div className="mt-2 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(debugText || '')}
+            >
+              Copy logs
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setUiDebugLogs([])}>
+              Clear
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                sessionStorage.removeItem(LOGIN_DEBUG_STORAGE_KEY);
+                setUiDebugLogs([]);
+              }}
+            >
+              Clear persisted
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

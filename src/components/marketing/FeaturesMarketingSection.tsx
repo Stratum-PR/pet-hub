@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FeaturesBrandBackdrop } from '@/components/marketing/MarketingBrandMotifs';
+import { FeaturesBrandBackdrop } from './MarketingBrandMotifs';
 import { t } from '@/lib/translations';
 
 type Tint = 'green' | 'amber' | 'blue' | 'pink' | 'teal' | 'gray';
