@@ -12,6 +12,7 @@ import { SearchFilter } from '@/components/SearchFilter';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
+import { devConsole } from '@/lib/clientDebug';
 
 interface ServicesProps {
   loading: boolean;
@@ -104,7 +105,7 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
       resetForm();
       setShowForm(false);
     } catch (error) {
-      console.error('Error saving service:', error);
+      devConsole.error('Error saving service:', error);
       toast.error(t('services.saveError') || 'An error occurred while saving the service');
     }
   };

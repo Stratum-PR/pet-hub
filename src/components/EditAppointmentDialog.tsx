@@ -23,6 +23,7 @@ import { t } from '@/lib/translations';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPastCalendarDay, isSlotStartInPast } from '@/lib/bookingPastSlots';
+import { devConsole } from '@/lib/clientDebug';
 import {
   parseBusinessHours,
   dateToDayKey,
@@ -175,7 +176,7 @@ export function EditAppointmentDialog({
             }
           }
         } catch (e) {
-          console.error('Error parsing services:', e);
+          devConsole.error('Error parsing services:', e);
         }
         
         setFormData({
@@ -204,7 +205,7 @@ export function EditAppointmentDialog({
         setSelectedDate(appointmentDate);
         setSelectedTime(timeStr);
       } catch (error) {
-        console.error('Error initializing edit form:', error);
+        devConsole.error('Error initializing edit form:', error);
         // Set default values on error
         setFormData({
           clientId: '',
@@ -507,7 +508,7 @@ export function EditAppointmentDialog({
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error:', error);
+      devConsole.error('Error:', error);
       alert('Error updating appointment. Please try again.');
     } finally {
       setLoading(false);

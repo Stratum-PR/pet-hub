@@ -1,18 +1,19 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
-import { Eye, Menu, ChevronDown, Lock } from 'lucide-react';
+import { Eye, ChevronDown, Lock } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { getDefaultRoute, getLastRoute } from '@/lib/authRouting';
 import { t } from '@/lib/translations';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { SplashAuthModal } from '@/components/SplashAuthModal';
 import { LoginForm } from '@/components/LoginForm';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES, getPublicBaseUrl } from '@/config/discoverable-routes';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { WaitlistForm } from '@/components/waitlist/WaitlistForm';
+import { MarketingSiteHeader } from '@/components/marketing/MarketingSiteHeader';
+import { FeaturesMarketingSection } from '@/components/marketing/FeaturesMarketingSection';
+import { MarketingBottomCta } from '@/components/marketing/MarketingBottomCta';
+import { LandingWaitlistBrandMotifs } from '@/components/marketing/MarketingBrandMotifs';
 
 const LANDING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/')!;
 
@@ -28,7 +29,7 @@ function getLandingJsonLd(): string {
         name: 'Grumi',
         url: base,
         description: 'Pet grooming business management. Manage appointments, clients, pets, and more.',
-        logo: `${base}/pet-hub-icon.svg`,
+        logo: `${base}/logo_grumi_theme.png`,
       },
       {
         '@type': 'WebSite',
@@ -58,8 +59,15 @@ export function Landing() {
   }, []);
 
   useEffect(() => {
-    if (location.pathname === '/' && location.hash === '#waitlist') {
+    if (location.pathname !== '/') return;
+    const hash = location.hash.replace(/^#/, '');
+    if (hash === 'waitlist') {
       const timer = window.setTimeout(() => scrollToWaitlist(), 150);
+      return () => window.clearTimeout(timer);
+    }
+    if (hash === 'features') {
+      const el = document.getElementById(hash);
+      const timer = window.setTimeout(() => el?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
       return () => window.clearTimeout(timer);
     }
   }, [location.pathname, location.hash, scrollToWaitlist]);
@@ -98,144 +106,17 @@ export function Landing() {
     el?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const navLinks = [
-    { id: 'features', key: 'landing.navFeatures' as const },
-    { id: 'why-pet-hub', key: 'landing.navWhyPetHub' as const },
-    { id: 'pricing', key: 'landing.navPricing' as const },
-    { id: 'faq', key: 'landing.navFaq' as const },
-    { id: 'about', key: 'landing.navAbout' as const },
-  ];
-
   return (
     <div className="min-h-screen bg-background">
       <PageMeta route={LANDING_ROUTE} jsonLd={getLandingJsonLd()} />
-      {/* Pill-shaped glass header, shared with Pricing */}
-      <header className="fixed top-3 left-0 right-0 z-50 flex justify-center pointer-events-none">
-        <nav className="container mx-auto px-4 pointer-events-auto">
-          <div className="relative flex items-center justify-between gap-4 rounded-full border border-white/30 bg-white/60 backdrop-blur-xl px-4 py-2 sm:px-6 sm:py-3 shadow-lg shadow-black/10">
-            <button
-              type="button"
-              onClick={handleLogoClick}
-              className="flex items-center gap-2 shrink-0 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] rounded-full"
-            >
-              <img
-                src="/pet-hub-icon.svg"
-                alt=""
-                className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
-              />
-              <span className="text-slate-900 font-semibold text-lg sm:text-xl">Grumi</span>
-            </button>
-
-            {/* Center nav - desktop, centered inside pill */}
-            <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
-              {navLinks.map(({ id, key }) =>
-                id === 'pricing' ? (
-                  <Link
-                    key={id}
-                    to="/pricing"
-                    className="px-3 py-1.5 text-sm font-medium text-slate-900/85 hover:text-slate-900 rounded-full hover:bg-white/80 transition-colors"
-                  >
-                    {t(key)}
-                  </Link>
-                ) : (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => scrollToSection(id)}
-                    className="px-3 py-1.5 text-sm font-medium text-slate-900/85 hover:text-slate-900 rounded-full hover:bg-white/80 transition-colors"
-                  >
-                    {t(key)}
-                  </button>
-                )
-              )}
-            </div>
-
-            {/* Right: language, Login, Sign Up */}
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-              <LanguageSwitcher
-                variant="ghost"
-                size="sm"
-                className="text-slate-900 hover:bg-white/70 hover:text-slate-900"
-              />
-              <button
-                type="button"
-                onClick={() => setLoginModalOpen(true)}
-                className="hidden sm:inline-flex items-center px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-white/80 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-              >
-                {t('landing.login')}
-              </button>
-              <Button
-                type="button"
-                onClick={scrollToWaitlist}
-                className="bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-              >
-                {t('waitlist.navCta')}
-              </Button>
-            </div>
-
-            {/* Mobile menu */}
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="lg:hidden text-white hover:bg-white/10 rounded-full"
-                  aria-label="Menu"
-                >
-                  <Menu className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="flex flex-col gap-6 pt-8">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Idioma / Language</p>
-                  <LanguageSwitcher />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginModalOpen(true);
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full justify-start"
-                  >
-                    <Button variant="ghost" className="w-full justify-start">
-                      {t('landing.login')}
-                    </Button>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      scrollToWaitlist();
-                    }}
-                  >
-                    <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
-                  </button>
-                  {navLinks.map(({ id, key }) => (
-                    <Button
-                      key={id}
-                      variant="ghost"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        scrollToSection(id);
-                      }}
-                    >
-                      {t(key)}
-                    </Button>
-                  ))}
-                  <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full justify-start">
-                      {t('landing.viewDemo')}
-                    </Button>
-                  </Link>
-                </div>
-              </SheetContent>
-            </Sheet>
-          </div>
-        </nav>
-      </header>
+      <MarketingSiteHeader
+        mode="landing"
+        mobileMenuOpen={mobileMenuOpen}
+        onMobileMenuOpenChange={setMobileMenuOpen}
+        onLogoClick={handleLogoClick}
+        onOpenLoginModal={() => setLoginModalOpen(true)}
+        onScrollToWaitlist={scrollToWaitlist}
+      />
 
       {/* Hero: prefer video; if video doesn't load/play, fall back to static image */}
       <section ref={heroRef} className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
@@ -353,24 +234,27 @@ export function Landing() {
             {/* Waitlist + demo */}
             <div
               id="waitlist"
-              className="w-full max-w-xl mx-auto space-y-3 opacity-0 motion-reduce:!animate-none motion-reduce:opacity-100 motion-reduce:!scale-100 animate-cta-reveal shrink-0"
+              className="relative w-full max-w-xl mx-auto opacity-0 motion-reduce:!animate-none motion-reduce:opacity-100 motion-reduce:!scale-100 animate-cta-reveal shrink-0"
             >
-              <WaitlistForm className="w-full" />
-              <p className="flex items-center justify-center gap-2 text-xs sm:text-sm text-white/85 text-center px-2">
-                <Lock className="w-3.5 h-3.5 shrink-0 text-[#D4FF00]" aria-hidden />
-                <span>{t('waitlist.founderLine')}</span>
-              </p>
-              <div className="flex justify-center pt-1">
-                <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                  >
-                    <Eye className="w-4 h-4" />
-                    {t('landing.viewDemo')}
-                  </Button>
-                </Link>
+              <LandingWaitlistBrandMotifs />
+              <div className="relative z-10 space-y-3">
+                <WaitlistForm className="w-full" />
+                <p className="flex items-center justify-center gap-2 text-xs sm:text-sm text-white/85 text-center px-2">
+                  <Lock className="w-3.5 h-3.5 shrink-0 text-[#D4FF00]" aria-hidden />
+                  <span>{t('waitlist.founderLine')}</span>
+                </p>
+                <div className="flex justify-center pt-1">
+                  <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                    >
+                      <Eye className="w-4 h-4" />
+                      {t('landing.viewDemo')}
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -387,12 +271,14 @@ export function Landing() {
         </button>
       </section>
 
-      {/* Placeholder anchors under hero (content removed for now) */}
-      <section id="features" aria-hidden className="hidden" />
-      <section id="why-pet-hub" aria-hidden className="hidden" />
-      <section id="pricing" aria-hidden className="hidden" />
-      <section id="faq" aria-hidden className="hidden" />
-      <section id="about" aria-hidden className="hidden" />
+      <section id="features" className="scroll-mt-28" aria-labelledby="marketing-features-heading">
+        <h2 id="marketing-features-heading" className="sr-only">
+          {t('landing.navFeatures')}
+        </h2>
+        <FeaturesMarketingSection />
+      </section>
+
+      <MarketingBottomCta />
 
       <Footer />
 

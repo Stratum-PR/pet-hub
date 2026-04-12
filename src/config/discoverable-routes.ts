@@ -46,6 +46,49 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
     priority: 0.9,
   },
   {
+    path: '/why-grumi',
+    title: 'Why Grumi – Built for Puerto Rico',
+    description:
+      'Why Grumi exists: software designed with Puerto Rico groomers, Spanish-first workflows, ATH Móvil and Stripe, and no unnecessary hardware.',
+    indexable: true,
+    changefreq: 'monthly',
+    priority: 0.85,
+  },
+  {
+    path: '/contact',
+    title: 'Contact – Grumi',
+    description: 'Contact Grumi / Stratum PR LLC for questions about the waitlist, pricing, or the platform.',
+    indexable: true,
+    changefreq: 'monthly',
+    priority: 0.75,
+  },
+  {
+    path: '/terms',
+    title: 'Terms of Use – Grumi',
+    description:
+      'Terms of Service for the Grumi platform (draft for legal review). Operated by Stratum PR LLC.',
+    indexable: true,
+    changefreq: 'yearly',
+    priority: 0.35,
+  },
+  {
+    path: '/website-terms',
+    title: 'Website Terms of Use – Grumi',
+    description: 'Terms governing use of the grumi.pet marketing website (draft for legal review).',
+    indexable: true,
+    changefreq: 'yearly',
+    priority: 0.35,
+  },
+  {
+    path: '/privacy',
+    title: 'Privacy Policy – Grumi',
+    description:
+      'How Grumi and Stratum PR LLC collect, use, and protect information on the site and platform (draft for legal review).',
+    indexable: true,
+    changefreq: 'yearly',
+    priority: 0.35,
+  },
+  {
     path: '/login',
     title: 'Log in – Grumi',
     description: 'Log in to your Grumi account.',
@@ -143,6 +186,6 @@ export function getPublicBaseUrl(): string {
 }
 
 /** Default OG image path (resolved to absolute URL in PageMeta using getPublicBaseUrl) */
-export const DEFAULT_OG_IMAGE = '/pet-hub-icon.svg';
+export const DEFAULT_OG_IMAGE = '/logo_grumi_theme.png';
 
 export type { DiscoverableRoute as SitemapEntry };

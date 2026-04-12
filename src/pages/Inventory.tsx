@@ -38,6 +38,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { generateSkuForBarcode } from '@/lib/skuFromBarcode';
 import { normalizeBarcodeForMatch } from '@/lib/barcodeValidation';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
+import { devConsole } from '@/lib/clientDebug';
 
 /** Get user-facing message from supabase.functions.invoke error (e.g. 503 body). */
 async function getInvokeErrorMessage(err: unknown): Promise<string | null> {
@@ -200,24 +201,26 @@ export function Inventory({
         body: { barcode: trimmed },
       });
       if (import.meta.env.DEV && (error || !data?.found)) {
-        console.debug('[barcode-lookup]', { barcode: trimmed, data, error });
+        devConsole.debug('[barcode-lookup]', { barcode: trimmed, data, error });
       }
       const payload = data as { found?: boolean; product?: { name: string; brand?: string; category?: string; description?: string; imageUrl?: string; barcode: string }; error?: string } | null;
       if (error) {
         const errMsg = await getInvokeErrorMessage(error);
+        devConsole.warn('[inventory] barcode-lookup invoke', error, errMsg);
         if (errMsg?.includes('not configured')) {
           toast.warning(t('inventory.barcodeLookupNotConfigured'));
         } else {
-          toast.warning(errMsg || t('inventory.barcodeLookupFailed'));
+          toast.warning(t('inventory.barcodeLookupFailed'));
         }
         openFormWithBarcode(trimmed);
         return;
       }
       if (payload?.error) {
+        devConsole.warn('[inventory] barcode-lookup payload error', payload.error);
         if (payload.error.includes('not configured')) {
           toast.warning(t('inventory.barcodeLookupNotConfigured'));
         } else {
-          toast.warning(payload.error);
+          toast.warning(t('inventory.barcodeLookupFailed'));
         }
         openFormWithBarcode(trimmed);
         return;

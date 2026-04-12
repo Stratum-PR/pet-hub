@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { devConsole } from '@/lib/clientDebug';
 
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -6,7 +7,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(error);
+      devConsole.error(error);
       return initialValue;
     }
   });
@@ -15,7 +16,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
     try {
       window.localStorage.setItem(key, JSON.stringify(storedValue));
     } catch (error) {
-      console.error(error);
+      devConsole.error(error);
     }
   }, [key, storedValue]);
 

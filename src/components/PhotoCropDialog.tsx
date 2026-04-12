@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { RotateCw, X } from 'lucide-react';
+import { devConsole } from '@/lib/clientDebug';
 
 interface PhotoCropDialogProps {
   open: boolean;
@@ -258,7 +259,7 @@ export function PhotoCropDialog({ open, onOpenChange, imageSrc, onSave, onCancel
     try {
       onSave(dataUrl);
     } catch (error) {
-      console.error('[PhotoCropDialog] Error in onSave callback:', error);
+      devConsole.error('[PhotoCropDialog] Error in onSave callback:', error);
     }
     
     // Close dialog immediately - don't use setTimeout

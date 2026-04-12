@@ -27,6 +27,9 @@ Thumbs.db
 coverage
 .nyc_output
 
+# Owner-only troubleshooting map (never commit — not for repo / CI)
+PRIVATE_ERROR_TOAST_MAP.md
+
 # Environment and secrets (never commit)
 .env
 .env.local

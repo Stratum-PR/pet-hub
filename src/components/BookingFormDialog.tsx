@@ -32,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ensureAppointmentServiceIds } from '@/lib/appointmentServiceResolution';
 import { staffIdForBusinessOrNull } from '@/lib/staffFkGuard';
 import { t, getLanguage, type Language } from '@/lib/translations';
+import { devConsole } from '@/lib/clientDebug';
 import {
   parseBusinessHours,
   dateToDayKey,
@@ -452,7 +453,7 @@ export function BookingFormDialog({
         .eq('business_id', businessId)
         .eq('appointment_date', dateStr);
       if (error) {
-        console.warn('[BookingFormDialog] day appointments fetch:', error.message);
+        devConsole.warn('[BookingFormDialog] day appointments fetch:', error.message);
         setDayAppointmentRows([]);
         return;
       }
@@ -939,7 +940,7 @@ export function BookingFormDialog({
         .single();
 
       if (error) {
-        console.error('[BookingFormDialog] Appointment insert error:', error.message, error.code);
+        devConsole.error('[BookingFormDialog] Appointment insert error:', error.message, error.code);
         alert('Error creating appointment. Please try again.');
       } else {
         onAddAppointment?.(newAppointment);
@@ -948,7 +949,7 @@ export function BookingFormDialog({
         onOpenChange(false);
       }
     } catch (err) {
-      console.error('Error:', err);
+      devConsole.error('Error:', err);
       alert('Error creating appointment. Please try again.');
     } finally {
       setLoading(false);

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { devConsole } from '@/lib/clientDebug';
 
 /** True when month/day match the user's local calendar today (full year not required). */
 export function isStaffDobCalendarToday(birthMonth: number, birthDay: number): boolean {
@@ -14,7 +15,7 @@ export async function dispatchStaffBirthdaysForBusiness(
   const { error } = await supabase.rpc('dispatch_staff_birthdays_for_business', {
     p_business_id: businessId,
   });
-  if (error) console.warn('[dispatchStaffBirthdaysForBusiness]', error.message);
+  if (error) devConsole.warn('[dispatchStaffBirthdaysForBusiness]', error.message);
   return { error: error?.message ?? null };
 }
 
@@ -26,5 +27,5 @@ export async function dispatchStaffMissingEmailReminders(
   const { error } = await supabase.rpc('dispatch_staff_missing_email_reminders', {
     p_business_id: businessId,
   });
-  if (error && import.meta.env.DEV) console.warn('[dispatchStaffMissingEmailReminders]', error.message);
+  if (error) devConsole.warn('[dispatchStaffMissingEmailReminders]', error.message);
 }

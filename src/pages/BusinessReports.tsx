@@ -7,6 +7,7 @@ import { format, subDays, startOfDay } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { t } from '@/lib/translations';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { devConsole } from '@/lib/clientDebug';
 
 const SALE_STATUSES = ['paid', 'partial'];
 const REVENUE_PERIOD_DAYS = 30;
@@ -52,7 +53,7 @@ export function BusinessReports() {
 
   useEffect(() => {
     if (!businessId) {
-      console.warn('[BusinessReports] No businessId available – skipping reports queries');
+      devConsole.warn('[BusinessReports] No businessId available – skipping reports queries');
       setLoading(false);
       return;
     }
@@ -133,7 +134,7 @@ export function BusinessReports() {
       setPetDistribution(petDist);
       setWeeklyRegistrations(weeklyRegs);
     } catch (error) {
-      console.error('Error fetching report data:', error);
+      devConsole.error('Error fetching report data:', error);
     } finally {
       setLoading(false);
     }

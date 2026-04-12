@@ -29,6 +29,7 @@ import { EMPLOYEE_PIN_LENGTH } from '@/lib/pinLengths';
 import { generateUniqueEmployeePin } from '@/lib/employeePin';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { toast } from 'sonner';
+import { devConsole } from '@/lib/clientDebug';
 import { localYmdToTimestamptzIso, timestamptzToDateInputValue } from '@/lib/localDateInput';
 import {
   PUERTO_RICO_BANK_ROUTING,
@@ -829,7 +830,8 @@ export function EmployeeManagement({
         const up = await uploadStaffPhotoDataUrl(supabase, businessId, formData.photo_url);
         setStaffPhotoUploading(false);
         if ('error' in up) {
-          toast.error(up.error);
+          devConsole.error('[EmployeeManagement] staff photo upload', up.error);
+          toast.error(t('common.genericError'));
           return;
         }
         finalPhotoUrl = up.publicUrl;
@@ -1054,7 +1056,8 @@ export function EmployeeManagement({
       return;
     }
     if (r.error === 'other') {
-      toast.error(r.message ?? t('common.genericError'));
+      devConsole.error('[EmployeeManagement] add job title', r.message);
+      toast.error(t('common.genericError'));
       return;
     }
     if (r.row) {

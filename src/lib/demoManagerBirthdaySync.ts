@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_WORKSPACE_BUSINESS_ID } from '@/lib/demoWorkspace';
+import { devConsole } from '@/lib/clientDebug';
 
 const DEMO_MANAGER_EMAIL = 'demo.manager@pethub.demo';
 
@@ -38,7 +39,7 @@ export async function syncDemoManagerBirthdayToClientToday(
     .maybeSingle();
 
   if (selErr) {
-    if (import.meta.env.DEV) console.warn('[syncDemoManagerBirthdayToClientToday] select', selErr.message);
+    devConsole.warn('[syncDemoManagerBirthdayToClientToday] select', selErr.message);
     return { ok: false, changed: false };
   }
   if (!row) return { ok: true, changed: false };
@@ -56,7 +57,7 @@ export async function syncDemoManagerBirthdayToClientToday(
     .eq('email', DEMO_MANAGER_EMAIL);
 
   if (upErr) {
-    if (import.meta.env.DEV) console.warn('[syncDemoManagerBirthdayToClientToday] update', upErr.message);
+    devConsole.warn('[syncDemoManagerBirthdayToClientToday] update', upErr.message);
     return { ok: false, changed: false };
   }
   return { ok: true, changed: true };

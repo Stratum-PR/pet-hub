@@ -1,5 +1,6 @@
 import React from 'react';
 import { isIgnorableWindowErrorEvent } from '@/lib/ignorableWindowErrorEvent';
+import { devConsole, isClientDebugSurfacesEnabled } from '@/lib/clientDebug';
 
 type Props = {
   children: React.ReactNode;
@@ -27,12 +28,10 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Ignore AbortErrors - these are harmless
     if (isAbortError(error)) {
-      // eslint-disable-next-line no-console
-      console.warn('[GlobalErrorBoundary] Ignoring harmless AbortError:', error);
+      devConsole.warn('[GlobalErrorBoundary] Ignoring harmless AbortError:', error);
       return;
     }
-    // eslint-disable-next-line no-console
-    console.error('[GlobalErrorBoundary] React render error:', error, errorInfo);
+    devConsole.error('[GlobalErrorBoundary] React render error:', error, errorInfo);
     this.setState({ error, errorInfo });
   }
 
@@ -53,24 +52,20 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
     const err = event.error || event.message;
     // Ignore AbortErrors
     if (isAbortError(err)) {
-      // eslint-disable-next-line no-console
-      console.warn('[GlobalErrorBoundary] Ignoring harmless AbortError:', err);
+      devConsole.warn('[GlobalErrorBoundary] Ignoring harmless AbortError:', err);
       return;
     }
-    // eslint-disable-next-line no-console
-    console.error('[GlobalErrorBoundary] window.error:', err, event);
+    devConsole.error('[GlobalErrorBoundary] window.error:', err, event);
     this.setState({ lastEventError: err });
   };
 
   onUnhandledRejection = (event: PromiseRejectionEvent) => {
     // Ignore AbortErrors
     if (isAbortError(event.reason)) {
-      // eslint-disable-next-line no-console
-      console.warn('[GlobalErrorBoundary] Ignoring harmless AbortError:', event.reason);
+      devConsole.warn('[GlobalErrorBoundary] Ignoring harmless AbortError:', event.reason);
       return;
     }
-    // eslint-disable-next-line no-console
-    console.error('[GlobalErrorBoundary] unhandledrejection:', event.reason, event);
+    devConsole.error('[GlobalErrorBoundary] unhandledrejection:', event.reason, event);
     this.setState({ lastEventError: event.reason });
   };
 
@@ -79,8 +74,8 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
 
     if (!error && !lastEventError) return this.props.children;
 
-    const isDev = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
-    const message = isDev
+    const showDebugErrorUi = isClientDebugSurfacesEnabled();
+    const message = showDebugErrorUi
       ? ((error && (error.stack || error.message)) ||
           (typeof lastEventError === 'string'
             ? lastEventError
@@ -93,7 +88,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
           Something went wrong
         </h2>
         <p style={{ marginBottom: 12 }}>
-          {isDev
+          {showDebugErrorUi
             ? 'Open DevTools Console for full logs. Copy the error below and paste it here.'
             : 'Please refresh the page or try again later.'}
         </p>
@@ -110,7 +105,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
           }}
         >
           {message}
-          {isDev && errorInfo?.componentStack ? `\n\nComponent stack:\n${errorInfo.componentStack}` : ''}
+          {showDebugErrorUi && errorInfo?.componentStack ? `\n\nComponent stack:\n${errorInfo.componentStack}` : ''}
         </pre>
       </div>
     );

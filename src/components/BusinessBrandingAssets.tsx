@@ -21,6 +21,7 @@ import {
   parseBusinessBrandingLayout,
 } from '@/lib/businessBrandingLayout';
 import { TimeKioskPreview } from '@/components/TimeKioskPreview';
+import { DEFAULT_GRUMI_WORDMARK_SRC } from '@/lib/marketingLogoFromTheme';
 import {
   BrandingMobileHeaderChromePreview,
   BrandingSidebarCollapsedChromePreview,
@@ -75,7 +76,7 @@ export function BusinessBrandingAssets({
   refetch,
 }: BusinessBrandingAssetsProps) {
   const [logoLight, setLogoLight] = useState<string | null>(() =>
-    typeof window !== 'undefined' && isDemoMode() ? '/pet-hub-icon.svg' : null
+    typeof window !== 'undefined' && isDemoMode() ? DEFAULT_GRUMI_WORDMARK_SRC : null
   );
   const [logoDark, setLogoDark] = useState<string | null>(null);
   const [iconLight, setIconLight] = useState<string | null>(null);
@@ -112,7 +113,7 @@ export function BusinessBrandingAssets({
       const iLight = row?.business_icon_url_light ?? null;
       const iDark = row?.business_icon_url_dark ?? null;
       if (isDemoMode() && !lightLogoUrl) {
-        setLogoLight('/pet-hub-icon.svg');
+        setLogoLight(DEFAULT_GRUMI_WORDMARK_SRC);
         setLogoDark(null);
       } else {
         setLogoLight(lightLogoUrl);
@@ -130,7 +131,7 @@ export function BusinessBrandingAssets({
     const il = settings.business_icon_url_light;
     const id = settings.business_icon_url_dark;
     if (isDemoMode() && !light) {
-      setLogoLight('/pet-hub-icon.svg');
+      setLogoLight(DEFAULT_GRUMI_WORDMARK_SRC);
       setLogoDark(null);
     } else {
       setLogoLight(light ?? null);
@@ -333,7 +334,7 @@ export function BusinessBrandingAssets({
         if (asset === 'logo' && theme === 'light') {
           await updateSetting('business_logo_url', null);
           await updateSetting('business_logo_url_light', null);
-          setLogoLight(isDemoMode() ? '/pet-hub-icon.svg' : null);
+          setLogoLight(isDemoMode() ? DEFAULT_GRUMI_WORDMARK_SRC : null);
         } else if (asset === 'logo' && theme === 'dark') {
           await updateSetting('business_logo_url_dark', null);
           setLogoDark(null);
@@ -467,7 +468,7 @@ export function BusinessBrandingAssets({
             'light',
             t('businessSettings.brandingLogo'),
             logoLight,
-            typeof window !== 'undefined' && isDemoMode() ? '/pet-hub-icon.svg' : null,
+            typeof window !== 'undefined' && isDemoMode() ? DEFAULT_GRUMI_WORDMARK_SRC : null,
             'brand-upload-logo-light'
           )}
           {renderAssetBlock('icon', 'light', t('businessSettings.brandingIcon'), iconLight, null, 'brand-upload-icon-light')}

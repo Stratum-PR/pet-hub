@@ -12,6 +12,7 @@ import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import { t } from '@/lib/translations';
 
 import { DEMO_WORKSPACE_BUSINESS_ID } from '@/lib/demoWorkspace';
+import { devConsole } from '@/lib/clientDebug';
 
 export function DataDiagnostics() {
   const { profile, user, business } = useAuth();
@@ -118,7 +119,7 @@ export function DataDiagnostics() {
           
           // If error is about missing column, try a simple query to verify column exists
           if (clientsError?.code === '42703' && clientsError.message?.includes('business_id')) {
-            console.warn('[DataDiagnostics] business_id column error detected, verifying column existence...');
+            devConsole.warn('[DataDiagnostics] business_id column error detected, verifying column existence...');
             // Try a simple query without business_id filter to see if table is accessible
             const { error: simpleError } = await supabase
               .from('clients')
@@ -140,7 +141,7 @@ export function DataDiagnostics() {
             }
           } else if (clientsError) {
             // Log the full error for debugging
-            console.error('[DataDiagnostics] Clients query error:', {
+            devConsole.error('[DataDiagnostics] Clients query error:', {
               code: clientsError.code,
               message: clientsError.message,
               details: clientsError.details,

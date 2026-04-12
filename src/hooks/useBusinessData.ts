@@ -9,6 +9,7 @@ import {
   validateAppointmentPayload,
 } from '@/lib/businessValidation';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
+import { devConsole } from '@/lib/clientDebug';
 
 function uuidv4(): string {
   if (typeof crypto !== 'undefined') {
@@ -176,7 +177,7 @@ export function useClients() {
     const { staff_notes_business, ...rest } = clientData;
     const validation = validateClientPayload(rest);
     if (!validation.valid) {
-      if (import.meta.env.DEV) console.warn('[useClients] addClient validation:', validation.error);
+      devConsole.warn('[useClients] addClient validation:', validation.error);
       return null;
     }
     if (demoBrowseOnly) {
@@ -199,7 +200,7 @@ export function useClients() {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useClients] addClient error:', error.message, error.code, error.details);
+      devConsole.error('[useClients] addClient error:', error.message, error.code, error.details);
       return null;
     }
     if (staff_notes_business !== undefined && staff_notes_business?.trim()) {
@@ -238,7 +239,7 @@ export function useClients() {
     const { data, error } = await supabase.from('clients').update(row).eq('id', id).select().single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useClients] updateClient error:', error.message, error.code, error.details);
+      devConsole.error('[useClients] updateClient error:', error.message, error.code, error.details);
       return null;
     }
 
@@ -272,7 +273,7 @@ export function useClients() {
     const { error } = await supabase.from('clients').delete().eq('id', id);
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[useClients] deleteClient error:', error.message, error.code, error.details);
+      devConsole.error('[useClients] deleteClient error:', error.message, error.code, error.details);
       return false;
     }
     setClients(clients.filter(c => c.id !== id));
@@ -346,7 +347,7 @@ export function usePets() {
 
       const mergedPets = [...scopedPets, ...appointmentPets];
       setError(null);
-      if (import.meta.env.DEV) console.log('[usePets] Fetched pets with client data:', mergedPets.length);
+      devConsole.log('[usePets] Fetched pets with client data:', mergedPets.length);
       setPets(mergedPets as any);
     }
     setLoading(false);
@@ -369,7 +370,7 @@ export function usePets() {
     };
     const validation = validatePetPayload(rest);
     if (!validation.valid) {
-      if (import.meta.env.DEV) console.warn('[usePets] addPet validation:', validation.error);
+      devConsole.warn('[usePets] addPet validation:', validation.error);
       return null;
     }
     if (demoBrowseOnly) {
@@ -394,7 +395,7 @@ export function usePets() {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[usePets] addPet error:', error.message, error.code, error.details);
+      devConsole.error('[usePets] addPet error:', error.message, error.code, error.details);
       return null;
     }
     if (staff_notes_business !== undefined && staff_notes_business?.trim()) {
@@ -445,7 +446,7 @@ export function usePets() {
       .single();
 
     if (error) {
-      if (import.meta.env.DEV) console.error('[usePets] updatePet error:', error.message, error.code, error.details);
+      devConsole.error('[usePets] updatePet error:', error.message, error.code, error.details);
       return null;
     }
 
@@ -479,7 +480,7 @@ export function usePets() {
     const { error } = await supabase.from('pets').delete().eq('id', id);
     
     if (error) {
-      if (import.meta.env.DEV) console.error('[usePets] deletePet error:', error.message, error.code, error.details);
+      devConsole.error('[usePets] deletePet error:', error.message, error.code, error.details);
       return false;
     }
     // Refetch all pets with JOIN to ensure consistency
@@ -532,7 +533,7 @@ export function useServices() {
     if (!businessId) return null;
     const validation = validateServicePayload(serviceData);
     if (!validation.valid) {
-      if (import.meta.env.DEV) console.warn('[useServices] addService validation:', validation.error);
+      devConsole.warn('[useServices] addService validation:', validation.error);
       return null;
     }
     if (demoBrowseOnly) {
@@ -552,7 +553,7 @@ export function useServices() {
       .single();
     
     if (error) {
-      if (import.meta.env.DEV) console.error('[useServices] addService error:', error.message, error.code, error.details);
+      devConsole.error('[useServices] addService error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -581,7 +582,7 @@ export function useServices() {
       .single();
     
     if (error) {
-      if (import.meta.env.DEV) console.error('[useServices] updateService error:', error.message, error.code, error.details);
+      devConsole.error('[useServices] updateService error:', error.message, error.code, error.details);
       return null;
     }
     if (data) {
@@ -605,7 +606,7 @@ export function useServices() {
       .eq('business_id', businessId);
     
     if (error) {
-      if (import.meta.env.DEV) console.error('[useServices] deleteService error:', error.message, error.code, error.details);
+      devConsole.error('[useServices] deleteService error:', error.message, error.code, error.details);
       return false;
     }
     setServices(services.filter(s => s.id !== id));
@@ -639,7 +640,7 @@ export function useAppointments() {
       setError(err.message ?? 'Failed to load appointments');
     } else if (data) {
       setError(null);
-      if (import.meta.env.DEV) console.log('[useAppointments] Fetched', data.length, 'appointments');
+      devConsole.log('[useAppointments] Fetched', data.length, 'appointments');
       const withStaff = (data as any[]).map((apt) => {
         const staff_id = staffRecordIdFromRow(apt) ?? apt.staff_id;
         return { ...apt, staff_id };
@@ -687,7 +688,7 @@ export function useAppointments() {
     if (!businessId) return null;
     const validation = validateAppointmentPayload(appointmentData);
     if (!validation.valid) {
-      if (import.meta.env.DEV) console.warn('[useAppointments] addAppointment validation:', validation.error);
+      devConsole.warn('[useAppointments] addAppointment validation:', validation.error);
       return null;
     }
     if (demoBrowseOnly) {

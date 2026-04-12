@@ -17,6 +17,7 @@ import { getPaymentStatusLabel } from '@/types/transactions';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { devConsole } from '@/lib/clientDebug';
 
 type TransactionStatus =
   | 'pending'
@@ -140,7 +141,10 @@ export function Transactions() {
     e.stopPropagation();
     const result = await updateTransaction(txn.id, { amount_tendered: txn.total, status: 'paid', change_given: 0 });
     if (result.ok) toast.success(t('transactions.markedAsPaid') ?? 'Marked as paid');
-    else toast.error(result.error || t('common.genericError'));
+    else {
+      if (result.error) devConsole.error('[Transactions] mark as paid', result.error);
+      toast.error(t('common.genericError'));
+    }
   };
 
   const filtered = useMemo(() => {

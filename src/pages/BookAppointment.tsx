@@ -16,6 +16,7 @@ import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 import { ensureBusinessClientLink } from '@/lib/businessClientLink';
+import { devConsole } from '@/lib/clientDebug';
 
 const CAT_BREEDS = [
   'Mixed Breed - Shorthair',
@@ -235,7 +236,7 @@ export function BookAppointment() {
       
       setPhoneStep(false);
     } catch (error) {
-      console.error('Error looking up phone:', error);
+      devConsole.error('Error looking up phone:', error);
       alert('Error looking up phone number. Please try again.');
     } finally {
       setPhoneMatching(false);
@@ -482,7 +483,7 @@ export function BookAppointment() {
         }
       }
     } catch (error) {
-      console.error('Error:', error);
+      devConsole.error('Error:', error);
       alert('Error creating appointment. Please try again.');
     } finally {
       setLoading(false);

@@ -9,6 +9,7 @@ import { useBusinessId } from './useBusinessId';
 import type { Employee, TimeEntry, TimeEntryEditRequest } from '@/types';
 import { useGeolocation, GeolocationPosition } from './useGeolocation';
 import { useFeatureRollout } from './useFeatureRollout';
+import { devConsole } from '@/lib/clientDebug';
 export interface ClockInOutResult {
   success: boolean;
   action: 'clock_in' | 'clock_out';
@@ -132,7 +133,7 @@ export function useTimeKiosk() {
           } catch (geoErr) {
             // Geolocation is optional, continue without it
             if (import.meta.env.DEV) {
-              console.warn('Geolocation not available:', geoErr);
+              devConsole.warn('Geolocation not available:', geoErr);
             }
           }
         }

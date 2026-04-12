@@ -28,6 +28,7 @@ import {
   convertEmployeesToCalendar,
 } from '@/lib/calendarHelpers';
 import { BookingFormDialog } from '@/components/BookingFormDialog';
+import { devConsole } from '@/lib/clientDebug';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { AppointmentBookListView } from '@/components/AppointmentBookListView';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
@@ -627,7 +628,7 @@ export function AppointmentBook() {
                     onNextDay={handleNextPeriod}
                     onToday={handleToolbarToday}
                     onCheckIn={(appointmentId) => {
-                      console.log('Check in:', appointmentId);
+                      devConsole.log('Check in:', appointmentId);
                     }}
                     onCreateClick={() => openCreate()}
                     canMarkNoShow={canMarkNoShow}

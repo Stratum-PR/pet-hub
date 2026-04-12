@@ -34,6 +34,7 @@ import { format } from 'date-fns';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
 import { getPaymentStatusLabel, getPaymentStatusFromAmount } from '@/types/transactions';
 import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
+import { devConsole } from '@/lib/clientDebug';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Cash',
@@ -290,7 +291,8 @@ export function TransactionDetail() {
       if (transactionId) fetchTransactionHistory(transactionId).then(setHistoryEntries);
       toast.success(t('common.saved'));
     } else {
-      toast.error(editResult.error || t('common.genericError'));
+      if (editResult.error) devConsole.error('[TransactionDetail] updateTransaction', editResult.error);
+      toast.error(t('common.genericError'));
     }
   };
 
@@ -323,7 +325,8 @@ export function TransactionDetail() {
     setRefundAmount('');
     setRefundReason('');
     if (result.error) {
-      toast.error(result.error);
+      devConsole.error('[TransactionDetail] createRefund', result.error);
+      toast.error(t('common.genericError'));
       return;
     }
     if (result.data) {
@@ -430,7 +433,10 @@ export function TransactionDetail() {
           return entries;
         });
       }, 600);
-    } else toast.error(markPaidResult.error || t('common.genericError'));
+    } else {
+      if (markPaidResult.error) devConsole.error('[TransactionDetail] mark paid', markPaidResult.error);
+      toast.error(t('common.genericError'));
+    }
   };
 
   return (

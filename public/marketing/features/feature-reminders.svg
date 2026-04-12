@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" fill="none" aria-hidden="true">
+  <rect width="400" height="220" rx="16" fill="#f8fbff"/>
+  <rect x="1" y="1" width="398" height="218" rx="15" stroke="#c8daf2" stroke-width="2"/>
+  <rect x="32" y="36" width="148" height="56" rx="12" fill="#fff" stroke="#c8daf2" stroke-width="1.5"/>
+  <text x="44" y="60" fill="#5a7aa0" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="600">Revenue</text>
+  <text x="44" y="80" fill="#185fa5" font-family="system-ui,Segoe UI,sans-serif" font-size="18" font-weight="800">$265</text>
+  <rect x="196" y="36" width="172" height="56" rx="12" fill="#fff" stroke="#c8daf2" stroke-width="1.5"/>
+  <text x="208" y="60" fill="#5a7aa0" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="600">No-show</text>
+  <text x="208" y="80" fill="#185fa5" font-family="system-ui,Segoe UI,sans-serif" font-size="18" font-weight="800">0%</text>
+  <rect x="32" y="108" width="336" height="80" rx="14" fill="#dcf8e4" stroke="#7bc995" stroke-width="1.5"/>
+  <path d="M56 168 L120 140 L184 152 L248 128 L312 144 L352 120" stroke="#185fa5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.2"/>
+  <rect x="52" y="128" width="296" height="44" rx="10" fill="#fff" opacity="0.85"/>
+  <text x="64" y="156" fill="#1a3d5c" font-family="system-ui,Segoe UI,sans-serif" font-size="10" font-weight="600">Reminder: appointment tomorrow 10am</text>
+</svg>

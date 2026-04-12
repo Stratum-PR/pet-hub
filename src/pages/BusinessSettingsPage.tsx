@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ import {
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
-import { Download, Plus, Trash2, X } from 'lucide-react';
+import { Download, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { GeofencingSettings } from '@/components/GeofencingSettings';
 import { KioskManagerPinSettings } from '@/components/KioskManagerPinSettings';
@@ -33,6 +33,7 @@ import { BusinessBrandingColors } from '@/components/BusinessBrandingColors';
 import { BusinessTimezoneCombobox } from '@/components/BusinessTimezoneCombobox';
 import { BusinessBrandingAssets } from '@/components/BusinessBrandingAssets';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
+import { devConsole } from '@/lib/clientDebug';
 import type { TaxAppliesTo } from '@/types/transactions';
 import {
   DAYS_OF_WEEK,
@@ -88,7 +89,6 @@ function isPuertoRicoTaxSetup(rows: { label: string; rate: number }[]): boolean 
 
 export function BusinessSettingsPage() {
   const location = useLocation();
-  const navigate = useNavigate();
   const { businessSlug: routeBusinessSlug } = useParams<{ businessSlug?: string }>();
   const queryClient = useQueryClient();
   const { business } = useAuth();
@@ -128,6 +128,8 @@ export function BusinessSettingsPage() {
   const [publicSlugCheck, setPublicSlugCheck] = useState<PublicSlugCheckStatus>('idle');
   const [hoursPerDay, setHoursPerDay] = useState<Record<DayKey, DayHours>>(() => parseBusinessHours(settings.business_hours));
   const [savingGeneralBusiness, setSavingGeneralBusiness] = useState(false);
+  /** After slug save: brief overlay then full reload so URL and auth cache stay aligned. */
+  const [refreshingPublicUrl, setRefreshingPublicUrl] = useState(false);
   const [savingBusinessHours, setSavingBusinessHours] = useState(false);
   const [qrCodeSvg, setQrCodeSvg] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
@@ -323,7 +325,8 @@ export function BusinessSettingsPage() {
       .then(({ data, error }) => {
         setTaxLoading(false);
         if (error) {
-          toast.error(error.message);
+          devConsole.error('[BusinessSettings] tax_settings load', error);
+          toast.error(t('common.genericError'));
           return;
         }
         const rows = (data || []).map((r: any) => ({
@@ -382,8 +385,8 @@ export function BusinessSettingsPage() {
           old_slug: prevSlug,
           business_id: businessId,
         });
-        if (aliasErr && (aliasErr as { code?: string }).code !== '23505' && import.meta.env.DEV) {
-          console.warn('[BusinessSettings] slug alias', aliasErr);
+        if (aliasErr && (aliasErr as { code?: string }).code !== '23505') {
+          devConsole.warn('[BusinessSettings] slug alias', aliasErr);
         }
       }
       const { error: bizError } = await supabase
@@ -398,14 +401,7 @@ export function BusinessSettingsPage() {
         .eq('id', businessId);
       if (bizError) throw bizError;
       setPublicSlug(nextSlug);
-      await queryClient.invalidateQueries({ queryKey: ['business', businessId] });
-      if (routeBusinessSlug && nextSlug !== routeBusinessSlug) {
-        const prefix = `/${routeBusinessSlug}`;
-        const suffix = location.pathname.startsWith(prefix)
-          ? location.pathname.slice(prefix.length)
-          : '/settings/business';
-        navigate(`/${nextSlug}${suffix}${location.search}${location.hash}`, { replace: true });
-      }
+
       const nameRes = await updateSetting('business_name', businessName.trim() || '');
       if (!nameRes.ok) throw new Error(nameRes.error);
       const tzRes = await updateSetting('timezone', normalizedTimezone);
@@ -419,13 +415,33 @@ export function BusinessSettingsPage() {
         },
         { onConflict: 'business_id' }
       );
+
+      await queryClient.invalidateQueries({ queryKey: ['business', businessId] });
+
       toast.success(t('businessSettings.generalBusinessSaved'));
+
+      const slugChanged = Boolean(routeBusinessSlug && nextSlug !== routeBusinessSlug);
+      if (slugChanged) {
+        setRefreshingPublicUrl(true);
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+        await new Promise((r) => setTimeout(r, 1600));
+        const prefix = `/${routeBusinessSlug}`;
+        const suffix = location.pathname.startsWith(prefix)
+          ? location.pathname.slice(prefix.length)
+          : '/settings/business';
+        const nextPath = `/${nextSlug}${suffix}${location.search}${location.hash}`;
+        window.location.assign(`${window.location.origin}${nextPath}`);
+        return;
+      }
     } catch (e: any) {
+      devConsole.error('[BusinessSettings] save general business', e);
       const code = e?.code as string | undefined;
       if (code === '23505') {
         toast.error(t('businessSettings.slugTaken'));
       } else {
-        toast.error(e?.message || t('common.genericError'));
+        toast.error(t('common.genericError'));
       }
     } finally {
       setSavingGeneralBusiness(false);
@@ -440,7 +456,8 @@ export function BusinessSettingsPage() {
       if (!hoursRes.ok) throw new Error(hoursRes.error);
       toast.success(t('businessSettings.businessHoursSaved'));
     } catch (e: any) {
-      toast.error(e?.message || t('common.genericError'));
+      devConsole.error('[BusinessSettings] save business hours', e);
+      toast.error(t('common.genericError'));
     } finally {
       setSavingBusinessHours(false);
     }
@@ -451,7 +468,8 @@ export function BusinessSettingsPage() {
     const v = String(Math.max(0, parseInt(defaultLowStock, 10) || 5));
     const res = await updateSetting('default_low_stock_threshold', v);
     if (!res.ok) {
-      toast.error(res.error || t('common.genericError'));
+      devConsole.warn('[BusinessSettings] default_low_stock_threshold', res.error);
+      toast.error(t('common.genericError'));
       return;
     }
     setDefaultLowStock(v);
@@ -465,7 +483,8 @@ export function BusinessSettingsPage() {
     const res = await updateSetting('kiosk_warn_off_schedule', checked ? 'true' : 'false');
     if (!res.ok) {
       setKioskWarnOffSchedule(prev);
-      toast.error(res.error || t('common.genericError'));
+      devConsole.warn('[BusinessSettings] kiosk_warn_off_schedule', res.error);
+      toast.error(t('common.genericError'));
       return;
     }
   };
@@ -477,7 +496,8 @@ export function BusinessSettingsPage() {
     const res = await updateSetting('allow_employee_mobile_punch', checked ? 'true' : 'false');
     if (!res.ok) {
       setAllowEmployeeMobilePunch(prev);
-      toast.error(res.error || t('common.genericError'));
+      devConsole.warn('[BusinessSettings] allow_employee_mobile_punch', res.error);
+      toast.error(t('common.genericError'));
       return;
     }
   };
@@ -488,23 +508,27 @@ export function BusinessSettingsPage() {
     try {
       const anchorRes = await updateSetting('pay_schedule_anchor_date', payScheduleAnchorDate);
       if (!anchorRes.ok) {
-        toast.error(anchorRes.error || t('common.genericError'));
+        devConsole.warn('[BusinessSettings] pay_schedule_anchor_date', anchorRes.error);
+        toast.error(t('common.genericError'));
         return;
       }
       const cadenceRes = await updateSetting('pay_schedule_cadence_weeks', payScheduleCadenceWeeks);
       if (!cadenceRes.ok) {
-        toast.error(cadenceRes.error || t('common.genericError'));
+        devConsole.warn('[BusinessSettings] pay_schedule_cadence_weeks', cadenceRes.error);
+        toast.error(t('common.genericError'));
         return;
       }
       const pdfLogoRes = await updateSetting('payroll_pdf_include_logo', payrollPdfIncludeLogo ? 'true' : 'false');
       if (!pdfLogoRes.ok) {
-        toast.error(pdfLogoRes.error || t('common.genericError'));
+        devConsole.warn('[BusinessSettings] payroll_pdf_include_logo', pdfLogoRes.error);
+        toast.error(t('common.genericError'));
         return;
       }
       await refetch();
       toast.success(t('businessSettings.payScheduleSaved'));
     } catch (e: any) {
-      toast.error(e?.message || t('common.genericError'));
+      devConsole.error('[BusinessSettings] save pay schedule', e);
+      toast.error(t('common.genericError'));
     } finally {
       setSavingPaySchedule(false);
     }
@@ -529,8 +553,10 @@ export function BusinessSettingsPage() {
       },
       { onConflict: 'business_id' }
     );
-    if (error) toast.error(error.message);
-    else toast.success(t('businessSettings.receiptSaved'));
+    if (error) {
+      devConsole.error('[BusinessSettings] receipt_settings upsert', error);
+      toast.error(t('common.genericError'));
+    } else toast.success(t('businessSettings.receiptSaved'));
   };
 
   const handleSaveTaxes = async () => {
@@ -587,7 +613,8 @@ export function BusinessSettingsPage() {
         );
       }
     } catch (e: any) {
-      toast.error(e?.message || t('common.genericError'));
+      devConsole.error('[BusinessSettings] save taxes', e);
+      toast.error(t('common.genericError'));
     } finally {
       setTaxSaving(false);
     }
@@ -633,6 +660,7 @@ export function BusinessSettingsPage() {
       URL.revokeObjectURL(url);
       toast.success(t('businessSettings.exportSuccess'));
     } catch (e) {
+      devConsole.error('[BusinessSettings] export', e);
       toast.error(t('common.genericError'));
     } finally {
       setExporting(false);
@@ -663,7 +691,8 @@ export function BusinessSettingsPage() {
       setQrCodeSvg(svg);
       toast.success('QR del portal actualizado.');
     } catch (e: any) {
-      toast.error(e?.message || t('common.genericError'));
+      devConsole.error('[BusinessSettings] generate QR', e);
+      toast.error(t('common.genericError'));
     } finally {
       setQrBusy(false);
     }
@@ -710,7 +739,20 @@ export function BusinessSettingsPage() {
   };
 
   return (
-    <div className="space-y-10 animate-fade-in">
+    <div className="space-y-10 animate-fade-in relative">
+      {refreshingPublicUrl ? (
+        <div
+          className="fixed inset-0 z-[300] flex flex-col items-center justify-center gap-4 bg-background/95 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <Loader2 className="h-10 w-10 animate-spin text-primary shrink-0" aria-hidden />
+          <p className="text-sm font-medium text-foreground text-center px-6 max-w-sm">
+            {t('businessSettings.refreshingPublicUrl')}
+          </p>
+        </div>
+      ) : null}
         <section id="general" className="scroll-mt-24 space-y-6">
           <Card>
             <CardHeader>
@@ -811,6 +853,7 @@ export function BusinessSettingsPage() {
                 onClick={handleSaveGeneralBusiness}
                 disabled={
                   savingGeneralBusiness ||
+                  refreshingPublicUrl ||
                   (!demoLocalOnly &&
                     (publicSlugCheck === 'checking' ||
                       publicSlugCheck === 'taken' ||
@@ -818,7 +861,7 @@ export function BusinessSettingsPage() {
                       publicSlugCheck === 'reserved'))
                 }
               >
-                {savingGeneralBusiness ? t('common.saving') : t('common.save')}
+                {savingGeneralBusiness || refreshingPublicUrl ? t('common.saving') : t('common.save')}
               </Button>
             </CardContent>
           </Card>

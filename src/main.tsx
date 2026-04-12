@@ -4,6 +4,7 @@ import "./index.css";
 import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
 import { HelmetProvider } from "react-helmet-async";
 import { isIgnorableWindowErrorEvent } from "./lib/ignorableWindowErrorEvent";
+import { devConsole, isClientDebugSurfacesEnabled } from "./lib/clientDebug";
 
 function isAbortError(err: unknown): boolean {
   if (err instanceof Error) {
@@ -32,18 +33,13 @@ function formatBootstrapError(err: unknown): string {
 function renderFatalError(err: unknown) {
   // Ignore AbortErrors - these are harmless and occur during normal operation
   if (isAbortError(err)) {
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.warn("[bootstrap] Ignoring harmless AbortError:", err);
-    }
+    devConsole.warn("[bootstrap] Ignoring harmless AbortError:", err);
     return;
   }
 
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
-    console.error("[bootstrap] fatal error", err);
-  }
+  devConsole.error("[bootstrap] fatal error", err);
   const msg = formatBootstrapError(err);
+  const showDetails = isClientDebugSurfacesEnabled();
 
   // Render a minimal fallback even if React can't mount. Use textContent for error
   // message and createElement for structure so no innerHTML with dynamic content (XSS-safe).
@@ -54,10 +50,12 @@ function renderFatalError(err: unknown) {
   h2.textContent = "App failed to start";
   const p = document.createElement("p");
   p.setAttribute("style", "margin-bottom:12px");
-  p.textContent = "Copy the error below and paste it here.";
+  p.textContent = showDetails
+    ? "Copy the error below and paste it here."
+    : "Please refresh the page or try again later.";
   const pre = document.createElement("pre");
   pre.setAttribute("style", "background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;overflow:auto;max-height:360px;font-size:12px;line-height:1.4");
-  pre.textContent = msg;
+  pre.textContent = showDetails ? msg : "Something went wrong while starting the app.";
   root.appendChild(h2);
   root.appendChild(p);
   root.appendChild(pre);

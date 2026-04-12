@@ -11,6 +11,7 @@ import {
   clearPostAuthHint,
 } from '@/lib/authRouting';
 import { broadcastAuthLogin } from '@/lib/authBroadcast';
+import { devConsole } from '@/lib/clientDebug';
 
 const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
 const PENDING_MANAGER_TIER = 'pending_manager_tier';
@@ -54,7 +55,7 @@ export function AuthCallback() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          console.error('[AuthCallback] exchangeCodeForSession error:', error);
+          devConsole.error('[AuthCallback] exchangeCodeForSession error:', error);
           if (!cancelled) setStatus('error');
           return;
         }

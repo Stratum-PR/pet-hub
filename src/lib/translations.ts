@@ -1,4 +1,5 @@
 import { DEMO_LANGUAGE_STORAGE_KEY, isDemoMode } from '@/lib/authRouting';
+import { devConsole } from '@/lib/clientDebug';
 
 export type Language = 'en' | 'es';
 
@@ -111,14 +112,248 @@ export const translations: Translations = {
     en: 'Pricing',
     es: 'Precios'
   },
-  'landing.navFaq': {
-    en: 'FAQ',
-    es: 'Preguntas Frecuentes'
+  'landing.navContactUs': {
+    en: 'Contact Us',
+    es: 'Contáctanos',
   },
-  'landing.navAbout': {
-    en: 'About',
-    es: 'Nosotros'
+  'marketing.bottomCta.title': {
+    en: 'Ready to transform your salon?',
+    es: '¿Listo para transformar tu salón?',
   },
+  'marketing.bottomCta.subtitle': {
+    en: 'Join the waitlist and get 25% off your first year.',
+    es: 'Únete a la lista de espera y obtén 25% de descuento tu primer año.',
+  },
+  'marketing.features.heroTag': {
+    en: 'SOLUTIONS',
+    es: 'SOLUCIONES',
+  },
+  'marketing.features.heroTitle': {
+    en: 'Everything your salon needs in one place',
+    es: 'Todo lo que tu salón necesita, en un solo lugar',
+  },
+  'marketing.features.heroSubtitle': {
+    en: 'Grumi was built specifically for pet grooming salons in Puerto Rico—from appointments to payroll, without the hassle.',
+    es: 'Grumi fue diseñado específicamente para peluquerías de mascotas en Puerto Rico—desde citas hasta nómina, sin complicaciones.',
+  },
+  'marketing.features.c1.title': {
+    en: 'Appointments & calendar',
+    es: 'Citas y Agenda',
+  },
+  'marketing.features.c1.body': {
+    en: 'See your day at a glance with per-staff columns and online booking. Reduce no-shows with waitlist-friendly scheduling.',
+    es: 'Visualiza tu día con columnas por empleado y reservas en línea. Reduce ausencias con agenda compatible con lista de espera.',
+  },
+  'marketing.features.c1.t1': { en: 'Per-staff calendar', es: 'Calendario por empleado' },
+  'marketing.features.c1.t2': { en: 'Online booking', es: 'Reservas en línea' },
+  'marketing.features.c1.t3': { en: 'Waitlist', es: 'Lista de espera' },
+  'marketing.features.c2.title': {
+    en: 'Staff management',
+    es: 'Gestión de Empleados',
+  },
+  'marketing.features.c2.body': {
+    en: 'Weekly schedules, timesheets, and a simple PIN punch flow help your team stay accountable without extra hardware.',
+    es: 'Horario semanal, hojas de horas y fichaje con PIN mantienen al equipo alineado sin hardware extra.',
+  },
+  'marketing.features.c2.t1': { en: 'Weekly schedule', es: 'Horario semanal' },
+  'marketing.features.c2.t2': { en: 'Timesheets', es: 'Hojas de horas' },
+  'marketing.features.c2.t3': { en: 'PIN punch clock', es: 'Ponchador PIN' },
+  'marketing.features.c2.t4': { en: 'Payroll', es: 'Nómina' },
+  'marketing.features.c3.title': {
+    en: 'Automatic reminders',
+    es: 'Recordatorios Automáticos',
+  },
+  'marketing.features.c3.body': {
+    en: 'Send confirmations and reminders by SMS or WhatsApp so clients show up on time and your revenue stays predictable.',
+    es: 'Envía confirmaciones y recordatorios por SMS o WhatsApp para que los clientes lleguen a tiempo y tus ingresos sean predecibles.',
+  },
+  'marketing.features.c3.t1': { en: 'SMS / WhatsApp', es: 'SMS / WhatsApp' },
+  'marketing.features.c3.t2': { en: 'Confirmations', es: 'Confirmaciones' },
+  'marketing.features.c3.t3': { en: 'No-show rate', es: 'Tasa no-show' },
+  'marketing.features.c4.title': {
+    en: 'Clients & pets',
+    es: 'Clientes y Mascotas',
+  },
+  'marketing.features.c4.body': {
+    en: 'Keep rich profiles for people and pets with breed, notes, and appointment history in one organized workspace.',
+    es: 'Perfiles de clientes y fichas de mascotas con raza, notas e historial de citas en un solo lugar ordenado.',
+  },
+  'marketing.features.c4.t1': { en: 'Client profiles', es: 'Perfiles de clientes' },
+  'marketing.features.c4.t2': { en: 'Pet records', es: 'Fichas de mascotas' },
+  'marketing.features.c4.t3': { en: 'Appointment history', es: 'Historial de citas' },
+  'marketing.features.c5.title': {
+    en: 'Dashboard & reports',
+    es: 'Dashboard y Reportes',
+  },
+  'marketing.features.c5.body': {
+    en: 'Track top services, trends, and team performance with exportable insights you can act on the same day.',
+    es: 'Sigue servicios top, tendencias y desempeño con informes exportables para decidir el mismo día.',
+  },
+  'marketing.features.c5.t1': { en: 'Top services', es: 'Top servicios' },
+  'marketing.features.c5.t2': { en: 'Sales trend', es: 'Tendencia de ventas' },
+  'marketing.features.c5.t3': { en: 'Export reports', es: 'Exportar informes' },
+  'marketing.features.c6.title': {
+    en: 'Inventory',
+    es: 'Inventario',
+  },
+  'marketing.features.c6.body': {
+    en: 'SKUs, low-stock alerts, and cost vs. sale visibility help you reorder before you run out mid-groom.',
+    es: 'SKU, alertas de stock bajo y costo vs. venta para reordenar antes de quedarte sin producto.',
+  },
+  'marketing.features.c6.t1': { en: 'SKU & codes', es: 'SKU y códigos' },
+  'marketing.features.c6.t2': { en: 'Low stock alerts', es: 'Alerta stock bajo' },
+  'marketing.features.c6.t3': { en: 'Cost vs. sale', es: 'Costo vs. venta' },
+  'marketing.features.c1.imageAlt': {
+    en: 'Illustration of a multi-column appointment calendar with time slots.',
+    es: 'Ilustración de agenda de citas en columnas con franjas horarias.',
+  },
+  'marketing.features.c2.imageAlt': {
+    en: 'Illustration of weekly staff schedules and a PIN keypad.',
+    es: 'Ilustración de horarios semanales del equipo y teclado PIN.',
+  },
+  'marketing.features.c3.imageAlt': {
+    en: 'Illustration of revenue metrics and an automated client reminder message.',
+    es: 'Ilustración de métricas de ingresos y un recordatorio automático al cliente.',
+  },
+  'marketing.features.c4.imageAlt': {
+    en: 'Illustration of client profiles alongside pet records.',
+    es: 'Ilustración de perfiles de clientes junto a fichas de mascotas.',
+  },
+  'marketing.features.c5.imageAlt': {
+    en: 'Illustration of a dashboard with KPI chips and horizontal bar summaries.',
+    es: 'Ilustración de un panel con chips de KPI y barras de resumen.',
+  },
+  'marketing.features.c6.imageAlt': {
+    en: 'Illustration of inventory items with a low-stock highlight.',
+    es: 'Ilustración de artículos de inventario con resaltado de stock bajo.',
+  },
+  'marketing.why.problemTitle': {
+    en: 'Existing solutions were not built for Puerto Rico.',
+    es: 'Las soluciones existentes no fueron hechas para Puerto Rico.',
+  },
+  'marketing.why.card1.title': { en: 'They do not speak your language', es: 'No hablan tu idioma' },
+  'marketing.why.card1.body': {
+    en: 'Platforms like DaySmart and Gingr are English-first with little support for the local market.',
+    es: 'Plataformas como DaySmart y Gingr están en inglés y no ofrecen soporte para el mercado local.',
+  },
+  'marketing.why.card2.title': { en: 'Payments without ATH Móvil', es: 'Pagos sin ATH Móvil' },
+  'marketing.why.card2.body': {
+    en: 'Competitors do not integrate ATH Móvil—the preferred payment method in Puerto Rico.',
+    es: 'Ningún competidor integra ATH Móvil — el método de pago preferido en Puerto Rico.',
+  },
+  'marketing.why.card3.title': { en: 'Unnecessary infrastructure', es: 'Infraestructura innecesaria' },
+  'marketing.why.card3.body': {
+    en: 'They expect physical POS readers and scanners that most salons in PR do not use or need.',
+    es: 'Requieren lectores físicos de POS y escáneres que la mayoría de salones en PR no usan ni necesitan.',
+  },
+  'marketing.why.solutionTag': { en: 'BUILT FOR YOU', es: 'HECHO PARA TI' },
+  'marketing.why.solutionTitle': {
+    en: 'Grumi was born from the problem, not the lab.',
+    es: 'Grumi nació del problema, no del laboratorio.',
+  },
+  'marketing.why.solutionBody': {
+    en: 'We work directly with groomers and salon owners in Puerto Rico to understand real challenges—not a generic market. The result speaks your language, accepts the payments your clients use, and adapts to how you work.',
+    es: 'Trabajamos directamente junto a peluqueros y dueños de salones en Puerto Rico para entender sus retos reales — no los de un mercado genérico. El resultado habla tu idioma, acepta los pagos que usan tus clientes, y se adapta a cómo tú trabajas.',
+  },
+  'marketing.why.pageTag': { en: 'The problem', es: 'El problema' },
+  'marketing.why.diffHeading': {
+    en: 'What you get with Grumi',
+    es: 'Lo que obtienes con Grumi',
+  },
+  'marketing.why.diff1': {
+    en: 'Fully Spanish interface',
+    es: 'Interfaz completamente en español',
+  },
+  'marketing.why.diff2': {
+    en: 'Native ATH Móvil and Stripe integration',
+    es: 'Integración nativa con ATH Móvil y Stripe',
+  },
+  'marketing.why.diff3': {
+    en: 'No hardware required—works on any device',
+    es: 'Sin hardware requerido — funciona desde cualquier dispositivo',
+  },
+  'marketing.why.diff4': {
+    en: 'Support and development from Puerto Rico',
+    es: 'Soporte y desarrollo desde Puerto Rico',
+  },
+  'marketing.contact.title': {
+    en: 'We are excited to have you at Grumi',
+    es: 'Estamos emocionados de tenerte en Grumi',
+  },
+  'marketing.contact.subtitle': {
+    en: 'If you have questions, feedback, or want to learn more about the platform, write to us directly.',
+    es: 'Si tienes preguntas, comentarios o quieres saber más sobre la plataforma, escríbenos directamente.',
+  },
+  'marketing.contact.emailLabel': { en: 'Email', es: 'Correo' },
+  'marketing.contact.copy': { en: 'Copy', es: 'Copiar' },
+  'marketing.contact.copied': { en: 'Copied', es: 'Copiado' },
+  'marketing.contact.waitlistHint': {
+    en: 'Grumi is in active development. Be among the first to try it.',
+    es: 'Grumi está en desarrollo activo. Sé de los primeros en probarlo.',
+  },
+  'marketing.contact.heroTag': { en: 'Contact', es: 'Contacto' },
+  'marketing.contact.waitlistTitle': {
+    en: 'Join the waitlist',
+    es: 'Únete a la lista de espera',
+  },
+  'marketing.contact.waitlistLead': {
+    en: 'Share your salon details and we will reach out when spots open.',
+    es: 'Comparte los datos de tu salón y te contactaremos cuando abramos cupos.',
+  },
+  'footer.termsOfUse': { en: 'Terms of Use', es: 'Términos de Uso' },
+  'footer.websiteTerms': { en: 'Website Terms of Use', es: 'Términos de Uso del Sitio' },
+  'footer.privacyPolicy': { en: 'Privacy policy', es: 'Política de Privacidad' },
+  'footer.cookieSettings': { en: 'Cookie settings', es: 'Configuración de cookies' },
+  'cookies.bannerTitle': {
+    en: 'Cookies and similar technologies',
+    es: 'Cookies y tecnologías similares',
+  },
+  'cookies.bannerBody': {
+    en: 'We use essential cookies to run the site, optional cookies for your preferences and (if you allow) analytics and marketing. You can change your choices at any time.',
+    es: 'Usamos cookies necesarias para operar el sitio y cookies opcionales para preferencias y, si lo permites, analíticas y marketing. Puedes cambiar tu decisión en cualquier momento.',
+  },
+  'cookies.bannerProcessors': {
+    en: 'Operations rely on Supabase (hosting and auth), our waitlist and consent services, and, when you use payments, Stripe and ATH Móvil as described in our privacy policy.',
+    es: 'La operación usa Supabase (alojamiento y autenticación), nuestros servicios de lista de espera y consentimiento y, cuando uses pagos, Stripe y ATH Móvil según se describe en nuestra política de privacidad.',
+  },
+  'cookies.privacyLink': { en: 'Privacy policy', es: 'Política de privacidad' },
+  'cookies.customize': { en: 'Customize', es: 'Personalizar' },
+  'cookies.rejectOptional': {
+    en: 'Reject non-essential',
+    es: 'Rechazar no esenciales',
+  },
+  'cookies.acceptAll': { en: 'Accept all', es: 'Aceptar todas' },
+  'cookies.dialogTitle': { en: 'Cookie preferences', es: 'Preferencias de cookies' },
+  'cookies.dialogIntro': {
+    en: 'Necessary cookies are always on. Turn optional categories on or off, then save.',
+    es: 'Las cookies necesarias permanecen activas. Activa o desactiva las categorías opcionales y guarda.',
+  },
+  'cookies.catNecessaryTitle': { en: 'Strictly necessary', es: 'Estrictamente necesarias' },
+  'cookies.catNecessaryDesc': {
+    en: 'Security, load balancing, session and authentication (Supabase), and storing your consent decision.',
+    es: 'Seguridad, balanceo de carga, sesión y autenticación (Supabase) y guardar tu decisión de consentimiento.',
+  },
+  'cookies.catPreferencesTitle': { en: 'Preferences', es: 'Preferencias' },
+  'cookies.catPreferencesDesc': {
+    en: 'Remember language, theme, and similar UI choices (including sidebar layout where applicable).',
+    es: 'Recordar idioma, tema y opciones similares de la interfaz (incluido el menú lateral cuando aplique).',
+  },
+  'cookies.catAnalyticsTitle': { en: 'Analytics', es: 'Analíticas' },
+  'cookies.catAnalyticsDesc': {
+    en: 'Help us understand traffic and product usage (for example Google Analytics when enabled by us).',
+    es: 'Nos ayudan a entender tráfico y uso del producto (por ejemplo Google Analytics si lo habilitamos).',
+  },
+  'cookies.catMarketingTitle': { en: 'Marketing', es: 'Marketing' },
+  'cookies.catMarketingDesc': {
+    en: 'Measure campaigns or show relevant offers if we add marketing tools later.',
+    es: 'Medir campañas u ofertas relevantes si añadimos herramientas de marketing más adelante.',
+  },
+  'cookies.paymentFootnote': {
+    en: 'When you configure or complete a payment, Stripe and/or ATH Móvil may set additional cookies or storage needed for fraud prevention and processing; that processing is described in our privacy policy.',
+    es: 'Al configurar o completar un pago, Stripe y/o ATH Móvil pueden establecer cookies o almacenamiento adicional necesarios para prevenir fraude y procesar el pago; ese tratamiento se describe en nuestra política de privacidad.',
+  },
+  'cookies.cancel': { en: 'Close', es: 'Cerrar' },
+  'cookies.saveChoices': { en: 'Save choices', es: 'Guardar elección' },
   'landing.modalClose': {
     en: 'Close modal',
     es: 'Cerrar'
@@ -1458,6 +1693,10 @@ export const translations: Translations = {
   'businessSettings.address': { en: 'Address', es: 'Dirección' },
   'businessSettings.businessInfoSaved': { en: 'Business info saved', es: 'Información guardada' },
   'businessSettings.generalBusinessSaved': { en: 'General business settings saved', es: 'Configuración general guardada' },
+  'businessSettings.refreshingPublicUrl': {
+    en: 'Refreshing public URL…',
+    es: 'Actualizando la URL pública…',
+  },
   'businessSettings.businessHoursSaved': { en: 'Business hours saved', es: 'Horario guardado' },
   'businessSettings.brandingLayoutSaved': { en: 'Logo layout saved', es: 'Diseño del logo guardado' },
   'businessSettings.brandingLightSection': { en: 'Light mode', es: 'Modo claro' },
@@ -5179,7 +5418,7 @@ export const getLanguage = (): Language => {
 export const t = (key: string, params?: Record<string, string | number>): string => {
   const translation = translations[key];
   if (!translation) {
-    if (import.meta.env.DEV) console.warn(`Translation missing for key: ${key}`);
+    devConsole.warn(`Translation missing for key: ${key}`);
     return key;
   }
   const lang = getLanguage();

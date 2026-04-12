@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Business } from '@/lib/auth';
+import { devConsole } from '@/lib/clientDebug';
 
 /** Match Postgres `slugify` in signup migrations (accent strip + alnum + hyphens). */
 export function slugifyBusinessBase(name: string): string {
@@ -87,7 +88,7 @@ export async function isPublicSlugTakenByOtherBusiness(
     p_own_business_id: ownBusinessId,
   });
   if (error) {
-    if (import.meta.env.DEV) console.warn('[businessSlug] is_public_business_slug_taken_by_other', error);
+    devConsole.warn('[businessSlug] is_public_business_slug_taken_by_other', error);
     return true;
   }
   return data === true;

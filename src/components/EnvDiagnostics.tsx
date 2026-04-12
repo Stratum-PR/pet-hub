@@ -8,8 +8,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { isClientDebugSurfacesEnabled } from '@/lib/clientDebug';
 
 export function EnvDiagnostics() {
+  if (!isClientDebugSurfacesEnabled()) return null;
+
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const appUrl = import.meta.env.VITE_APP_URL;

@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { clearAuthContext } from '@/lib/authRouting';
 import { clearSupportSessionMarkers } from '@/lib/supportSession';
 import { broadcastAuthLogout } from '@/lib/authBroadcast';
+import { devConsole } from '@/lib/clientDebug';
 
 /** True while this tab is executing `signOut` — used to avoid treating same-tab logout as cross-tab session loss. */
 let localSignOutDepth = 0;
@@ -199,11 +200,11 @@ export async function signOut() {
       // Best-effort sign out; don't let failures block UI navigation
       const { error } = await supabase.auth.signOut();
       if (error && typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
-        console.error('[Auth] signOut error:', error);
+        devConsole.error('[Auth] signOut error:', error);
       }
     } catch (err) {
       if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
-        console.error('[Auth] signOut unexpected error:', err);
+        devConsole.error('[Auth] signOut unexpected error:', err);
       }
     }
 

@@ -15,6 +15,7 @@ import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { syncDemoManagerBirthdayToClientToday } from '@/lib/demoManagerBirthdaySync';
 import { PET_HUB_REFETCH_NOTIFICATIONS } from '@/lib/notificationRefetch';
 import { dispatchStaffMissingEmailReminders } from '@/lib/staffBirthdayDispatch';
+import { devConsole } from '@/lib/clientDebug';
 
 function localDayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -266,8 +267,8 @@ export function useNotifications() {
         payload.metadata = options.metadata;
       }
       const { error } = await supabase.from('notifications' as any).insert(payload);
-      if (error && import.meta.env.DEV) {
-        console.warn('[useNotifications] createNotification insert failed:', error.message);
+      if (error) {
+        devConsole.warn('[useNotifications] createNotification insert failed:', error.message);
       }
       return !error;
     },
@@ -298,21 +299,17 @@ export function useNotifications() {
     if (demoBrowseOnly && businessId && isDemoWorkspaceBusiness(businessId)) return;
 
     if (!user?.id) {
-      if (import.meta.env.DEV) {
-        console.debug(
-          '[pet-hub] Notifications / birthday jobs need a signed-in user. Browse-only /demo uses synthetic inbox rows instead.'
-        );
-      }
+      devConsole.debug(
+        '[pet-hub] Notifications / birthday jobs need a signed-in user. Browse-only /demo uses synthetic inbox rows instead.'
+      );
       return;
     }
     if (!businessId) {
-      if (import.meta.env.DEV) console.debug('[pet-hub] Birthday jobs skipped: businessId not ready yet.');
+      devConsole.debug('[pet-hub] Birthday jobs skipped: businessId not ready yet.');
       return;
     }
     if (!asEnabled(settings.notify_birthdays, true)) {
-      if (import.meta.env.DEV) {
-        console.debug('[pet-hub] Birthday jobs skipped: notify_birthdays is off for this business (Settings).');
-      }
+      devConsole.debug('[pet-hub] Birthday jobs skipped: notify_birthdays is off for this business (Settings).');
       return;
     }
 
@@ -325,11 +322,9 @@ export function useNotifications() {
       const key = `pet-hub-daily-birthday-jobs:${businessId}:${localDayKey(now)}`;
       try {
         if (typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1') {
-          if (import.meta.env.DEV) {
-            console.debug(
-              `[pet-hub] Birthday jobs already ran today (${key}). In DevTools → Application → Local Storage, delete this key to re-test.`
-            );
-          }
+          devConsole.debug(
+            `[pet-hub] Birthday jobs already ran today (${key}). In DevTools → Application → Local Storage, delete this key to re-test.`
+          );
           await fetchNotificationsRef.current();
           return;
         }
@@ -374,7 +369,7 @@ export function useNotifications() {
         p_business_id: businessId,
       });
       if (rpcError) {
-        console.warn(
+        devConsole.warn(
           '[pet-hub] dispatch_staff_birthdays_for_business failed — apply Supabase migrations (staff birthday RPC).',
           rpcError.message
         );
@@ -505,9 +500,7 @@ export function useNotifications() {
       }
 
       await fetchNotificationsRef.current();
-      if (import.meta.env.DEV) {
-        console.debug('[pet-hub] Daily birthday job finished for business', businessId);
-      }
+      devConsole.debug('[pet-hub] Daily birthday job finished for business', businessId);
     };
 
     let cancelled = false;

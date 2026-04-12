@@ -23,6 +23,7 @@ import {
 } from '@/lib/authRouting';
 import type { Business } from '@/lib/auth';
 import { t } from '@/lib/translations';
+import { devConsole } from '@/lib/clientDebug';
 import { getBusinessClientLink, ensureBusinessClientLink } from '@/lib/businessClientLink';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { broadcastAuthLogin } from '@/lib/authBroadcast';
@@ -168,9 +169,9 @@ export function LoginForm({
         );
         const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
         if (!error) return true;
-        if (import.meta.env.DEV) console.warn('[Login] signInWithPassword failed, falling back to REST:', error);
+        devConsole.warn('[Login] signInWithPassword failed, falling back to REST:', error);
       } catch (err) {
-        if (import.meta.env.DEV) console.warn('[Login] signInWithPassword threw, falling back to REST:', err);
+        devConsole.warn('[Login] signInWithPassword threw, falling back to REST:', err);
       }
       const url = `${SUPABASE_URL}/auth/v1/token?grant_type=password`;
       const response = await fetch(url, {
@@ -206,7 +207,7 @@ export function LoginForm({
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return true;
     } catch (err: any) {
-      if (import.meta.env.DEV) console.error('[Login] credentialsLogin unexpected error', err);
+      devConsole.error('[Login] credentialsLogin unexpected error', err);
       toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
       return false;
     }
@@ -340,7 +341,7 @@ export function LoginForm({
         message: error?.message || String(error),
         name: error?.name || null,
       });
-      if (import.meta.env.DEV) console.error('[Login] Unexpected error:', error);
+      devConsole.error('[Login] Unexpected error:', error);
       toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);

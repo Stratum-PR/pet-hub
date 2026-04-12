@@ -6,6 +6,7 @@ import { t } from '@/lib/translations';
 import { isSupportUserSessionActive, exitSupportUserSession } from '@/lib/supportSession';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { devConsole } from '@/lib/clientDebug';
 
 export function SupportSessionBanner() {
   const { user } = useAuth();
@@ -50,7 +51,8 @@ export function SupportSessionBanner() {
             try {
               await exitSupportUserSession(supabase);
             } catch (e) {
-              toast.error(e instanceof Error ? e.message : 'Could not restore admin session');
+              devConsole.error('[SupportSessionBanner] exitSupportUserSession', e);
+              toast.error(t('common.genericError'));
             }
           })();
         }}
