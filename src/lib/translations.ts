@@ -112,6 +112,102 @@ export const translations: Translations = {
     en: 'Pricing',
     es: 'Precios'
   },
+  'pricing.heroEyebrow': {
+    en: 'Pricing',
+    es: 'Precios',
+  },
+  'pricing.heroTitle': {
+    en: 'Start free. Scale with confidence.',
+    es: 'Empieza gratis. Crece con confianza.',
+  },
+  'pricing.heroSubtitle': {
+    en: 'Pay only as your pet care business grows.',
+    es: 'Paga solo a medida que crece tu negocio de mascotas.',
+  },
+  'pricing.heroTrialNote': {
+    en: 'All plans include a 14-day free trial. No credit card required.',
+    es: 'Todos los planes incluyen 14 días de prueba gratis. Sin tarjeta de crédito.',
+  },
+  'pricing.billingGroupAria': {
+    en: 'Billing period',
+    es: 'Periodo de facturación',
+  },
+  'pricing.billingMonthly': {
+    en: 'Monthly billing',
+    es: 'Facturación mensual',
+  },
+  'pricing.billingAnnual': {
+    en: 'Annual billing',
+    es: 'Facturación anual',
+  },
+  'pricing.billingSaveNote': {
+    en: '(Save 15%)',
+    es: '(Ahorra 15%)',
+  },
+  'pricing.billingAnnualAria': {
+    en: 'Annual billing — Save 15%',
+    es: 'Facturación anual — Ahorra 15%',
+  },
+  'pricing.billingMonthlyAria': {
+    en: 'Monthly billing',
+    es: 'Facturación mensual',
+  },
+  'pricing.comparePlansButton': {
+    en: 'Compare plans in detail',
+    es: 'Comparar planes en detalle',
+  },
+  'pricing.comparePlansHeading': {
+    en: 'Compare plans in detail',
+    es: 'Comparar planes en detalle',
+  },
+  'pricing.addonsHeading': {
+    en: 'Enhance your plan',
+    es: 'Mejora tu plan',
+  },
+  'pricing.addonAvailableFor': {
+    en: 'Available for:',
+    es: 'Disponible para:',
+  },
+  'pricing.compareFeatureColumn': {
+    en: 'Feature',
+    es: 'Función',
+  },
+  'pricing.compareTableAria': {
+    en: 'Grumi plan comparison',
+    es: 'Comparación de planes Grumi',
+  },
+  'pricing.cardPerMonth': {
+    en: '/month',
+    es: '/mes',
+  },
+  'pricing.save15': {
+    en: 'Save 15%',
+    es: 'Ahorra 15%',
+  },
+  'pricing.customPricing': {
+    en: 'Custom pricing',
+    es: 'Precio personalizado',
+  },
+  'pricing.tierListAria': {
+    en: '{name} plan features',
+    es: 'Funciones del plan {name}',
+  },
+  'pricing.footerDisclaimer': {
+    en: 'All prices to be determined (TBD). Terms at launch.',
+    es: 'Todos los precios por determinar. Condiciones al lanzamiento.',
+  },
+  'pricing.ctaWaitlist': {
+    en: 'Request early access',
+    es: 'Solicitar acceso anticipado',
+  },
+  'pricing.ctaWaitlistHint': {
+    en: 'Grumi is in development — be among the first to try it.',
+    es: 'Grumi está en desarrollo — sé de los primeros en probarlo.',
+  },
+  'pricing.ariaPricingPlans': {
+    en: 'Pricing plans',
+    es: 'Planes de precios',
+  },
   'landing.navContactUs': {
     en: 'Contact Us',
     es: 'Contáctanos',
@@ -135,6 +231,18 @@ export const translations: Translations = {
   'marketing.features.heroSubtitle': {
     en: 'Grumi was built specifically for pet grooming salons in Puerto Rico—from appointments to payroll, without the hassle.',
     es: 'Grumi fue diseñado específicamente para peluquerías de mascotas en Puerto Rico—desde citas hasta nómina, sin complicaciones.',
+  },
+  'marketing.features.carouselEyebrow': {
+    en: 'Additional features',
+    es: 'Funciones adicionales',
+  },
+  'marketing.features.carouselPrev': {
+    en: 'Scroll carousel left',
+    es: 'Desplazar carrusel a la izquierda',
+  },
+  'marketing.features.carouselNext': {
+    en: 'Scroll carousel right',
+    es: 'Desplazar carrusel a la derecha',
   },
   'marketing.features.c1.title': {
     en: 'Appointments & calendar',
@@ -304,18 +412,20 @@ export const translations: Translations = {
   'footer.websiteTerms': { en: 'Website Terms of Use', es: 'Términos de Uso del Sitio' },
   'footer.privacyPolicy': { en: 'Privacy policy', es: 'Política de Privacidad' },
   'footer.cookieSettings': { en: 'Cookie settings', es: 'Configuración de cookies' },
-  'cookies.bannerTitle': {
-    en: 'Cookies and similar technologies',
-    es: 'Cookies y tecnologías similares',
+  'cookies.policyTitle': {
+    en: 'Cookie policy',
+    es: 'Política de cookies',
   },
-  'cookies.bannerBody': {
-    en: 'We use essential cookies to run the site, optional cookies for your preferences and (if you allow) analytics and marketing. You can change your choices at any time.',
-    es: 'Usamos cookies necesarias para operar el sitio y cookies opcionales para preferencias y, si lo permites, analíticas y marketing. Puedes cambiar tu decisión en cualquier momento.',
+  'cookies.policyBody': {
+    en: 'I agree that this website uses cookies and similar technologies to provide the site and its features, to understand how it is used, and to show me relevant messages when permitted. You may change the settings to activate or deactivate each category of cookies. To find out more, please see our',
+    es: 'Acepto que este sitio web use cookies y tecnologías similares para ofrecerme el sitio y sus funciones, para entender su uso y para mostrarme mensajes relevantes cuando lo permita. Puedes cambiar la configuración para activar o desactivar cada categoría de cookies. Para más información, consulta nuestro',
   },
-  'cookies.bannerProcessors': {
-    en: 'Operations rely on Supabase (hosting and auth), our waitlist and consent services, and, when you use payments, Stripe and ATH Móvil as described in our privacy policy.',
-    es: 'La operación usa Supabase (alojamiento y autenticación), nuestros servicios de lista de espera y consentimiento y, cuando uses pagos, Stripe y ATH Móvil según se describe en nuestra política de privacidad.',
-  },
+  'cookies.policyBodyEnd': { en: '.', es: '.' },
+  'cookies.cookieNoticeLink': { en: 'Cookie Notice', es: 'Aviso de cookies' },
+  'cookies.acceptAllCaps': { en: 'Accept all', es: 'Aceptar todas' },
+  'cookies.rejectAllCaps': { en: 'Reject all', es: 'Rechazar todas' },
+  'cookies.settingsCaps': { en: 'Settings', es: 'Configuración' },
+  'cookies.back': { en: 'Back', es: 'Volver' },
   'cookies.privacyLink': { en: 'Privacy policy', es: 'Política de privacidad' },
   'cookies.customize': { en: 'Customize', es: 'Personalizar' },
   'cookies.rejectOptional': {
@@ -330,8 +440,8 @@ export const translations: Translations = {
   },
   'cookies.catNecessaryTitle': { en: 'Strictly necessary', es: 'Estrictamente necesarias' },
   'cookies.catNecessaryDesc': {
-    en: 'Security, load balancing, session and authentication (Supabase), and storing your consent decision.',
-    es: 'Seguridad, balanceo de carga, sesión y autenticación (Supabase) y guardar tu decisión de consentimiento.',
+    en: 'Security, load balancing, session and authentication, and storing your consent decision.',
+    es: 'Seguridad, balanceo de carga, sesión, autenticación y guardar tu decisión de consentimiento.',
   },
   'cookies.catPreferencesTitle': { en: 'Preferences', es: 'Preferencias' },
   'cookies.catPreferencesDesc': {
@@ -375,6 +485,18 @@ export const translations: Translations = {
   'waitlist.emailPlaceholder': {
     en: 'your@email.com',
     es: 'tu@email.com'
+  },
+  'waitlist.fullNamePlaceholder': {
+    en: 'Your full name',
+    es: 'Tu nombre completo',
+  },
+  'waitlist.businessNamePlaceholder': {
+    en: 'Business / salon name',
+    es: 'Nombre del negocio o salón',
+  },
+  'waitlist.errorRequiredProfile': {
+    en: 'Please enter your name, business name, and a valid email.',
+    es: 'Ingresa tu nombre, el nombre del negocio y un correo válido.',
   },
   'waitlist.submitCta': {
     en: 'Secure my spot',

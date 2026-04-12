@@ -1,4 +1,4 @@
-import { useState, type AnchorHTMLAttributes } from 'react';
+import { useState, isValidElement, type AnchorHTMLAttributes, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -14,6 +14,17 @@ const GRUMI_PET = /^https?:\/\/(www\.)?grumi\.pet(?=\/|$)/i;
 function rewriteGrumiPath(pathname: string): string {
   if (pathname === '/precios') return '/pricing';
   return pathname;
+}
+
+function markdownPlainText(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(markdownPlainText).join('');
+  if (isValidElement(node)) {
+    const props = node.props as { children?: ReactNode };
+    return markdownPlainText(props.children);
+  }
+  return '';
 }
 
 function LegalMarkdownLink({
@@ -111,6 +122,15 @@ export function LegalDocumentPage({ route, markdown, markdownEn }: Props) {
                       {children}
                     </LegalMarkdownLink>
                   ),
+                  h2: ({ children, className, ...rest }) => {
+                    const flat = markdownPlainText(children).toLowerCase();
+                    const id = flat.includes('cookie') ? 'cookie-notice' : undefined;
+                    return (
+                      <h2 id={id} className={className} {...rest}>
+                        {children}
+                      </h2>
+                    );
+                  },
                 }}
               >
                 {bodyMarkdown}

@@ -110,6 +110,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Body = {
   email?: string;
+  full_name?: string;
+  business_name?: string;
   locale?: string;
   source?: string;
   utm_source?: string;
@@ -201,6 +203,18 @@ Deno.serve(async (req) => {
     });
   }
 
+  const full_name = (body.full_name ?? "").trim().slice(0, 120);
+  const business_name = (body.business_name ?? "").trim().slice(0, 200);
+  if (full_name.length < 2 || business_name.length < 2) {
+    return new Response(
+      JSON.stringify({ error: "invalid_input", messageKey: "waitlist.errorRequiredProfile" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...cors },
+      },
+    );
+  }
+
   const locale = body.locale === "en" ? "en" : "es";
   const source = ["website", "social", "referral", "direct"].includes(body.source ?? "")
     ? (body.source as string)
@@ -208,10 +222,11 @@ Deno.serve(async (req) => {
   const utm_source = body.utm_source?.trim().slice(0, 200) ?? null;
   const utm_medium = body.utm_medium?.trim().slice(0, 200) ?? null;
   const utm_campaign = body.utm_campaign?.trim().slice(0, 200) ?? null;
-  const metadata =
+  const safeMeta =
     body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
-      ? body.metadata
+      ? (body.metadata as Record<string, unknown>)
       : {};
+  const metadata: Record<string, unknown> = { ...safeMeta, full_name, business_name };
 
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -327,6 +342,8 @@ Deno.serve(async (req) => {
       const adminHtml = `
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0;padding:16px;">
   <p style="font-weight:700;color:#0f1923;margin:0 0 12px;">New Grumi waitlist signup</p>
+  <p style="color:#374151;margin:0 0 8px;"><strong>Name:</strong> ${esc(full_name)}</p>
+  <p style="color:#374151;margin:0 0 8px;"><strong>Business:</strong> ${esc(business_name)}</p>
   <p style="color:#374151;margin:0 0 8px;"><strong>Email:</strong> ${esc(rawEmail)}</p>
   <p style="color:#374151;margin:0 0 8px;"><strong>Locale:</strong> ${esc(locale)}</p>
   <p style="color:#374151;margin:0;"><strong>Source:</strong> ${esc(source)}</p>

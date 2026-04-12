@@ -12,9 +12,14 @@ import {
   PRICING_ADDONS,
   COMPARISON_SECTIONS,
   COMPARISON_PLAN_COLUMNS,
+  pick,
+  PRICE_TBD,
   type BillingPeriod,
   type CompareCell,
+  type PricingLocale,
 } from '@/content/pricing-page-data';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { t } from '@/lib/translations';
 
 const PRICING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/pricing')!;
 const COMPARISON_TABLE_ID = 'comparison-table';
@@ -46,43 +51,43 @@ function BillingToggle({
   value: BillingPeriod;
   onChange: (v: BillingPeriod) => void;
 }) {
+  const pill =
+    'rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
+
   return (
-    <div
-      role="group"
-      aria-label="Billing period"
-      className="inline-flex rounded-full p-1 bg-muted/60 border border-border shadow-sm"
-    >
-      <button
-        type="button"
-        onClick={() => onChange('annual')}
-        aria-pressed={value === 'annual'}
-        aria-label="Annual billing — Save 15%"
-        className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-          value === 'annual'
-            ? 'bg-[#D4FF00] text-black shadow'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
-        }`}
-      >
-        Annual billing <span className="text-xs opacity-90">(Save 15%)</span>
-      </button>
+    <div role="group" aria-label={t('pricing.billingGroupAria')} className="inline-flex rounded-full border border-border bg-muted/60 p-1 shadow-sm">
+      {/* Inverted order: monthly first, annual second (matches “billing” then “annual” reading flow). */}
       <button
         type="button"
         onClick={() => onChange('monthly')}
         aria-pressed={value === 'monthly'}
-        aria-label="Monthly billing"
-        className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+        aria-label={t('pricing.billingMonthlyAria')}
+        className={`${pill} ${
           value === 'monthly'
             ? 'bg-[#D4FF00] text-black shadow'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
+            : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
         }`}
       >
-        Monthly billing
+        {t('pricing.billingMonthly')}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('annual')}
+        aria-pressed={value === 'annual'}
+        aria-label={t('pricing.billingAnnualAria')}
+        className={`${pill} ${
+          value === 'annual'
+            ? 'bg-[#D4FF00] text-black shadow'
+            : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+        }`}
+      >
+        {t('pricing.billingAnnual')} <span className="text-xs opacity-90">{t('pricing.billingSaveNote')}</span>
       </button>
     </div>
   );
 }
 
-function CompareCellContent({ cell }: { cell: CompareCell }) {
+function CompareCellContent({ cell, lang }: { cell: CompareCell; lang: PricingLocale }) {
   if (cell === 'check') {
     return (
       <span
@@ -95,15 +100,17 @@ function CompareCellContent({ cell }: { cell: CompareCell }) {
   }
   if (cell === 'dash') {
     return (
-      <span className="text-muted-foreground/45 text-lg font-light tabular-nums" aria-hidden>
+      <span className="text-lg font-light tabular-nums text-muted-foreground/45" aria-hidden>
         —
       </span>
     );
   }
-  return <span className="text-foreground text-sm font-medium tabular-nums tracking-tight">{cell}</span>;
+  return <span className="text-sm font-medium tabular-nums tracking-tight text-foreground">{pick(cell, lang)}</span>;
 }
 
 export function Pricing() {
+  const { language } = useLanguage();
+  const lang = language as PricingLocale;
   const [billing, setBilling] = useState<BillingPeriod>('annual');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -118,7 +125,7 @@ export function Pricing() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <PageMeta route={PRICING_ROUTE} />
 
       <MarketingSiteHeader
@@ -127,171 +134,158 @@ export function Pricing() {
         onMobileMenuOpenChange={setMobileMenuOpen}
       />
 
-      <main className="relative flex-1 pt-28 pb-12 px-4">
+      <main className="relative flex-1 px-4 pb-12 pt-28">
         <div
           className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_75%_40%_at_50%_-18%,rgba(212,255,0,0.11),transparent_52%)]"
           aria-hidden
         />
 
-        <div className="w-full max-w-6xl mx-auto space-y-10 pb-4">
+        <div className="mx-auto w-full max-w-6xl space-y-10 pb-4">
           <MarketingPageHero>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">Pricing</p>
-            <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-2 max-w-3xl mx-auto">
-              Start free. Scale with confidence.
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">{t('pricing.heroEyebrow')}</p>
+            <h1 className="mx-auto mb-2 max-w-3xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              {t('pricing.heroTitle')}
             </h1>
-            <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
-              Pay only as your pet care business grows.
-            </p>
-            <p className="text-muted-foreground text-xs sm:text-sm mt-2 max-w-xl mx-auto">
-              All plans include a 14-day free trial. No credit card required.
-            </p>
+            <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg">{t('pricing.heroSubtitle')}</p>
+            <p className="mx-auto mt-2 max-w-xl text-xs text-muted-foreground sm:text-sm">{t('pricing.heroTrialNote')}</p>
           </MarketingPageHero>
 
           <div
-            className="rounded-3xl border border-border/80 bg-card text-card-foreground shadow-md overflow-hidden"
+            className="overflow-hidden rounded-3xl border border-border/80 bg-card text-card-foreground shadow-md"
             role="article"
-            aria-label="Pricing plans"
+            aria-label={t('pricing.ariaPricingPlans')}
           >
             <div className="px-5 py-8 sm:px-8 sm:py-9 md:px-10 md:py-10 lg:px-12 lg:py-11">
-              <header className="text-center mb-8 md:mb-9">
+              <header className="mb-8 text-center md:mb-9">
                 <BillingToggle value={billing} onChange={setBilling} />
               </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-              {PRICING_TIERS_CONFIG.map((tier) => (
-                <PricingCard key={tier.id} tier={tier} billing={billing} />
-              ))}
-            </div>
-
-            {/* Single comparison link below all tiers */}
-            <section className="mb-16 text-center">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                onClick={scrollToComparisonCb}
-                className="inline-flex w-full sm:w-auto items-center justify-center rounded-full border border-border bg-muted/40 text-sm font-semibold text-foreground hover:bg-muted/60 hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                Compare Plans in Detail
-                <ChevronDown className="ml-2 w-4 h-4" />
-              </Button>
-            </section>
-
-            {/* Add-ons */}
-            <section className="mb-12" aria-labelledby="addons-heading">
-              <h2 id="addons-heading" className="text-xl font-semibold text-center mb-6">
-                Enhance Your Plan
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {PRICING_ADDONS.map((addon) => (
-                  <div
-                    key={addon.id}
-                    className="rounded-xl border border-border bg-muted/20 p-4 hover:border-primary/30 transition-colors"
-                  >
-                    <h3 className="font-medium text-foreground mb-1">{addon.title}</h3>
-                    <p className="text-sm font-medium text-primary mb-1">{addon.price}</p>
-                    <p className="text-sm text-muted-foreground">{addon.description}</p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Available for: {addon.availableFor.join(', ')}
-                    </p>
-                  </div>
+              <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+                {PRICING_TIERS_CONFIG.map((tier) => (
+                  <PricingCard key={tier.id} tier={tier} lang={lang} />
                 ))}
               </div>
-            </section>
 
-            {/* Comparison table */}
-            <section
-              id={COMPARISON_TABLE_ID}
-              className="mb-10"
-              aria-labelledby="comparison-heading"
-            >
-              <h2 id="comparison-heading" className="text-xl font-semibold text-center mb-6">
-                Compare Plans in Detail
-              </h2>
-              <div className="overflow-hidden overflow-x-auto rounded-2xl border border-primary/20 bg-card shadow-md shadow-primary/[0.07] ring-1 ring-border/70">
-                <table className="w-full min-w-[800px] border-collapse text-sm" role="grid" aria-label="Comparación de planes Grumi">
-                  <thead>
-                    <tr className="sticky top-0 z-10 border-b border-primary/15 bg-gradient-to-b from-primary/18 via-primary/10 to-muted/40 backdrop-blur-sm">
-                      <th
-                        scope="col"
-                        className="w-[min(280px,40vw)] border-r border-primary/15 bg-primary/[0.08] py-4 pl-5 pr-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-primary"
-                      >
-                        Función
-                      </th>
-                      {COMPARISON_PLAN_COLUMNS.map((col, i) => (
+              <section className="mb-16 text-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={scrollToComparisonCb}
+                  className="inline-flex w-full items-center justify-center rounded-full border border-border bg-muted/40 text-sm font-semibold text-foreground hover:border-primary/40 hover:bg-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+                >
+                  {t('pricing.comparePlansButton')}
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </section>
+
+              <section className="mb-12" aria-labelledby="addons-heading">
+                <h2 id="addons-heading" className="mb-6 text-center text-xl font-semibold">
+                  {t('pricing.addonsHeading')}
+                </h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  {PRICING_ADDONS.map((addon) => (
+                    <div
+                      key={addon.id}
+                      className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/30"
+                    >
+                      <h3 className="mb-1 font-medium text-foreground">{pick(addon.title, lang)}</h3>
+                      <p className="mb-1 text-sm font-medium text-primary">{pick(addon.price, lang)}</p>
+                      <p className="text-sm text-muted-foreground">{pick(addon.description, lang)}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {t('pricing.addonAvailableFor')} {pick(addon.availableFor, lang)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section id={COMPARISON_TABLE_ID} className="mb-10" aria-labelledby="comparison-heading">
+                <h2 id="comparison-heading" className="mb-6 text-center text-xl font-semibold">
+                  {t('pricing.comparePlansHeading')}
+                </h2>
+                <div className="overflow-hidden overflow-x-auto rounded-2xl border border-primary/20 bg-card shadow-md shadow-primary/[0.07] ring-1 ring-border/70">
+                  <table className="w-full min-w-[800px] border-collapse text-sm" role="grid" aria-label={t('pricing.compareTableAria')}>
+                    <thead>
+                      <tr className="sticky top-0 z-10 border-b border-primary/15 bg-gradient-to-b from-primary/18 via-primary/10 to-muted/40 backdrop-blur-sm">
                         <th
-                          key={col.id}
                           scope="col"
-                          className={`px-3 py-4 text-center align-bottom sm:px-4 ${COMPARISON_PLAN_HEADER_BG[i]}`}
+                          className="w-[min(280px,40vw)] border-r border-primary/15 bg-primary/[0.08] py-4 pl-5 pr-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-primary"
                         >
-                          <span className="block text-[0.95rem] font-bold leading-tight text-foreground">{col.name}</span>
-                          <span className="mt-1.5 block text-xs font-semibold text-muted-foreground tabular-nums">
-                            {col.priceLine}
-                          </span>
+                          {t('pricing.compareFeatureColumn')}
                         </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparisonSectionsStriped.map((sec) => (
-                      <Fragment key={sec.category}>
-                        <tr className="border-y border-primary/10 bg-gradient-to-r from-primary/12 via-primary/6 to-transparent">
-                          <td
-                            colSpan={4}
-                            className="py-2.5 pl-5 pr-4 text-[11px] font-bold uppercase tracking-[0.16em] text-primary"
-                            id={`cat-${sec.category.replace(/\s+/g, '-')}`}
+                        {COMPARISON_PLAN_COLUMNS.map((col, i) => (
+                          <th
+                            key={col.id}
+                            scope="col"
+                            className={`px-3 py-4 text-center align-bottom sm:px-4 ${COMPARISON_PLAN_HEADER_BG[i]}`}
                           >
-                            {sec.category}
-                          </td>
-                        </tr>
-                        {sec.rows.map(({ row, stripe }, ri) => (
-                          <tr
-                            key={`${sec.category}-${ri}`}
-                            className={`border-b border-border/50 transition-colors hover:bg-primary/[0.06] ${
-                              stripe % 2 === 0 ? 'bg-muted/35' : 'bg-background/80'
-                            }`}
-                          >
+                            <span className="block text-[0.95rem] font-bold leading-tight text-foreground">{pick(col.name, lang)}</span>
+                            <span className="mt-1.5 block text-xs font-semibold tabular-nums text-muted-foreground">
+                              {pick(col.priceLine, lang)}
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comparisonSectionsStriped.map((sec) => (
+                        <Fragment key={sec.category.en}>
+                          <tr className="border-y border-primary/10 bg-gradient-to-r from-primary/12 via-primary/6 to-transparent">
                             <td
-                              className={`border-r border-primary/10 py-3 pl-5 pr-3 text-[0.8125rem] font-medium leading-snug text-foreground ${
-                                stripe % 2 === 0 ? 'bg-primary/[0.04]' : 'bg-primary/[0.02]'
-                              }`}
+                              colSpan={4}
+                              className="py-2.5 pl-5 pr-4 text-[11px] font-bold uppercase tracking-[0.16em] text-primary"
+                              id={`cat-${sec.category.en.replace(/\s+/g, '-')}`}
                             >
-                              {row.feature}
-                            </td>
-                            <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[0]}`}>
-                              <CompareCellContent cell={row.basico} />
-                            </td>
-                            <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[1]}`}>
-                              <CompareCellContent cell={row.estandar} />
-                            </td>
-                            <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[2]}`}>
-                              <CompareCellContent cell={row.pro} />
+                              {pick(sec.category, lang)}
                             </td>
                           </tr>
-                        ))}
-                      </Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-8 flex flex-col items-center gap-3">
-                <Button
-                  asChild
-                  size="lg"
-                  className="rounded-full bg-[#D4FF00] px-8 font-semibold text-black shadow hover:bg-[#D4FF00]/90"
-                >
-                  <Link to="/#waitlist">Solicitar acceso anticipado</Link>
-                </Button>
-                <p className="text-center text-xs sm:text-sm text-muted-foreground max-w-md px-2">
-                  Grumi está en desarrollo — sé de los primeros en probarlo
-                </p>
-              </div>
-            </section>
+                          {sec.rows.map(({ row, stripe }, ri) => (
+                            <tr
+                              key={`${sec.category.en}-${ri}`}
+                              className={`border-b border-border/50 transition-colors hover:bg-primary/[0.06] ${
+                                stripe % 2 === 0 ? 'bg-muted/35' : 'bg-background/80'
+                              }`}
+                            >
+                              <td
+                                className={`border-r border-primary/10 py-3 pl-5 pr-3 text-[0.8125rem] font-medium leading-snug text-foreground ${
+                                  stripe % 2 === 0 ? 'bg-primary/[0.04]' : 'bg-primary/[0.02]'
+                                }`}
+                              >
+                                {pick(row.feature, lang)}
+                              </td>
+                              <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[0]}`}>
+                                <CompareCellContent cell={row.basico} lang={lang} />
+                              </td>
+                              <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[1]}`}>
+                                <CompareCellContent cell={row.estandar} lang={lang} />
+                              </td>
+                              <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[2]}`}>
+                                <CompareCellContent cell={row.pro} lang={lang} />
+                              </td>
+                            </tr>
+                          ))}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-8 flex flex-col items-center gap-3">
+                  <Button
+                    asChild
+                    size="lg"
+                    className="rounded-full bg-[#D4FF00] px-8 font-semibold text-black shadow hover:bg-[#D4FF00]/90"
+                  >
+                    <Link to="/#waitlist">{t('pricing.ctaWaitlist')}</Link>
+                  </Button>
+                  <p className="max-w-md px-2 text-center text-xs text-muted-foreground sm:text-sm">{t('pricing.ctaWaitlistHint')}</p>
+                </div>
+              </section>
 
-            <footer className="mt-6 pt-6 border-t border-border text-center text-xs sm:text-sm text-muted-foreground">
-              <p>Prices in USD. Cancel anytime.</p>
-            </footer>
-          </div>
+              <footer className="mt-6 border-t border-border pt-6 text-center text-xs text-muted-foreground sm:text-sm">
+                <p>{t('pricing.footerDisclaimer')}</p>
+              </footer>
+            </div>
           </div>
         </div>
       </main>
@@ -303,54 +297,34 @@ export function Pricing() {
 
 function PricingCard({
   tier,
-  billing,
+  lang,
 }: {
   tier: (typeof PRICING_TIERS_CONFIG)[number];
-  billing: BillingPeriod;
+  lang: PricingLocale;
 }) {
-  const isAnnual = billing === 'annual';
-  const price =
-    tier.price == null
-      ? null
-      : isAnnual
-        ? tier.price.annualPerMonth
-        : tier.price.monthly;
+  const name = pick(tier.name, lang);
 
   return (
     <article
-      className="relative rounded-2xl border border-border bg-background p-6 flex flex-col h-full transition-colors hover:border-primary/30 shadow-sm"
+      className="relative flex h-full flex-col rounded-2xl border border-border bg-background p-6 shadow-sm transition-colors hover:border-primary/30"
       aria-labelledby={`tier-${tier.id}-name`}
     >
       <div className="mb-4">
         <h3 id={`tier-${tier.id}-name`} className="text-xl font-bold text-foreground">
-          {tier.name}
+          {name}
         </h3>
-        <p className="text-sm text-muted-foreground">{tier.tagline}</p>
+        <p className="text-sm text-muted-foreground">{pick(tier.tagline, lang)}</p>
       </div>
       <div className="mb-4">
-        {price != null ? (
-          <div
-            key={billing}
-            className="flex items-baseline gap-1 flex-wrap animate-fade-in"
-            aria-live="polite"
-          >
-            <span className="text-3xl font-bold text-foreground tabular-nums">${price}</span>
-            <span className="text-muted-foreground">/month</span>
-            {isAnnual && tier.price && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                Save 15%
-              </span>
-            )}
-          </div>
-        ) : (
-          <p className="text-lg font-semibold text-muted-foreground">Custom pricing</p>
-        )}
+        <p className="text-3xl font-bold tracking-tight text-foreground" aria-live="polite">
+          {pick(PRICE_TBD, lang)}
+        </p>
       </div>
-      <ul className="space-y-2 flex-1 mb-6 text-sm text-foreground" aria-label={`${tier.name} features`}>
+      <ul className="mb-6 flex-1 space-y-2 text-sm text-foreground" aria-label={t('pricing.tierListAria', { name })}>
         {tier.features.map((f, i) => (
           <li key={i} className="flex items-start gap-2">
-            <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" aria-hidden />
-            <span>{f}</span>
+            <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" aria-hidden />
+            <span>{pick(f, lang)}</span>
           </li>
         ))}
       </ul>
@@ -359,17 +333,14 @@ function PricingCard({
           href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20pricing%20inquiry`}
           className="inline-flex items-center justify-center rounded-xl border-2 border-primary/50 bg-muted/30 px-4 py-3 text-sm font-semibold text-foreground hover:bg-primary/10 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          {tier.buttonLabel}
-          <ArrowRight className="ml-2 w-4 h-4" />
+          {pick(tier.buttonLabel, lang)}
+          <ArrowRight className="ml-2 h-4 w-4" />
         </a>
       ) : (
-        <Button
-          asChild
-          className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
-        >
+        <Button asChild className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90">
           <Link to={`/?tier=${encodeURIComponent(tier.id)}#waitlist`}>
-            {tier.buttonLabel}
-            <ArrowRight className="ml-2 w-4 h-4" />
+            {pick(tier.buttonLabel, lang)}
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
       )}

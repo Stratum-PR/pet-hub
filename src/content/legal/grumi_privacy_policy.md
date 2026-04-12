@@ -70,7 +70,7 @@ Cuando visita el Sitio o usa la Plataforma, podemos recopilar automáticamente:
 
 Usamos cookies, almacenamiento local del navegador y tecnologías similares según las categorías que puede aceptar o rechazar (salvo las estrictamente necesarias) mediante el aviso de cookies y el enlace de **Configuración de cookies** en el pie del Sitio.
 
-**Cookies estrictamente necesarias**: incluyen lo necesario para la seguridad básica, la autenticación y la sesión cuando usa la Plataforma (por ejemplo, tokens de sesión almacenados mediante el proveedor **Supabase**), para cargar el Sitio y para recordar su decisión de consentimiento. No pueden desactivarse desde nuestro aviso.
+**Cookies estrictamente necesarias**: incluyen lo necesario para la seguridad básica, la autenticación y la sesión cuando usa la Plataforma (por ejemplo, tokens de sesión), para cargar el Sitio y para recordar su decisión de consentimiento. No pueden desactivarse desde nuestro aviso.
 
 **Cookies de preferencias**: permiten recordar opciones como idioma, tema visual y, cuando lo permita, la disposición de ciertos elementos de la interfaz (por ejemplo, el menú lateral). Si las rechaza, esas preferencias pueden no conservarse entre visitas.
 

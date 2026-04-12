@@ -1,231 +1,248 @@
 /**
  * Pricing page: tier definitions, features, comparison table, and add-ons.
- * Used by the glassmorphism pricing modal.
+ * User-facing strings are bilingual { en, es }; use `pick(str, language)` in UI.
  */
+
+export type PricingLocale = 'en' | 'es';
+
+export type L10n = { en: string; es: string };
+
+/** Short helper for bilingual literals. */
+export const L = (en: string, es: string): L10n => ({ en, es });
+
+/** Public-facing placeholder until final pricing is published. */
+export const PRICE_TBD = L('TBD', 'Por Determinar');
+
+export function pick(msg: L10n, lang: PricingLocale): string {
+  return msg[lang];
+}
 
 export type BillingPeriod = 'monthly' | 'annual';
 
 export interface TierPrice {
   monthly: number;
-  annualPerMonth: number; // already discounted
+  annualPerMonth: number;
 }
 
 export interface PricingTierConfig {
   id: 'basic' | 'growth' | 'pro' | 'enterprise';
-  name: string;
-  tagline: string;
-  price: TierPrice | null; // null = custom pricing
-  buttonLabel: string;
+  name: L10n;
+  tagline: L10n;
+  price: TierPrice | null;
+  buttonLabel: L10n;
   buttonVariant: 'trial' | 'contact';
   featured?: boolean;
-  badge?: string;
-  features: string[];
-  notIncluded?: string[];
+  badge?: L10n;
+  features: L10n[];
+  notIncluded?: L10n[];
 }
 
 export const PRICING_TIERS_CONFIG: PricingTierConfig[] = [
   {
     id: 'basic',
-    name: 'Basic',
-    tagline: 'Perfect for solo groomers',
-    // Monthly is base; annual is ~15% discount
+    name: L('Basic', 'Básico'),
+    tagline: L('Perfect for solo groomers', 'Ideal para groomers en solitario'),
     price: { monthly: 29, annualPerMonth: 25 },
-    buttonLabel: 'Get Started',
+    buttonLabel: L('Get Started', 'Comenzar'),
     buttonVariant: 'trial',
     features: [
-      'Unlimited appointments & scheduling',
-      'Up to 50 clients',
-      'Online booking & payments',
-      'Client profiles & pet records',
-      '5 GB storage',
-      'Email support',
+      L('Unlimited appointments & scheduling', 'Citas y agenda ilimitadas'),
+      L('Up to 50 clients', 'Hasta 50 clientes'),
+      L('Online booking & payments', 'Reservas y pagos en línea'),
+      L('Client profiles & pet records', 'Perfiles de clientes y fichas de mascotas'),
+      L('5 GB storage', '5 GB de almacenamiento'),
+      L('Email support', 'Soporte por correo'),
     ],
     notIncluded: [
-      'Inventory management',
-      'Staff management features',
-      'Multi-day boarding features',
-      'Client portal access',
-      'Advanced analytics',
-      'Custom branding',
+      L('Inventory management', 'Gestión de inventario'),
+      L('Staff management features', 'Funciones de personal'),
+      L('Multi-day boarding features', 'Hospedaje multi-día'),
+      L('Client portal access', 'Portal de clientes'),
+      L('Advanced analytics', 'Analíticas avanzadas'),
+      L('Custom branding', 'Marca personalizada'),
     ],
   },
   {
     id: 'growth',
-    name: 'Growth',
-    tagline: 'For growing teams',
-    // Monthly is base; annual is ~15% discount
+    name: L('Growth', 'Crecimiento'),
+    tagline: L('For growing teams', 'Para equipos en crecimiento'),
     price: { monthly: 71, annualPerMonth: 60 },
-    buttonLabel: 'Get Started',
+    buttonLabel: L('Get Started', 'Comenzar'),
     buttonVariant: 'trial',
     features: [
-      'Everything in Basic, plus:',
-      'Up to 5 staff members',
-      'Up to 200 clients',
-      'Inventory management',
-      'Client portal access',
-      'Analytics & reporting',
-      'Custom branding',
-      '25 GB storage',
-      'Priority support',
+      L('Everything in Basic, plus:', 'Todo lo de Básico, más:'),
+      L('Up to 5 staff members', 'Hasta 5 empleados'),
+      L('Up to 200 clients', 'Hasta 200 clientes'),
+      L('Inventory management', 'Gestión de inventario'),
+      L('Client portal access', 'Portal de clientes'),
+      L('Analytics & reporting', 'Analíticas e informes'),
+      L('Custom branding', 'Marca personalizada'),
+      L('25 GB storage', '25 GB de almacenamiento'),
+      L('Priority support', 'Soporte prioritario'),
     ],
-    notIncluded: ['Multi-day boarding features', 'Commission tracking', 'Custom report builder'],
+    notIncluded: [
+      L('Multi-day boarding features', 'Hospedaje multi-día'),
+      L('Commission tracking', 'Seguimiento de comisiones'),
+      L('Custom report builder', 'Informes personalizados avanzados'),
+    ],
   },
   {
     id: 'pro',
-    name: 'Pro',
-    tagline: 'Complete solution with boarding',
-    // Monthly is base; annual is ~15% discount
+    name: L('Pro', 'Pro'),
+    tagline: L('Complete solution with boarding', 'Solución completa con hospedaje'),
     price: { monthly: 153, annualPerMonth: 130 },
-    buttonLabel: 'Get Started',
+    buttonLabel: L('Get Started', 'Comenzar'),
     buttonVariant: 'trial',
     features: [
-      'Everything in Growth, plus:',
-      'Multi-day boarding features',
-      'Up to 15 staff members',
-      'Unlimited clients',
-      'Commission tracking',
-      'Advanced analytics',
-      '100 GB storage',
-      'Phone support',
+      L('Everything in Growth, plus:', 'Todo lo de Crecimiento, más:'),
+      L('Multi-day boarding features', 'Hospedaje multi-día'),
+      L('Up to 15 staff members', 'Hasta 15 empleados'),
+      L('Unlimited clients', 'Clientes ilimitados'),
+      L('Commission tracking', 'Seguimiento de comisiones'),
+      L('Advanced analytics', 'Analíticas avanzadas'),
+      L('100 GB storage', '100 GB de almacenamiento'),
+      L('Phone support', 'Soporte telefónico'),
     ],
-    notIncluded: ['Multi-location management', 'API access', 'Dedicated account manager'],
+    notIncluded: [
+      L('Multi-location management', 'Gestión multi-ubicación'),
+      L('API access', 'Acceso API'),
+      L('Dedicated account manager', 'Gerente de cuenta dedicado'),
+    ],
   },
   {
     id: 'enterprise',
-    name: 'Enterprise',
-    tagline: 'Built for multi-location operations',
+    name: L('Enterprise', 'Empresarial'),
+    tagline: L('Built for multi-location operations', 'Pensado para operaciones multi-ubicación'),
     price: null,
-    buttonLabel: 'Contact Sales',
+    buttonLabel: L('Contact Sales', 'Contactar ventas'),
     buttonVariant: 'contact',
     features: [
-      'Everything in Pro, plus:',
-      'Multi-location management',
-      'Unlimited staff & clients',
-      'API access & integrations',
-      'Dedicated account manager',
-      'Unlimited storage',
-      '24/7 support',
+      L('Everything in Pro, plus:', 'Todo lo de Pro, más:'),
+      L('Multi-location management', 'Gestión multi-ubicación'),
+      L('Unlimited staff & clients', 'Personal y clientes ilimitados'),
+      L('API access & integrations', 'Acceso API e integraciones'),
+      L('Dedicated account manager', 'Gerente de cuenta dedicado'),
+      L('Unlimited storage', 'Almacenamiento ilimitado'),
+      L('24/7 support', 'Soporte 24/7'),
     ],
   },
 ];
 
 export interface AddOnConfig {
   id: string;
-  title: string;
-  price: string;
-  description: string;
-  availableFor: string[];
+  title: L10n;
+  price: L10n;
+  description: L10n;
+  availableFor: L10n;
 }
 
 export const PRICING_ADDONS: AddOnConfig[] = [
   {
     id: 'additional-staff',
-    title: 'Additional Staff Members',
-    price: '$10/mo per additional staff member',
-    description: 'Add as many team members as you need',
-    availableFor: ['Growth (after 5)', 'Pro (after 15)'],
+    title: L('Additional Staff Members', 'Empleados adicionales'),
+    price: PRICE_TBD,
+    description: L('Add as many team members as you need', 'Añade tantos miembros del equipo como necesites'),
+    availableFor: L('Growth (after 5), Pro (after 15)', 'Crecimiento (después de 5), Pro (después de 15)'),
   },
   {
     id: 'sms',
-    title: 'SMS Messaging',
-    price: '$25, $50, or $100/mo',
-    description: 'Send appointment reminders and updates via text',
-    availableFor: ['All tiers'],
+    title: L('SMS Messaging', 'Mensajes SMS'),
+    price: PRICE_TBD,
+    description: L('Send appointment reminders and updates via text', 'Envía recordatorios de citas y avisos por SMS'),
+    availableFor: L('All tiers', 'Todos los planes'),
   },
   {
     id: 'payroll',
-    title: 'Payroll Integration',
-    price: '$50/mo',
-    description: 'Automated payroll processing for your team',
-    availableFor: ['Growth', 'Pro', 'Enterprise'],
+    title: L('Payroll Integration', 'Integración de nómina'),
+    price: PRICE_TBD,
+    description: L('Automated payroll processing for your team', 'Procesamiento de nómina para tu equipo'),
+    availableFor: L('Growth, Pro, Enterprise', 'Crecimiento, Pro, Empresarial'),
   },
 ];
 
-export type CompareCell = 'check' | 'dash' | string;
+export type CompareCell = 'check' | 'dash' | L10n;
 
-/** Grumi plan columns for the public comparison table (no competitor columns). */
 export interface CompareRowGrumi {
-  feature: string;
+  feature: L10n;
   basico: CompareCell;
   estandar: CompareCell;
   pro: CompareCell;
 }
 
 export interface CompareSectionGrumi {
-  category: string;
+  category: L10n;
   rows: CompareRowGrumi[];
 }
 
 export const COMPARISON_PLAN_COLUMNS = [
   {
     id: 'basico' as const,
-    name: 'Grumi Básico',
-    priceLine: '$39–$69/mes',
+    name: L('Grumi Basic', 'Grumi Básico'),
+    priceLine: PRICE_TBD,
   },
   {
     id: 'estandar' as const,
-    name: 'Grumi Estándar',
-    priceLine: '$79–$109/mes',
+    name: L('Grumi Standard', 'Grumi Estándar'),
+    priceLine: PRICE_TBD,
   },
   {
     id: 'pro' as const,
-    name: 'Grumi Pro',
-    priceLine: '$119–$159/mes',
+    name: L('Grumi Pro', 'Grumi Pro'),
+    priceLine: PRICE_TBD,
   },
 ] as const;
 
-/**
- * Merged comparison: resumen-style rows (competitor-style sheet, Grumi-only) plus
- * detailed sections by plan. Edit here to dedupe or tweak copy.
- */
 export const COMPARISON_SECTIONS: CompareSectionGrumi[] = [
   {
-    category: 'RESUMEN',
+    category: L('SUMMARY', 'RESUMEN'),
     rows: [
       {
-        feature: 'Usuarios por negocio',
-        basico: '5',
-        estandar: 'Ilimitados',
-        pro: 'Ilimitados',
+        feature: L('Users per business', 'Usuarios por negocio'),
+        basico: L('5', '5'),
+        estandar: L('Unlimited', 'Ilimitados'),
+        pro: L('Unlimited', 'Ilimitados'),
       },
       {
-        feature: 'Turnos y ponche de empleados',
+        feature: L('Shifts & employee time clock', 'Turnos y ponche de empleados'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'App para clientes con historial de mascotas y pagos',
+        feature: L(
+          'Client app with pet history and payments',
+          'App para clientes con historial de mascotas y pagos',
+        ),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Pagos en línea + ATH Móvil',
+        feature: L('Online payments + ATH Móvil', 'Pagos en línea + ATH Móvil'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Inventario con barcode móvil',
+        feature: L('Inventory with mobile barcode', 'Inventario con barcode móvil'),
         basico: 'dash',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Nómina PR',
+        feature: L('Puerto Rico payroll', 'Nómina PR'),
         basico: 'dash',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Interfaz en español',
+        feature: L('Spanish-language interface', 'Interfaz en español'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Branding y personalización por negocio',
+        feature: L('Branding & per-business customization', 'Branding y personalización por negocio'),
         basico: 'dash',
         estandar: 'check',
         pro: 'check',
@@ -233,28 +250,28 @@ export const COMPARISON_SECTIONS: CompareSectionGrumi[] = [
     ],
   },
   {
-    category: 'USUARIOS Y AGENDA',
+    category: L('USERS & SCHEDULING', 'USUARIOS Y AGENDA'),
     rows: [
       {
-        feature: 'Usuarios por negocio',
-        basico: '5',
-        estandar: 'Ilimitados',
-        pro: 'Ilimitados',
+        feature: L('Users per business', 'Usuarios por negocio'),
+        basico: L('5', '5'),
+        estandar: L('Unlimited', 'Ilimitados'),
+        pro: L('Unlimited', 'Ilimitados'),
       },
       {
-        feature: 'Citas en línea + recordatorios SMS/Email',
+        feature: L('Online booking + SMS/Email reminders', 'Citas en línea + recordatorios SMS/Email'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Calendario multi-groomer',
+        feature: L('Multi-groomer calendar', 'Calendario multi-groomer'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Cargo por no-show + prepago al carro',
+        feature: L('No-show fee + cart prepay', 'Cargo por no-show + prepago al carro'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
@@ -262,22 +279,22 @@ export const COMPARISON_SECTIONS: CompareSectionGrumi[] = [
     ],
   },
   {
-    category: 'PAGOS Y CLIENTES',
+    category: L('PAYMENTS & CLIENTS', 'PAGOS Y CLIENTES'),
     rows: [
       {
-        feature: 'Stripe integrado',
+        feature: L('Stripe integrated', 'Stripe integrado'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'ATH Móvil',
+        feature: L('ATH Móvil', 'ATH Móvil'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'App cliente: historial, recibos, perfil mascota',
+        feature: L('Client app: history, receipts, pet profile', 'App cliente: historial, recibos, perfil mascota'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
@@ -285,51 +302,51 @@ export const COMPARISON_SECTIONS: CompareSectionGrumi[] = [
     ],
   },
   {
-    category: 'OPERACIONES Y REPORTES',
+    category: L('OPERATIONS & REPORTS', 'OPERACIONES Y REPORTES'),
     rows: [
       {
-        feature: 'Horario de empleados',
+        feature: L('Employee schedules', 'Horario de empleados'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Inventario con barcode móvil',
+        feature: L('Inventory with mobile barcode', 'Inventario con barcode móvil'),
         basico: 'dash',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Nómina PR (SINOT, Choferil)',
+        feature: L('PR payroll (SINOT, Choferil)', 'Nómina PR (SINOT, Choferil)'),
         basico: 'dash',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Analytics dashboard',
-        basico: 'Básico',
-        estandar: 'Avanzado',
-        pro: 'Completo',
+        feature: L('Analytics dashboard', 'Analytics dashboard'),
+        basico: L('Basic', 'Básico'),
+        estandar: L('Advanced', 'Avanzado'),
+        pro: L('Full', 'Completo'),
       },
     ],
   },
   {
-    category: 'BRANDING Y ESCALA',
+    category: L('BRANDING & SCALE', 'BRANDING Y ESCALA'),
     rows: [
       {
-        feature: 'Interfaz en español',
+        feature: L('Spanish-language interface', 'Interfaz en español'),
         basico: 'check',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Branding + QR personalizado',
+        feature: L('Branding + custom QR', 'Branding + QR personalizado'),
         basico: 'dash',
         estandar: 'check',
         pro: 'check',
       },
       {
-        feature: 'Multi-ubicación',
+        feature: L('Multi-location', 'Multi-ubicación'),
         basico: 'dash',
         estandar: 'dash',
         pro: 'check',

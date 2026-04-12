@@ -25,7 +25,7 @@ export const PRICING_TIERS: PricingTier[] = [
   {
     tier: 'basic',
     name: 'Basic',
-    price: 29,
+    price: null,
     description: 'Perfect for small grooming businesses',
     features: [
       'Up to 100 clients',
@@ -39,7 +39,7 @@ export const PRICING_TIERS: PricingTier[] = [
   {
     tier: 'growth',
     name: 'Growth',
-    price: 79,
+    price: null,
     description: 'Ideal for growing businesses',
     features: [
       'Unlimited clients',
@@ -55,7 +55,7 @@ export const PRICING_TIERS: PricingTier[] = [
   {
     tier: 'pro',
     name: 'Pro',
-    price: 199,
+    price: null,
     description: 'For large operations',
     features: [
       'Everything in Growth',
@@ -133,9 +133,15 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
   },
   '/pricing': {
     sections: [
-      { heading: 'Intro', body: 'Simple, transparent pricing. Choose the plan that\'s right for your business. All plans include a 14-day free trial. No credit card required to start.' },
+      {
+        heading: 'Intro',
+        body: 'Plan tiers and features are listed on the pricing page. All published prices are to be determined (TBD) until launch. A 14-day free trial is planned; no credit card required to start when available.',
+      },
       ...PRICING_TIERS.flatMap((t) => [
-        { heading: t.price != null ? `${t.name} - $${t.price}/month` : `${t.name} - Contact us for custom pricing`, body: [t.description, ...t.features].join('. ') } as PageSection,
+        {
+          heading: `${t.name} — TBD`,
+          body: [t.description, ...t.features].join('. '),
+        } as PageSection,
       ]),
     ],
   },

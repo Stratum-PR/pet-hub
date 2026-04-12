@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { Cookie, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,15 +11,85 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
 import { t } from '@/lib/translations';
-import { cn } from '@/lib/utils';
 import { ConditionalAnalytics } from '@/components/cookies/ConditionalAnalytics';
+
+const COOKIE_ACTION_BTN =
+  'w-full rounded-none border-0 py-3.5 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-none bg-[#9B1B1D] hover:bg-[#85191f] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#9B1B1D]';
+
+function CookieCategoryToggles({
+  draft,
+  setDraft,
+}: {
+  draft: { preferences: boolean; analytics: boolean; marketing: boolean };
+  setDraft: (next: Partial<{ preferences: boolean; analytics: boolean; marketing: boolean }>) => void;
+}) {
+  return (
+    <div className="space-y-4 py-1">
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-neutral-900">{t('cookies.catNecessaryTitle')}</p>
+            <p className="text-xs text-neutral-600">{t('cookies.catNecessaryDesc')}</p>
+          </div>
+          <Switch checked disabled aria-readonly />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-neutral-200 p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-neutral-900">{t('cookies.catPreferencesTitle')}</p>
+            <p className="text-xs text-neutral-600">{t('cookies.catPreferencesDesc')}</p>
+          </div>
+          <Switch
+            checked={draft.preferences}
+            onCheckedChange={(v) => setDraft({ preferences: Boolean(v) })}
+            aria-label={t('cookies.catPreferencesTitle')}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-neutral-200 p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-neutral-900">{t('cookies.catAnalyticsTitle')}</p>
+            <p className="text-xs text-neutral-600">{t('cookies.catAnalyticsDesc')}</p>
+          </div>
+          <Switch
+            checked={draft.analytics}
+            onCheckedChange={(v) => setDraft({ analytics: Boolean(v) })}
+            aria-label={t('cookies.catAnalyticsTitle')}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-neutral-200 p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-neutral-900">{t('cookies.catMarketingTitle')}</p>
+            <p className="text-xs text-neutral-600">{t('cookies.catMarketingDesc')}</p>
+          </div>
+          <Switch
+            checked={draft.marketing}
+            onCheckedChange={(v) => setDraft({ marketing: Boolean(v) })}
+            aria-label={t('cookies.catMarketingTitle')}
+          />
+        </div>
+      </div>
+
+      <p className="text-xs text-neutral-600">{t('cookies.paymentFootnote')}</p>
+    </div>
+  );
+}
 
 export function CookieConsentBar() {
   const {
     needsBanner,
+    bannerGranularOpen,
     preferencesOpen,
     openPreferences,
     closePreferences,
+    dismissBannerGranular,
     draft,
     setDraft,
     acceptAll,
@@ -28,73 +97,90 @@ export function CookieConsentBar() {
     saveCustom,
   } = useCookieConsent();
 
+  const dialogOpen = preferencesOpen && !needsBanner;
+
   return (
     <>
       <ConditionalAnalytics />
 
       {needsBanner ? (
         <div
-          role="dialog"
-          aria-labelledby="cookie-banner-title"
-          aria-describedby="cookie-banner-desc"
-          className={cn(
-            'fixed inset-x-0 bottom-0 z-[100] border-t border-border bg-card/95 text-card-foreground shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md',
-            'dark:shadow-[0_-8px_30px_rgba(0,0,0,0.45)]',
-          )}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
         >
-          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between md:py-5">
-            <div className="flex gap-3 md:max-w-[58%]">
-              <div className="mt-0.5 hidden shrink-0 sm:block">
-                <Cookie className="h-8 w-8 text-primary" aria-hidden />
-              </div>
-              <div className="space-y-1 text-sm leading-relaxed">
-                <p id="cookie-banner-title" className="font-semibold text-foreground">
-                  {t('cookies.bannerTitle')}
-                </p>
-                <p id="cookie-banner-desc" className="text-muted-foreground">
-                  {t('cookies.bannerBody')}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {t('cookies.bannerProcessors')}
-                </p>
-                <Link
-                  to="/privacy"
-                  className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={bannerGranularOpen ? 'cookie-settings-title' : 'cookie-policy-title'}
+            aria-describedby={bannerGranularOpen ? 'cookie-settings-desc' : 'cookie-policy-desc'}
+            className="w-full max-w-md border border-neutral-200 bg-white px-6 py-8 text-neutral-900 shadow-xl sm:px-8 sm:py-10"
+          >
+            {!bannerGranularOpen ? (
+              <>
+                <h2
+                  id="cookie-policy-title"
+                  className="text-center font-serif text-base font-normal uppercase tracking-[0.2em] text-[#9B1B1D] sm:text-lg"
                 >
-                  {t('cookies.privacyLink')}
-                </Link>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                onClick={() => openPreferences()}
-              >
-                <Settings2 className="mr-1.5 h-4 w-4" aria-hidden />
-                {t('cookies.customize')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="rounded-full"
-                onClick={() => rejectOptional()}
-              >
-                {t('cookies.rejectOptional')}
-              </Button>
-              <Button type="button" size="sm" className="rounded-full" onClick={() => acceptAll()}>
-                {t('cookies.acceptAll')}
-              </Button>
-            </div>
+                  {t('cookies.policyTitle')}
+                </h2>
+                <p id="cookie-policy-desc" className="mt-5 text-left text-sm leading-relaxed text-neutral-800">
+                  {t('cookies.policyBody')}{' '}
+                  <Link to="/privacy#cookie-notice" className="font-medium underline underline-offset-2">
+                    {t('cookies.cookieNoticeLink')}
+                  </Link>
+                  {t('cookies.policyBodyEnd')}
+                </p>
+                <div className="mt-8 flex flex-col gap-0.5 bg-white">
+                  <button type="button" className={COOKIE_ACTION_BTN} onClick={() => acceptAll()}>
+                    {t('cookies.acceptAllCaps')}
+                  </button>
+                  <button type="button" className={COOKIE_ACTION_BTN} onClick={() => rejectOptional()}>
+                    {t('cookies.rejectAllCaps')}
+                  </button>
+                  <button type="button" className={COOKIE_ACTION_BTN} onClick={() => openPreferences()}>
+                    {t('cookies.settingsCaps')}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2
+                  id="cookie-settings-title"
+                  className="text-center font-serif text-base font-normal uppercase tracking-[0.2em] text-[#9B1B1D] sm:text-lg"
+                >
+                  {t('cookies.dialogTitle')}
+                </h2>
+                <p id="cookie-settings-desc" className="mt-2 text-center text-xs text-neutral-600">
+                  {t('cookies.dialogIntro')}
+                </p>
+                <div className="mt-5 max-h-[min(52vh,22rem)] overflow-y-auto pr-1">
+                  <CookieCategoryToggles draft={draft} setDraft={setDraft} />
+                </div>
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-none border-neutral-300"
+                    onClick={() => dismissBannerGranular()}
+                  >
+                    {t('cookies.back')}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="rounded-none border-0 bg-[#9B1B1D] px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.12em] text-white hover:bg-[#85191f] focus-visible:ring-2 focus-visible:ring-[#9B1B1D] focus-visible:ring-offset-2 sm:min-w-[10rem]"
+                    onClick={() => saveCustom()}
+                  >
+                    {t('cookies.saveChoices')}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}
 
       <Dialog
-        open={preferencesOpen}
+        open={dialogOpen}
         onOpenChange={(open) => {
           if (!open) closePreferences();
         }}
@@ -105,61 +191,7 @@ export function CookieConsentBar() {
             <DialogDescription>{t('cookies.dialogIntro')}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-5 py-2">
-            <div className="rounded-xl border border-border bg-muted/30 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">{t('cookies.catNecessaryTitle')}</p>
-                  <p className="text-xs text-muted-foreground">{t('cookies.catNecessaryDesc')}</p>
-                </div>
-                <Switch checked disabled aria-readonly />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">{t('cookies.catPreferencesTitle')}</p>
-                  <p className="text-xs text-muted-foreground">{t('cookies.catPreferencesDesc')}</p>
-                </div>
-                <Switch
-                  checked={draft.preferences}
-                  onCheckedChange={(v) => setDraft({ preferences: Boolean(v) })}
-                  aria-label={t('cookies.catPreferencesTitle')}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">{t('cookies.catAnalyticsTitle')}</p>
-                  <p className="text-xs text-muted-foreground">{t('cookies.catAnalyticsDesc')}</p>
-                </div>
-                <Switch
-                  checked={draft.analytics}
-                  onCheckedChange={(v) => setDraft({ analytics: Boolean(v) })}
-                  aria-label={t('cookies.catAnalyticsTitle')}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">{t('cookies.catMarketingTitle')}</p>
-                  <p className="text-xs text-muted-foreground">{t('cookies.catMarketingDesc')}</p>
-                </div>
-                <Switch
-                  checked={draft.marketing}
-                  onCheckedChange={(v) => setDraft({ marketing: Boolean(v) })}
-                  aria-label={t('cookies.catMarketingTitle')}
-                />
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground">{t('cookies.paymentFootnote')}</p>
-          </div>
+          <CookieCategoryToggles draft={draft} setDraft={setDraft} />
 
           <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" className="rounded-full" onClick={() => closePreferences()}>
