@@ -143,107 +143,197 @@ export const PRICING_ADDONS: AddOnConfig[] = [
 
 export type CompareCell = 'check' | 'dash' | string;
 
-export interface CompareRow {
+/** Grumi plan columns for the public comparison table (no competitor columns). */
+export interface CompareRowGrumi {
   feature: string;
-  basic: CompareCell;
-  growth: CompareCell;
+  basico: CompareCell;
+  estandar: CompareCell;
   pro: CompareCell;
-  enterprise: CompareCell;
 }
 
-export interface CompareSection {
+export interface CompareSectionGrumi {
   category: string;
-  rows: CompareRow[];
+  rows: CompareRowGrumi[];
 }
 
-export const COMPARISON_SECTIONS: CompareSection[] = [
+export const COMPARISON_PLAN_COLUMNS = [
   {
-    category: 'CLIENTS & APPOINTMENTS',
+    id: 'basico' as const,
+    name: 'Grumi Básico',
+    priceLine: '$39–$69/mes',
+  },
+  {
+    id: 'estandar' as const,
+    name: 'Grumi Estándar',
+    priceLine: '$79–$109/mes',
+  },
+  {
+    id: 'pro' as const,
+    name: 'Grumi Pro',
+    priceLine: '$119–$159/mes',
+  },
+] as const;
+
+/**
+ * Merged comparison: resumen-style rows (competitor-style sheet, Grumi-only) plus
+ * detailed sections by plan. Edit here to dedupe or tweak copy.
+ */
+export const COMPARISON_SECTIONS: CompareSectionGrumi[] = [
+  {
+    category: 'RESUMEN',
     rows: [
-      { feature: 'Active client limit', basic: '50', growth: '200', pro: 'Unlimited', enterprise: 'Unlimited' },
-      { feature: 'Appointments per month', basic: 'Unlimited', growth: 'Unlimited', pro: 'Unlimited', enterprise: 'Unlimited' },
-      { feature: 'Online booking', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Appointment reminders', basic: 'Email only', growth: 'Email only', pro: 'Email only', enterprise: 'Email + SMS' },
-      { feature: 'Client portal', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
+      {
+        feature: 'Usuarios por negocio',
+        basico: '5',
+        estandar: 'Ilimitados',
+        pro: 'Ilimitados',
+      },
+      {
+        feature: 'Turnos y ponche de empleados',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'App para clientes con historial de mascotas y pagos',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Pagos en línea + ATH Móvil',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Inventario con barcode móvil',
+        basico: 'dash',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Nómina PR',
+        basico: 'dash',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Interfaz en español',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Branding y personalización por negocio',
+        basico: 'dash',
+        estandar: 'check',
+        pro: 'check',
+      },
     ],
   },
   {
-    category: 'TEAM & STAFF',
+    category: 'USUARIOS Y AGENDA',
     rows: [
-      { feature: 'Staff members included', basic: '1 (just you)', growth: '5', pro: '15', enterprise: 'Unlimited' },
-      { feature: 'Staff scheduling', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Staff permissions', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Track commissions', basic: 'dash', growth: 'dash', pro: 'check', enterprise: 'check' },
+      {
+        feature: 'Usuarios por negocio',
+        basico: '5',
+        estandar: 'Ilimitados',
+        pro: 'Ilimitados',
+      },
+      {
+        feature: 'Citas en línea + recordatorios SMS/Email',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Calendario multi-groomer',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Cargo por no-show + prepago al carro',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
     ],
   },
   {
-    category: 'SERVICES OFFERED',
+    category: 'PAGOS Y CLIENTES',
     rows: [
-      { feature: 'Grooming services', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Daycare/boarding', basic: 'dash', growth: 'dash', pro: 'check', enterprise: 'check' },
-      { feature: 'Daily care logs', basic: 'dash', growth: 'dash', pro: 'check', enterprise: 'check' },
-      { feature: 'Room/kennel tracking', basic: 'dash', growth: 'dash', pro: 'check', enterprise: 'check' },
+      {
+        feature: 'Stripe integrado',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'ATH Móvil',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'App cliente: historial, recibos, perfil mascota',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
     ],
   },
   {
-    category: 'PAYMENTS & MONEY',
+    category: 'OPERACIONES Y REPORTES',
     rows: [
-      { feature: 'Accept credit cards', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Online payments', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Create invoices', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Track revenue', basic: 'Basic', growth: 'Detailed', pro: 'Detailed', enterprise: 'Advanced' },
-      { feature: 'Payroll processing', basic: 'Add-on', growth: 'Add-on', pro: 'Add-on', enterprise: 'Add-on' },
+      {
+        feature: 'Horario de empleados',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Inventario con barcode móvil',
+        basico: 'dash',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Nómina PR (SINOT, Choferil)',
+        basico: 'dash',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Analytics dashboard',
+        basico: 'Básico',
+        estandar: 'Avanzado',
+        pro: 'Completo',
+      },
     ],
   },
   {
-    category: 'INVENTORY & SUPPLIES',
+    category: 'BRANDING Y ESCALA',
     rows: [
-      { feature: 'Track products/supplies', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Low stock alerts', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Inventory reports', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-    ],
-  },
-  {
-    category: 'BRANDING & CUSTOMIZATION',
-    rows: [
-      { feature: 'Your logo & colors', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Branded invoices', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Custom web address', basic: 'dash', growth: 'dash', pro: 'dash', enterprise: 'check' },
-    ],
-  },
-  {
-    category: 'STORAGE & DATA',
-    rows: [
-      { feature: 'Photo & document storage', basic: '5 GB', growth: '25 GB', pro: '100 GB', enterprise: 'Unlimited' },
-      { feature: 'Client notes', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Pet records & history', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-    ],
-  },
-  {
-    category: 'LOCATIONS',
-    rows: [
-      { feature: 'Number of locations', basic: '1', growth: '1', pro: '1', enterprise: 'Unlimited' },
-      { feature: 'Manage multiple shops', basic: 'dash', growth: 'dash', pro: 'dash', enterprise: 'check' },
-      { feature: 'Combined reporting', basic: 'dash', growth: 'dash', pro: 'dash', enterprise: 'check' },
-    ],
-  },
-  {
-    category: 'COMMUNICATION',
-    rows: [
-      { feature: 'Email notifications', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Message clients', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'SMS text messages', basic: 'Add-on', growth: 'Add-on', pro: 'Add-on', enterprise: 'Included' },
-      { feature: 'Automated follow-ups', basic: 'dash', growth: 'check', pro: 'check', enterprise: 'check' },
-    ],
-  },
-  {
-    category: 'SUPPORT & HELP',
-    rows: [
-      { feature: 'Help articles', basic: 'check', growth: 'check', pro: 'check', enterprise: 'check' },
-      { feature: 'Email support', basic: '24-48 hours', growth: '12-24 hours', pro: 'Same day', enterprise: 'Priority' },
-      { feature: 'Phone support', basic: 'dash', growth: 'dash', pro: 'check', enterprise: 'check' },
-      { feature: 'Personal account manager', basic: 'dash', growth: 'dash', pro: 'dash', enterprise: 'check' },
-      { feature: 'Setup & training', basic: 'dash', growth: '1 session', pro: 'Full onboarding', enterprise: 'Full onboarding' },
+      {
+        feature: 'Interfaz en español',
+        basico: 'check',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Branding + QR personalizado',
+        basico: 'dash',
+        estandar: 'check',
+        pro: 'check',
+      },
+      {
+        feature: 'Multi-ubicación',
+        basico: 'dash',
+        estandar: 'dash',
+        pro: 'check',
+      },
     ],
   },
 ];

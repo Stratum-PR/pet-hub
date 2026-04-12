@@ -1,4 +1,4 @@
-import { useState, useCallback, Fragment } from 'react';
+import { useState, useCallback, Fragment, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
@@ -11,6 +11,7 @@ import {
   PRICING_TIERS_CONFIG,
   PRICING_ADDONS,
   COMPARISON_SECTIONS,
+  COMPARISON_PLAN_COLUMNS,
   type BillingPeriod,
   type CompareCell,
 } from '@/content/pricing-page-data';
@@ -18,6 +19,20 @@ import {
 const PRICING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/pricing')!;
 const COMPARISON_TABLE_ID = 'comparison-table';
 const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'sales@example.com';
+
+/** Soft column washes for plan headers (brand + teal + violet). */
+const COMPARISON_PLAN_HEADER_BG: readonly [string, string, string] = [
+  'border-l border-primary/25 bg-primary/[0.14]',
+  'border-l border-teal-400/30 bg-teal-500/[0.11] dark:bg-teal-400/[0.14]',
+  'border-l border-violet-400/30 bg-violet-500/[0.11] dark:bg-violet-400/[0.14]',
+];
+
+/** Body cells: subtle tint so columns read clearly over zebra rows. */
+const COMPARISON_PLAN_CELL_BG: readonly [string, string, string] = [
+  'border-l border-primary/12 bg-primary/[0.05]',
+  'border-l border-teal-400/15 bg-teal-500/[0.04] dark:bg-teal-400/[0.06]',
+  'border-l border-violet-400/15 bg-violet-500/[0.04] dark:bg-violet-400/[0.06]',
+];
 
 function scrollToComparison() {
   const el = document.getElementById(COMPARISON_TABLE_ID);
@@ -70,19 +85,22 @@ function BillingToggle({
 function CompareCellContent({ cell }: { cell: CompareCell }) {
   if (cell === 'check') {
     return (
-      <span className="inline-flex text-primary" aria-hidden>
-        <Check className="w-5 h-5" strokeWidth={2.5} />
+      <span
+        className="mx-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/18 text-primary shadow-sm ring-1 ring-primary/25"
+        aria-hidden
+      >
+        <Check className="h-4 w-4" strokeWidth={2.75} />
       </span>
     );
   }
   if (cell === 'dash') {
     return (
-      <span className="text-muted-foreground/60" aria-hidden>
+      <span className="text-muted-foreground/45 text-lg font-light tabular-nums" aria-hidden>
         —
       </span>
     );
   }
-  return <span className="text-foreground text-sm">{cell}</span>;
+  return <span className="text-foreground text-sm font-medium tabular-nums tracking-tight">{cell}</span>;
 }
 
 export function Pricing() {
@@ -90,6 +108,14 @@ export function Pricing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const scrollToComparisonCb = useCallback(scrollToComparison, []);
+
+  const comparisonSectionsStriped = useMemo(() => {
+    let stripe = 0;
+    return COMPARISON_SECTIONS.map((sec) => ({
+      category: sec.category,
+      rows: sec.rows.map((row) => ({ row, stripe: stripe++ })),
+    }));
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -182,59 +208,64 @@ export function Pricing() {
               <h2 id="comparison-heading" className="text-xl font-semibold text-center mb-6">
                 Compare Plans in Detail
               </h2>
-              <div className="rounded-xl border border-border bg-background overflow-hidden overflow-x-auto">
-                <table className="w-full min-w-[720px] text-sm" role="grid" aria-label="Plan comparison">
+              <div className="overflow-hidden overflow-x-auto rounded-2xl border border-primary/20 bg-card shadow-md shadow-primary/[0.07] ring-1 ring-border/70">
+                <table className="w-full min-w-[800px] border-collapse text-sm" role="grid" aria-label="Comparación de planes Grumi">
                   <thead>
-                    <tr className="border-b border-border bg-muted/50 sticky top-0 z-10">
+                    <tr className="sticky top-0 z-10 border-b border-primary/15 bg-gradient-to-b from-primary/18 via-primary/10 to-muted/40 backdrop-blur-sm">
                       <th
                         scope="col"
-                        className="text-left py-3 px-4 font-semibold text-foreground w-[200px]"
+                        className="w-[min(280px,40vw)] border-r border-primary/15 bg-primary/[0.08] py-4 pl-5 pr-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-primary"
                       >
-                        Feature
+                        Función
                       </th>
-                      <th scope="col" className="py-3 px-4 font-semibold text-foreground">
-                        Basic
-                      </th>
-                      <th scope="col" className="py-3 px-4 font-semibold text-foreground">
-                        Growth
-                      </th>
-                      <th scope="col" className="py-3 px-4 font-semibold text-foreground">
-                        Pro
-                      </th>
-                      <th scope="col" className="py-3 px-4 font-semibold text-foreground">
-                        Enterprise
-                      </th>
+                      {COMPARISON_PLAN_COLUMNS.map((col, i) => (
+                        <th
+                          key={col.id}
+                          scope="col"
+                          className={`px-3 py-4 text-center align-bottom sm:px-4 ${COMPARISON_PLAN_HEADER_BG[i]}`}
+                        >
+                          <span className="block text-[0.95rem] font-bold leading-tight text-foreground">{col.name}</span>
+                          <span className="mt-1.5 block text-xs font-semibold text-muted-foreground tabular-nums">
+                            {col.priceLine}
+                          </span>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {COMPARISON_SECTIONS.map((sec) => (
+                    {comparisonSectionsStriped.map((sec) => (
                       <Fragment key={sec.category}>
-                        <tr className="bg-muted/30">
+                        <tr className="border-y border-primary/10 bg-gradient-to-r from-primary/12 via-primary/6 to-transparent">
                           <td
-                            colSpan={5}
-                            className="py-2 px-4 font-semibold text-foreground"
+                            colSpan={4}
+                            className="py-2.5 pl-5 pr-4 text-[11px] font-bold uppercase tracking-[0.16em] text-primary"
                             id={`cat-${sec.category.replace(/\s+/g, '-')}`}
                           >
                             {sec.category}
                           </td>
                         </tr>
-                        {sec.rows.map((row, ri) => (
+                        {sec.rows.map(({ row, stripe }, ri) => (
                           <tr
                             key={`${sec.category}-${ri}`}
-                            className="border-b border-border/70 hover:bg-muted/20 transition-colors"
+                            className={`border-b border-border/50 transition-colors hover:bg-primary/[0.06] ${
+                              stripe % 2 === 0 ? 'bg-muted/35' : 'bg-background/80'
+                            }`}
                           >
-                            <td className="py-2.5 px-4 text-foreground">{row.feature}</td>
-                            <td className="py-2.5 px-4 text-center">
-                              <CompareCellContent cell={row.basic} />
+                            <td
+                              className={`border-r border-primary/10 py-3 pl-5 pr-3 text-[0.8125rem] font-medium leading-snug text-foreground ${
+                                stripe % 2 === 0 ? 'bg-primary/[0.04]' : 'bg-primary/[0.02]'
+                              }`}
+                            >
+                              {row.feature}
                             </td>
-                            <td className="py-2.5 px-4 text-center">
-                              <CompareCellContent cell={row.growth} />
+                            <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[0]}`}>
+                              <CompareCellContent cell={row.basico} />
                             </td>
-                            <td className="py-2.5 px-4 text-center">
+                            <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[1]}`}>
+                              <CompareCellContent cell={row.estandar} />
+                            </td>
+                            <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[2]}`}>
                               <CompareCellContent cell={row.pro} />
-                            </td>
-                            <td className="py-2.5 px-4 text-center">
-                              <CompareCellContent cell={row.enterprise} />
                             </td>
                           </tr>
                         ))}
@@ -242,6 +273,18 @@ export function Pricing() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="mt-8 flex flex-col items-center gap-3">
+                <Button
+                  asChild
+                  size="lg"
+                  className="rounded-full bg-[#D4FF00] px-8 font-semibold text-black shadow hover:bg-[#D4FF00]/90"
+                >
+                  <Link to="/#waitlist">Solicitar acceso anticipado</Link>
+                </Button>
+                <p className="text-center text-xs sm:text-sm text-muted-foreground max-w-md px-2">
+                  Grumi está en desarrollo — sé de los primeros en probarlo
+                </p>
               </div>
             </section>
 
