@@ -275,8 +275,8 @@ Deno.serve(async (req) => {
   }
 
   const full_name = (body.full_name ?? "").trim().slice(0, 120);
-  const business_name = (body.business_name ?? "").trim().slice(0, 200);
-  if (full_name.length < 2 || business_name.length < 2) {
+  const business_name_raw = (body.business_name ?? "").trim().slice(0, 200);
+  if (full_name.length < 2) {
     return new Response(
       JSON.stringify({ error: "invalid_input", messageKey: "waitlist.errorRequiredProfile" }),
       {
@@ -285,6 +285,7 @@ Deno.serve(async (req) => {
       },
     );
   }
+  const business_name = business_name_raw.length >= 2 ? business_name_raw : "";
 
   const locale = body.locale === "en" ? "en" : "es";
   const source = ["website", "social", "referral", "direct"].includes(body.source ?? "")
@@ -352,7 +353,7 @@ Deno.serve(async (req) => {
     referralCode =
       typeof existing.referral_code === "string" && existing.referral_code.length > 0
         ? existing.referral_code
-        : await ensureUniqueReferralCode(admin, business_name);
+        : await ensureUniqueReferralCode(admin, business_name || full_name);
 
     const resolvedReferredBy =
       (existing.referred_by as string | null) ??
@@ -404,7 +405,7 @@ Deno.serve(async (req) => {
 
     isFirstCompletion = true;
   } else {
-    referralCode = await ensureUniqueReferralCode(admin, business_name);
+    referralCode = await ensureUniqueReferralCode(admin, business_name || full_name);
 
     const referred_by_code_new = resolveReferredByCode({
       resolvedReferredBy: referredById,

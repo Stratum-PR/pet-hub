@@ -273,6 +273,11 @@ export function Landing() {
                 >
                   {t('waitlist.splashCta')}
                 </Button>
+                <p className="max-w-md rounded-2xl px-3 py-1.5 text-center text-xs leading-snug text-white/95 backdrop-blur-[10px] sm:px-4 sm:py-2 sm:text-sm sm:backdrop-blur-md">
+                  {t('waitlist.splashCtaSubtitleBefore')}
+                  <strong className="font-bold text-white">{t('waitlist.splashCtaSubtitleBold')}</strong>
+                  {t('waitlist.splashCtaSubtitleAfter')}
+                </p>
                 <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
                   <Button
                     type="button"

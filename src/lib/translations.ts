@@ -513,12 +513,24 @@ export const translations: Translations = {
 
   // Waitlist (pre-launch)
   'waitlist.navCta': {
-    en: 'Join the Waitlist',
-    es: 'Únete a la Lista'
+    en: 'Join the waitlist',
+    es: 'Únete a la lista de espera'
   },
   'waitlist.splashCta': {
-    en: 'Join the Grumi Waitlist',
-    es: 'Únete a la Lista de Espera de Grumi'
+    en: 'Join the waitlist',
+    es: 'Únete a la lista de espera'
+  },
+  'waitlist.splashCtaSubtitleBefore': {
+    en: 'Sign up to lock in your price: ',
+    es: 'Anótate para congelar tu precio: '
+  },
+  'waitlist.splashCtaSubtitleBold': {
+    en: '25% off',
+    es: '25% off'
+  },
+  'waitlist.splashCtaSubtitleAfter': {
+    en: ' your annual plan at launch.',
+    es: ' el plan anual al lanzar.'
   },
   'waitlist.welcomeJoined': {
     en: 'You are on the list. Check your inbox for a welcome note.',
@@ -545,12 +557,20 @@ export const translations: Translations = {
     es: 'Continuar a la encuesta'
   },
   'waitlist.modalFormLead': {
-    en: "Thank you for your interest in Grumi. Please provide the following information to secure your Founder's Price.",
-    es: 'Gracias por tu interés en Grumi. Comparte la siguiente información para asegurar tu Precio Fundador.'
+    en: "Thank you for your interest in Grumi. Please provide the following information to reserve your Founder's Price.",
+    es: 'Gracias por tu interés en Grumi. Comparte la siguiente información para reservar tu Precio Fundador.'
   },
   'waitlist.cardTitle': {
-    en: 'Join the Grumi waitlist',
-    es: 'Únete a la lista de espera de Grumi'
+    en: 'Join the waitlist',
+    es: 'Únete a la lista de espera'
+  },
+  'waitlist.labelFirstName': {
+    en: 'First name',
+    es: 'Nombre'
+  },
+  'waitlist.labelLastName': {
+    en: 'Last name',
+    es: 'Apellido'
   },
   'waitlist.labelFullName': {
     en: 'Full name',
@@ -625,24 +645,32 @@ export const translations: Translations = {
     es: 'Nombre del negocio o salón',
   },
   'waitlist.errorRequiredProfile': {
-    en: 'Please enter your name, business name, and a valid email.',
-    es: 'Ingresa tu nombre, el nombre del negocio y un correo válido.',
+    en: 'Please enter your first name, last name, and a valid email.',
+    es: 'Ingresa nombre, apellido y un correo válido.',
   },
   'waitlist.submitCta': {
-    en: 'Secure my spot',
-    es: 'Asegurar mi lugar'
+    en: 'Reserve my spot',
+    es: 'Reservar mi lugar'
   },
-  'waitlist.founderLine': {
-    en: "Founder's Price: 25% off your first year at launch",
-    es: 'Precio Fundador: 25% off tu primer año al lanzar'
+  'waitlist.founderLineBefore': {
+    en: 'You get early bird access + ',
+    es: 'Obtienes acceso early bird + '
+  },
+  'waitlist.founderLineBold': {
+    en: '25% off',
+    es: '25% off'
+  },
+  'waitlist.founderLineAfter': {
+    en: ' your annual plan',
+    es: ' tu plan anual'
   },
   'waitlist.alreadyRegistered': {
     en: "You're already on the list. We'll notify you soon!",
     es: 'Ya estás en la lista. ¡Te notificaremos pronto!'
   },
   'waitlist.errorInvalidEmail': {
-    en: 'Please enter a valid email',
-    es: 'Por favor ingresa un email válido'
+    en: 'Please enter a valid email address (example: name@domain.com).',
+    es: 'Ingresa un correo válido (ejemplo: nombre@dominio.com).',
   },
   'waitlist.errorGeneric': {
     en: 'Something went wrong. Please try again.',
@@ -653,8 +681,8 @@ export const translations: Translations = {
     es: '¡Estás dentro!'
   },
   'waitlist.confirmedSubtitle': {
-    en: "Your Founder's Price is locked in.",
-    es: 'Tu Precio Fundador está asegurado.'
+    en: "Your Founder's Price is reserved.",
+    es: 'Tu Precio Fundador está reservado.'
   },
   'waitlist.confirmedNext': {
     en: "We'll notify you when Grumi is ready.",
@@ -1433,6 +1461,62 @@ export const translations: Translations = {
   'apptBook.openAppointmentFailed': {
     en: 'Could not open this appointment.',
     es: 'No se pudo abrir esta cita.'
+  },
+  'apptBook.pageTitle': {
+    en: 'Appointment Book',
+    es: 'Libro de citas'
+  },
+  'apptBook.createAppointment': {
+    en: 'Create appointment',
+    es: 'Crear cita'
+  },
+  'apptBook.calendarSectionHeading': {
+    en: 'Calendar',
+    es: 'Calendario'
+  },
+  'apptBook.weekJumpHeading': {
+    en: 'Next appointment in:',
+    es: 'Próxima cita en:'
+  },
+  'apptBook.weekJumpWeeksSuffix': {
+    en: 'weeks',
+    es: 'semanas'
+  },
+  'apptBook.weekJumpAria': {
+    en: 'Go to the first open business day in the week {count} weeks after this week.',
+    es: 'Ir al primer día hábil abierto de la semana dentro de {count} semanas desde la semana actual.'
+  },
+  'apptBook.noAvailabilityInWeek': {
+    en: 'No open business days that week.',
+    es: 'No hay días hábiles abiertos esa semana.'
+  },
+  'apptBook.filterGrooming': {
+    en: 'Grooming',
+    es: 'Grooming'
+  },
+  'apptBook.filterDaycare': {
+    en: 'Daycare',
+    es: 'Guardería'
+  },
+  'apptBook.filterAllServices': {
+    en: 'All services',
+    es: 'Todos los servicios'
+  },
+  'apptBook.navigatePrevious': {
+    en: 'Previous period',
+    es: 'Período anterior'
+  },
+  'apptBook.navigateNext': {
+    en: 'Next period',
+    es: 'Período siguiente'
+  },
+  'apptBook.loadError': {
+    en: 'Failed to load data.',
+    es: 'No se pudieron cargar los datos.'
+  },
+  'apptBook.retry': {
+    en: 'Retry',
+    es: 'Reintentar'
   },
   'nav.support': {
     en: 'Support',

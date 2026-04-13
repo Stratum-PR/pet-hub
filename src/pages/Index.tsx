@@ -182,7 +182,7 @@ const Index = () => {
   } = useInventory();
   const { services, loading: servicesLoading, addService, updateService, deleteService } = useServices();
   const { settings, saveAllSettings, loading: settingsLoading } = useSettings();
-  const { createNotification } = useNotifications();
+  const { createNotification } = useNotifications(settings);
 
   const defaultLow = parseInt(settings.default_low_stock_threshold || '5', 10) || 5;
   const updateProductWithNotification = async (id: string, data: Partial<import('@/types/inventory').Product>) => {

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
-import { useSettings } from '@/hooks/useSupabaseData';
+import type { Settings } from '@/hooks/useSupabaseData';
 import {
   buildDemoBrowseSyntheticNotifications,
   getDemoBrowseReadIds,
@@ -139,11 +139,10 @@ function asEnabled(raw: string | null | undefined, fallback = true): boolean {
   return v === 'true' || v === '1' || v === 'yes' || v === 'on';
 }
 
-export function useNotifications() {
+export function useNotifications(settings: Settings) {
   const { user, staffId } = useAuth();
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
-  const { settings } = useSettings();
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
 

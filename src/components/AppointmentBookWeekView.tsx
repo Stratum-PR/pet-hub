@@ -1,13 +1,19 @@
 import { useMemo } from 'react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
+import type { Locale } from 'date-fns';
 import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
 import { cn } from '@/lib/utils';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import { t } from '@/lib/translations';
 
 export interface AppointmentBookWeekViewProps {
   weekDays: Date[];
   employees: CalendarStaff[];
   appointments: CalendarAppointment[];
+  /** Highlights the column for this day (e.g. week-jump or manual selection). */
+  selectedDate?: Date;
+  /** date-fns locale for header labels. */
+  dateLocale?: Locale;
   onAppointmentClick?: (apt: CalendarAppointment) => void;
   onCellClick?: (employeeId: string, day: Date) => void;
 }
@@ -20,6 +26,8 @@ export function AppointmentBookWeekView({
   weekDays,
   employees,
   appointments,
+  selectedDate,
+  dateLocale,
   onAppointmentClick,
   onCellClick,
 }: AppointmentBookWeekViewProps) {
@@ -53,17 +61,25 @@ export function AppointmentBookWeekView({
           <thead className="sticky top-0 z-20 bg-card shadow-sm">
             <tr>
               <th className="sticky left-0 z-30 min-w-[140px] border border-border bg-card px-3 py-2 text-left text-xs font-semibold text-muted-foreground">
-                Employee
+                {t('apptBook.columnEmployee')}
               </th>
-              {weekDays.map((d) => (
+              {weekDays.map((d) => {
+                const colSelected = selectedDate ? isSameDay(d, selectedDate) : false;
+                return (
                 <th
                   key={dayKey(d)}
-                  className="min-w-[130px] border border-border bg-muted/30 px-2 py-2 text-center text-xs font-semibold text-foreground"
+                  className={cn(
+                    'min-w-[130px] border border-border px-2 py-2 text-center text-xs font-semibold text-foreground',
+                    colSelected ? 'bg-primary/15 ring-1 ring-inset ring-primary/40' : 'bg-muted/30',
+                  )}
                 >
-                  <div>{format(d, 'EEE')}</div>
-                  <div className="text-[11px] font-normal text-muted-foreground">{format(d, 'MMM d')}</div>
+                  <div>{format(d, 'EEE', dateLocale ? { locale: dateLocale } : undefined)}</div>
+                  <div className="text-[11px] font-normal text-muted-foreground">
+                    {format(d, 'd MMM', dateLocale ? { locale: dateLocale } : undefined)}
+                  </div>
                 </th>
-              ))}
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -75,11 +91,13 @@ export function AppointmentBookWeekView({
                 {weekDays.map((d) => {
                   const key = dayKey(d);
                   const list = grouped[emp.id]?.[key] ?? [];
+                  const colSelected = selectedDate ? isSameDay(d, selectedDate) : false;
                   return (
                     <td
                       key={key}
                       className={cn(
                         'min-h-[88px] min-w-[130px] border border-border p-1 align-top',
+                        colSelected && 'bg-primary/5',
                         onCellClick && 'cursor-pointer hover:bg-muted/40',
                       )}
                       onClick={() => onCellClick?.(emp.id, d)}

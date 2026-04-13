@@ -125,7 +125,7 @@ export function Layout({ children, settings }: LayoutProps) {
   const { isAdmin, profile, role } = useAuth();
   const { viewerTier, setViewerTier, isSuperAdmin, isFeatureVisible } = useFeatureRollout();
   const { setTheme, resolvedTheme } = useTheme();
-  const { notifications, markRead, markAllRead } = useNotifications();
+  const { notifications, markRead, markAllRead } = useNotifications(settings);
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
