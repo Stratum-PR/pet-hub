@@ -57,17 +57,17 @@ export function SplashAuthModal({ isOpen, onClose, title, titleId, headerCenter,
       onClick={handleOverlayClick}
     >
       <div
-        className="relative z-[1000] w-[90vw] max-w-[920px] max-h-[85vh] overflow-y-auto rounded-3xl bg-white shadow-2xl animate-zoom-out-up"
+        className="relative z-[1000] w-[min(92vw,920px)] max-w-[920px] max-h-[min(92dvh,880px)] overflow-y-auto overscroll-y-contain rounded-3xl bg-white shadow-2xl animate-zoom-out-up"
         style={{
           boxShadow: '0 32px 64px rgba(0,0,0,0.24), 0 0 1px rgba(0,0,0,0.1)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {headerCenter ? (
-          <div className="mb-8 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-black/10 px-6 pb-6 pt-6 md:gap-4 md:px-12 md:pt-12">
+          <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-black/10 px-4 pb-4 pt-4 sm:gap-3 sm:px-6 sm:pb-6 sm:pt-6 md:mb-8 md:gap-4 md:px-12 md:pt-12">
             <h2
               id={titleId}
-              className="min-w-0 justify-self-start pr-2 text-left text-lg font-semibold text-foreground sm:text-xl"
+              className="min-w-0 justify-self-start pr-1 text-left text-base font-semibold text-foreground sm:pr-2 sm:text-lg md:text-xl"
             >
               {title}
             </h2>
@@ -83,8 +83,8 @@ export function SplashAuthModal({ isOpen, onClose, title, titleId, headerCenter,
             </button>
           </div>
         ) : (
-          <div className="mb-8 flex items-center justify-between border-b border-black/10 px-6 pb-6 pt-6 md:px-12 md:pt-12">
-            <h2 id={titleId} className="text-xl font-semibold text-foreground">
+          <div className="mb-4 flex items-center justify-between border-b border-black/10 px-4 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-6 md:mb-8 md:px-12 md:pt-12">
+            <h2 id={titleId} className="text-lg font-semibold text-foreground sm:text-xl">
               {title}
             </h2>
             <button
@@ -98,7 +98,7 @@ export function SplashAuthModal({ isOpen, onClose, title, titleId, headerCenter,
             </button>
           </div>
         )}
-        <div className="px-6 pb-6 md:px-12 md:pb-12">{children}</div>
+        <div className="px-4 pb-4 sm:px-6 sm:pb-6 md:px-12 md:pb-12">{children}</div>
       </div>
     </div>
   );

@@ -89,6 +89,15 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
     priority: 0.35,
   },
   {
+    path: '/cookie-notice',
+    title: 'Cookie Notice – Grumi',
+    description:
+      'How Grumi and Stratum PR LLC use cookies and similar technologies on the site and platform, and how to manage consent.',
+    indexable: true,
+    changefreq: 'yearly',
+    priority: 0.35,
+  },
+  {
     path: '/login',
     title: 'Log in – Grumi',
     description: 'Log in to your Grumi account.',

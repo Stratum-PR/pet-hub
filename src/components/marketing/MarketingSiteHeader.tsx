@@ -4,7 +4,6 @@ import { Menu } from 'lucide-react';
 import { t } from '@/lib/translations';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
 import { MARKETING_NAV_ITEMS, type MarketingNavItem } from './marketingNavConfig';
 import { useWaitlistModal } from '@/contexts/WaitlistModalContext';
@@ -136,12 +135,23 @@ export function MarketingSiteHeader({
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="flex flex-col gap-6 pt-8">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Idioma / Language</p>
-                <LanguageSwitcher />
-              </div>
+            <SheetContent side="right" className="flex flex-col gap-2 pt-8">
               <div className="flex flex-col gap-2">
+                {MARKETING_NAV_ITEMS.map((item) =>
+                  item.kind === 'hash' ? (
+                    <Link key={item.hash} to={`/#${item.hash}`} onClick={closeMobile}>
+                      <Button variant="ghost" className="w-full justify-start">
+                        {t(item.labelKey)}
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link key={item.to} to={item.to} onClick={closeMobile}>
+                      <Button variant="ghost" className="w-full justify-start">
+                        {t(item.labelKey)}
+                      </Button>
+                    </Link>
+                  )
+                )}
                 {mode === 'landing' ? (
                   <button
                     type="button"
@@ -170,26 +180,6 @@ export function MarketingSiteHeader({
                 >
                   <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
                 </button>
-                {MARKETING_NAV_ITEMS.map((item) =>
-                  item.kind === 'hash' ? (
-                    <Link key={item.hash} to={`/#${item.hash}`} onClick={closeMobile}>
-                      <Button variant="ghost" className="w-full justify-start">
-                        {t(item.labelKey)}
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Link key={item.to} to={item.to} onClick={closeMobile}>
-                      <Button variant="ghost" className="w-full justify-start">
-                        {t(item.labelKey)}
-                      </Button>
-                    </Link>
-                  )
-                )}
-                <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} onClick={closeMobile}>
-                  <Button variant="ghost" className="w-full justify-start">
-                    {t('landing.viewDemo')}
-                  </Button>
-                </Link>
               </div>
             </SheetContent>
           </Sheet>

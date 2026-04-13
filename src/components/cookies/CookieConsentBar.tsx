@@ -121,7 +121,7 @@ export function CookieConsentBar() {
                 <p id="cookie-policy-desc" className="mt-5 text-left text-sm leading-relaxed text-muted-foreground">
                   {t('cookies.policyBody')}{' '}
                   <Link
-                    to="/privacy#cookie-notice"
+                    to="/cookie-notice"
                     className="font-medium text-primary underline underline-offset-2 hover:text-primary/90"
                   >
                     {t('cookies.cookieNoticeLink')}
@@ -146,7 +146,14 @@ export function CookieConsentBar() {
                   {t('cookies.dialogTitle')}
                 </h2>
                 <p id="cookie-settings-desc" className="mt-2 text-center text-xs text-muted-foreground">
-                  {t('cookies.dialogIntro')}
+                  {t('cookies.dialogIntro')} {t('cookies.dialogIntroCookieLead')}{' '}
+                  <Link
+                    to="/cookie-notice"
+                    className="font-medium text-primary underline underline-offset-2 hover:text-primary/90"
+                  >
+                    {t('cookies.cookieNoticeLink')}
+                  </Link>
+                  .
                 </p>
                 <div className="mt-5 max-h-[min(52vh,22rem)] overflow-y-auto pr-1">
                   <CookieCategoryToggles draft={draft} setDraft={setDraft} />
@@ -174,7 +181,16 @@ export function CookieConsentBar() {
         <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-card text-card-foreground sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t('cookies.dialogTitle')}</DialogTitle>
-            <DialogDescription>{t('cookies.dialogIntro')}</DialogDescription>
+            <DialogDescription>
+              {t('cookies.dialogIntro')} {t('cookies.dialogIntroCookieLead')}{' '}
+              <Link
+                to="/cookie-notice"
+                className="font-medium text-primary underline underline-offset-2 hover:text-primary/90"
+              >
+                {t('cookies.cookieNoticeLink')}
+              </Link>
+              .
+            </DialogDescription>
           </DialogHeader>
 
           <CookieCategoryToggles draft={draft} setDraft={setDraft} />
