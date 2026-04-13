@@ -29,7 +29,7 @@ type FeatureSlide = {
 
 type HighlightFeature = {
   id: string;
-  title: string;
+  titleKey: string;
   bodyKey: string;
   imageSrc: string;
   imageAltKey: string;
@@ -110,7 +110,7 @@ const FEATURE_SLIDES: FeatureSlide[] = [
 const HIGHLIGHT_FEATURES: HighlightFeature[] = [
   {
     id: 'spanish',
-    title: 'Interfaz en Español',
+    titleKey: 'marketing.features.highlight.spanish.title',
     bodyKey: 'marketing.features.highlight.spanish.body',
     /** Bump ?v= when replacing the PNG so browsers skip cached older screenshots. */
     imageSrc: '/marketing/features/custom/feature-spanish.png?v=4',
@@ -119,7 +119,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
   },
   {
     id: 'calendar',
-    title: 'Calendario de Citas',
+    titleKey: 'marketing.features.highlight.calendar.title',
     bodyKey: 'marketing.features.highlight.calendar.body',
     imageSrc: '/marketing/features/custom/feature-calendar.png',
     imageAltKey: 'marketing.features.highlight.calendar.imageAlt',
@@ -127,7 +127,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
   },
   {
     id: 'inventory',
-    title: 'Inventario con Uso Móvil',
+    titleKey: 'marketing.features.highlight.inventory.title',
     bodyKey: 'marketing.features.highlight.inventory.body',
     imageSrc: '/marketing/features/custom/feature-inventory.png',
     imageAltKey: 'marketing.features.highlight.inventory.imageAlt',
@@ -135,7 +135,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
   },
   {
     id: 'payroll',
-    title: 'Nómina de Puerto Rico',
+    titleKey: 'marketing.features.highlight.payroll.title',
     bodyKey: 'marketing.features.highlight.payroll.body',
     imageSrc: '/marketing/features/custom/feature-payroll.png',
     imageAltKey: 'marketing.features.highlight.payroll.imageAlt',
@@ -143,7 +143,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
   },
   {
     id: 'ath-movil',
-    title: 'Integración ATH Móvil',
+    titleKey: 'marketing.features.highlight.ath.title',
     bodyKey: 'marketing.features.highlight.ath.body',
     imageSrc: '/marketing/features/custom/feature-ath-movil.png',
     imageAltKey: 'marketing.features.highlight.ath.imageAlt',
@@ -284,7 +284,7 @@ export function FeaturesMarketingSection() {
                   )}
                   aria-pressed={activeFeature.id === feature.id}
                 >
-                  <span className="block break-words text-pretty">{feature.title}</span>
+                  <span className="block break-words text-pretty">{t(feature.titleKey)}</span>
                 </button>
               ))}
             </div>
@@ -324,7 +324,7 @@ export function FeaturesMarketingSection() {
 
                 <div className="flex min-w-0 flex-col justify-center gap-3 rounded-2xl bg-muted/30 p-3 sm:gap-4 sm:p-4 md:p-6">
                   <h3 className="text-balance text-xl font-bold tracking-tight text-foreground sm:text-2xl md:text-3xl">
-                    {activeFeature.title}
+                    {t(activeFeature.titleKey)}
                   </h3>
                   <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
                     {t(activeFeature.bodyKey)}

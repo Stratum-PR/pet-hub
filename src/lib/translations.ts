@@ -232,6 +232,26 @@ export const translations: Translations = {
     en: 'Grumi was built specifically for pet grooming salons in Puerto Rico—from appointments to payroll, without the hassle.',
     es: 'Grumi fue diseñado específicamente para peluquerías de mascotas en Puerto Rico—desde citas hasta nómina, sin complicaciones.',
   },
+  'marketing.features.highlight.spanish.title': {
+    en: 'Spanish-language interface',
+    es: 'Interfaz en Español',
+  },
+  'marketing.features.highlight.calendar.title': {
+    en: 'Appointment calendar',
+    es: 'Calendario de Citas',
+  },
+  'marketing.features.highlight.inventory.title': {
+    en: 'Mobile-ready inventory',
+    es: 'Inventario con Uso Móvil',
+  },
+  'marketing.features.highlight.payroll.title': {
+    en: 'Puerto Rico payroll',
+    es: 'Nómina de Puerto Rico',
+  },
+  'marketing.features.highlight.ath.title': {
+    en: 'ATH Móvil integration',
+    es: 'Integración ATH Móvil',
+  },
   'marketing.features.highlight.spanish.body': {
     en: 'Work with labels, flows, and customer touchpoints that feel native for your Puerto Rico team from day one.',
     es: 'Trabaja con etiquetas, procesos y experiencias que se sienten naturales para tu equipo en Puerto Rico desde el primer día.',
