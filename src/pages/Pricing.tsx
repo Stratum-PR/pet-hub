@@ -135,7 +135,7 @@ export function Pricing() {
         onMobileMenuOpenChange={setMobileMenuOpen}
       />
 
-      <main className="relative flex-1 px-4 pb-12 pt-28">
+      <main className="relative flex-1 px-3 pb-10 pt-24 sm:px-4 sm:pb-12 sm:pt-28">
         <div
           className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_75%_40%_at_50%_-18%,rgba(212,255,0,0.11),transparent_52%)]"
           aria-hidden
@@ -144,7 +144,7 @@ export function Pricing() {
         <div className="mx-auto w-full max-w-6xl space-y-10 pb-4">
           <MarketingPageHero>
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">{t('pricing.heroEyebrow')}</p>
-            <h1 className="mx-auto mb-2 max-w-3xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="mx-auto mb-2 max-w-3xl text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
               {t('pricing.heroTitle')}
             </h1>
             <p className="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg">{t('pricing.heroSubtitle')}</p>
@@ -156,7 +156,7 @@ export function Pricing() {
             role="article"
             aria-label={t('pricing.ariaPricingPlans')}
           >
-            <div className="px-5 py-8 sm:px-8 sm:py-9 md:px-10 md:py-10 lg:px-12 lg:py-11">
+            <div className="px-4 py-6 sm:px-8 sm:py-9 md:px-10 md:py-10 lg:px-12 lg:py-11">
               <header className="mb-8 text-center md:mb-9">
                 <BillingToggle value={billing} onChange={setBilling} />
               </header>

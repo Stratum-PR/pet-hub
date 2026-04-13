@@ -74,8 +74,6 @@ const FEATURE_SLIDES: FeatureSlide[] = [
   },
 ];
 
-const CARD_W = 260;
-
 function FlipFeatureCard({
   slide,
   flipped,
@@ -88,7 +86,7 @@ function FlipFeatureCard({
   const { Icon, frontClass, titleKey, bodyKey } = slide;
 
   return (
-    <div className="relative shrink-0 perspective-[1000px]" style={{ width: CARD_W, height: 340 }}>
+    <div className="relative w-[min(260px,calc(100vw-2rem))] shrink-0 [aspect-ratio:260/340] perspective-[1000px] sm:w-[260px]">
       <button
         type="button"
         onClick={onActivate}
@@ -157,7 +155,7 @@ export function FeaturesMarketingSection() {
         aria-hidden
       />
       <div className="relative z-[1] mx-auto max-w-6xl px-4 pb-14 pt-16 md:pb-16">
-        <div className="relative rounded-3xl border border-border/60 bg-muted/15 px-5 py-10 shadow-sm sm:px-8 sm:py-12 md:px-12 md:py-14">
+        <div className="relative rounded-3xl border border-border/60 bg-muted/15 px-4 py-7 shadow-sm sm:px-8 sm:py-10 md:px-12 md:py-14">
           <div
             className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[min(100vw,48rem)] -translate-x-1/2 rounded-full bg-[#D4FF00]/15 blur-3xl"
             aria-hidden
@@ -166,7 +164,7 @@ export function FeaturesMarketingSection() {
             <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-primary">
               {t('marketing.features.heroTag')}
             </p>
-            <h2 className="mx-auto max-w-3xl text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
+            <h2 className="mx-auto max-w-3xl text-balance text-center text-xl font-bold tracking-tight text-foreground sm:text-2xl md:text-4xl">
               {t('marketing.features.heroTitle')}
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground sm:text-base">

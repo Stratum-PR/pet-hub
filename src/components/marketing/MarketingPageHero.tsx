@@ -14,7 +14,7 @@ type Props = {
 export function MarketingPageHero({ children, showGlow = true, className = '' }: Props) {
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-muted/50 via-background to-primary/[0.07] px-6 py-10 sm:px-10 sm:py-12 text-center shadow-sm ${className}`}
+      className={`relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-muted/50 via-background to-primary/[0.07] px-4 py-8 text-center shadow-sm sm:px-8 sm:py-10 md:px-10 md:py-12 ${className}`}
     >
       {showGlow ? (
         <div
