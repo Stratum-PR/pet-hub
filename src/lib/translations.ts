@@ -545,8 +545,8 @@ export const translations: Translations = {
     es: 'Continuar a la encuesta'
   },
   'waitlist.modalFormLead': {
-    en: 'We will email you a welcome note. All fields are required.',
-    es: 'Te enviaremos un correo de bienvenida. Todos los campos son obligatorios.'
+    en: "Thank you for your interest in Grumi. Please provide the following information to secure your Founder's Price.",
+    es: 'Gracias por tu interés en Grumi. Comparte la siguiente información para asegurar tu Precio Fundador.'
   },
   'waitlist.referralYourLink': {
     en: 'Your referral link',

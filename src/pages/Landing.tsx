@@ -57,6 +57,7 @@ export function Landing() {
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [heroFallbackImageError, setHeroFallbackImageError] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (location.pathname !== '/') return;
@@ -76,6 +77,34 @@ export function Landing() {
       return () => window.clearTimeout(timer);
     }
   }, [location.pathname, location.hash, location.search, searchParams, openWaitlistModal]);
+
+  useEffect(() => {
+    const video = heroVideoRef.current;
+    if (!video) return;
+
+    const tryPlay = () => {
+      if (document.visibilityState === 'hidden') return;
+      video.muted = true;
+      video.playsInline = true;
+      const promise = video.play();
+      if (promise && typeof promise.catch === 'function') {
+        promise.catch(() => {
+          // Keep poster/fallback in place when autoplay is blocked by the browser/device.
+        });
+      }
+    };
+
+    tryPlay();
+    video.addEventListener('loadeddata', tryPlay);
+    window.addEventListener('pageshow', tryPlay);
+    document.addEventListener('visibilitychange', tryPlay);
+
+    return () => {
+      video.removeEventListener('loadeddata', tryPlay);
+      window.removeEventListener('pageshow', tryPlay);
+      document.removeEventListener('visibilitychange', tryPlay);
+    };
+  }, []);
 
   // Two-line headline: 0.5s delay, then 0.8s total with decremental timing (first letters faster, last slower)
   const headlineLine1 = t('landing.splashHeadlineLine1');
@@ -140,10 +169,14 @@ export function Landing() {
           )}
           <div className="absolute inset-0 w-full h-full motion-reduce:!animate-none animate-hero-film-drift">
             <video
+              ref={heroVideoRef}
               autoPlay
               muted
               loop
               playsInline
+              controls={false}
+              disablePictureInPicture
+              preload="auto"
               poster={heroFallbackImageError ? undefined : '/hero_background.png'}
               className="absolute inset-0 w-full h-full object-cover object-right md:object-center"
               aria-hidden
