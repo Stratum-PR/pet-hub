@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format, isSameDay } from 'date-fns';
+import { enUS, es as esLocale } from 'date-fns/locale';
 import {
   ArrowUpDown,
   Calendar as CalendarIcon,
@@ -24,6 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   Appointment,
   BusinessClient,
@@ -126,12 +128,15 @@ export function AppointmentBookListView({
   onEdit,
   onClearFilters,
 }: AppointmentBookListViewProps) {
+  const { language } = useLanguage();
+  const dateFnsLocale = language === 'es' ? esLocale : enUS;
   const [search, setSearch] = useState('');
   const [dateScope, setDateScope] = useState<'day' | 'all'>('day');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateSortDir, setDateSortDir] = useState<'asc' | 'desc'>('desc');
 
-  const formatDateHeader = (date: Date) => format(date, 'EEEE, MMMM d, yyyy');
+  const formatDateHeader = (date: Date) =>
+    format(date, 'EEEE, d MMMM yyyy', { locale: dateFnsLocale });
 
   const baseFiltered = useMemo(() => {
     let list = [...appointments];
@@ -308,9 +313,9 @@ export function AppointmentBookListView({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Grooming">Grooming</SelectItem>
-                  <SelectItem value="Daycare">Daycare</SelectItem>
-                  <SelectItem value="All Services">All Services</SelectItem>
+                  <SelectItem value="Grooming">{t('apptBook.filterGrooming')}</SelectItem>
+                  <SelectItem value="Daycare">{t('apptBook.filterDaycare')}</SelectItem>
+                  <SelectItem value="All Services">{t('apptBook.filterAllServices')}</SelectItem>
                 </SelectContent>
               </Select>
 

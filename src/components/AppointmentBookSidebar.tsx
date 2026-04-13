@@ -1,5 +1,18 @@
-import { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
+import { useState, useEffect, useMemo } from 'react';
+import type { Locale } from 'date-fns';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+} from 'date-fns';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +25,10 @@ import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
 import type { ApptBookSidebarFilterMode } from '@/lib/apptBookCalendarPrefs';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+
+export type ApptBookWeekJumpOffset = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+const WEEK_JUMP_OFFSETS: ApptBookWeekJumpOffset[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 interface AppointmentBookSidebarProps {
   selectedDate: Date;
@@ -37,6 +54,15 @@ interface AppointmentBookSidebarProps {
   onToggleEmployeeId?: (id: string) => void;
   onSelectAllEmployees?: () => void;
   onClearFilters?: () => void;
+  /** Week-jump row (grooming calendar): +1 … +8 weeks from this week. */
+  showWeekJumpControls?: boolean;
+  weekJumpOffset?: ApptBookWeekJumpOffset | null;
+  onWeekJump?: (offset: ApptBookWeekJumpOffset) => void;
+  weekJumpNoAvailability?: boolean;
+  /** If set, days without bookable hours are not selectable in the mini calendar. */
+  isBookableDate?: (date: Date) => boolean;
+  /** date-fns locale for month/weekday labels. */
+  dateLocale?: Locale;
 }
 
 export function AppointmentBookSidebar({
@@ -61,6 +87,12 @@ export function AppointmentBookSidebar({
   onToggleEmployeeId,
   onSelectAllEmployees,
   onClearFilters,
+  showWeekJumpControls = false,
+  weekJumpOffset = null,
+  onWeekJump,
+  weekJumpNoAvailability = false,
+  isBookableDate,
+  dateLocale,
 }: AppointmentBookSidebarProps) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(selectedDate));
 
@@ -87,26 +119,25 @@ export function AppointmentBookSidebar({
     onDateChange(day);
   };
 
-  // Get day abbreviations based on locale (for now, using English)
-  const dayAbbreviations = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const fmtOpts = dateLocale ? { locale: dateLocale } : undefined;
+
+  const dayAbbreviations = useMemo(() => {
+    const sundayRef = new Date(2023, 0, 1);
+    return Array.from({ length: 7 }, (_, i) => format(addDays(sundayRef, i), 'EEE', fmtOpts));
+  }, [fmtOpts]);
 
   return (
-    <div className="w-80 bg-card border-r border-border flex flex-col h-full overflow-hidden">
+    <div className="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden border-r border-border bg-card sm:h-full sm:min-h-0 sm:w-80">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <h2 className="text-xl font-semibold mb-3 text-foreground">Appointment Book</h2>
-        <div className="flex gap-2">
-          <Button
-            onClick={onCreateClick}
-          >
+        <h2 className="text-xl font-semibold mb-3 text-foreground">{t('apptBook.pageTitle')}</h2>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={onCreateClick}>
             <Plus className="w-4 h-4 mr-1" />
-            Create
+            {t('apptBook.createAppointment')}
           </Button>
-          <Button
-            variant="outline"
-            onClick={onToday}
-          >
-            TODAY
+          <Button variant="outline" onClick={onToday}>
+            {t('appointments.today')}
           </Button>
         </div>
       </div>
@@ -114,23 +145,27 @@ export function AppointmentBookSidebar({
       {/* Calendar Widget */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-foreground">Calendar</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t('apptBook.calendarSectionHeading')}</h3>
         </div>
         
         {/* Month Navigation */}
         <div className="flex items-center justify-between mb-3">
           <button
+            type="button"
             onClick={handlePreviousMonth}
             className="p-1 hover:bg-muted rounded"
+            aria-label={t('apptBook.navigatePrevious')}
           >
             <ChevronLeft className="w-4 h-4 text-muted-foreground" />
           </button>
-          <span className="text-sm font-medium text-foreground">
-            {format(currentMonth, 'MMMM yyyy').toUpperCase()}
+          <span className="text-sm font-medium capitalize text-foreground">
+            {format(currentMonth, 'LLLL yyyy', fmtOpts)}
           </span>
           <button
+            type="button"
             onClick={handleNextMonth}
             className="p-1 hover:bg-muted rounded"
+            aria-label={t('apptBook.navigateNext')}
           >
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -154,17 +189,25 @@ export function AppointmentBookSidebar({
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const isSelected = isSameDay(day, selectedDate);
             const isToday = isSameDay(day, new Date());
+            const bookable = isBookableDate ? isBookableDate(day) : true;
 
             return (
               <button
                 key={dayIdx}
-                onClick={() => handleDayClick(day)}
+                type="button"
+                disabled={!bookable}
+                title={!bookable ? t('apptBook.noBusinessHoursThisDay') : undefined}
+                onClick={() => {
+                  if (!bookable) return;
+                  handleDayClick(day);
+                }}
                 className={cn(
-                  "h-8 w-8 rounded-full text-sm font-medium transition-colors",
-                  !isCurrentMonth && "text-muted-foreground/50",
-                  isCurrentMonth && !isSelected && !isToday && "text-foreground hover:bg-muted",
-                  isToday && !isSelected && "bg-muted text-foreground",
-                  isSelected && "bg-primary text-primary-foreground"
+                  'h-8 w-8 rounded-full text-sm font-medium transition-colors',
+                  !isCurrentMonth && 'text-muted-foreground/50',
+                  !bookable && 'cursor-not-allowed opacity-40 line-through decoration-muted-foreground/60',
+                  bookable && isCurrentMonth && !isSelected && !isToday && 'text-foreground hover:bg-muted',
+                  isToday && !isSelected && bookable && 'bg-muted text-foreground',
+                  isSelected && 'bg-primary text-primary-foreground',
                 )}
               >
                 {format(day, 'd')}
@@ -173,21 +216,41 @@ export function AppointmentBookSidebar({
           })}
         </div>
 
-        {/* Week Navigation Footer */}
-        <div className="mt-3 pt-3 border-t border-border">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span>+</span>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((week) => (
-              <button
-                key={week}
-                className="px-1 hover:text-primary"
-              >
-                {week}
-              </button>
-            ))}
-            <span className="ml-1">Weeks</span>
+        {showWeekJumpControls && onWeekJump ? (
+          <div className="mt-3 space-y-2 border-t border-border pt-3">
+            <div className="text-xs font-medium text-muted-foreground">{t('apptBook.weekJumpHeading')}</div>
+            <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 text-xs text-muted-foreground">
+              <span className="mr-0.5 font-medium text-foreground" aria-hidden>
+                +
+              </span>
+              {WEEK_JUMP_OFFSETS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  aria-label={t('apptBook.weekJumpAria', { count: n })}
+                  aria-pressed={weekJumpOffset === n}
+                  onClick={() => onWeekJump(n)}
+                  className={cn(
+                    'min-w-[1.65rem] rounded-md px-1.5 py-1 text-center text-xs font-semibold transition-colors',
+                    weekJumpOffset === n
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
+              <span className="ml-1 text-[11px] font-medium text-muted-foreground">
+                {t('apptBook.weekJumpWeeksSuffix')}
+              </span>
+            </div>
+            {weekJumpNoAvailability ? (
+              <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+                {t('apptBook.noAvailabilityInWeek')}
+              </p>
+            ) : null}
           </div>
-        </div>
+        ) : null}
       </div>
 
       {showCalendarFilters &&

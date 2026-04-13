@@ -7,7 +7,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useLocation } from 'react-router-dom';
 import { WaitlistJoinModal } from '@/components/waitlist/WaitlistJoinModal';
 import {
   pickRandomWaitlistMascotSrc,
@@ -15,8 +14,6 @@ import {
   preloadImageSrc,
   WAITLIST_MASCOT_SRCS,
 } from '@/lib/waitlistMascots';
-
-const REF_STORAGE_KEY = 'grumi_waitlist_pending_ref';
 
 export type OpenWaitlistOptions = {
   pricingTier?: string;
@@ -43,23 +40,9 @@ export function WaitlistModalProvider({ children }: { children: ReactNode }) {
   const [joinMascotSrc, setJoinMascotSrc] = useState<(typeof WAITLIST_MASCOT_SRCS)[number]>(
     WAITLIST_MASCOT_SRCS[0],
   );
-  const location = useLocation();
-
   useEffect(() => {
     void preloadAllWaitlistMascots();
   }, []);
-
-  useEffect(() => {
-    const sp = new URLSearchParams(location.search);
-    const r = sp.get('ref') ?? sp.get('r');
-    if (r?.trim()) {
-      try {
-        sessionStorage.setItem(REF_STORAGE_KEY, r.trim().toLowerCase());
-      } catch {
-        /* ignore quota / private mode */
-      }
-    }
-  }, [location.search]);
 
   const openWaitlistModal = useCallback((opts?: OpenWaitlistOptions) => {
     setPricingTier(opts?.pricingTier);
@@ -75,14 +58,6 @@ export function WaitlistModalProvider({ children }: { children: ReactNode }) {
     setPricingTier(undefined);
   }, []);
 
-  const getPendingRef = useCallback((): string | undefined => {
-    try {
-      return sessionStorage.getItem(REF_STORAGE_KEY) ?? undefined;
-    } catch {
-      return undefined;
-    }
-  }, []);
-
   const value = useMemo(
     () => ({ openWaitlistModal, closeWaitlistModal }),
     [openWaitlistModal, closeWaitlistModal],
@@ -94,7 +69,6 @@ export function WaitlistModalProvider({ children }: { children: ReactNode }) {
       <WaitlistJoinModal
         open={open}
         onClose={closeWaitlistModal}
-        getPendingRef={getPendingRef}
         pricingTier={pricingTier}
         mascotSrc={joinMascotSrc}
       />

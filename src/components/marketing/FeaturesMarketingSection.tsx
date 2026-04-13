@@ -126,7 +126,6 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     imageSrc: `/marketing/features/custom/feature-spanish.png?v=${FEATURE_SCREENSHOT_V}`,
     imageAltKey: 'marketing.features.highlight.spanish.imageAlt',
     mascotSrc: FEATURE_HIGHLIGHT_MASCOT_SRCS[2],
-    mascotAnchor: 'bottom-left',
   },
   {
     id: 'calendar',
@@ -162,6 +161,8 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     bodyKey: 'marketing.features.highlight.ath.body',
     imageSrc: `/marketing/features/custom/feature-ath-movil.png?v=${FEATURE_SCREENSHOT_V}`,
     imageAltKey: 'marketing.features.highlight.ath.imageAlt',
+    mascotSrc: FEATURE_HIGHLIGHT_MASCOT_SRCS[1],
+    mascotSize: 'compact',
   },
 ];
 
@@ -222,19 +223,44 @@ function FlipFeatureCard({
 }
 
 function HighlightFeaturePanel({ feature }: { feature: HighlightFeature }) {
+  const straddleBottomRight =
+    Boolean(feature.mascotSrc) &&
+    (feature.mascotAnchor === undefined || feature.mascotAnchor === 'bottom-right');
+
   return (
-    <div className="grid min-w-0 gap-4 md:grid-cols-[1.1fr_1fr] md:gap-5 md:items-start">
-      <div className="min-w-0 rounded-2xl border border-border/70 bg-[#F1F5F9] p-1.5 shadow-sm sm:p-2 md:p-3">
-        <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[10px] border border-border/60 bg-white">
-          <img
-            src={feature.imageSrc}
-            alt={t(feature.imageAltKey)}
-            width={FEATURE_SCREENSHOT_HINT_W}
-            height={FEATURE_SCREENSHOT_HINT_H}
-            className="absolute inset-0 h-full w-full object-contain object-top"
-            loading="lazy"
-          />
-          {feature.mascotSrc ? (
+    <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1.55fr)_minmax(0,0.75fr)] md:gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,0.7fr)] md:items-start">
+      <div className="min-w-0 overflow-visible rounded-2xl border border-border/60 bg-white pb-8 shadow-sm sm:pb-10 dark:border-border dark:bg-card">
+        <div className="relative aspect-[16/10] w-full overflow-visible">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <img
+              src={feature.imageSrc}
+              alt={t(feature.imageAltKey)}
+              width={FEATURE_SCREENSHOT_HINT_W}
+              height={FEATURE_SCREENSHOT_HINT_H}
+              className="max-h-full max-w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+          {straddleBottomRight ? (
+            <div
+              className={cn(
+                'pointer-events-none absolute -right-1 bottom-0 z-[2] flex translate-x-[32%] translate-y-[38%] select-none items-end justify-center sm:translate-x-[30%] sm:translate-y-[40%]',
+                feature.mascotSize === 'compact'
+                  ? 'h-[5.5rem] w-[5.5rem] sm:h-28 sm:w-28 md:h-[7rem] md:w-[7rem]'
+                  : 'h-[6.5rem] w-[6.5rem] sm:h-[7.5rem] sm:w-[7.5rem] md:h-[8rem] md:w-[8rem]',
+              )}
+              aria-hidden
+            >
+              <img
+                src={feature.mascotSrc!}
+                alt=""
+                width={800}
+                height={800}
+                className="max-h-full max-w-full object-contain object-[center_bottom] drop-shadow-lg"
+                decoding="async"
+              />
+            </div>
+          ) : feature.mascotSrc ? (
             <div
               className={cn(
                 'pointer-events-none absolute z-[2]',
@@ -244,10 +270,6 @@ function HighlightFeaturePanel({ feature }: { feature: HighlightFeature }) {
                   'bottom-[5%] left-[0.5%] h-[min(12vw,2.65rem)] w-[min(13vw,2.85rem)] sm:bottom-[6%] sm:left-[1%] sm:h-20 sm:w-20 md:bottom-[7%] md:left-[1.25%] md:h-24 md:w-24',
                 feature.mascotAnchor === 'content-bottom-center' &&
                   'bottom-[0.5%] left-[1%] h-[min(20vw,5rem)] w-[min(22vw,5.5rem)] translate-y-[18px] sm:bottom-[1%] sm:left-[1.25%] sm:h-28 sm:w-32 sm:translate-y-[20px] md:bottom-[1.5%] md:left-[1.25%] md:h-32 md:w-36 md:translate-y-[22px]',
-                (feature.mascotAnchor === undefined || feature.mascotAnchor === 'bottom-right') &&
-                  (feature.mascotSize === 'compact'
-                    ? 'bottom-0 right-0 h-[min(18vw,4.25rem)] w-[min(21vw,4.75rem)] sm:bottom-2 sm:right-2 sm:h-28 sm:w-32 sm:max-h-none sm:max-w-none md:h-32 md:w-36'
-                    : 'bottom-0 right-0 h-[min(28vw,6.5rem)] w-[min(32vw,7.25rem)] sm:bottom-2 sm:right-2 sm:h-40 sm:w-44 sm:max-h-none sm:max-w-none md:h-44 md:w-48'),
               )}
             >
               <img
@@ -269,11 +291,11 @@ function HighlightFeaturePanel({ feature }: { feature: HighlightFeature }) {
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-col justify-center gap-3 rounded-2xl bg-muted/30 p-3 sm:gap-4 sm:p-4 md:p-6">
-        <h3 className="text-balance text-xl font-bold tracking-tight text-foreground sm:text-2xl md:text-3xl">
+      <div className="flex min-w-0 flex-col justify-center gap-2 rounded-2xl p-3 sm:gap-2.5 sm:p-3 md:py-4 md:pl-4 md:pr-3">
+        <h3 className="text-balance text-lg font-bold tracking-tight text-foreground sm:text-xl md:text-2xl">
           {t(feature.titleKey)}
         </h3>
-        <p className="min-w-0 text-sm leading-relaxed text-muted-foreground md:text-base">{t(feature.bodyKey)}</p>
+        <p className="min-w-0 text-xs leading-relaxed text-muted-foreground sm:text-sm md:text-sm">{t(feature.bodyKey)}</p>
       </div>
     </div>
   );
@@ -357,7 +379,7 @@ export function FeaturesMarketingSection() {
         aria-hidden
       />
       <div className="relative z-[1] mx-auto max-w-6xl px-3 pb-14 pt-14 sm:px-4 md:pb-16 md:pt-16">
-        <div className="relative rounded-3xl border border-border/60 bg-muted/15 px-3 py-6 shadow-sm sm:px-8 sm:py-10 md:px-10 md:py-12">
+        <div className="relative rounded-3xl border border-border/50 bg-white px-3 py-6 shadow-sm dark:bg-card sm:px-8 sm:py-10 md:px-10 md:py-12">
           <div
             className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[min(100vw,48rem)] -translate-x-1/2 rounded-full bg-[#D4FF00]/15 blur-3xl"
             aria-hidden
@@ -376,8 +398,8 @@ export function FeaturesMarketingSection() {
 
           <div className="relative mt-8 space-y-5">
             <div className="hidden md:block">
-              <div className="mx-auto w-full max-w-5xl rounded-full border border-border/70 bg-background/80 p-2">
-                <div className="flex flex-wrap justify-center gap-2">
+              <div className="mx-auto w-full max-w-5xl overflow-x-auto overscroll-x-contain rounded-full border border-border/40 bg-white/90 p-1.5 dark:bg-card/80">
+                <div className="flex w-max flex-nowrap justify-center gap-1.5">
                   {HIGHLIGHT_FEATURES.map((feature) => (
                     <button
                       key={feature.id}
@@ -387,21 +409,21 @@ export function FeaturesMarketingSection() {
                         setHighlightRotationEpoch((n) => n + 1);
                       }}
                       className={cn(
-                        'min-h-11 touch-manipulation rounded-full px-4 py-2 text-center text-sm font-semibold leading-snug tracking-wide transition-colors',
+                        'shrink-0 touch-manipulation whitespace-nowrap rounded-full px-3 py-1.5 text-center text-[11px] font-semibold leading-none tracking-wide transition-colors sm:px-3.5 sm:py-2 sm:text-xs',
                         activeFeature.id === feature.id
                           ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'bg-background text-foreground hover:bg-muted',
+                          : 'bg-muted/40 text-foreground hover:bg-muted/70 dark:bg-muted/25 dark:hover:bg-muted/45',
                       )}
                       aria-pressed={activeFeature.id === feature.id}
                     >
-                      <span className="block text-pretty">{t(feature.titleKey)}</span>
+                      {t(feature.titleKey)}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="hidden rounded-[1.25rem] border border-border/80 bg-card/85 p-3 sm:rounded-[1.5rem] sm:p-4 md:block md:p-6">
+            <div className="hidden rounded-[1.25rem] border border-border/50 bg-white p-3 sm:rounded-[1.5rem] sm:p-4 md:block md:p-6 dark:bg-card">
               <div
                 className="min-w-0 [contain:layout] motion-reduce:transition-none"
                 style={{
@@ -425,7 +447,7 @@ export function FeaturesMarketingSection() {
                     role="listitem"
                     className="w-[min(100%,22rem)] shrink-0 snap-center snap-always sm:w-[24rem]"
                   >
-                    <div className="rounded-[1.25rem] border border-border/80 bg-card/85 p-3">
+                    <div className="rounded-[1.25rem] border border-border/50 bg-white p-3 dark:bg-card">
                       <HighlightFeaturePanel feature={feature} />
                     </div>
                   </article>

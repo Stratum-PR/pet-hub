@@ -103,7 +103,7 @@ export function CookieConsentBar() {
 
       {needsBanner ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/20 p-4 backdrop-blur-sm"
+          className="fixed inset-x-0 bottom-0 z-[100] flex justify-center p-4 pb-6 sm:p-6 sm:pb-8"
           role="presentation"
         >
           <div
@@ -111,7 +111,7 @@ export function CookieConsentBar() {
             aria-modal="true"
             aria-labelledby={bannerGranularOpen ? 'cookie-settings-title' : 'cookie-policy-title'}
             aria-describedby={bannerGranularOpen ? 'cookie-settings-desc' : 'cookie-policy-desc'}
-            className="w-full max-w-md rounded-2xl border border-border/80 bg-card/95 px-6 py-8 text-card-foreground shadow-xl backdrop-blur-xl sm:px-8 sm:py-10"
+            className="w-full max-w-md rounded-2xl border border-border bg-card px-6 py-8 text-card-foreground shadow-xl sm:px-8 sm:py-10"
           >
             {!bannerGranularOpen ? (
               <>

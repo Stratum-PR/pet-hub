@@ -6,6 +6,7 @@ import { Bell, Calendar, Dog, Package, DollarSign, Cake, Scissors, Loader2 } fro
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useNotifications, type NotificationRow } from '@/hooks/useNotifications';
+import { useSettings } from '@/hooks/useSupabaseData';
 import { t, getLanguage } from '@/lib/translations';
 import {
   getNotificationPath,
@@ -71,7 +72,8 @@ function groupLabelForDate(d: Date, locale: typeof enUS): string {
 export function Notifications() {
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
-  const { notifications, loading, markRead, markAllRead } = useNotifications();
+  const { settings } = useSettings();
+  const { notifications, loading, markRead, markAllRead } = useNotifications(settings);
   const locale = getLanguage() === 'es' ? es : enUS;
   const [tab, setTab] = useState<'all' | 'unread'>('all');
   const shownNotifications = useMemo(

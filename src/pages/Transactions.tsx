@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { SearchFilter } from '@/components/SearchFilter';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useTransactions } from '@/hooks/useTransactions';
-import { useClientNames } from '@/hooks/useSupabaseData';
+import { useClientNames, useSettings } from '@/hooks/useSupabaseData';
 import { useNotifications } from '@/hooks/useNotifications';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
@@ -58,7 +58,8 @@ export function Transactions() {
   const businessId = useBusinessId();
   const { transactions: rawTransactions, loading, loadingMore, hasMore, loadMore, updateTransaction, error: fetchError, refetch } = useTransactions();
   const { clients } = useClientNames();
-  const { createNotification } = useNotifications();
+  const { settings } = useSettings();
+  const { createNotification } = useNotifications(settings);
   const [searchTerm, setSearchTerm] = useState('');
   const TRANSACTION_VIEW_KEY = 'pet-hub-transactions-view';
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
