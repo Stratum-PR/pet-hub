@@ -11,6 +11,8 @@ interface SplashAuthModalProps {
   headerCenter?: ReactNode;
   hideHeader?: boolean;
   panelClassName?: string;
+  /** When `hideHeader` is true, styles for the floating close button (top-right). */
+  closeButtonClassName?: string;
   children?: ReactNode;
 }
 
@@ -22,6 +24,7 @@ export function SplashAuthModal({
   headerCenter,
   hideHeader = false,
   panelClassName,
+  closeButtonClassName,
   children,
 }: SplashAuthModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -83,7 +86,7 @@ export function SplashAuthModal({
               ref={closeButtonRef}
               type="button"
               onClick={onClose}
-              className="absolute right-3 top-3 z-[2] rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+              className={`absolute right-3 top-3 z-[2] rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] ${closeButtonClassName ?? ''}`}
               aria-label={t('landing.modalClose')}
             >
               <X className="h-5 w-5" />
