@@ -29,6 +29,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { AccountSettings } from '@/pages/AccountSettings';
@@ -109,6 +110,7 @@ const Index = () => {
   const businessSlug = useResolvedBusinessSlug();
 
   const location = useLocation();
+  const workspaceDemoReadOnly = useDemoBrowseOnly();
   const { isFeatureVisible } = useFeatureRollout();
   const accountSettingsVisible = isFeatureVisible('account_settings');
   const appointmentsVisible = isFeatureVisible('appointments');
@@ -413,6 +415,7 @@ const Index = () => {
                 inventoryVisible ? (
                   <Inventory
                     loading={inventoryLoading}
+                    readOnly={workspaceDemoReadOnly}
                     products={products}
                     defaultLowStockThreshold={parseInt(settings.default_low_stock_threshold || '5', 10) || 5}
                     stockMovements={stockMovements}

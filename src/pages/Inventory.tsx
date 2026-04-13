@@ -59,6 +59,8 @@ type ViewMode = 'tile' | 'list';
 interface InventoryProps {
   /** When true, shows the same paw loader + reveal pattern as Pets. */
   loading?: boolean;
+  /** Public demo workspace: browse sample products only (no add/edit/delete). */
+  readOnly?: boolean;
   products: Product[];
   /** Global default low-stock threshold (used when product has no reorder_level). Default 5. */
   defaultLowStockThreshold?: number;
@@ -73,6 +75,7 @@ interface InventoryProps {
 
 export function Inventory({
   loading = false,
+  readOnly = false,
   products,
   defaultLowStockThreshold = 5,
   onAddProduct,
@@ -177,6 +180,12 @@ export function Inventory({
       products.find((p) => p.barcode && normalizeBarcodeForMatch(p.barcode) === normalizedScan) ??
       products.find((p) => p.sku && p.sku.trim().toLowerCase() === trimmed.toLowerCase());
     if (found) {
+      if (readOnly) {
+        setEditProduct(found);
+        setScanOpen(false);
+        toast.info(t('demo.workspaceReadOnlyAction'));
+        return;
+      }
       if (onAdjustStock) {
         const updated = await onAdjustStock(found.id, 1, 'adjustment', 'Barcode scan');
         if (updated) {
@@ -258,6 +267,10 @@ export function Inventory({
   }
 
   const handleAdjustSubmit = async () => {
+    if (readOnly) {
+      toast.error(t('demo.workspaceReadOnlyAction'));
+      return;
+    }
     if (!adjustProduct || !onAdjustStock) return;
     let delta: number;
     let movementType: 'restock' | 'adjustment' | 'purchase' | 'sale' = 'adjustment';
@@ -298,6 +311,10 @@ export function Inventory({
 
   const handleSaveNew = async (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>, photoFile?: File) => {
     const created = await onAddProduct(data);
+    if (!created) {
+      toast.error(t('demo.workspaceReadOnlyAction'));
+      return;
+    }
     if (created && photoFile && onUploadProductPhoto) {
       const url = await onUploadProductPhoto(created.id, photoFile);
       if (url) onUpdateProduct(created.id, { photo_url: url });
@@ -307,6 +324,10 @@ export function Inventory({
   };
 
   const handleSaveUpdate = (id: string, data: Partial<Product>, photoFile?: File) => {
+    if (readOnly) {
+      toast.error(t('demo.workspaceReadOnlyAction'));
+      return;
+    }
     onUpdateProduct(id, data);
     if (photoFile && onUploadProductPhoto) {
       onUploadProductPhoto(id, photoFile).then((url) => {
@@ -318,6 +339,10 @@ export function Inventory({
   };
 
   const handleInlineSave = (id: string, data: Partial<Product>, photoFile?: File) => {
+    if (readOnly) {
+      toast.error(t('demo.workspaceReadOnlyAction'));
+      return;
+    }
     onUpdateProduct(id, data);
     if (photoFile && onUploadProductPhoto) {
       onUploadProductPhoto(id, photoFile).then((url) => {
@@ -329,6 +354,10 @@ export function Inventory({
   };
 
   const handleDeleteClick = (id: string) => {
+    if (readOnly) {
+      toast.error(t('demo.workspaceReadOnlyAction'));
+      return;
+    }
     setProductToDelete(id);
     setDeleteDialogOpen(true);
   };
@@ -371,8 +400,9 @@ export function Inventory({
           type="button"
           variant="outline"
           size="icon"
+          disabled={readOnly}
           className="relative !h-9 !min-h-9 !w-auto !min-w-0 shrink-0 !rounded-lg border border-border/50 bg-white/70 p-0 backdrop-blur-sm hover:bg-accent dark:bg-background/50 aspect-[3/2] [&_svg]:!h-full [&_svg]:!w-full"
-          title={t('inventory.scanBarcode')}
+          title={readOnly ? t('demo.workspaceReadOnlyAction') : t('inventory.scanBarcode')}
           onClick={() => setScanOpen(true)}
         >
           <span className="pointer-events-none absolute inset-1 flex items-center justify-center">
@@ -402,7 +432,13 @@ export function Inventory({
             <List className="h-4 w-4" />
           </ToggleGroupItem>
         </ToggleGroup>
-        <Button type="button" onClick={handleAddProduct} className="h-9 shrink-0 gap-1.5 px-2.5 shadow-sm sm:px-3">
+        <Button
+          type="button"
+          onClick={handleAddProduct}
+          disabled={readOnly}
+          title={readOnly ? t('demo.workspaceReadOnlyAction') : undefined}
+          className="h-9 shrink-0 gap-1.5 px-2.5 shadow-sm sm:px-3"
+        >
           <Plus className="h-4 w-4" />
           <span className="max-[480px]:sr-only sm:inline">{t('inventory.addProduct')}</span>
         </Button>
@@ -559,6 +595,8 @@ export function Inventory({
                 deleteLabel={t('common.delete')}
                 onSave={() => inventoryExpandedRef.current?.save()}
                 onDelete={() => handleDeleteClick(editingLive.id)}
+                disabledSave={readOnly}
+                disabledDelete={readOnly}
               />
             )}
             <DialogHeader className="space-y-1 pb-4 pr-2 pt-4 text-left">
@@ -571,6 +609,7 @@ export function Inventory({
               <InventoryItemExpanded
                 ref={inventoryExpandedRef}
                 hideToolbar
+                readOnly={readOnly}
                 className="px-0 pb-0 pt-0 sm:px-0"
                 product={editingLive}
                 products={products}
@@ -589,6 +628,7 @@ export function Inventory({
 
       <InventoryProductForm
         open={formOpen}
+        readOnly={readOnly}
         onOpenChange={(open) => {
           setFormOpen(open);
           if (!open) {
@@ -672,7 +712,7 @@ export function Inventory({
             <Button variant="outline" onClick={() => setAdjustProduct(null)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleAdjustSubmit} disabled={adjusting || !onAdjustStock}>
+            <Button onClick={handleAdjustSubmit} disabled={readOnly || adjusting || !onAdjustStock}>
               {adjusting ? t('common.saving') : adjustMode === 'count' ? t('inventory.inventoryCount') : t('inventory.addQuantity')}
             </Button>
           </DialogFooter>

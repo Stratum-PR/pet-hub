@@ -62,6 +62,8 @@ const defaultFormData = {
 
 interface InventoryProductFormProps {
   open: boolean;
+  /** Demo workspace: do not persist new or edited products. */
+  readOnly?: boolean;
   onOpenChange: (open: boolean) => void;
   product: Product | null;
   products: Product[];
@@ -83,6 +85,7 @@ interface InventoryProductFormProps {
 
 export function InventoryProductForm({
   open,
+  readOnly = false,
   onOpenChange,
   product,
   products,
@@ -165,6 +168,7 @@ export function InventoryProductForm({
   };
 
   const doSubmit = () => {
+    if (readOnly) return;
     if (isEditing && product) {
       onUpdate(product.id, formData, photoFile || undefined);
     } else {
@@ -178,6 +182,7 @@ export function InventoryProductForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if (!validate()) return;
     if (duplicateSku) {
       setShowDuplicateSkuDialog(true);
@@ -193,7 +198,7 @@ export function InventoryProductForm({
           <Label>{t('inventory.productRegistry')}</Label>
           <Popover open={registryOpen} onOpenChange={setRegistryOpen}>
             <PopoverTrigger asChild>
-              <Button type="button" variant="outline" className="w-full justify-between">
+              <Button type="button" variant="outline" className="w-full justify-between" disabled={readOnly}>
                 <span className="truncate">Search or add new product...</span>
                 <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
@@ -437,7 +442,7 @@ export function InventoryProductForm({
         />
       </div>
       <div className="flex gap-3 pt-2">
-        <Button type="submit">
+        <Button type="submit" disabled={readOnly}>
           {isEditing ? t('common.save') : t('inventory.addProduct')}
         </Button>
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -453,7 +458,9 @@ export function InventoryProductForm({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={doSubmit}>{t('inventory.saveAnyway')}</AlertDialogAction>
+            <AlertDialogAction onClick={doSubmit} disabled={readOnly}>
+              {t('inventory.saveAnyway')}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

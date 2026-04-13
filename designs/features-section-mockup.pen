@@ -1,0 +1,191 @@
+{
+  "version": "2.10",
+  "children": [
+    {
+      "type": "frame",
+      "name": "Splash features — Pencil mockup",
+      "width": 1200,
+      "height": 820,
+      "layout": "vertical",
+      "gap": 20,
+      "padding": 28,
+      "fill": "#F1F5F9",
+      "children": [
+        {
+          "type": "text",
+          "name": "Note",
+          "content": "Asset reference only (./pencil-assets/). Live splash uses pills + one detail card; mascot overlays the screenshot with no circle frame.",
+          "textGrowth": "fixed-width",
+          "width": 1144,
+          "fontSize": 13,
+          "lineHeight": 1.35,
+          "fill": "#334155"
+        },
+        {
+          "type": "text",
+          "name": "Screens label",
+          "content": "Laptop screenshots (PNG)",
+          "fontSize": 12,
+          "fontWeight": "700",
+          "fill": "#0F172A"
+        },
+        {
+          "type": "frame",
+          "name": "Screen row",
+          "layout": "horizontal",
+          "gap": 12,
+          "width": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "name": "spanish",
+              "width": 220,
+              "height": 140,
+              "cornerRadius": 10,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/feature-spanish.png",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "calendar",
+              "width": 220,
+              "height": 140,
+              "cornerRadius": 10,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/feature-calendar.png",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "inventory",
+              "width": 220,
+              "height": 140,
+              "cornerRadius": 10,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/feature-inventory.png",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "payroll",
+              "width": 220,
+              "height": 140,
+              "cornerRadius": 10,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/feature-payroll.png",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "ath",
+              "width": 220,
+              "height": 140,
+              "cornerRadius": 10,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/feature-ath-movil.png",
+                "mode": "fit"
+              }
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "name": "Mascots label",
+          "content": "Waitlist mascots (WEBP) — fixed one per feature in app",
+          "fontSize": 12,
+          "fontWeight": "700",
+          "fill": "#0F172A"
+        },
+        {
+          "type": "frame",
+          "name": "Mascot row",
+          "layout": "horizontal",
+          "gap": 12,
+          "width": "fill_container",
+          "children": [
+            {
+              "type": "frame",
+              "name": "m0",
+              "width": 100,
+              "height": 100,
+              "cornerRadius": 50,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/basset-hound.webp",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "m1",
+              "width": 100,
+              "height": 100,
+              "cornerRadius": 50,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/gray-cat.webp",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "m2",
+              "width": 100,
+              "height": 100,
+              "cornerRadius": 50,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/kayro.webp",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "m3",
+              "width": 100,
+              "height": 100,
+              "cornerRadius": 50,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/leo.webp",
+                "mode": "fit"
+              }
+            },
+            {
+              "type": "frame",
+              "name": "m4",
+              "width": 100,
+              "height": 100,
+              "cornerRadius": 50,
+              "clip": true,
+              "fill": {
+                "type": "image",
+                "url": "./pencil-assets/tabby-cat.webp",
+                "mode": "fit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

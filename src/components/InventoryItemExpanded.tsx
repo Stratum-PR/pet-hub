@@ -71,6 +71,8 @@ interface InventoryItemExpandedProps {
   className?: string;
   /** When false, Save/Delete row is omitted (use modal header + ref.save()). */
   hideToolbar?: boolean;
+  /** Demo / showcase: fields are not editable. */
+  readOnly?: boolean;
 }
 
 export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, InventoryItemExpandedProps>(
@@ -87,6 +89,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
       onQuantityUpdated,
       className,
       hideToolbar = false,
+      readOnly = false,
     },
     ref
   ) {
@@ -122,6 +125,10 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
     );
 
   const handleSave = () => {
+    if (readOnly) {
+      toast.error(t('demo.workspaceReadOnlyAction'));
+      return;
+    }
     if (!form.name.trim()) {
       toast.error(t('inventory.validationNameRequired'));
       return;
@@ -169,6 +176,10 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
   }));
 
   const handleQuickAdd = async () => {
+    if (readOnly) {
+      toast.error(t('demo.workspaceReadOnlyAction'));
+      return;
+    }
     const qty = parseInt(quickQty, 10);
     if (!onAdjustStock || !qty || qty <= 0) return;
     setQuickAdding(true);
@@ -200,7 +211,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
             size="icon"
             variant="default"
             className="h-9 w-9 shrink-0"
-            disabled={saving || duplicateSku}
+            disabled={readOnly || saving || duplicateSku}
             title={saving ? t('common.saving') : t('common.save')}
             aria-label={saving ? t('common.saving') : t('common.save')}
             onClick={handleSave}
@@ -212,6 +223,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
             size="icon"
             variant="destructive"
             className="h-9 w-9 shrink-0"
+            disabled={readOnly}
             title={t('common.delete')}
             aria-label={t('common.delete')}
             onClick={onRequestDelete}
@@ -232,7 +244,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
               <Package className="h-10 w-10 text-muted-foreground" />
             )}
           </div>
-          {onUploadProductPhoto && (
+          {onUploadProductPhoto && !readOnly && (
             <label className="cursor-pointer">
               <input
                 type="file"
@@ -260,6 +272,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
               <Input
                 id={`inv-name-${product.id}`}
                 value={form.name}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 className="h-9"
               />
@@ -270,6 +283,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
               <Input
                 id={`inv-sku-${product.id}`}
                 value={form.sku}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
                 className="h-9 font-mono text-sm"
               />
@@ -280,6 +294,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
               <Input
                 id={`inv-barcode-${product.id}`}
                 value={form.barcode}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
                 className="h-9 font-mono text-sm"
                 placeholder={t('inventory.barcodePlaceholder') ?? ''}
@@ -291,6 +306,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
               <Input
                 id={`inv-cat-${product.id}`}
                 value={form.category}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                 className="h-9"
               />
@@ -301,6 +317,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
               <Input
                 id={`inv-supplier-${product.id}`}
                 value={form.supplier}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))}
                 className="h-9"
               />
@@ -313,6 +330,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
                 type="number"
                 min={0}
                 value={form.quantity}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, quantity: parseInt(e.target.value, 10) || 0 }))}
                 className={cn('h-9', low && 'border-destructive')}
               />
@@ -325,6 +343,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
                 type="number"
                 min={0}
                 value={form.reorder_level}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, reorder_level: parseInt(e.target.value, 10) || 0 }))}
                 className="h-9"
               />
@@ -338,6 +357,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
                 min={0}
                 step="0.01"
                 value={form.cost}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, cost: parseFloat(e.target.value) || 0 }))}
                 className="h-9"
               />
@@ -351,6 +371,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
                 min={0}
                 step="0.01"
                 value={form.price}
+                readOnly={readOnly}
                 onChange={(e) => setForm((f) => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
                 className="h-9"
               />
@@ -363,6 +384,7 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
             <Textarea
               id={`inv-desc-${product.id}`}
               value={form.description}
+              readOnly={readOnly}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={2}
               className="min-h-[60px] resize-y text-sm"
@@ -374,13 +396,14 @@ export const InventoryItemExpanded = forwardRef<InventoryItemExpandedHandle, Inv
             <Textarea
               id={`inv-notes-${product.id}`}
               value={form.notes}
+              readOnly={readOnly}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               rows={2}
               className="min-h-[52px] resize-y text-sm"
             />
           )}
 
-          {onAdjustStock && (
+          {onAdjustStock && !readOnly && (
             <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/80 bg-muted/30 p-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">{t('inventory.addMoreStock') ?? 'Add stock'}</Label>

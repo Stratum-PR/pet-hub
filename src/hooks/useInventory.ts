@@ -128,28 +128,7 @@ export function useInventory() {
   const addProduct = async (productData: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     if (!businessId) return null;
     if (demoBrowseOnly) {
-      const now = new Date().toISOString();
-      const mapped: Product = {
-        id: uuidv4(),
-        name: productData.name,
-        sku: productData.sku,
-        barcode: productData.barcode || '',
-        price: productData.price,
-        quantity: productData.quantity,
-        supplier: productData.supplier || '',
-        category: productData.category || '',
-        description: productData.description || '',
-        cost: productData.cost ?? 0,
-        reorder_level: productData.reorder_level ?? 0,
-        notes: productData.notes || '',
-        created_at: now,
-        updated_at: now,
-        folder_id: productData.folder_id ?? null,
-        photo_url: productData.photo_url ?? null,
-        custom_fields: productData.custom_fields,
-      };
-      setProducts((prev) => [...prev, mapped].sort((a, b) => a.name.localeCompare(b.name)));
-      return mapped;
+      return null;
     }
     const payload: any = {
       business_id: businessId,
@@ -189,16 +168,7 @@ export function useInventory() {
   const updateProduct = async (id: string, productData: Partial<Product>) => {
     if (!businessId) return null;
     if (demoBrowseOnly) {
-      const prev = products.find((p) => p.id === id);
-      if (!prev) return null;
-      const next: Product = {
-        ...prev,
-        ...productData,
-        id: prev.id,
-        updated_at: new Date().toISOString(),
-      };
-      setProducts((p) => p.map((x) => (x.id === id ? next : x)));
-      return next;
+      return null;
     }
     const patch: any = { updated_at: new Date().toISOString() };
     if (productData.name !== undefined) patch.product_name = productData.name;
@@ -233,8 +203,7 @@ export function useInventory() {
   const deleteProduct = async (id: string) => {
     if (!businessId) return false;
     if (demoBrowseOnly) {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      return true;
+      return false;
     }
     const { error } = await supabase
       .from('inventory' as any)
@@ -274,15 +243,6 @@ export function useInventory() {
         notes: notes ?? null,
       });
       await fetchStockMovements();
-    } else {
-      const row: StockMovementRow = {
-        id: uuidv4(),
-        product_id: productId,
-        quantity: quantityDelta,
-        movement_type: movementType,
-        created_at: new Date().toISOString(),
-      };
-      setStockMovements((prev) => [row, ...prev]);
     }
     return updated;
   };
@@ -290,7 +250,7 @@ export function useInventory() {
   const uploadProductPhoto = async (productId: string, file: File): Promise<string | null> => {
     if (!businessId) return null;
     if (demoBrowseOnly) {
-      return URL.createObjectURL(file);
+      return null;
     }
     const ext = file.name.split('.').pop() || 'jpg';
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;

@@ -17,6 +17,7 @@ import { getPaymentStatusLabel } from '@/types/transactions';
 import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { devConsole } from '@/lib/clientDebug';
 
 type TransactionStatus =
@@ -53,6 +54,7 @@ export function Transactions() {
   const { businessSlug } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const businessId = useBusinessId();
   const { transactions: rawTransactions, loading, loadingMore, hasMore, loadMore, updateTransaction, error: fetchError, refetch } = useTransactions();
   const { clients } = useClientNames();
@@ -143,7 +145,7 @@ export function Transactions() {
     if (result.ok) toast.success(t('transactions.markedAsPaid') ?? 'Marked as paid');
     else {
       if (result.error) devConsole.error('[Transactions] mark as paid', result.error);
-      toast.error(t('common.genericError'));
+      toast.error(result.error || t('common.genericError'));
     }
   };
 
@@ -200,12 +202,19 @@ export function Transactions() {
             <List className="w-4 h-4 shrink-0" />
           </button>
         </div>
-        <Button asChild className="gap-2 shadow-sm shrink-0">
-          <Link to={businessSlug ? `/${businessSlug}/transactions/new` : '/transactions/new'}>
+        {demoBrowseOnly ? (
+          <Button type="button" className="gap-2 shadow-sm shrink-0" disabled title={t('demo.workspaceReadOnlyAction')}>
             <Plus className="w-4 h-4" />
             {t('transactions.newTransaction')}
-          </Link>
-        </Button>
+          </Button>
+        ) : (
+          <Button asChild className="gap-2 shadow-sm shrink-0">
+            <Link to={businessSlug ? `/${businessSlug}/transactions/new` : '/transactions/new'}>
+              <Plus className="w-4 h-4" />
+              {t('transactions.newTransaction')}
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div data-page-content>
@@ -264,6 +273,8 @@ export function Transactions() {
                             variant="ghost"
                             size="sm"
                             className="h-7 px-2 text-xs shrink-0"
+                            disabled={demoBrowseOnly}
+                            title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
                             onClick={(e) => handleMarkAsPaid(e, txn)}
                           >
                             <CheckCircle className="h-3.5 w-3.5 mr-1" />
@@ -341,6 +352,8 @@ export function Transactions() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 px-2 text-xs shrink-0"
+                                disabled={demoBrowseOnly}
+                                title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
                                 onClick={(e) => handleMarkAsPaid(e, txn)}
                               >
                                 <CheckCircle className="h-3.5 w-3.5 mr-1" />
