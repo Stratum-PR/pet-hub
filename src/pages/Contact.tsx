@@ -6,17 +6,20 @@ import { PageMeta } from '@/components/PageMeta';
 import { Footer } from '@/components/Footer';
 import { MarketingSiteHeader } from '@/components/marketing/MarketingSiteHeader';
 import { MarketingPageHero } from '@/components/marketing/MarketingPageHero';
-import { WaitlistForm } from '@/components/waitlist/WaitlistForm';
+import { useWaitlistModal } from '@/contexts/WaitlistModalContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 import { t } from '@/lib/translations';
 
-/** Prefer VITE_CONTACT_EMAIL; Grumi support when unset (see Pricing). */
-const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'support@grumi.pet';
+/** Prefer VITE_CONTACT_EMAIL; Stratum support when unset. */
+const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'support@stratumpr.com';
 
 const CONTACT_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/contact')!;
 
 export function Contact() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { openWaitlistModal } = useWaitlistModal();
+  useLanguage();
 
   async function copyEmail() {
     try {
@@ -93,7 +96,13 @@ export function Contact() {
                 {t('marketing.contact.waitlistTitle')}
               </h2>
               <p className="text-sm text-muted-foreground mb-6">{t('marketing.contact.waitlistLead')}</p>
-              <WaitlistForm className="w-full" animate={false} surface="light" />
+              <Button
+                type="button"
+                onClick={() => openWaitlistModal()}
+                className="rounded-full bg-[#D4FF00] text-black hover:bg-[#BFEF00] font-semibold px-8 h-11"
+              >
+                {t('waitlist.navCta')}
+              </Button>
             </div>
           </div>
         </div>

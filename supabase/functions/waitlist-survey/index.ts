@@ -1,5 +1,5 @@
 /**
- * Waitlist post-confirm survey — single file (Supabase dashboard/remote bundle often only ships index.ts).
+ * Waitlist survey — single file. Requires confirmed waitlist row by survey_token.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
 
@@ -27,19 +27,37 @@ function corsJsonHeaders(req: Request, methods = "POST, OPTIONS"): Record<string
 
 type Body = {
   survey_token?: string;
-  business_name?: string | null;
   groomer_count?: string | null;
-  current_tools?: string | null;
+  tools_selected?: unknown;
+  tools_other?: string | null;
   biggest_pain?: string | null;
   wants_ath_movil?: boolean;
+  wants_costo?: boolean;
   wants_nomina_pr?: boolean;
+  wants_staff_management?: boolean;
   wants_spanish_ui?: boolean;
   wants_online_booking?: boolean;
+  wants_charge_online?: boolean;
+  wants_inventory?: boolean;
+  wants_advanced_reports?: boolean;
 };
 
-const GROOMER = new Set(["1", "2-3", "4-6", "7+"]);
-const TOOLS = new Set(["pen-paper", "spreadsheet", "gingr", "daysmart", "other"]);
+const GROOMER = new Set(["1", "2-5", "6-9", "10+"]);
+const TOOL_KEYS = new Set(["pen-paper", "spreadsheet", "software", "other"]);
 const PAIN_MAX = 500;
+const OTHER_MAX = 180;
+
+function parseToolsSelected(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: string[] = [];
+  for (const x of raw) {
+    if (typeof x !== "string") return null;
+    const k = x.trim();
+    if (!TOOL_KEYS.has(k)) return null;
+    if (!out.includes(k)) out.push(k);
+  }
+  return out;
+}
 
 Deno.serve(async (req) => {
   const cors = corsJsonHeaders(req, "POST, OPTIONS");
@@ -112,17 +130,53 @@ Deno.serve(async (req) => {
     });
   }
 
-  const groomer_count = body.groomer_count?.trim() ?? null;
-  if (groomer_count && !GROOMER.has(groomer_count)) {
+  const groomer_count = (body.groomer_count ?? "").trim();
+  if (!groomer_count || !GROOMER.has(groomer_count)) {
     return new Response(JSON.stringify({ error: "invalid_groomer_count" }), {
       status: 400,
       headers: { "Content-Type": "application/json", ...cors },
     });
   }
 
-  const current_tools = body.current_tools?.trim() ?? null;
-  if (current_tools && !TOOLS.has(current_tools)) {
-    return new Response(JSON.stringify({ error: "invalid_current_tools" }), {
+  const toolsArr = parseToolsSelected(body.tools_selected);
+  if (!toolsArr || toolsArr.length === 0) {
+    return new Response(JSON.stringify({ error: "tools_required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", ...cors },
+    });
+  }
+
+  let tools_other = (body.tools_other ?? "").trim().slice(0, OTHER_MAX);
+  if (toolsArr.includes("other") && tools_other.length === 0) {
+    tools_other = "";
+  }
+  if (!toolsArr.includes("other")) {
+    tools_other = "";
+  }
+
+  const wants_ath_movil = Boolean(body.wants_ath_movil);
+  const wants_costo = Boolean(body.wants_costo);
+  const wants_nomina_pr = Boolean(body.wants_nomina_pr);
+  const wants_staff_management = Boolean(body.wants_staff_management);
+  const wants_spanish_ui = Boolean(body.wants_spanish_ui);
+  const wants_online_booking = Boolean(body.wants_online_booking);
+  const wants_charge_online = Boolean(body.wants_charge_online);
+  const wants_inventory = Boolean(body.wants_inventory);
+  const wants_advanced_reports = Boolean(body.wants_advanced_reports);
+
+  const anyFeature =
+    wants_ath_movil ||
+    wants_costo ||
+    wants_nomina_pr ||
+    wants_staff_management ||
+    wants_spanish_ui ||
+    wants_online_booking ||
+    wants_charge_online ||
+    wants_inventory ||
+    wants_advanced_reports;
+
+  if (!anyFeature) {
+    return new Response(JSON.stringify({ error: "features_required" }), {
       status: 400,
       headers: { "Content-Type": "application/json", ...cors },
     });
@@ -133,23 +187,36 @@ Deno.serve(async (req) => {
 
   const { error: insErr } = await admin.from("waitlist_survey").insert({
     waitlist_id: waitlistId,
-    business_name: body.business_name?.trim().slice(0, 200) || null,
-    groomer_count: groomer_count || null,
-    current_tools: current_tools || null,
+    business_name: null,
+    groomer_count,
+    current_tools: null,
+    tools_selected: toolsArr,
+    tools_other: tools_other || null,
     biggest_pain: biggest_pain || null,
-    wants_ath_movil: Boolean(body.wants_ath_movil),
-    wants_nomina_pr: Boolean(body.wants_nomina_pr),
-    wants_spanish_ui: Boolean(body.wants_spanish_ui),
-    wants_online_booking: Boolean(body.wants_online_booking),
+    wants_ath_movil,
+    wants_costo,
+    wants_nomina_pr,
+    wants_staff_management,
+    wants_spanish_ui,
+    wants_online_booking,
+    wants_charge_online,
+    wants_inventory,
+    wants_advanced_reports,
   });
 
   if (insErr) {
-    console.error("waitlist_survey insert", insErr);
     return new Response(JSON.stringify({ error: "database_error" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...cors },
     });
   }
+
+  const notifySoon = new Date().toISOString();
+  await admin
+    .from("waitlist")
+    .update({ admin_notify_at: notifySoon })
+    .eq("id", waitlistId)
+    .is("admin_notify_sent_at", null);
 
   return new Response(JSON.stringify({ success: true }), {
     status: 200,

@@ -1,5 +1,4 @@
 import { useState, useCallback, Fragment, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 import { Check, ArrowRight, ChevronDown } from 'lucide-react';
@@ -19,6 +18,7 @@ import {
   type PricingLocale,
 } from '@/content/pricing-page-data';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useWaitlistModal } from '@/contexts/WaitlistModalContext';
 import { t } from '@/lib/translations';
 
 const PRICING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/pricing')!;
@@ -110,6 +110,7 @@ function CompareCellContent({ cell, lang }: { cell: CompareCell; lang: PricingLo
 
 export function Pricing() {
   const { language } = useLanguage();
+  const { openWaitlistModal } = useWaitlistModal();
   const lang = language as PricingLocale;
   const [billing, setBilling] = useState<BillingPeriod>('annual');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -162,7 +163,12 @@ export function Pricing() {
 
               <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
                 {PRICING_TIERS_CONFIG.map((tier) => (
-                  <PricingCard key={tier.id} tier={tier} lang={lang} />
+                  <PricingCard
+                    key={tier.id}
+                    tier={tier}
+                    lang={lang}
+                    onJoinWaitlist={() => openWaitlistModal({ pricingTier: tier.id })}
+                  />
                 ))}
               </div>
 
@@ -272,11 +278,12 @@ export function Pricing() {
                 </div>
                 <div className="mt-8 flex flex-col items-center gap-3">
                   <Button
-                    asChild
+                    type="button"
                     size="lg"
+                    onClick={() => openWaitlistModal()}
                     className="rounded-full bg-[#D4FF00] px-8 font-semibold text-black shadow hover:bg-[#D4FF00]/90"
                   >
-                    <Link to="/#waitlist">{t('pricing.ctaWaitlist')}</Link>
+                    {t('pricing.ctaWaitlist')}
                   </Button>
                   <p className="max-w-md px-2 text-center text-xs text-muted-foreground sm:text-sm">{t('pricing.ctaWaitlistHint')}</p>
                 </div>
@@ -298,9 +305,11 @@ export function Pricing() {
 function PricingCard({
   tier,
   lang,
+  onJoinWaitlist,
 }: {
   tier: (typeof PRICING_TIERS_CONFIG)[number];
   lang: PricingLocale;
+  onJoinWaitlist: () => void;
 }) {
   const name = pick(tier.name, lang);
 
@@ -337,11 +346,13 @@ function PricingCard({
           <ArrowRight className="ml-2 h-4 w-4" />
         </a>
       ) : (
-        <Button asChild className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90">
-          <Link to={`/?tier=${encodeURIComponent(tier.id)}#waitlist`}>
-            {pick(tier.buttonLabel, lang)}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
+        <Button
+          type="button"
+          onClick={onJoinWaitlist}
+          className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          {pick(tier.buttonLabel, lang)}
+          <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       )}
     </article>

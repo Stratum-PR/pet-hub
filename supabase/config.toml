@@ -26,6 +26,12 @@ verify_jwt = false
 [functions.waitlist-survey]
 verify_jwt = false
 
+[functions.waitlist-schedule-admin-notify]
+verify_jwt = false
+
+[functions.waitlist-admin-notify-drain]
+verify_jwt = false
+
 [functions.waitlist-stats]
 verify_jwt = false
 

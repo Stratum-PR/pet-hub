@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  COOKIE_CONSENT_STORAGE_KEY,
   COOKIE_POLICY_VERSION,
   clearPreferenceTierStorage,
   consentIsCurrent,
@@ -79,6 +80,20 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('cookieBanner')) {
+          window.localStorage.removeItem(COOKIE_CONSENT_STORAGE_KEY);
+          params.delete('cookieBanner');
+          const next = params.toString();
+          const url = `${window.location.pathname}${next ? `?${next}` : ''}${window.location.hash}`;
+          window.history.replaceState(null, '', url);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
     setConsent(readStoredCookieConsent());
     setHydrated(true);
   }, []);

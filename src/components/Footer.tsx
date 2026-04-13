@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { t } from '@/lib/translations';
 import { useCookieConsent } from '@/contexts/CookieConsentContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function Footer() {
   const { openPreferences } = useCookieConsent();
+  useLanguage();
 
   return (
     <footer className="border-t mt-12 bg-muted/30">

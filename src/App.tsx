@@ -8,6 +8,7 @@ import { DemoLegacyRedirect } from "@/components/DemoLegacyRedirect";
 import { DemoAwareThemeProvider } from "@/components/DemoAwareThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
+import { WaitlistModalProvider } from "@/contexts/WaitlistModalContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BusinessLayout } from "@/components/BusinessLayout";
@@ -77,6 +78,7 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
           <CookieConsentProvider>
+            <WaitlistModalProvider>
             <DemoAwareThemeProvider>
               <TooltipProvider>
                 <Toaster />
@@ -154,6 +156,7 @@ const App = () => (
             </TooltipProvider>
             <CookieConsentBar />
           </DemoAwareThemeProvider>
+            </WaitlistModalProvider>
           </CookieConsentProvider>
         </BrowserRouter>
       </AuthProvider>

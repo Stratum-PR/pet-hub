@@ -1,15 +1,16 @@
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
-import { Eye, ChevronDown, Lock } from 'lucide-react';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { Eye, ChevronDown } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
 import { t } from '@/lib/translations';
 import { SplashAuthModal } from '@/components/SplashAuthModal';
 import { LoginForm } from '@/components/LoginForm';
 import { PageMeta } from '@/components/PageMeta';
 import { DISCOVERABLE_ROUTES, getPublicBaseUrl } from '@/config/discoverable-routes';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
-import { WaitlistForm } from '@/components/waitlist/WaitlistForm';
+import { useWaitlistModal } from '@/contexts/WaitlistModalContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { MarketingSiteHeader } from '@/components/marketing/MarketingSiteHeader';
 import { FeaturesMarketingSection } from '@/components/marketing/FeaturesMarketingSection';
 import { MarketingBottomCta } from '@/components/marketing/MarketingBottomCta';
@@ -49,20 +50,24 @@ function getLandingJsonLd(): string {
 export function Landing() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const { openWaitlistModal } = useWaitlistModal();
+  useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [heroFallbackImageError, setHeroFallbackImageError] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  const scrollToWaitlist = useCallback(() => {
-    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, []);
-
   useEffect(() => {
     if (location.pathname !== '/') return;
     const hash = location.hash.replace(/^#/, '');
     if (hash === 'waitlist') {
-      const timer = window.setTimeout(() => scrollToWaitlist(), 150);
+      const tier = searchParams.get('tier')?.trim() || undefined;
+      const timer = window.setTimeout(() => {
+        openWaitlistModal(tier ? { pricingTier: tier } : {});
+        const path = `${location.pathname}${location.search}`;
+        window.history.replaceState(null, '', path || '/');
+      }, 150);
       return () => window.clearTimeout(timer);
     }
     if (hash === 'features') {
@@ -70,7 +75,7 @@ export function Landing() {
       const timer = window.setTimeout(() => el?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
       return () => window.clearTimeout(timer);
     }
-  }, [location.pathname, location.hash, scrollToWaitlist]);
+  }, [location.pathname, location.hash, location.search, searchParams, openWaitlistModal]);
 
   // Two-line headline: 0.5s delay, then 0.8s total with decremental timing (first letters faster, last slower)
   const headlineLine1 = t('landing.splashHeadlineLine1');
@@ -115,7 +120,6 @@ export function Landing() {
         onMobileMenuOpenChange={setMobileMenuOpen}
         onLogoClick={handleLogoClick}
         onOpenLoginModal={() => setLoginModalOpen(true)}
-        onScrollToWaitlist={scrollToWaitlist}
       />
 
       {/* Hero: prefer video; if video doesn't load/play, fall back to static image */}
@@ -231,30 +235,31 @@ export function Landing() {
               {t('landing.splashSubheadline')}
             </p>
 
-            {/* Waitlist + demo */}
+            {/* Waitlist CTA + demo */}
             <div
               id="waitlist"
               className="relative w-full max-w-xl mx-auto opacity-0 motion-reduce:!animate-none motion-reduce:opacity-100 motion-reduce:!scale-100 animate-cta-reveal shrink-0"
             >
               <LandingWaitlistBrandMotifs />
-              <div className="relative z-10 space-y-3">
-                <WaitlistForm className="w-full" />
-                <p className="flex items-center justify-center gap-2 text-xs sm:text-sm text-white/85 text-center px-2">
-                  <Lock className="w-3.5 h-3.5 shrink-0 text-[#D4FF00]" aria-hidden />
-                  <span>{t('waitlist.founderLine')}</span>
-                </p>
-                <div className="flex justify-center pt-1">
-                  <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
-                    <Button
-                      variant="outline"
-                      className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-                    >
-                      <Eye className="w-4 h-4" />
-                      {t('landing.viewDemo')}
-                    </Button>
-                  </Link>
-                </div>
+              <div className="relative z-10 flex flex-col items-center gap-3 sm:gap-4 pt-1">
+                <Button
+                  type="button"
+                  onClick={() => openWaitlistModal()}
+                  className="w-full sm:w-auto min-h-[48px] rounded-xl px-6 py-3 sm:px-8 sm:py-3.5 text-base font-semibold bg-[#D4FF00] text-black hover:bg-[#BFEF00] shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+                >
+                  {t('waitlist.splashCta')}
+                </Button>
+                <Link to={`/${DEMO_WORKSPACE_SLUG}/dashboard`} className="w-full sm:w-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                  >
+                    <Eye className="w-4 h-4" />
+                    {t('landing.viewDemo')}
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

@@ -311,15 +311,22 @@ export function Layout({ children, settings }: LayoutProps) {
             className={cn(
               'shrink-0 items-center px-4 py-2 lg:px-6 bg-transparent print:hidden',
               demoLocalOnly
-                ? 'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-x-2 gap-y-1.5 py-2.5 sm:gap-x-3 sm:py-3'
+                ? 'flex flex-col gap-2 py-2.5 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-3 md:gap-y-1.5 md:py-3'
                 : 'flex justify-between gap-4'
             )}
-            style={{ minHeight: demoLocalOnly ? 56 : 52 }}
+            style={{ minHeight: demoLocalOnly ? undefined : 52 }}
           >
             <div
               className={cn(
+                demoLocalOnly
+                  ? 'flex w-full min-w-0 items-center justify-between gap-2 min-h-[48px] md:contents'
+                  : 'contents'
+              )}
+            >
+            <div
+              className={cn(
                 'flex items-center gap-2 min-w-0 sm:gap-3',
-                demoLocalOnly ? 'w-full' : 'flex-1'
+                demoLocalOnly ? 'min-w-0 flex-1 md:col-start-1 md:row-start-1' : 'flex-1'
               )}
             >
               <Button
@@ -331,7 +338,14 @@ export function Layout({ children, settings }: LayoutProps) {
                 <Menu className="w-5 h-5" />
               </Button>
               <div className="flex min-w-0 items-center gap-2">
-                <div className="relative h-8 min-w-0 max-w-[min(calc(100vw-11rem),22rem)] sm:max-w-[min(calc(100vw-13rem),26rem)]">
+                <div
+                  className={cn(
+                    'relative h-8 min-w-0',
+                    demoLocalOnly
+                      ? 'max-w-[min(calc(100vw-6.5rem),28rem)] md:max-w-[min(calc(100vw-13rem),26rem)]'
+                      : 'max-w-[min(calc(100vw-11rem),22rem)] sm:max-w-[min(calc(100vw-13rem),26rem)]'
+                  )}
+                >
                   <span
                     className="invisible block select-none truncate whitespace-nowrap text-lg font-semibold"
                     aria-hidden
@@ -367,22 +381,10 @@ export function Layout({ children, settings }: LayoutProps) {
               </div>
             </div>
 
-            {demoLocalOnly ? (
-              <div className="col-start-2 flex justify-center self-center px-1 sm:px-2">
-                <span
-                  className="max-w-[min(92vw,20rem)] bg-white px-3 py-1.5 text-center text-xs font-bold leading-snug text-amber-950 sm:max-w-[22rem] sm:px-4 sm:py-2 sm:text-sm dark:bg-white dark:text-amber-950"
-                  role="status"
-                  aria-label={t('layout.demoLocalSettingsHint')}
-                >
-                  {t('layout.demoLocalSettingsHint')}
-                </span>
-              </div>
-            ) : null}
-
             <div
               className={cn(
                 'flex items-center gap-2 shrink-0',
-                demoLocalOnly && 'col-start-3 justify-self-end justify-end'
+                demoLocalOnly && 'md:col-start-3 md:row-start-1 md:justify-self-end'
               )}
             >
               <LanguageSwitcher
@@ -605,6 +607,19 @@ export function Layout({ children, settings }: LayoutProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            </div>
+
+            {demoLocalOnly ? (
+              <div className="flex w-full justify-center px-1 md:col-start-2 md:row-start-1 md:w-auto md:self-center md:px-2">
+                <span
+                  className="max-w-full bg-white px-3 py-1.5 text-center text-xs font-bold leading-snug text-amber-950 sm:max-w-[22rem] sm:px-4 sm:py-2 sm:text-sm dark:bg-white dark:text-amber-950"
+                  role="status"
+                  aria-label={t('layout.demoLocalSettingsHint')}
+                >
+                  {t('layout.demoLocalSettingsHint')}
+                </span>
+              </div>
+            ) : null}
           </header>
 
           {!showAdminHeader && (
