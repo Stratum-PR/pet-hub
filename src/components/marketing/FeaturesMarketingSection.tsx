@@ -267,26 +267,28 @@ export function FeaturesMarketingSection() {
           </div>
 
           <div className="relative mt-8 space-y-5">
-            <div className="mx-auto flex w-full max-w-5xl flex-wrap justify-center gap-2 rounded-2xl border border-border/70 bg-background/80 p-2 sm:rounded-full">
-              {HIGHLIGHT_FEATURES.map((feature) => (
-                <button
-                  key={feature.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveFeatureId(feature.id);
-                    setHighlightRotationEpoch((n) => n + 1);
-                  }}
-                  className={cn(
-                    'min-h-11 max-w-full touch-manipulation rounded-full px-3 py-2 text-center text-xs font-semibold leading-snug tracking-wide transition-colors sm:px-4 sm:text-sm',
-                    activeFeature.id === feature.id
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'bg-background text-foreground hover:bg-muted',
-                  )}
-                  aria-pressed={activeFeature.id === feature.id}
-                >
-                  <span className="block break-words text-pretty">{t(feature.titleKey)}</span>
-                </button>
-              ))}
+            <div className="mx-auto hidden w-full max-w-5xl rounded-2xl border border-border/70 bg-background/80 p-2 sm:block sm:rounded-full">
+              <div className="flex flex-wrap justify-center gap-2">
+                {HIGHLIGHT_FEATURES.map((feature) => (
+                  <button
+                    key={feature.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveFeatureId(feature.id);
+                      setHighlightRotationEpoch((n) => n + 1);
+                    }}
+                    className={cn(
+                      'min-h-11 touch-manipulation rounded-full px-4 py-2 text-center text-sm font-semibold leading-snug tracking-wide transition-colors',
+                      activeFeature.id === feature.id
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-background text-foreground hover:bg-muted',
+                    )}
+                    aria-pressed={activeFeature.id === feature.id}
+                  >
+                    <span className="block text-pretty">{t(feature.titleKey)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-[1.25rem] border border-border/80 bg-card/85 p-3 sm:rounded-[1.5rem] sm:p-4 md:p-6">
@@ -319,6 +321,11 @@ export function FeaturesMarketingSection() {
                         />
                       </div>
                     ) : null}
+                  </div>
+                  <div className="mt-2 md:hidden">
+                    <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Swipe to explore →
+                    </p>
                   </div>
                 </div>
 
