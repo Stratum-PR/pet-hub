@@ -25,18 +25,18 @@ const PRICING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/pricing')!;
 const COMPARISON_TABLE_ID = 'comparison-table';
 const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'sales@example.com';
 
-/** Soft column washes for plan headers (brand + teal + violet). */
+/** Subtle column tints over banded rows. */
 const COMPARISON_PLAN_HEADER_BG: readonly [string, string, string] = [
-  'border-l border-primary/25 bg-primary/[0.14]',
-  'border-l border-teal-400/30 bg-teal-500/[0.11] dark:bg-teal-400/[0.14]',
-  'border-l border-violet-400/30 bg-violet-500/[0.11] dark:bg-violet-400/[0.14]',
+  'border-l border-border/70 bg-muted/35',
+  'border-l border-primary/20 bg-primary/[0.08]',
+  'border-l border-border/70 bg-secondary/40',
 ];
 
-/** Body cells: subtle tint so columns read clearly over zebra rows. */
+/** Body cells: light tints so row banding remains dominant. */
 const COMPARISON_PLAN_CELL_BG: readonly [string, string, string] = [
-  'border-l border-primary/12 bg-primary/[0.05]',
-  'border-l border-teal-400/15 bg-teal-500/[0.04] dark:bg-teal-400/[0.06]',
-  'border-l border-violet-400/15 bg-violet-500/[0.04] dark:bg-violet-400/[0.06]',
+  'border-l border-border/50 bg-muted/15',
+  'border-l border-primary/15 bg-primary/[0.045]',
+  'border-l border-border/50 bg-secondary/24',
 ];
 
 function scrollToComparison() {
@@ -91,21 +91,25 @@ function CompareCellContent({ cell, lang }: { cell: CompareCell; lang: PricingLo
   if (cell === 'check') {
     return (
       <span
-        className="mx-auto inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/18 text-primary shadow-sm ring-1 ring-primary/25"
+        className="mx-auto inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/20 sm:h-8 sm:w-8 sm:bg-primary/18 sm:ring-primary/25"
         aria-hidden
       >
-        <Check className="h-4 w-4" strokeWidth={2.75} />
+        <Check className="h-3 w-3 sm:h-4 sm:w-4" strokeWidth={2.75} />
       </span>
     );
   }
   if (cell === 'dash') {
     return (
-      <span className="text-lg font-light tabular-nums text-muted-foreground/45" aria-hidden>
+      <span className="text-sm font-light tabular-nums text-muted-foreground/45 sm:text-lg" aria-hidden>
         —
       </span>
     );
   }
-  return <span className="text-sm font-medium tabular-nums tracking-tight text-foreground">{pick(cell, lang)}</span>;
+  return (
+    <span className="block max-w-[11rem] px-0.5 text-center text-[10px] font-medium tabular-nums leading-snug tracking-tight text-foreground sm:max-w-none sm:text-xs md:text-sm">
+      {pick(cell, lang)}
+    </span>
+  );
 }
 
 export function Pricing() {
@@ -161,7 +165,7 @@ export function Pricing() {
                 <BillingToggle value={billing} onChange={setBilling} />
               </header>
 
-              <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
                 {PRICING_TIERS_CONFIG.map((tier) => (
                   <PricingCard
                     key={tier.id}
@@ -210,13 +214,17 @@ export function Pricing() {
                 <h2 id="comparison-heading" className="mb-6 text-center text-xl font-semibold">
                   {t('pricing.comparePlansHeading')}
                 </h2>
-                <div className="overflow-hidden overflow-x-auto rounded-2xl border border-primary/20 bg-card shadow-md shadow-primary/[0.07] ring-1 ring-border/70">
-                  <table className="w-full min-w-[800px] border-collapse text-sm" role="grid" aria-label={t('pricing.compareTableAria')}>
+                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-1 ring-border/60">
+                  <table
+                    className="w-full table-fixed border-collapse text-[11px] leading-snug sm:text-xs md:text-sm"
+                    role="grid"
+                    aria-label={t('pricing.compareTableAria')}
+                  >
                     <thead>
-                      <tr className="sticky top-0 z-10 border-b border-primary/15 bg-gradient-to-b from-primary/18 via-primary/10 to-muted/40 backdrop-blur-sm">
+                      <tr className="sticky top-0 z-10 border-b border-border bg-card/95 backdrop-blur-sm">
                         <th
                           scope="col"
-                          className="w-[min(280px,40vw)] border-r border-primary/15 bg-primary/[0.08] py-4 pl-5 pr-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-primary"
+                          className="w-[32%] min-w-0 border-r border-border py-2.5 pl-3 pr-1.5 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-primary sm:w-[28%] sm:py-3 sm:pl-4 sm:pr-2 sm:text-[10px] sm:tracking-[0.14em] md:text-xs"
                         >
                           {t('pricing.compareFeatureColumn')}
                         </th>
@@ -224,10 +232,10 @@ export function Pricing() {
                           <th
                             key={col.id}
                             scope="col"
-                            className={`px-3 py-4 text-center align-bottom sm:px-4 ${COMPARISON_PLAN_HEADER_BG[i]}`}
+                            className={`min-w-0 px-1 py-2.5 text-center align-bottom sm:px-2 sm:py-3 md:px-3 ${COMPARISON_PLAN_HEADER_BG[i]}`}
                           >
-                            <span className="block text-[0.95rem] font-bold leading-tight text-foreground">{pick(col.name, lang)}</span>
-                            <span className="mt-1.5 block text-xs font-semibold tabular-nums text-muted-foreground">
+                            <span className="block font-bold leading-tight text-foreground">{pick(col.name, lang)}</span>
+                            <span className="mt-0.5 block text-[9px] font-semibold tabular-nums text-muted-foreground sm:mt-1 sm:text-[10px] md:text-xs">
                               {pick(col.priceLine, lang)}
                             </span>
                           </th>
@@ -237,10 +245,10 @@ export function Pricing() {
                     <tbody>
                       {comparisonSectionsStriped.map((sec) => (
                         <Fragment key={sec.category.en}>
-                          <tr className="border-y border-primary/10 bg-gradient-to-r from-primary/12 via-primary/6 to-transparent">
+                          <tr className="border-y border-border bg-muted/45">
                             <td
                               colSpan={4}
-                              className="py-2.5 pl-5 pr-4 text-[11px] font-bold uppercase tracking-[0.16em] text-primary"
+                              className="py-2 pl-3 pr-2 text-[9px] font-bold uppercase tracking-[0.14em] text-primary sm:py-2.5 sm:pl-4 sm:text-[10px] sm:tracking-[0.16em]"
                               id={`cat-${sec.category.en.replace(/\s+/g, '-')}`}
                             >
                               {pick(sec.category, lang)}
@@ -249,24 +257,24 @@ export function Pricing() {
                           {sec.rows.map(({ row, stripe }, ri) => (
                             <tr
                               key={`${sec.category.en}-${ri}`}
-                              className={`border-b border-border/50 transition-colors hover:bg-primary/[0.06] ${
-                                stripe % 2 === 0 ? 'bg-muted/35' : 'bg-background/80'
+                              className={`border-b border-border/60 transition-colors hover:bg-muted/30 ${
+                                stripe % 2 === 0 ? 'bg-card/70' : 'bg-muted/20'
                               }`}
                             >
                               <td
-                                className={`border-r border-primary/10 py-3 pl-5 pr-3 text-[0.8125rem] font-medium leading-snug text-foreground ${
-                                  stripe % 2 === 0 ? 'bg-primary/[0.04]' : 'bg-primary/[0.02]'
+                                className={`border-r border-border py-2 pl-3 pr-1.5 font-medium text-foreground sm:py-2.5 sm:pl-4 sm:pr-2 ${
+                                  stripe % 2 === 0 ? 'bg-muted/15' : 'bg-card/50'
                                 }`}
                               >
                                 {pick(row.feature, lang)}
                               </td>
-                              <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[0]}`}>
-                                <CompareCellContent cell={row.basico} lang={lang} />
+                              <td className={`px-0.5 py-2 text-center sm:py-2.5 md:px-1 ${COMPARISON_PLAN_CELL_BG[0]}`}>
+                                <CompareCellContent cell={row.growth} lang={lang} />
                               </td>
-                              <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[1]}`}>
-                                <CompareCellContent cell={row.estandar} lang={lang} />
+                              <td className={`px-0.5 py-2 text-center sm:py-2.5 md:px-1 ${COMPARISON_PLAN_CELL_BG[1]}`}>
+                                <CompareCellContent cell={row.standard} lang={lang} />
                               </td>
-                              <td className={`py-3 text-center ${COMPARISON_PLAN_CELL_BG[2]}`}>
+                              <td className={`px-0.5 py-2 text-center sm:py-2.5 md:px-1 ${COMPARISON_PLAN_CELL_BG[2]}`}>
                                 <CompareCellContent cell={row.pro} lang={lang} />
                               </td>
                             </tr>
@@ -315,24 +323,24 @@ function PricingCard({
 
   return (
     <article
-      className="relative flex h-full flex-col rounded-2xl border border-border bg-background p-6 shadow-sm transition-colors hover:border-primary/30"
+      className="relative flex h-full flex-col rounded-xl border border-border bg-background p-4 shadow-sm transition-colors hover:border-primary/30 sm:rounded-2xl sm:p-5"
       aria-labelledby={`tier-${tier.id}-name`}
     >
-      <div className="mb-4">
-        <h3 id={`tier-${tier.id}-name`} className="text-xl font-bold text-foreground">
+      <div className="mb-2 sm:mb-3">
+        <h3 id={`tier-${tier.id}-name`} className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
           {name}
         </h3>
-        <p className="text-sm text-muted-foreground">{pick(tier.tagline, lang)}</p>
+        <p className="text-xs text-muted-foreground sm:text-sm">{pick(tier.tagline, lang)}</p>
       </div>
-      <div className="mb-4">
-        <p className="text-3xl font-bold tracking-tight text-foreground" aria-live="polite">
+      <div className="mb-3 sm:mb-4">
+        <p className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl" aria-live="polite">
           {pick(PRICE_TBD, lang)}
         </p>
       </div>
-      <ul className="mb-6 flex-1 space-y-2 text-sm text-foreground" aria-label={t('pricing.tierListAria', { name })}>
+      <ul className="mb-4 flex-1 space-y-1.5 text-xs text-foreground sm:mb-5 sm:space-y-2 sm:text-sm" aria-label={t('pricing.tierListAria', { name })}>
         {tier.features.map((f, i) => (
-          <li key={i} className="flex items-start gap-2">
-            <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" aria-hidden />
+          <li key={i} className="flex items-start gap-1.5 sm:gap-2">
+            <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary sm:h-4 sm:w-4" aria-hidden />
             <span>{pick(f, lang)}</span>
           </li>
         ))}
@@ -340,19 +348,19 @@ function PricingCard({
       {tier.buttonVariant === 'contact' ? (
         <a
           href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20pricing%20inquiry`}
-          className="inline-flex items-center justify-center rounded-xl border-2 border-primary/50 bg-muted/30 px-4 py-3 text-sm font-semibold text-foreground hover:bg-primary/10 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex items-center justify-center rounded-lg border-2 border-primary/50 bg-muted/30 px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-primary/10 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
         >
           {pick(tier.buttonLabel, lang)}
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <ArrowRight className="ml-1.5 h-3.5 w-3.5 sm:ml-2 sm:h-4 sm:w-4" />
         </a>
       ) : (
         <Button
           type="button"
           onClick={onJoinWaitlist}
-          className="w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+          className="w-full rounded-lg bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 sm:rounded-xl sm:py-3 sm:text-sm"
         >
           {pick(tier.buttonLabel, lang)}
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <ArrowRight className="ml-1.5 h-3.5 w-3.5 sm:ml-2 sm:h-4 sm:w-4" />
         </Button>
       )}
     </article>

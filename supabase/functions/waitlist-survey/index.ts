@@ -47,6 +47,32 @@ const TOOL_KEYS = new Set(["pen-paper", "spreadsheet", "software", "other"]);
 const PAIN_MAX = 500;
 const OTHER_MAX = 180;
 
+/** Fire the drain job so the internal admin email sends without relying on external cron. */
+async function invokeAdminNotifyDrain(): Promise<void> {
+  const secret = Deno.env.get("WAITLIST_NOTIFY_DRAIN_SECRET")?.trim() ?? "";
+  if (!secret) return;
+  const base = (Deno.env.get("SUPABASE_URL") ?? "").trim().replace(/\/$/, "");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!base || !key) return;
+  const url = `${base}/functions/v1/waitlist-admin-notify-drain`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        apikey: key,
+        "Content-Type": "application/json",
+        "x-waitlist-notify-secret": secret,
+      },
+    });
+    if (!res.ok) {
+      console.error("waitlist-survey: drain invoke failed", res.status, await res.text());
+    }
+  } catch (e) {
+    console.error("waitlist-survey: drain invoke error", e);
+  }
+}
+
 function parseToolsSelected(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null;
   const out: string[] = [];
@@ -212,11 +238,17 @@ Deno.serve(async (req) => {
   }
 
   const notifySoon = new Date().toISOString();
-  await admin
+  const { error: notifyAtErr } = await admin
     .from("waitlist")
     .update({ admin_notify_at: notifySoon })
     .eq("id", waitlistId)
     .is("admin_notify_sent_at", null);
+
+  if (notifyAtErr) {
+    console.error("waitlist-survey: admin_notify_at update failed", notifyAtErr);
+  }
+
+  await invokeAdminNotifyDrain();
 
   return new Response(JSON.stringify({ success: true }), {
     status: 200,

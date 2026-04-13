@@ -47,6 +47,12 @@ export function Footer() {
           <span className="text-muted-foreground/50 select-none" aria-hidden>
             ·
           </span>
+          <Link to="/cookie-notice" className="hover:text-foreground underline-offset-2 hover:underline">
+            {t('footer.cookieNotice')}
+          </Link>
+          <span className="text-muted-foreground/50 select-none" aria-hidden>
+            ·
+          </span>
           <button
             type="button"
             onClick={() => openPreferences()}

@@ -19,6 +19,7 @@ import { Contact } from "@/pages/Contact";
 import { TermsOfService } from "@/pages/legal/TermsOfService";
 import { WebsiteTerms } from "@/pages/legal/WebsiteTerms";
 import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
+import { CookieNotice } from "@/pages/legal/CookieNotice";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { AuthCallback } from "@/pages/AuthCallback";
@@ -95,6 +96,7 @@ const App = () => (
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/website-terms" element={<WebsiteTerms />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/cookie-notice" element={<CookieNotice />} />
               <Route path="/login" element={<Login />} />
               <Route path="/registrarse" element={<Register />} />
               <Route path="/auth/callback" element={<AuthCallback />} />

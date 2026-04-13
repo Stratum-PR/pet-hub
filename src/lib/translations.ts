@@ -411,6 +411,7 @@ export const translations: Translations = {
   'footer.termsOfUse': { en: 'Terms of Use', es: 'Términos de Uso' },
   'footer.websiteTerms': { en: 'Website Terms of Use', es: 'Términos de Uso del Sitio' },
   'footer.privacyPolicy': { en: 'Privacy policy', es: 'Política de Privacidad' },
+  'footer.cookieNotice': { en: 'Cookie notice', es: 'Aviso de cookies' },
   'footer.cookieSettings': { en: 'Cookie settings', es: 'Configuración de cookies' },
   'cookies.policyTitle': {
     en: 'Cookie policy',
@@ -437,6 +438,10 @@ export const translations: Translations = {
   'cookies.dialogIntro': {
     en: 'Necessary cookies are always on. Turn optional categories on or off, then save.',
     es: 'Las cookies necesarias permanecen activas. Activa o desactiva las categorías opcionales y guarda.',
+  },
+  'cookies.dialogIntroCookieLead': {
+    en: 'For more information, see our',
+    es: 'Para más información, consulta nuestro',
   },
   'cookies.catNecessaryTitle': { en: 'Strictly necessary', es: 'Estrictamente necesarias' },
   'cookies.catNecessaryDesc': {
@@ -499,16 +504,12 @@ export const translations: Translations = {
     es: 'Ya estás dentro — comparte tu enlace'
   },
   'waitlist.referralStepLead': {
-    en: 'Copy your referral link if you like, then continue to a few optional questions (or skip).',
-    es: 'Copia tu enlace de referido si quieres, luego continúa con unas preguntas opcionales (o omítelas).'
+    en: 'Copy your referral link if you like, then continue to a few optional questions.',
+    es: 'Copia tu enlace de referido si quieres, luego continúa con unas preguntas opcionales.'
   },
   'waitlist.continueToSurvey': {
     en: 'Continue to survey',
     es: 'Continuar a la encuesta'
-  },
-  'waitlist.skipSurveyForNow': {
-    en: 'Skip survey for now',
-    es: 'Omitir encuesta por ahora'
   },
   'waitlist.modalFormLead': {
     en: 'We will email you a welcome note. All fields are required.',

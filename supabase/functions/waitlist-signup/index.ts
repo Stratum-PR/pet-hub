@@ -2,7 +2,23 @@
  * Waitlist signup — single opt-in: confirm immediately, welcome email, survey token + referral code.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
-import { esc, grumiEmailBanner } from "../_shared/waitlist-email-templates.ts";
+
+/** HTML escape for email bodies (single-file deploy; keep in sync with waitlist-admin-notify-drain). */
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Centered Grumi logo (absolute asset URL); no duplicate wordmark — logo asset includes the name. */
+function grumiEmailBanner(base: string): string {
+  const logo = `${base}/logo_grumi_theme.png`;
+  return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:0 0 20px;">
+  <tr>
+    <td align="center" style="padding:8px 0 0;">
+      <img src="${logo}" width="132" alt="Grumi" style="display:block;max-width:140px;height:auto;border:0;margin:0 auto;" />
+    </td>
+  </tr>
+</table>`;
+}
 
 function getCorsOrigin(req: Request): string {
   const origin = req.headers.get("Origin") ?? "";

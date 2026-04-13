@@ -134,26 +134,21 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
     }
   }
 
-  async function scheduleAdminNotify(goSurvey: boolean) {
+  async function goToSurveyStep() {
     const token = surveyToken;
     if (!token) {
-      if (goSurvey) setStep('survey');
-      else finishFlow();
+      setStep('survey');
       return;
     }
     try {
       await waitlistFetch('waitlist-schedule-admin-notify', {
         method: 'POST',
-        body: JSON.stringify({
-          survey_token: token,
-          ...(goSurvey ? {} : { skip_survey: true }),
-        }),
+        body: JSON.stringify({ survey_token: token }),
       });
     } catch {
       /* still advance UX */
     }
-    if (goSurvey) setStep('survey');
-    else finishFlow();
+    setStep('survey');
   }
 
   async function copyReferralLink() {
@@ -184,14 +179,14 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
         <img
           src={grumiWordmarkSrc}
           alt="Grumi"
-          className="h-10 w-auto max-w-[min(240px,52vw)] object-contain object-center sm:h-12 md:h-14"
+          className="h-8 w-auto max-w-[min(200px,42vw)] object-contain object-center sm:h-12 md:h-14"
         />
       }
     >
       {step === 'form' ? (
-        <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-5 sm:flex-row sm:items-stretch sm:gap-8">
-          <div className="flex min-h-[220px] w-full shrink-0 items-center justify-center py-4 sm:min-h-[18rem] sm:w-[min(44%,300px)] sm:max-w-[300px] sm:flex-none sm:self-stretch sm:py-6">
-            <div className="relative mx-auto aspect-square w-[min(88vw,260px)] max-w-[280px] sm:w-full sm:max-w-[min(280px,100%)]">
+        <div className="mx-auto flex w-full max-w-2xl flex-row items-start gap-3 sm:items-stretch sm:gap-8">
+          <div className="flex w-20 shrink-0 items-start justify-center self-start pt-0.5 sm:min-h-[18rem] sm:w-[min(44%,300px)] sm:max-w-[300px] sm:flex-none sm:items-center sm:self-stretch sm:py-6 sm:pt-0">
+            <div className="relative aspect-square w-20 shrink-0 sm:mx-auto sm:w-full sm:max-w-[min(280px,100%)]">
               <img
                 src={mascotSrc}
                 alt=""
@@ -205,11 +200,11 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
           </div>
           <form
             onSubmit={(e) => void onSubmit(e)}
-            className="min-w-0 flex-1 space-y-4 sm:max-w-lg"
+            className="min-w-0 flex-1 space-y-3 sm:max-w-lg sm:space-y-4"
             noValidate
           >
-          <p className="text-sm text-muted-foreground text-center sm:text-left">{t('waitlist.modalFormLead')}</p>
-          <div className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground text-left leading-snug sm:text-sm sm:leading-normal">{t('waitlist.modalFormLead')}</p>
+          <div className="flex flex-col gap-2 sm:gap-3">
             <Input
               type="text"
               name="name"
@@ -218,7 +213,7 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               disabled={loading}
-              className="h-11 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+              className="h-10 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary sm:h-11"
               aria-invalid={Boolean(error)}
               aria-describedby={error ? 'waitlist-join-error' : undefined}
             />
@@ -230,7 +225,7 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
               disabled={loading}
-              className="h-11 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+              className="h-10 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary sm:h-11"
               aria-invalid={Boolean(error)}
               aria-describedby={error ? 'waitlist-join-error' : undefined}
             />
@@ -243,7 +238,7 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
-              className="h-11 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+              className="h-10 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary sm:h-11"
               aria-invalid={Boolean(error)}
               aria-describedby={error ? 'waitlist-join-error' : undefined}
             />
@@ -257,7 +252,7 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
                 value={referralCodeInput}
                 onChange={(e) => setReferralCodeInput(e.target.value)}
                 disabled={loading}
-                className="h-11 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                className="h-10 rounded-xl border-border bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-primary sm:h-11"
                 aria-label={t('waitlist.referralCodeLabel')}
                 aria-describedby="waitlist-referral-code-hint"
               />
@@ -268,7 +263,7 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
             <Button
               type="submit"
               disabled={loading}
-              className="h-12 font-semibold sm:h-11 rounded-xl bg-[#D4FF00] text-black hover:bg-[#BFEF00]"
+              className="h-10 font-semibold rounded-xl bg-[#D4FF00] text-black hover:bg-[#BFEF00] sm:h-11"
             >
               {loading ? (
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
@@ -324,22 +319,14 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:flex-wrap">
+          <div className="flex justify-center">
             <Button
               type="button"
               className="h-12 rounded-full bg-[#D4FF00] text-black hover:bg-[#BFEF00] font-semibold px-8 shadow-md"
-              onClick={() => void scheduleAdminNotify(true)}
+              onClick={() => void goToSurveyStep()}
             >
               {t('waitlist.continueToSurvey')}
               <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-12 rounded-full font-medium px-8 border-border"
-              onClick={() => void scheduleAdminNotify(false)}
-            >
-              {t('waitlist.skipSurveyForNow')}
             </Button>
           </div>
         </div>
