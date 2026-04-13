@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +13,17 @@ import {
   setStoredSuperAdminViewerTier,
   tierVisibleForViewer,
 } from '@/lib/featureRollout';
+import { DEMO_WORKSPACE_BUSINESS_ID, isPublicDemoPath } from '@/lib/demoWorkspace';
+
+/** Public demo URL or logged-in profile on the seeded demo tenant — bypass subscription/role gates for these tabs. */
+const DEMO_WORKSPACE_NAV_FEATURE_KEYS = new Set<FeatureKey>([
+  'appointments',
+  'appointment_book',
+  'inventory',
+  'transactions_list',
+  'transaction_create',
+  'transaction_detail',
+]);
 
 type RolloutRow = { feature_key: string; min_tier: RolloutTier };
 type VisibilityRuleRow = {
@@ -22,6 +34,7 @@ type VisibilityRuleRow = {
 
 export function useFeatureRollout() {
   const { profile, business } = useAuth();
+  const { pathname } = useLocation();
   const isSuperAdmin = profile?.is_super_admin ?? false;
   const [sessionTier, setSessionTier] = useState<SuperAdminViewerTier>(() => getStoredSuperAdminViewerTier());
 
@@ -110,8 +123,14 @@ export function useFeatureRollout() {
     [subscriptionTierForRules]
   );
 
+  const isDemoWorkspaceNav =
+    isPublicDemoPath(pathname) || business?.id === DEMO_WORKSPACE_BUSINESS_ID;
+
   const isFeatureVisible = useCallback(
     (key: FeatureKey): boolean => {
+      if (isDemoWorkspaceNav && DEMO_WORKSPACE_NAV_FEATURE_KEYS.has(key)) {
+        return true;
+      }
       const config = configByKey.get(key);
       if (!config) return false;
       const visible =
@@ -120,7 +139,7 @@ export function useFeatureRollout() {
         subscriptionAllowed(config.subscriptionTiers);
       return visible;
     },
-    [configByKey, viewerTier, roleAllowed, subscriptionAllowed]
+    [configByKey, viewerTier, roleAllowed, subscriptionAllowed, isDemoWorkspaceNav]
   );
 
   const setViewerTier = useCallback((tier: SuperAdminViewerTier) => {

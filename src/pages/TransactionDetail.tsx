@@ -35,6 +35,7 @@ import type { Transaction, TransactionLineItem } from '@/types/transactions';
 import { getPaymentStatusLabel, getPaymentStatusFromAmount } from '@/types/transactions';
 import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
 import { devConsole } from '@/lib/clientDebug';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Cash',
@@ -88,6 +89,7 @@ export function TransactionDetail() {
   const { fetchTransactionById, fetchTransactionHistory, updateTransactionStatus, updateTransaction, createRefund, fetchReceiptSettings } = useTransactions();
   const { clients } = useClients();
   const { settings } = useSettings();
+  const demoBrowseOnly = useDemoBrowseOnly();
 
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [lineItems, setLineItems] = useState<TransactionLineItem[]>([]);
@@ -292,7 +294,7 @@ export function TransactionDetail() {
       toast.success(t('common.saved'));
     } else {
       if (editResult.error) devConsole.error('[TransactionDetail] updateTransaction', editResult.error);
-      toast.error(t('common.genericError'));
+      toast.error(editResult.error || t('common.genericError'));
     }
   };
 
@@ -303,7 +305,9 @@ export function TransactionDetail() {
       setTransaction((t) => (t ? { ...t, status: 'void' } : null));
       if (transactionId) fetchTransactionHistory(transactionId).then(setHistoryEntries);
       toast.success(t('transactions.voided'));
-    } else toast.error(t('common.genericError'));
+    } else {
+      toast.error(demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : t('common.genericError'));
+    }
   };
 
   const handleRefundSubmit = async () => {
@@ -326,7 +330,7 @@ export function TransactionDetail() {
     setRefundReason('');
     if (result.error) {
       devConsole.error('[TransactionDetail] createRefund', result.error);
-      toast.error(t('common.genericError'));
+      toast.error(result.error || t('common.genericError'));
       return;
     }
     if (result.data) {
@@ -435,7 +439,7 @@ export function TransactionDetail() {
       }, 600);
     } else {
       if (markPaidResult.error) devConsole.error('[TransactionDetail] mark paid', markPaidResult.error);
-      toast.error(t('common.genericError'));
+      toast.error(markPaidResult.error || t('common.genericError'));
     }
   };
 
@@ -451,7 +455,14 @@ export function TransactionDetail() {
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">{displayId}</h1>
           {!isFullyPaid && (
-            <Button variant="outline" size="sm" onClick={handleMarkAsPaid} className="gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAsPaid}
+              disabled={demoBrowseOnly}
+              title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
+              className="gap-1"
+            >
               <CheckCircle className="h-4 w-4" />
               {t('transactions.markAsPaid') ?? 'Mark as paid'}
             </Button>
@@ -463,7 +474,14 @@ export function TransactionDetail() {
           </Badge>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditOpen(true)}
+            disabled={demoBrowseOnly}
+            title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
+            className="gap-1"
+          >
             <Pencil className="h-4 w-4" />
             {t('common.edit') ?? 'Edit'}
           </Button>
@@ -576,13 +594,27 @@ export function TransactionDetail() {
             </DropdownMenuContent>
           </DropdownMenu>
           {canRefund && (
-            <Button variant="outline" size="sm" onClick={() => setRefundOpen(true)} className="gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRefundOpen(true)}
+              disabled={demoBrowseOnly}
+              title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
+              className="gap-1"
+            >
               <DollarSign className="h-4 w-4" />
               {t('transactions.issueRefund')}
             </Button>
           )}
           {canVoid && (
-            <Button variant="destructive" size="sm" onClick={handleVoid} className="gap-1">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleVoid}
+              disabled={demoBrowseOnly}
+              title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
+              className="gap-1"
+            >
               <XCircle className="h-4 w-4" />
               {t('transactions.void')}
             </Button>
@@ -780,7 +812,7 @@ export function TransactionDetail() {
             <Button variant="outline" onClick={() => setRefundOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleRefundSubmit} disabled={submitting}>
+            <Button onClick={handleRefundSubmit} disabled={demoBrowseOnly || submitting}>
               {submitting ? t('common.saving') : t('transactions.issueRefund')}
             </Button>
           </DialogFooter>
@@ -869,7 +901,7 @@ export function TransactionDetail() {
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleEditSave}>
+            <Button onClick={handleEditSave} disabled={demoBrowseOnly}>
               {t('common.save') ?? 'Save'}
             </Button>
           </DialogFooter>

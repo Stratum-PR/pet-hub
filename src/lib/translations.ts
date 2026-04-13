@@ -232,6 +232,46 @@ export const translations: Translations = {
     en: 'Grumi was built specifically for pet grooming salons in Puerto Rico—from appointments to payroll, without the hassle.',
     es: 'Grumi fue diseñado específicamente para peluquerías de mascotas en Puerto Rico—desde citas hasta nómina, sin complicaciones.',
   },
+  'marketing.features.highlight.spanish.body': {
+    en: 'Work with labels, flows, and customer touchpoints that feel native for your Puerto Rico team from day one.',
+    es: 'Trabaja con etiquetas, procesos y experiencias que se sienten naturales para tu equipo en Puerto Rico desde el primer día.',
+  },
+  'marketing.features.highlight.calendar.body': {
+    en: 'Keep groomers fully booked with a visual calendar that makes it simple to balance blocks, durations, and staff availability.',
+    es: 'Mantén a tu equipo siempre agendado con un calendario visual que facilita balancear bloques, duración y disponibilidad.',
+  },
+  'marketing.features.highlight.inventory.body': {
+    en: 'Track products in real time from the front desk or on mobile, so you never run out during high-demand service windows.',
+    es: 'Controla productos en tiempo real desde recepción o móvil, para no quedarte sin inventario en horas pico.',
+  },
+  'marketing.features.highlight.payroll.body': {
+    en: 'Run payroll with rules aligned to Puerto Rico operations while keeping hours, commissions, and payouts organized.',
+    es: 'Corre nómina con reglas alineadas a operaciones en Puerto Rico, manteniendo horas, comisiones y pagos organizados.',
+  },
+  'marketing.features.highlight.ath.body': {
+    en: 'Connect ATH Móvil workflows alongside your other payment methods so Puerto Rico clients can pay the way they already prefer.',
+    es: 'Integra ATH Móvil junto a tus otros métodos de pago para que tus clientes en Puerto Rico paguen como ya prefieren.',
+  },
+  'marketing.features.highlight.spanish.imageAlt': {
+    en: 'Platform view focused on Spanish interface controls.',
+    es: 'Vista de la plataforma enfocada en controles en español.',
+  },
+  'marketing.features.highlight.calendar.imageAlt': {
+    en: 'Platform calendar view for grooming appointments.',
+    es: 'Vista de calendario de citas de grooming en la plataforma.',
+  },
+  'marketing.features.highlight.inventory.imageAlt': {
+    en: 'Platform inventory screen with mobile-friendly usage.',
+    es: 'Pantalla de inventario con uso móvil en la plataforma.',
+  },
+  'marketing.features.highlight.payroll.imageAlt': {
+    en: 'Platform payroll dashboard for Puerto Rico teams.',
+    es: 'Panel de nómina de la plataforma para equipos de Puerto Rico.',
+  },
+  'marketing.features.highlight.ath.imageAlt': {
+    en: 'Platform payment settings with ATH Móvil integration card.',
+    es: 'Configuración de pagos en la plataforma con integración de ATH Móvil.',
+  },
   'marketing.features.carouselEyebrow': {
     en: 'Additional features',
     es: 'Funciones adicionales',
@@ -244,96 +284,69 @@ export const translations: Translations = {
     en: 'Scroll carousel right',
     es: 'Desplazar carrusel a la derecha',
   },
-  'marketing.features.c1.title': {
-    en: 'Appointments & calendar',
-    es: 'Citas y Agenda',
+  'marketing.features.marquee.m1.title': {
+    en: 'Transaction management',
+    es: 'Manejo de Transacciones',
   },
-  'marketing.features.c1.body': {
-    en: 'See your day at a glance with per-staff columns and online booking. Reduce no-shows with waitlist-friendly scheduling.',
-    es: 'Visualiza tu día con columnas por empleado y reservas en línea. Reduce ausencias con agenda compatible con lista de espera.',
+  'marketing.features.marquee.m1.body': {
+    en: 'Record sales, refunds, and payment flows in one ledger so your front desk and back office stay aligned.',
+    es: 'Registra ventas, devoluciones y flujos de pago en un solo lugar para que recepción y oficina vayan alineadas.',
   },
-  'marketing.features.c1.t1': { en: 'Per-staff calendar', es: 'Calendario por empleado' },
-  'marketing.features.c1.t2': { en: 'Online booking', es: 'Reservas en línea' },
-  'marketing.features.c1.t3': { en: 'Waitlist', es: 'Lista de espera' },
-  'marketing.features.c2.title': {
-    en: 'Staff management',
-    es: 'Gestión de Empleados',
+  'marketing.features.marquee.m2.title': {
+    en: 'Employee punch clock',
+    es: 'Ponchador para Empleados',
   },
-  'marketing.features.c2.body': {
-    en: 'Weekly schedules, timesheets, and a simple PIN punch flow help your team stay accountable without extra hardware.',
-    es: 'Horario semanal, hojas de horas y fichaje con PIN mantienen al equipo alineado sin hardware extra.',
+  'marketing.features.marquee.m2.body': {
+    en: 'Simple PIN-based clock-in and clock-out so staff can punch from your devices without extra hardware.',
+    es: 'Entrada y salida con PIN desde tus equipos, sin hardware extra para fichar el equipo.',
   },
-  'marketing.features.c2.t1': { en: 'Weekly schedule', es: 'Horario semanal' },
-  'marketing.features.c2.t2': { en: 'Timesheets', es: 'Hojas de horas' },
-  'marketing.features.c2.t3': { en: 'PIN punch clock', es: 'Ponchador PIN' },
-  'marketing.features.c2.t4': { en: 'Payroll', es: 'Nómina' },
-  'marketing.features.c3.title': {
-    en: 'Automatic reminders',
-    es: 'Recordatorios Automáticos',
+  'marketing.features.marquee.m3.title': {
+    en: 'Employee schedules',
+    es: 'Horario de Empleados',
   },
-  'marketing.features.c3.body': {
-    en: 'Send confirmations and reminders by SMS or WhatsApp so clients show up on time and your revenue stays predictable.',
-    es: 'Envía confirmaciones y recordatorios por SMS o WhatsApp para que los clientes lleguen a tiempo y tus ingresos sean predecibles.',
+  'marketing.features.marquee.m3.body': {
+    en: 'Plan weekly shifts and availability so grooming blocks line up with who is actually on the floor.',
+    es: 'Planifica turnos y disponibilidad semanal para que las citas coincidan con quien está en el salón.',
   },
-  'marketing.features.c3.t1': { en: 'SMS / WhatsApp', es: 'SMS / WhatsApp' },
-  'marketing.features.c3.t2': { en: 'Confirmations', es: 'Confirmaciones' },
-  'marketing.features.c3.t3': { en: 'No-show rate', es: 'Tasa no-show' },
-  'marketing.features.c4.title': {
-    en: 'Clients & pets',
-    es: 'Clientes y Mascotas',
+  'marketing.features.marquee.m4.title': {
+    en: 'Services by pet, breed, size, and coat',
+    es: 'Servicios por Mascota, Raza, Tamaño y Pelo',
   },
-  'marketing.features.c4.body': {
-    en: 'Keep rich profiles for people and pets with breed, notes, and appointment history in one organized workspace.',
-    es: 'Perfiles de clientes y fichas de mascotas con raza, notas e historial de citas en un solo lugar ordenado.',
+  'marketing.features.marquee.m4.body': {
+    en: 'Price and schedule services with rules that respect breed, size, coat length, and each pet’s profile.',
+    es: 'Precifica y agenda servicios con reglas según raza, tamaño, tipo de pelo y el perfil de cada mascota.',
   },
-  'marketing.features.c4.t1': { en: 'Client profiles', es: 'Perfiles de clientes' },
-  'marketing.features.c4.t2': { en: 'Pet records', es: 'Fichas de mascotas' },
-  'marketing.features.c4.t3': { en: 'Appointment history', es: 'Historial de citas' },
-  'marketing.features.c5.title': {
-    en: 'Dashboard & reports',
-    es: 'Dashboard y Reportes',
+  'marketing.features.marquee.m5.title': {
+    en: 'Your business branding',
+    es: 'Branding de tu Negocio',
   },
-  'marketing.features.c5.body': {
-    en: 'Track top services, trends, and team performance with exportable insights you can act on the same day.',
-    es: 'Sigue servicios top, tendencias y desempeño con informes exportables para decidir el mismo día.',
+  'marketing.features.marquee.m5.body': {
+    en: 'Carry your logo, colors, and voice through client touchpoints so every interaction feels like your salon.',
+    es: 'Lleva tu logo, colores y tono a los puntos de contacto para que todo se sienta como tu marca.',
   },
-  'marketing.features.c5.t1': { en: 'Top services', es: 'Top servicios' },
-  'marketing.features.c5.t2': { en: 'Sales trend', es: 'Tendencia de ventas' },
-  'marketing.features.c5.t3': { en: 'Export reports', es: 'Exportar informes' },
-  'marketing.features.c6.title': {
-    en: 'Inventory',
-    es: 'Inventario',
+  'marketing.features.marquee.m6.title': {
+    en: 'Employee portal',
+    es: 'Portal para Empleados',
   },
-  'marketing.features.c6.body': {
-    en: 'SKUs, low-stock alerts, and cost vs. sale visibility help you reorder before you run out mid-groom.',
-    es: 'SKU, alertas de stock bajo y costo vs. venta para reordenar antes de quedarte sin producto.',
+  'marketing.features.marquee.m6.body': {
+    en: 'Give staff a focused space for schedules, tasks, and updates without exposing full admin controls.',
+    es: 'Un espacio para el equipo con horarios, tareas y avisos sin exponer todo el panel administrativo.',
   },
-  'marketing.features.c6.t1': { en: 'SKU & codes', es: 'SKU y códigos' },
-  'marketing.features.c6.t2': { en: 'Low stock alerts', es: 'Alerta stock bajo' },
-  'marketing.features.c6.t3': { en: 'Cost vs. sale', es: 'Costo vs. venta' },
-  'marketing.features.c1.imageAlt': {
-    en: 'Illustration of a multi-column appointment calendar with time slots.',
-    es: 'Ilustración de agenda de citas en columnas con franjas horarias.',
+  'marketing.features.marquee.m7.title': {
+    en: 'Client portal',
+    es: 'Portal para Clientes',
   },
-  'marketing.features.c2.imageAlt': {
-    en: 'Illustration of weekly staff schedules and a PIN keypad.',
-    es: 'Ilustración de horarios semanales del equipo y teclado PIN.',
+  'marketing.features.marquee.m7.body': {
+    en: 'Let pet parents self-serve bookings, forms, and messages in a branded experience they trust.',
+    es: 'Que los dueños reserven, completen formularios y reciban mensajes en una experiencia con tu marca.',
   },
-  'marketing.features.c3.imageAlt': {
-    en: 'Illustration of revenue metrics and an automated client reminder message.',
-    es: 'Ilustración de métricas de ingresos y un recordatorio automático al cliente.',
+  'marketing.features.marquee.m8.title': {
+    en: 'Integrated barcode scanner',
+    es: 'Escáner de Barcode Integrado',
   },
-  'marketing.features.c4.imageAlt': {
-    en: 'Illustration of client profiles alongside pet records.',
-    es: 'Ilustración de perfiles de clientes junto a fichas de mascotas.',
-  },
-  'marketing.features.c5.imageAlt': {
-    en: 'Illustration of a dashboard with KPI chips and horizontal bar summaries.',
-    es: 'Ilustración de un panel con chips de KPI y barras de resumen.',
-  },
-  'marketing.features.c6.imageAlt': {
-    en: 'Illustration of inventory items with a low-stock highlight.',
-    es: 'Ilustración de artículos de inventario con resaltado de stock bajo.',
+  'marketing.features.marquee.m8.body': {
+    en: 'Scan retail SKUs and product codes straight into checkout or inventory so lines move faster.',
+    es: 'Escanea SKU y códigos al cobro o al inventario para agilizar la fila y el stock.',
   },
   'marketing.why.problemTitle': {
     en: 'Existing solutions were not built for Puerto Rico.',
@@ -1581,6 +1594,10 @@ export const translations: Translations = {
     en: 'DEMO: changes are not saved',
     es: 'Modo DEMO: cambios no se guardan',
   },
+  'demo.workspaceReadOnlyAction': {
+    en: 'This demo workspace is view-only. Sign up for a real account to add or change data.',
+    es: 'Este espacio demo es solo lectura. Crea una cuenta real para agregar o cambiar datos.',
+  },
   'layout.betaTooltip': {
     en: "We're still refining Grumi. Your feedback is welcome!",
     es: 'Seguimos puliendo Grumi. ¡Tu opinión es bienvenida!',
@@ -1598,8 +1615,8 @@ export const translations: Translations = {
     es: 'Usuario demo',
   },
   'layout.demoSignedInWorkspaceHint': {
-    en: 'This is a shared demo workspace: sample pets, appointments, and sales so you can explore the product safely. Nothing you change here is tied to a real business. Use Log out when you are done to leave the demo and return to the main site.',
-    es: 'Este es un espacio demo compartido: mascotas, citas y ventas de ejemplo para que explores el producto con seguridad. Nada de lo que cambies aquí pertenece a un negocio real. Usa Cerrar sesión cuando termines para salir del demo y volver al sitio principal.',
+    en: 'This is a shared demo workspace with sample data so you can explore safely. Inventory and transactions are view-only (nothing is saved). Log out when you are done to return to the main site.',
+    es: 'Este es un espacio demo compartido con datos de ejemplo para que explores con seguridad. Inventario y transacciones son solo lectura (no se guarda nada). Cierra sesión cuando termines para volver al sitio principal.',
   },
   'layout.featurePreviewChannel': {
     en: 'Feature preview (super admin)',

@@ -9,6 +9,7 @@ import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { profileIdForTransactionFkOrNull } from '@/lib/staffFkGuard';
 import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import { t } from '@/lib/translations';
 import { devConsole } from '@/lib/clientDebug';
 import type {
   Transaction,
@@ -323,6 +324,9 @@ export function useTransactions() {
 
   const createTransaction = async (payload: CreateTransactionPayload): Promise<{ data: Transaction | null; error: string | null }> => {
     if (!businessId) return { data: null, error: 'No business selected.' };
+    if (isDemoLocalMode()) {
+      return { data: null, error: t('demo.workspaceReadOnlyAction') };
+    }
     const validation = validateCreatePayload(payload as any);
     if (!validation.valid) return { data: null, error: validation.error };
     const subtotalCents = payload.line_items.reduce((sum, li) => sum + li.line_total, 0);
@@ -334,48 +338,6 @@ export function useTransactions() {
     const { taxSnapshot, totalTaxCents } = await computeTax(serviceTaxableCents, productTaxableCents);
     const taxableCents = serviceTaxableCents + productTaxableCents;
     const totalCents = taxableCents + totalTaxCents + payload.tip_amount;
-
-    const isDemoLocal = isDemoLocalMode() && !user?.id;
-    if (isDemoLocal) {
-      const localId = 'local-' + crypto.randomUUID();
-      const currentEntries = localDemoEntriesRef.current;
-      const localNum = currentEntries.length + 1;
-      const created: Transaction = {
-        id: localId,
-        business_id: businessId,
-        customer_id: payload.customer_id,
-        appointment_id: payload.appointment_id,
-        staff_id: null,
-        created_at: new Date().toISOString(),
-        status: payload.status,
-        payment_method: payload.payment_method,
-        payment_method_secondary: payload.payment_method_secondary,
-        subtotal: subtotalCents,
-        discount_amount: payload.discount_amount,
-        discount_label: payload.discount_label,
-        tax_snapshot: taxSnapshot,
-        tip_amount: payload.tip_amount,
-        total: totalCents,
-        amount_tendered: payload.amount_tendered,
-        change_given: payload.change_given,
-        notes: payload.notes,
-        transaction_number: localNum,
-      };
-      const lineItems: TransactionLineItem[] = payload.line_items.map((li, i) => ({
-        id: `local-li-${localId}-${i}`,
-        transaction_id: localId,
-        type: li.type,
-        reference_id: li.reference_id,
-        name: li.name,
-        quantity: li.quantity,
-        unit_price: li.unit_price,
-        line_total: li.line_total,
-      }));
-      const newList = [{ transaction: created, lineItems }, ...currentEntries];
-      setLocalDemoEntries(newList);
-      sessionStorage.setItem(getDemoTransactionStorageKey(businessId), JSON.stringify(newList));
-      return { data: created, error: null, lineItems };
-    }
 
     if (!user?.id) return { data: null, error: 'You must be signed in to create a transaction.' };
 
@@ -467,12 +429,10 @@ export function useTransactions() {
   const updateTransactionStatus = async (id: string, status: TransactionStatus): Promise<boolean> => {
     if (!businessId) return false;
     if (id.startsWith('local-')) {
-      setLocalDemoEntries((prev) => prev.map((e) => (e.transaction.id === id ? { ...e, transaction: { ...e.transaction, status } } : e)));
-      return true;
+      return false;
     }
     if (demoBrowseOnly) {
-      setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
-      return true;
+      return false;
     }
     const { data: current } = await supabase.from('transactions' as any).select('status').eq('id', id).eq('business_id', businessId).single();
     const { data: updatedRow, error } = await supabase
@@ -505,17 +465,11 @@ export function useTransactions() {
     if (!businessId) return { ok: false, error: 'No business selected.' };
     const validation = validateUpdatePayload(patch as any);
     if (!validation.valid) return { ok: false, error: validation.error };
-    if (id.startsWith('local-') && isDemoLocalMode()) {
-      setLocalDemoEntries((prev) =>
-        prev.map((e) =>
-          e.transaction.id === id ? { ...e, transaction: { ...e.transaction, ...patch } } : e
-        )
-      );
-      return { ok: true };
+    if (id.startsWith('local-')) {
+      return { ok: false, error: t('demo.workspaceReadOnlyAction') };
     }
     if (demoBrowseOnly) {
-      setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-      return { ok: true };
+      return { ok: false, error: t('demo.workspaceReadOnlyAction') };
     }
     const { data: current } = await supabase.from('transactions' as any).select('payment_method, payment_method_secondary, total, amount_tendered, change_given, notes, status').eq('id', id).eq('business_id', businessId).single();
     const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
@@ -565,32 +519,11 @@ export function useTransactions() {
     restockProductIds: string[]
   ): Promise<{ data: TransactionRefund | null; error: string | null }> => {
     if (!businessId) return { data: null, error: 'No business selected.' };
-    if (transactionId.startsWith('local-') && isDemoLocalMode()) {
-      const entry = localDemoEntriesRef.current.find((e) => e.transaction.id === transactionId);
-      if (!entry) return { data: null, error: 'Transaction not found.' };
-      const newStatus = amountCents >= entry.transaction.total ? 'refunded' : 'partial_refund';
-      setLocalDemoEntries((prev) => prev.map((e) => (e.transaction.id === transactionId ? { ...e, transaction: { ...e.transaction, status: newStatus } } : e)));
-      return { data: { id: 'local-refund-' + crypto.randomUUID(), transaction_id: transactionId, amount: amountCents, reason, created_at: new Date().toISOString(), staff_id: null, restock_applied: false }, error: null };
+    if (transactionId.startsWith('local-')) {
+      return { data: null, error: t('demo.workspaceReadOnlyAction') };
     }
     if (demoBrowseOnly) {
-      const txn = serverTransactions.find((t) => t.id === transactionId);
-      if (!txn) return { data: null, error: 'Transaction not found.' };
-      const newStatus = amountCents >= txn.total ? 'refunded' : 'partial_refund';
-      setServerTransactions((prev) =>
-        prev.map((t) => (t.id === transactionId ? { ...t, status: newStatus } : t))
-      );
-      return {
-        data: {
-          id: 'demo-refund-' + crypto.randomUUID(),
-          transaction_id: transactionId,
-          amount: amountCents,
-          reason,
-          created_at: new Date().toISOString(),
-          staff_id: null,
-          restock_applied: false,
-        },
-        error: null,
-      };
+      return { data: null, error: t('demo.workspaceReadOnlyAction') };
     }
     if (!user?.id) return { data: null, error: 'You must be signed in to issue a refund.' };
     const { data: txn, error: txnErr } = await supabase.from('transactions' as any).select('*').eq('id', transactionId).eq('business_id', businessId).single();

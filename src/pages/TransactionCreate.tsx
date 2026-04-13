@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { useClients, useAppointments, useServices } from '@/hooks/useSupabaseData';
 import { useInventory } from '@/hooks/useInventory';
 import { t } from '@/lib/translations';
@@ -18,6 +19,7 @@ import { getPaymentStatusFromAmount } from '@/types/transactions';
 import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
 import { validateCreatePayload } from '@/lib/transactionValidation';
 import { devConsole } from '@/lib/clientDebug';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 function toCents(d: number): number {
   return Math.round(d * 100);
@@ -36,6 +38,7 @@ export function TransactionCreate() {
   const { services } = useServices();
   const { appointments } = useAppointments();
   const { createTransaction, computeTax } = useTransactions();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const prefilledFromAppointment = useRef(false);
 
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -203,7 +206,7 @@ export function TransactionCreate() {
     setSaving(false);
     if (result.error) {
       devConsole.error('[TransactionCreate] createTransaction', result.error);
-      toast.error(t('common.genericError'));
+      toast.error(result.error);
       return;
     }
     const created = result.data;
@@ -232,6 +235,12 @@ export function TransactionCreate() {
           {t('common.cancel')}
         </Button>
       </div>
+
+      {demoBrowseOnly && (
+        <Alert variant="warning">
+          <AlertDescription>{t('demo.workspaceReadOnlyAction')}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -472,7 +481,7 @@ export function TransactionCreate() {
       </Card>
 
       <div className="flex gap-2">
-        <Button onClick={handleSave} disabled={saving || lineItems.length === 0}>
+        <Button onClick={handleSave} disabled={demoBrowseOnly || saving || lineItems.length === 0}>
           {saving ? t('common.saving') : t('transactions.saveTransaction')}
         </Button>
         <Button variant="outline" onClick={() => navigate(`/${businessSlug}/transactions`)}>
