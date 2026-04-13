@@ -178,7 +178,7 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
       titleId={titleId}
       hideHeader
       closeButtonClassName="text-foreground/55 hover:bg-black/[0.06] hover:text-foreground"
-      panelClassName="bg-muted/80 sm:bg-white"
+      panelClassName="bg-background"
       headerCenter={
         <img
           src={grumiWordmarkSrc}
@@ -189,42 +189,41 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
     >
       {step === 'form' ? (
         <div className="mx-auto w-full max-w-lg px-1 pb-1 pt-1 sm:px-0">
-          <div className="mb-3 flex justify-center sm:mb-4">
-            <img
-              src={grumiWordmarkSrc}
-              alt="Grumi"
-              className="h-9 w-auto max-w-[min(220px,72vw)] object-contain object-center sm:h-10"
-              decoding="async"
-            />
-          </div>
-
           <form onSubmit={(e) => void onSubmit(e)} className="relative" noValidate>
-            <div className="pointer-events-none absolute -right-1 -top-[4.25rem] z-[2] h-[7.5rem] w-[7.5rem] sm:-right-2 sm:-top-[5rem] sm:h-[8.5rem] sm:w-[8.5rem]">
+            <div className="relative z-[2] mb-1 flex flex-col items-center px-2 pt-1 sm:mb-2 sm:pt-2">
               <img
-                src={mascotSrc}
-                alt=""
-                width={800}
-                height={800}
-                className="h-full w-full object-contain object-bottom drop-shadow-lg"
-                aria-hidden
+                src={grumiWordmarkSrc}
+                alt="Grumi"
+                className="h-14 w-auto max-w-[min(280px,82vw)] object-contain object-center sm:h-16"
                 decoding="async"
               />
+              <div className="pointer-events-none relative mt-1 h-[5.5rem] w-[5.5rem] sm:h-[6.25rem] sm:w-[6.25rem]">
+                <img
+                  src={mascotSrc}
+                  alt=""
+                  width={800}
+                  height={800}
+                  className="absolute inset-x-0 bottom-0 mx-auto h-full w-full object-contain object-bottom drop-shadow-lg"
+                  aria-hidden
+                  decoding="async"
+                />
+              </div>
             </div>
 
-            <div className="relative z-[1] overflow-visible rounded-3xl border border-border/40 bg-card px-4 pb-4 pt-7 shadow-[0_18px_40px_rgba(0,0,0,0.08)] sm:px-6 sm:pb-5 sm:pt-8">
-              <h2 className="text-center text-xl font-bold tracking-tight text-primary sm:text-2xl">
+            <div className="relative z-[1] -mt-10 overflow-visible rounded-3xl border-0 bg-card px-4 pb-4 pt-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)] sm:-mt-12 sm:px-6 sm:pb-5 sm:pt-7">
+              <h2 className="text-center text-lg font-bold tracking-tight text-primary sm:text-xl">
                 {t('waitlist.cardTitle')}
               </h2>
-              <p className="mx-auto mt-2 max-w-md text-center text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              <p className="mx-auto mt-1.5 max-w-md text-center text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
                 {t('waitlist.modalFormLead')}
               </p>
-              <p className="mt-1 text-center text-[11px] font-medium text-muted-foreground sm:text-xs">
+              <p className="mt-0.5 text-center text-[10px] font-medium text-muted-foreground sm:text-[11px]">
                 {t('waitlist.founderLine')}
               </p>
 
-              <div className="mt-5 flex flex-col gap-3.5 sm:mt-6 sm:gap-4">
+              <div className="mt-3.5 flex flex-col gap-2.5 sm:mt-4 sm:gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="waitlist-full-name" className="text-xs font-semibold text-foreground sm:text-sm">
+                  <Label htmlFor="waitlist-full-name" className="text-[11px] font-semibold text-foreground sm:text-xs">
                     {t('waitlist.labelFullName')}
                     <span className="text-destructive">*</span>
                   </Label>
@@ -237,13 +236,13 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     disabled={loading}
-                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    className="h-9 rounded-xl border border-border/60 bg-background text-xs text-foreground placeholder:text-muted-foreground focus-visible:ring-primary md:text-sm"
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? 'waitlist-join-error' : undefined}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="waitlist-business-name" className="text-xs font-semibold text-foreground sm:text-sm">
+                  <Label htmlFor="waitlist-business-name" className="text-[11px] font-semibold text-foreground sm:text-xs">
                     {t('waitlist.labelBusinessName')}
                     <span className="text-destructive">*</span>
                   </Label>
@@ -256,13 +255,13 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     disabled={loading}
-                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    className="h-9 rounded-xl border border-border/60 bg-background text-xs text-foreground placeholder:text-muted-foreground focus-visible:ring-primary md:text-sm"
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? 'waitlist-join-error' : undefined}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="waitlist-email" className="text-xs font-semibold text-foreground sm:text-sm">
+                  <Label htmlFor="waitlist-email" className="text-[11px] font-semibold text-foreground sm:text-xs">
                     {t('waitlist.labelEmail')}
                     <span className="text-destructive">*</span>
                   </Label>
@@ -276,13 +275,13 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
-                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    className="h-9 rounded-xl border border-border/60 bg-background text-xs text-foreground placeholder:text-muted-foreground focus-visible:ring-primary md:text-sm"
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? 'waitlist-join-error' : undefined}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="waitlist-referral" className="text-xs font-semibold text-foreground sm:text-sm">
+                  <Label htmlFor="waitlist-referral" className="text-[11px] font-semibold text-foreground sm:text-xs">
                     {t('waitlist.labelReferralCode')}
                     <span className="font-normal text-muted-foreground"> ({t('waitlist.optionalShort')})</span>
                   </Label>
@@ -296,10 +295,10 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
                     value={referralCodeInput}
                     onChange={(e) => setReferralCodeInput(e.target.value)}
                     disabled={loading}
-                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    className="h-9 rounded-xl border border-border/60 bg-background text-xs text-foreground placeholder:text-muted-foreground focus-visible:ring-primary md:text-sm"
                     aria-describedby="waitlist-referral-code-hint"
                   />
-                  <p id="waitlist-referral-code-hint" className="text-[11px] leading-snug text-muted-foreground sm:text-xs">
+                  <p id="waitlist-referral-code-hint" className="text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
                     {t('waitlist.referralCodeHint')}
                   </p>
                 </div>
@@ -307,7 +306,7 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="mt-1 h-11 w-full rounded-xl bg-[#D4FF00] text-base font-semibold text-black hover:bg-[#BFEF00]"
+                  className="mt-0.5 h-10 w-full rounded-xl bg-[#D4FF00] text-sm font-semibold text-black hover:bg-[#BFEF00] sm:text-base"
                 >
                   {loading ? (
                     <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
