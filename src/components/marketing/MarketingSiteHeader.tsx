@@ -58,7 +58,7 @@ export function MarketingSiteHeader({
   const closeMobile = () => onMobileMenuOpenChange(false);
 
   return (
-    <header className="fixed top-3 left-0 right-0 z-50 flex justify-center pointer-events-none">
+    <header className="pointer-events-none fixed left-0 right-0 top-[max(0.75rem,env(safe-area-inset-top,0px))] z-50 flex justify-center">
       <nav className="container mx-auto px-4 pointer-events-auto" aria-label="Marketing">
         <div className="relative flex items-center justify-between gap-4 rounded-full border border-white/30 bg-white/60 backdrop-blur-xl px-4 py-2 sm:px-6 sm:py-3 shadow-lg shadow-black/10">
           {mode === 'landing' ? (

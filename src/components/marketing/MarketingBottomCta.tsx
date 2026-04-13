@@ -10,7 +10,7 @@ export function MarketingBottomCta() {
 
   return (
     <section
-      className="relative bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white py-16 px-4"
+      className="relative bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 px-4 py-12 text-white sm:py-16"
       aria-labelledby="marketing-bottom-cta-heading"
     >
       <div className="max-w-2xl mx-auto text-center space-y-6">

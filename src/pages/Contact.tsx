@@ -45,12 +45,12 @@ export function Contact() {
           aria-hidden
         />
 
-        <div className="max-w-6xl mx-auto px-4 pt-28 pb-16 space-y-10">
+        <div className="mx-auto max-w-6xl space-y-8 px-4 pb-12 pt-24 sm:space-y-10 sm:pb-16 sm:pt-28">
           <MarketingPageHero>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary mb-3">
               {t('marketing.contact.heroTag')}
             </p>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight max-w-2xl mx-auto">
+            <h1 className="mx-auto max-w-2xl text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
               {t('marketing.contact.title')}
             </h1>
             <p className="text-muted-foreground leading-relaxed text-sm sm:text-base mt-4 max-w-xl mx-auto">
