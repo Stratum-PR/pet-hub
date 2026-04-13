@@ -16,7 +16,7 @@ import { FeaturesBrandBackdrop } from './MarketingBrandMotifs';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
-import { WAITLIST_MASCOT_SRCS } from '@/lib/waitlistMascots';
+import { FEATURE_HIGHLIGHT_MASCOT_SRCS } from '@/lib/waitlistMascots';
 
 type FeatureSlide = {
   id: string;
@@ -33,8 +33,10 @@ type HighlightFeature = {
   bodyKey: string;
   imageSrc: string;
   imageAltKey: string;
-  /** Same waitlist mascot webps as `WaitlistJoinModal`; omit for no overlay (e.g. ATH Móvil). */
-  mascotSrc?: (typeof WAITLIST_MASCOT_SRCS)[number];
+  /** Marketing-only corner pet; omit for screenshot-only (Spanish, ATH Móvil). */
+  mascotSrc?: (typeof FEATURE_HIGHLIGHT_MASCOT_SRCS)[number];
+  /** Where the mascot sits over the screenshot; default bottom-right. */
+  mascotAnchor?: 'bottom-right' | 'bottom-left' | 'sidebar-bottom';
 };
 
 const MARQUEE_GRADIENTS = [
@@ -112,10 +114,11 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     id: 'spanish',
     titleKey: 'marketing.features.highlight.spanish.title',
     bodyKey: 'marketing.features.highlight.spanish.body',
-    /** Bump ?v= when replacing the asset so browsers skip cached older screenshots. */
-    imageSrc: '/marketing/features/custom/feature-spanish.svg?v=2',
+    /** Bump ?v= when replacing the PNG so browsers skip cached older screenshots. */
+    imageSrc: '/marketing/features/custom/feature-spanish.png?v=5',
     imageAltKey: 'marketing.features.highlight.spanish.imageAlt',
-    mascotSrc: WAITLIST_MASCOT_SRCS[0],
+    mascotSrc: FEATURE_HIGHLIGHT_MASCOT_SRCS[2],
+    mascotAnchor: 'bottom-left',
   },
   {
     id: 'calendar',
@@ -123,7 +126,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     bodyKey: 'marketing.features.highlight.calendar.body',
     imageSrc: '/marketing/features/custom/feature-calendar.png',
     imageAltKey: 'marketing.features.highlight.calendar.imageAlt',
-    mascotSrc: WAITLIST_MASCOT_SRCS[0],
+    mascotSrc: FEATURE_HIGHLIGHT_MASCOT_SRCS[1],
   },
   {
     id: 'inventory',
@@ -131,7 +134,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     bodyKey: 'marketing.features.highlight.inventory.body',
     imageSrc: '/marketing/features/custom/feature-inventory.png',
     imageAltKey: 'marketing.features.highlight.inventory.imageAlt',
-    mascotSrc: WAITLIST_MASCOT_SRCS[0],
+    mascotSrc: FEATURE_HIGHLIGHT_MASCOT_SRCS[0],
   },
   {
     id: 'payroll',
@@ -139,7 +142,8 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     bodyKey: 'marketing.features.highlight.payroll.body',
     imageSrc: '/marketing/features/custom/feature-payroll.png',
     imageAltKey: 'marketing.features.highlight.payroll.imageAlt',
-    mascotSrc: WAITLIST_MASCOT_SRCS[0],
+    mascotSrc: FEATURE_HIGHLIGHT_MASCOT_SRCS[3],
+    mascotAnchor: 'sidebar-bottom',
   },
   {
     id: 'ath-movil',
@@ -267,8 +271,8 @@ export function FeaturesMarketingSection() {
           </div>
 
           <div className="relative mt-8 space-y-5">
-            <div className="mx-auto hidden w-full max-w-5xl rounded-2xl border border-border/70 bg-background/80 p-2 sm:block sm:rounded-full">
-              <div className="flex flex-wrap justify-center gap-2">
+            <div className="mx-auto w-full max-w-5xl overflow-x-auto overscroll-x-contain rounded-2xl border border-border/70 bg-background/80 p-2 [-webkit-overflow-scrolling:touch] sm:overflow-visible sm:rounded-full">
+              <div className="flex w-max flex-nowrap justify-start gap-2 sm:w-auto sm:flex-wrap sm:justify-center">
                 {HIGHLIGHT_FEATURES.map((feature) => (
                   <button
                     key={feature.id}
@@ -309,23 +313,34 @@ export function FeaturesMarketingSection() {
                       loading="lazy"
                     />
                     {activeFeature.mascotSrc ? (
-                      <div className="pointer-events-none absolute bottom-1 left-1 z-[2] h-[min(24vw,5.25rem)] w-[min(28vw,6rem)] sm:bottom-2 sm:left-2 sm:h-32 sm:w-36 md:h-36 md:w-40">
+                      <div
+                        className={cn(
+                          'pointer-events-none absolute z-[2]',
+                          activeFeature.mascotAnchor === 'bottom-left' &&
+                            'bottom-0 left-[12%] translate-y-[14px] h-[min(16vw,3.25rem)] w-[min(18vw,3.5rem)] sm:left-[16%] sm:translate-y-[18px] sm:h-28 sm:w-32 md:left-[19%] md:translate-y-[22px] md:h-32 md:w-36',
+                          activeFeature.mascotAnchor === 'sidebar-bottom' &&
+                            'bottom-[5%] left-[0.5%] h-[min(12vw,2.65rem)] w-[min(13vw,2.85rem)] sm:bottom-[6%] sm:left-[1%] sm:h-20 sm:w-20 md:bottom-[7%] md:left-[1.25%] md:h-24 md:w-24',
+                          (activeFeature.mascotAnchor === undefined ||
+                            activeFeature.mascotAnchor === 'bottom-right') &&
+                            'bottom-0 right-0 h-[min(28vw,6.5rem)] w-[min(32vw,7.25rem)] sm:bottom-2 sm:right-2 sm:h-40 sm:w-44 sm:max-h-none sm:max-w-none md:h-44 md:w-48',
+                        )}
+                      >
                         <img
                           src={activeFeature.mascotSrc}
                           alt=""
                           width={800}
                           height={800}
-                          className="h-full w-full object-contain object-bottom object-left drop-shadow-md"
+                          className={cn(
+                            'h-full w-full object-contain object-bottom drop-shadow-md',
+                            (activeFeature.mascotAnchor === 'bottom-left' ||
+                              activeFeature.mascotAnchor === 'sidebar-bottom') &&
+                              'object-left',
+                          )}
                           aria-hidden
                           decoding="async"
                         />
                       </div>
                     ) : null}
-                  </div>
-                  <div className="mt-2 md:hidden">
-                    <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      Swipe to explore →
-                    </p>
                   </div>
                 </div>
 
