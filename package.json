@@ -24,7 +24,9 @@
     "setup-env": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-env.ps1",
     "move-hero-fallback": "powershell -ExecutionPolicy Bypass -File ./scripts/move-hero-background.ps1",
     "backfill:business-qr": "tsx scripts/backfill-business-qr.ts",
-    "optimize:waitlist-mascots": "node scripts/optimize-waitlist-mascots.mjs"
+    "optimize:waitlist-mascots": "node scripts/optimize-waitlist-mascots.mjs",
+    "optimize:feature-screenshots": "node scripts/normalize-feature-screenshots.mjs",
+    "export:ath-highlight": "node scripts/export-ath-movil-highlight.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
