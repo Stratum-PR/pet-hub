@@ -369,6 +369,23 @@ body.menu-open {
   animation-play-state: paused;
 }
 
+/* Mobile: marquee auto-scroll fights horizontal pan; allow touch scroll instead. */
+@media (max-width: 639.98px) {
+  .features-marquee-container {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .features-marquee-container .animate-features-marquee {
+    animation: none !important;
+    transform: none;
+    will-change: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-features-marquee {
     animation: none;
