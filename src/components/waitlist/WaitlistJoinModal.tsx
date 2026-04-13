@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { WaitlistSurvey } from '@/components/waitlist/WaitlistSurvey';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
 import { t } from '@/lib/translations';
 import { waitlistFetch } from '@/lib/waitlistApi';
 import type { WaitlistSignupResponse } from '@/types/waitlist';
@@ -27,7 +26,6 @@ type Props = {
 export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, mascotSrc }: Props) {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const grumiWordmarkSrc = useThemedGrumiWordmarkSrc();
   const completedSignupRef = useRef(false);
 
   const [step, setStep] = useState<'form' | 'referral' | 'survey'>('form');
@@ -179,50 +177,38 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
       hideHeader
       closeButtonClassName="text-foreground/55 hover:bg-black/[0.06] hover:text-foreground"
       panelClassName="bg-background"
-      headerCenter={
-        <img
-          src={grumiWordmarkSrc}
-          alt="Grumi"
-          className="h-8 w-auto max-w-[min(200px,42vw)] object-contain object-center sm:h-12 md:h-14"
-        />
-      }
     >
       {step === 'form' ? (
         <div className="mx-auto w-full max-w-lg px-1 pb-1 pt-1 sm:px-0">
           <form onSubmit={(e) => void onSubmit(e)} className="relative" noValidate>
-            <div className="relative z-[2] mb-1 flex flex-col items-center px-2 pt-1 sm:mb-2 sm:pt-2">
-              <img
-                src={grumiWordmarkSrc}
-                alt="Grumi"
-                className="h-14 w-auto max-w-[min(280px,82vw)] object-contain object-center sm:h-16"
-                decoding="async"
-              />
-              <div className="pointer-events-none relative mt-1 h-[5.5rem] w-[5.5rem] sm:h-[6.25rem] sm:w-[6.25rem]">
+            <div className="relative z-[4] mb-5 flex items-center gap-2 sm:mb-6 sm:gap-3">
+              <div className="flex h-[3.75rem] w-[3.75rem] shrink-0 items-center justify-center sm:h-[4.25rem] sm:w-[4.25rem]">
                 <img
                   src={mascotSrc}
                   alt=""
                   width={800}
                   height={800}
-                  className="absolute inset-x-0 bottom-0 mx-auto h-full w-full object-contain object-bottom drop-shadow-lg"
+                  className="pointer-events-none max-h-full max-w-full object-contain object-bottom drop-shadow-md"
                   aria-hidden
                   decoding="async"
                 />
               </div>
-            </div>
-
-            <div className="relative z-[1] -mt-10 overflow-visible rounded-3xl border-0 bg-card px-4 pb-4 pt-6 shadow-[0_18px_40px_rgba(0,0,0,0.08)] sm:-mt-12 sm:px-6 sm:pb-5 sm:pt-7">
-              <h2 className="text-center text-lg font-bold tracking-tight text-primary sm:text-xl">
+              <h2 className="min-w-0 flex-1 text-center text-lg font-bold leading-snug tracking-tight text-primary sm:text-xl">
                 {t('waitlist.cardTitle')}
               </h2>
-              <p className="mx-auto mt-1.5 max-w-md text-center text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
-                {t('waitlist.modalFormLead')}
-              </p>
-              <p className="mt-0.5 text-center text-[10px] font-medium text-muted-foreground sm:text-[11px]">
-                {t('waitlist.founderLine')}
-              </p>
+              <div
+                className="h-[3.75rem] w-[3.75rem] shrink-0 sm:h-[4.25rem] sm:w-[4.25rem]"
+                aria-hidden
+              />
+            </div>
 
-              <div className="mt-3.5 flex flex-col gap-2.5 sm:mt-4 sm:gap-3">
-                <div className="space-y-1.5">
+            <div className="relative z-0 mx-auto">
+              <div className="relative z-[2] overflow-visible rounded-3xl border-0 bg-card px-4 pb-4 pt-5 shadow-[0_18px_40px_rgba(0,0,0,0.08)] sm:px-6 sm:pb-5 sm:pt-6">
+                <p className="mb-3 text-center text-[10px] font-medium text-muted-foreground sm:mb-3.5 sm:text-[11px]">
+                  {t('waitlist.founderLine')}
+                </p>
+                <div className="flex flex-col gap-2.5 sm:gap-3">
+                  <div className="space-y-1.5">
                   <Label htmlFor="waitlist-full-name" className="text-[11px] font-semibold text-foreground sm:text-xs">
                     {t('waitlist.labelFullName')}
                     <span className="text-destructive">*</span>
@@ -301,22 +287,23 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
                   <p id="waitlist-referral-code-hint" className="text-[10px] leading-snug text-muted-foreground sm:text-[11px]">
                     {t('waitlist.referralCodeHint')}
                   </p>
-                </div>
+                  </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-0.5 h-10 w-full rounded-xl bg-[#D4FF00] text-sm font-semibold text-black hover:bg-[#BFEF00] sm:text-base"
-                >
-                  {loading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                  ) : (
-                    <>
-                      {t('waitlist.submitCta')}
-                      <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
-                    </>
-                  )}
-                </Button>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="mt-0.5 h-10 w-full rounded-xl bg-[#D4FF00] text-sm font-semibold text-black hover:bg-[#BFEF00] sm:text-base"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                    ) : (
+                      <>
+                        {t('waitlist.submitCta')}
+                        <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
 

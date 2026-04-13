@@ -1,10 +1,4 @@
-export const WAITLIST_MASCOT_SRCS = [
-  '/waitlist-mascots/basset-hound.webp',
-  '/waitlist-mascots/gray-cat.webp',
-  '/waitlist-mascots/kayro.webp',
-  '/waitlist-mascots/leo.webp',
-  '/waitlist-mascots/tabby-cat.webp',
-] as const;
+export const WAITLIST_MASCOT_SRCS = ['/waitlist-mascots/kayro.webp'] as const;
 
 export function pickRandomWaitlistMascotSrc(): (typeof WAITLIST_MASCOT_SRCS)[number] {
   const i = Math.floor(Math.random() * WAITLIST_MASCOT_SRCS.length);

@@ -112,8 +112,8 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     id: 'spanish',
     titleKey: 'marketing.features.highlight.spanish.title',
     bodyKey: 'marketing.features.highlight.spanish.body',
-    /** Bump ?v= when replacing the PNG so browsers skip cached older screenshots. */
-    imageSrc: '/marketing/features/custom/feature-spanish.png?v=4',
+    /** Bump ?v= when replacing the asset so browsers skip cached older screenshots. */
+    imageSrc: '/marketing/features/custom/feature-spanish.svg?v=2',
     imageAltKey: 'marketing.features.highlight.spanish.imageAlt',
     mascotSrc: WAITLIST_MASCOT_SRCS[0],
   },
@@ -123,7 +123,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     bodyKey: 'marketing.features.highlight.calendar.body',
     imageSrc: '/marketing/features/custom/feature-calendar.png',
     imageAltKey: 'marketing.features.highlight.calendar.imageAlt',
-    mascotSrc: WAITLIST_MASCOT_SRCS[1],
+    mascotSrc: WAITLIST_MASCOT_SRCS[0],
   },
   {
     id: 'inventory',
@@ -131,7 +131,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     bodyKey: 'marketing.features.highlight.inventory.body',
     imageSrc: '/marketing/features/custom/feature-inventory.png',
     imageAltKey: 'marketing.features.highlight.inventory.imageAlt',
-    mascotSrc: WAITLIST_MASCOT_SRCS[2],
+    mascotSrc: WAITLIST_MASCOT_SRCS[0],
   },
   {
     id: 'payroll',
@@ -139,7 +139,7 @@ const HIGHLIGHT_FEATURES: HighlightFeature[] = [
     bodyKey: 'marketing.features.highlight.payroll.body',
     imageSrc: '/marketing/features/custom/feature-payroll.png',
     imageAltKey: 'marketing.features.highlight.payroll.imageAlt',
-    mascotSrc: WAITLIST_MASCOT_SRCS[3],
+    mascotSrc: WAITLIST_MASCOT_SRCS[0],
   },
   {
     id: 'ath-movil',
@@ -309,13 +309,13 @@ export function FeaturesMarketingSection() {
                       loading="lazy"
                     />
                     {activeFeature.mascotSrc ? (
-                      <div className="pointer-events-none absolute bottom-0 right-0 h-[min(28vw,6.5rem)] w-[min(32vw,7.25rem)] sm:h-40 sm:w-44 sm:max-h-none sm:max-w-none md:h-44 md:w-48">
+                      <div className="pointer-events-none absolute bottom-1 left-1 z-[2] h-[min(24vw,5.25rem)] w-[min(28vw,6rem)] sm:bottom-2 sm:left-2 sm:h-32 sm:w-36 md:h-36 md:w-40">
                         <img
                           src={activeFeature.mascotSrc}
                           alt=""
                           width={800}
                           height={800}
-                          className="h-full w-full object-contain object-bottom drop-shadow-md"
+                          className="h-full w-full object-contain object-bottom object-left drop-shadow-md"
                           aria-hidden
                           decoding="async"
                         />
