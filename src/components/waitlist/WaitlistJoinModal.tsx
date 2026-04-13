@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { SplashAuthModal } from '@/components/SplashAuthModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { WaitlistSurvey } from '@/components/waitlist/WaitlistSurvey';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
@@ -176,7 +177,8 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
       title={title}
       titleId={titleId}
       hideHeader
-      panelClassName="bg-gradient-to-b from-[hsl(145_34%_26%)] via-[hsl(145_32%_22%)] to-[hsl(145_30%_18%)] sm:bg-white"
+      closeButtonClassName="text-foreground/55 hover:bg-black/[0.06] hover:text-foreground"
+      panelClassName="bg-muted/80 sm:bg-white"
       headerCenter={
         <img
           src={grumiWordmarkSrc}
@@ -186,118 +188,144 @@ export function WaitlistJoinModal({ open, onClose, getPendingRef, pricingTier, m
       }
     >
       {step === 'form' ? (
-        <div className="mx-auto w-full">
-          <div className="relative min-h-[48dvh] overflow-hidden rounded-[1.7rem] bg-transparent px-4 pb-10 pt-4 text-white sm:min-h-0 sm:px-6 sm:pb-16 sm:pt-5">
-            <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#D4FF00]/12 blur-2xl" aria-hidden />
-            <div className="pointer-events-none absolute -left-10 bottom-2 h-24 w-24 rounded-full bg-white/10 blur-2xl" aria-hidden />
-            <div className="mb-2 flex justify-center">
+        <div className="mx-auto w-full max-w-lg px-1 pb-1 pt-1 sm:px-0">
+          <div className="mb-3 flex justify-center sm:mb-4">
+            <img
+              src={grumiWordmarkSrc}
+              alt="Grumi"
+              className="h-9 w-auto max-w-[min(220px,72vw)] object-contain object-center sm:h-10"
+              decoding="async"
+            />
+          </div>
+
+          <form onSubmit={(e) => void onSubmit(e)} className="relative" noValidate>
+            <div className="pointer-events-none absolute -right-1 -top-[4.25rem] z-[2] h-[7.5rem] w-[7.5rem] sm:-right-2 sm:-top-[5rem] sm:h-[8.5rem] sm:w-[8.5rem]">
               <img
-                src={grumiWordmarkSrc}
-                alt="Grumi"
-                className="mx-auto block h-[4.25rem] w-auto brightness-0 invert sm:h-[4.75rem]"
+                src={mascotSrc}
+                alt=""
+                width={800}
+                height={800}
+                className="h-full w-full object-contain object-bottom drop-shadow-lg"
+                aria-hidden
                 decoding="async"
               />
             </div>
-            <div className="mb-2 flex justify-center">
-              <div className="relative mx-auto aspect-square w-24 shrink-0 sm:w-28">
-                <img
-                  src={mascotSrc}
-                  alt=""
-                  width={800}
-                  height={800}
-                  className="absolute inset-0 h-full w-full object-contain object-center drop-shadow-md"
-                  aria-hidden
-                  decoding="async"
-                />
+
+            <div className="relative z-[1] overflow-visible rounded-3xl border border-border/40 bg-card px-4 pb-4 pt-7 shadow-[0_18px_40px_rgba(0,0,0,0.08)] sm:px-6 sm:pb-5 sm:pt-8">
+              <h2 className="text-center text-xl font-bold tracking-tight text-primary sm:text-2xl">
+                {t('waitlist.cardTitle')}
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-center text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                {t('waitlist.modalFormLead')}
+              </p>
+              <p className="mt-1 text-center text-[11px] font-medium text-muted-foreground sm:text-xs">
+                {t('waitlist.founderLine')}
+              </p>
+
+              <div className="mt-5 flex flex-col gap-3.5 sm:mt-6 sm:gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="waitlist-full-name" className="text-xs font-semibold text-foreground sm:text-sm">
+                    {t('waitlist.labelFullName')}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="waitlist-full-name"
+                    type="text"
+                    name="name"
+                    autoComplete="name"
+                    placeholder={t('waitlist.fullNamePlaceholder')}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    disabled={loading}
+                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'waitlist-join-error' : undefined}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="waitlist-business-name" className="text-xs font-semibold text-foreground sm:text-sm">
+                    {t('waitlist.labelBusinessName')}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="waitlist-business-name"
+                    type="text"
+                    name="business"
+                    autoComplete="organization"
+                    placeholder={t('waitlist.businessNamePlaceholder')}
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    disabled={loading}
+                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'waitlist-join-error' : undefined}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="waitlist-email" className="text-xs font-semibold text-foreground sm:text-sm">
+                    {t('waitlist.labelEmail')}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="waitlist-email"
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder={t('waitlist.emailPlaceholder')}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'waitlist-join-error' : undefined}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="waitlist-referral" className="text-xs font-semibold text-foreground sm:text-sm">
+                    {t('waitlist.labelReferralCode')}
+                    <span className="font-normal text-muted-foreground"> ({t('waitlist.optionalShort')})</span>
+                  </Label>
+                  <Input
+                    id="waitlist-referral"
+                    type="text"
+                    name="referral_code"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={t('waitlist.referralCodePlaceholder')}
+                    value={referralCodeInput}
+                    onChange={(e) => setReferralCodeInput(e.target.value)}
+                    disabled={loading}
+                    className="h-10 rounded-xl border border-border/70 bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
+                    aria-describedby="waitlist-referral-code-hint"
+                  />
+                  <p id="waitlist-referral-code-hint" className="text-[11px] leading-snug text-muted-foreground sm:text-xs">
+                    {t('waitlist.referralCodeHint')}
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-1 h-11 w-full rounded-xl bg-[#D4FF00] text-base font-semibold text-black hover:bg-[#BFEF00]"
+                >
+                  {loading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  ) : (
+                    <>
+                      {t('waitlist.submitCta')}
+                      <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
-            <p className="text-center text-[1.55rem] font-bold leading-tight tracking-tight sm:text-[1.7rem]">
-              {t('waitlist.modalTitleJoin')}
-            </p>
-            <p className="mx-auto mt-2.5 max-w-[27rem] text-center text-[0.95rem] leading-relaxed text-white/85">
-              {t('waitlist.modalFormLead')}
-            </p>
-          </div>
 
-          <form onSubmit={(e) => void onSubmit(e)} className="relative z-[1] -mt-16 space-y-3 px-2 sm:-mt-20 sm:px-4" noValidate>
-          <div className="rounded-3xl border border-border/70 bg-card p-3.5 shadow-[0_16px_34px_rgba(0,0,0,0.16)] sm:p-4">
-          <div className="flex flex-col gap-2.5 sm:gap-3.5">
-            <Input
-              type="text"
-              name="name"
-              autoComplete="name"
-              placeholder={t('waitlist.fullNamePlaceholder')}
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              disabled={loading}
-              className="h-10 rounded-xl border border-border/80 bg-background/95 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? 'waitlist-join-error' : undefined}
-            />
-            <Input
-              type="text"
-              name="business"
-              autoComplete="organization"
-              placeholder={t('waitlist.businessNamePlaceholder')}
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              disabled={loading}
-              className="h-10 rounded-xl border border-border/80 bg-background/95 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? 'waitlist-join-error' : undefined}
-            />
-            <Input
-              type="email"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder={t('waitlist.emailPlaceholder')}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              className="h-10 rounded-xl border border-border/80 bg-background/95 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? 'waitlist-join-error' : undefined}
-            />
-            <div className="space-y-1.5">
-              <Input
-                type="text"
-                name="referral_code"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={t('waitlist.referralCodePlaceholder')}
-                value={referralCodeInput}
-                onChange={(e) => setReferralCodeInput(e.target.value)}
-                disabled={loading}
-                className="h-10 rounded-xl border border-border/80 bg-background/95 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary"
-                aria-label={t('waitlist.referralCodeLabel')}
-                aria-describedby="waitlist-referral-code-hint"
-              />
-              <p id="waitlist-referral-code-hint" className="text-xs text-muted-foreground leading-snug px-0.5">
-                {t('waitlist.referralCodeHint')}
+            {error ? (
+              <p id="waitlist-join-error" className="mt-3 text-center text-sm font-medium text-destructive" role="alert">
+                {error}
               </p>
-            </div>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="mt-1 h-10 w-full font-semibold rounded-xl bg-[#D4FF00] text-black hover:bg-[#BFEF00]"
-            >
-              {loading ? (
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-              ) : (
-                <>
-                  {t('waitlist.submitCta')}
-                  <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
-                </>
-              )}
-            </Button>
-          </div>
-          </div>
-          {error ? (
-            <p id="waitlist-join-error" className="text-center text-sm text-destructive font-medium" role="alert">
-              {error}
-            </p>
-          ) : null}
+            ) : null}
           </form>
         </div>
       ) : step === 'referral' ? (

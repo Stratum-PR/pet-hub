@@ -548,6 +548,30 @@ export const translations: Translations = {
     en: "Thank you for your interest in Grumi. Please provide the following information to secure your Founder's Price.",
     es: 'Gracias por tu interés en Grumi. Comparte la siguiente información para asegurar tu Precio Fundador.'
   },
+  'waitlist.cardTitle': {
+    en: 'Join the Grumi waitlist',
+    es: 'Únete a la lista de espera de Grumi'
+  },
+  'waitlist.labelFullName': {
+    en: 'Full name',
+    es: 'Nombre completo'
+  },
+  'waitlist.labelBusinessName': {
+    en: 'Business / salon name',
+    es: 'Negocio o salón'
+  },
+  'waitlist.labelEmail': {
+    en: 'Email',
+    es: 'Correo electrónico'
+  },
+  'waitlist.labelReferralCode': {
+    en: 'Referral code',
+    es: 'Código de referido'
+  },
+  'waitlist.optionalShort': {
+    en: 'optional',
+    es: 'opcional'
+  },
   'waitlist.referralYourLink': {
     en: 'Your referral link',
     es: 'Tu enlace de referido'
