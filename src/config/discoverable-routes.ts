@@ -117,8 +117,8 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
   },
   {
     path: '/waitlist/confirmed',
-    title: 'Waitlist confirmed – Grumi',
-    description: 'Your email is confirmed. Optional survey for Grumi waitlist.',
+    title: 'Waitlist – Grumi',
+    description: 'Legacy waitlist URL; redirects to the Grumi home page.',
     indexable: true,
     noindex: true,
     changefreq: 'yearly',

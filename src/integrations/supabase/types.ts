@@ -555,11 +555,16 @@ export type Database = {
           confirmed_at: string | null
           referral_code: string | null
           referred_by: string | null
+          referred_by_code: string | null
           utm_source: string | null
           utm_medium: string | null
           utm_campaign: string | null
           metadata: Json
           survey_token: string | null
+          admin_notify_at: string | null
+          admin_notify_sent_at: string | null
+          signup_notify_deadline_at: string | null
+          survey_skipped_at: string | null
         }
         Insert: {
           id?: string
@@ -572,11 +577,16 @@ export type Database = {
           confirmed_at?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          referred_by_code?: string | null
           utm_source?: string | null
           utm_medium?: string | null
           utm_campaign?: string | null
           metadata?: Json
           survey_token?: string | null
+          admin_notify_at?: string | null
+          admin_notify_sent_at?: string | null
+          signup_notify_deadline_at?: string | null
+          survey_skipped_at?: string | null
         }
         Update: {
           id?: string
@@ -589,11 +599,16 @@ export type Database = {
           confirmed_at?: string | null
           referral_code?: string | null
           referred_by?: string | null
+          referred_by_code?: string | null
           utm_source?: string | null
           utm_medium?: string | null
           utm_campaign?: string | null
           metadata?: Json
           survey_token?: string | null
+          admin_notify_at?: string | null
+          admin_notify_sent_at?: string | null
+          signup_notify_deadline_at?: string | null
+          survey_skipped_at?: string | null
         }
         Relationships: [
           {
@@ -612,11 +627,18 @@ export type Database = {
           business_name: string | null
           groomer_count: string | null
           current_tools: string | null
+          tools_selected: Json
+          tools_other: string | null
           biggest_pain: string | null
           wants_ath_movil: boolean | null
+          wants_costo: boolean | null
           wants_nomina_pr: boolean | null
+          wants_staff_management: boolean | null
           wants_spanish_ui: boolean | null
           wants_online_booking: boolean | null
+          wants_charge_online: boolean | null
+          wants_inventory: boolean | null
+          wants_advanced_reports: boolean | null
           submitted_at: string
         }
         Insert: {
@@ -625,11 +647,18 @@ export type Database = {
           business_name?: string | null
           groomer_count?: string | null
           current_tools?: string | null
+          tools_selected?: Json
+          tools_other?: string | null
           biggest_pain?: string | null
           wants_ath_movil?: boolean | null
+          wants_costo?: boolean | null
           wants_nomina_pr?: boolean | null
+          wants_staff_management?: boolean | null
           wants_spanish_ui?: boolean | null
           wants_online_booking?: boolean | null
+          wants_charge_online?: boolean | null
+          wants_inventory?: boolean | null
+          wants_advanced_reports?: boolean | null
           submitted_at?: string
         }
         Update: {
@@ -638,11 +667,18 @@ export type Database = {
           business_name?: string | null
           groomer_count?: string | null
           current_tools?: string | null
+          tools_selected?: Json
+          tools_other?: string | null
           biggest_pain?: string | null
           wants_ath_movil?: boolean | null
+          wants_costo?: boolean | null
           wants_nomina_pr?: boolean | null
+          wants_staff_management?: boolean | null
           wants_spanish_ui?: boolean | null
           wants_online_booking?: boolean | null
+          wants_charge_online?: boolean | null
+          wants_inventory?: boolean | null
+          wants_advanced_reports?: boolean | null
           submitted_at?: string
         }
         Relationships: [

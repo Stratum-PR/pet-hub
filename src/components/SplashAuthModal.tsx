@@ -7,10 +7,12 @@ interface SplashAuthModalProps {
   onClose: () => void;
   title: string;
   titleId: string;
+  /** Optional center column (e.g. logo) between title and close — keeps title left-aligned. */
+  headerCenter?: ReactNode;
   children?: ReactNode;
 }
 
-export function SplashAuthModal({ isOpen, onClose, title, titleId, children }: SplashAuthModalProps) {
+export function SplashAuthModal({ isOpen, onClose, title, titleId, headerCenter, children }: SplashAuthModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -61,20 +63,41 @@ export function SplashAuthModal({ isOpen, onClose, title, titleId, children }: S
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-black/10 pb-6 mb-8 px-6 pt-6 md:px-12 md:pt-12">
-          <h2 id={titleId} className="text-xl font-semibold text-foreground">
-            {title}
-          </h2>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-            aria-label={t('landing.modalClose')}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        {headerCenter ? (
+          <div className="mb-8 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-black/10 px-6 pb-6 pt-6 md:gap-4 md:px-12 md:pt-12">
+            <h2
+              id={titleId}
+              className="min-w-0 justify-self-start pr-2 text-left text-lg font-semibold text-foreground sm:text-xl"
+            >
+              {title}
+            </h2>
+            <div className="col-start-2 flex shrink-0 items-center justify-center px-1">{headerCenter}</div>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              className="col-start-3 justify-self-end rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+              aria-label={t('landing.modalClose')}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        ) : (
+          <div className="mb-8 flex items-center justify-between border-b border-black/10 px-6 pb-6 pt-6 md:px-12 md:pt-12">
+            <h2 id={titleId} className="text-xl font-semibold text-foreground">
+              {title}
+            </h2>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+              aria-label={t('landing.modalClose')}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        )}
         <div className="px-6 pb-6 md:px-12 md:pb-12">{children}</div>
       </div>
     </div>

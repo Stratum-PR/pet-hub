@@ -127,7 +127,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       {
         heading: 'Call to action',
-        body: 'Join the waitlist for Founders Price (25% off your first year at launch). Link anchors to #waitlist on the home page.',
+        body: 'Join the waitlist for Founders Price (25% off your first year at launch). Opens a signup modal from the home page or #waitlist.',
       },
     ],
   },
@@ -214,8 +214,8 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
   '/waitlist/confirmed': {
     sections: [
       {
-        heading: 'Confirmed',
-        body: "You are on the Grumi waitlist with Founder's Price locked in. Optional short survey to help prioritize features.",
+        heading: 'Waitlist',
+        body: "Legacy URL from older confirmation emails; you are redirected to the Grumi home page. Join the waitlist from there in one step.",
       },
     ],
   },

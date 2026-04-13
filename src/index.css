@@ -349,6 +349,34 @@ body.menu-open {
   animation: fade-in-up 0.25s ease-out 0.08s forwards;
 }
 
+/* Landing features carousel: seamless slow horizontal scroll (two identical halves) */
+@keyframes features-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-features-marquee {
+  animation: features-marquee 80s linear infinite;
+  will-change: transform;
+}
+
+.features-marquee-container:hover .animate-features-marquee,
+.features-marquee-container:focus-within .animate-features-marquee {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-features-marquee {
+    animation: none;
+    transform: none;
+    will-change: auto;
+  }
+}
+
 /* Edit form highlight animation */
 .edit-highlight {
   animation: editHighlight 2s ease-out;

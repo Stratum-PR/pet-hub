@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grumi waitlist email previews</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; background: #f3f4f6; color: #111; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p.lead { margin: 0 0 24px; color: #4b5563; font-size: 0.9rem; }
+    .grid { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    section { background: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; margin: 0 0 8px; }
+    iframe { width: 100%; height: 560px; border: 0; border-radius: 8px; background: #e5e7eb; }
+    a { color: #0f766e; }
+  </style>
+</head>
+<body>
+  <h1>Grumi waitlist — static HTML previews</h1>
+  <p class="lead">Open this file from the dev server for consistent paths, e.g. <a href="/email-previews/index.html">/email-previews/index.html</a> (sample content; production emails use <code>APP_URL</code> for the logo).</p>
+  <div class="grid">
+    <section>
+      <h2>Welcome (EN)</h2>
+      <iframe title="Welcome EN" src="./waitlist-welcome-en.html"></iframe>
+    </section>
+    <section>
+      <h2>Welcome (ES)</h2>
+      <iframe title="Welcome ES" src="./waitlist-welcome-es.html"></iframe>
+    </section>
+    <section>
+      <h2>Admin notify — with survey</h2>
+      <iframe title="Admin with survey" src="./waitlist-admin-notify-with-survey.html"></iframe>
+    </section>
+    <section>
+      <h2>Admin notify — no survey yet</h2>
+      <iframe title="Admin no survey" src="./waitlist-admin-notify-no-survey.html"></iframe>
+    </section>
+  </div>
+</body>
+</html>

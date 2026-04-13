@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Bell,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   LayoutDashboard,
   Package,
   PawPrint,
@@ -14,7 +12,7 @@ import type { LucideIcon } from 'lucide-react';
 import { FeaturesBrandBackdrop } from './MarketingBrandMotifs';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type FeatureSlide = {
   id: string;
@@ -77,7 +75,6 @@ const FEATURE_SLIDES: FeatureSlide[] = [
 ];
 
 const CARD_W = 260;
-const SCROLL_SPEED = 0.3;
 
 function FlipFeatureCard({
   slide,
@@ -135,44 +132,18 @@ function FlipFeatureCard({
 
 export function FeaturesMarketingSection() {
   useLanguage();
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const flippedKeyRef = useRef<string | null>(null);
   const [flippedKey, setFlippedKey] = useState<string | null>(null);
-  flippedKeyRef.current = flippedKey;
-
-  const loopSlides = [...FEATURE_SLIDES, ...FEATURE_SLIDES];
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   useEffect(() => {
-    if (flippedKey !== null) return;
-    let alive = true;
-    let raf = 0;
-    const tick = () => {
-      if (!alive) return;
-      const el = scrollerRef.current;
-      if (flippedKeyRef.current === null && el) {
-        el.scrollLeft += SCROLL_SPEED;
-        const half = el.scrollWidth / 2;
-        if (half > 0 && el.scrollLeft >= half - 1) {
-          el.scrollLeft = 0;
-        }
-      }
-      if (alive) {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => {
-      alive = false;
-      cancelAnimationFrame(raf);
-    };
-  }, [flippedKey]);
-
-  const scrollCarousel = useCallback((direction: -1 | 1) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    setFlippedKey(null);
-    el.scrollBy({ left: direction * (CARD_W + 16), behavior: 'smooth' });
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mq.matches);
+    const onChange = () => setPrefersReducedMotion(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, []);
+
+  const loopSlides = prefersReducedMotion ? FEATURE_SLIDES : [...FEATURE_SLIDES, ...FEATURE_SLIDES];
 
   const handleCardActivate = useCallback((instanceKey: string) => {
     setFlippedKey((prev) => (prev === instanceKey ? null : instanceKey));
@@ -213,46 +184,33 @@ export function FeaturesMarketingSection() {
           </div>
 
           <div
-            ref={scrollerRef}
-            className="flex gap-4 overflow-x-auto pb-3 pt-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            style={{ scrollBehavior: 'auto' }}
-            tabIndex={0}
+            className={cn(
+              'features-marquee-container pb-3 pt-1',
+              prefersReducedMotion
+                ? 'overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+                : 'overflow-hidden',
+            )}
             aria-label={t('marketing.features.heroTitle')}
           >
-            {loopSlides.map((slide, index) => {
-              const instanceKey = `${slide.id}-${index}`;
-              return (
-                <FlipFeatureCard
-                  key={instanceKey}
-                  slide={slide}
-                  flipped={flippedKey === instanceKey}
-                  onActivate={() => handleCardActivate(instanceKey)}
-                />
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex justify-end gap-2 pr-1 sm:pr-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full border-border/80 bg-muted/50 text-foreground shadow-sm hover:bg-muted"
-              aria-label={t('marketing.features.carouselPrev')}
-              onClick={() => scrollCarousel(-1)}
+            <div
+              className={cn(
+                'flex w-max gap-4',
+                !prefersReducedMotion && 'animate-features-marquee',
+                flippedKey !== null && '[animation-play-state:paused]',
+              )}
             >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full border-border/80 bg-muted/50 text-foreground shadow-sm hover:bg-muted"
-              aria-label={t('marketing.features.carouselNext')}
-              onClick={() => scrollCarousel(1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              {loopSlides.map((slide, index) => {
+                const instanceKey = `${slide.id}-${index}`;
+                return (
+                  <FlipFeatureCard
+                    key={instanceKey}
+                    slide={slide}
+                    flipped={flippedKey === instanceKey}
+                    onActivate={() => handleCardActivate(instanceKey)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

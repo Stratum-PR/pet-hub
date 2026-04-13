@@ -458,10 +458,6 @@ export const translations: Translations = {
     en: 'Measure campaigns or show relevant offers if we add marketing tools later.',
     es: 'Medir campañas u ofertas relevantes si añadimos herramientas de marketing más adelante.',
   },
-  'cookies.paymentFootnote': {
-    en: 'When you configure or complete a payment, Stripe and/or ATH Móvil may set additional cookies or storage needed for fraud prevention and processing; that processing is described in our privacy policy.',
-    es: 'Al configurar o completar un pago, Stripe y/o ATH Móvil pueden establecer cookies o almacenamiento adicional necesarios para prevenir fraude y procesar el pago; ese tratamiento se describe en nuestra política de privacidad.',
-  },
   'cookies.cancel': { en: 'Close', es: 'Cerrar' },
   'cookies.saveChoices': { en: 'Save choices', es: 'Guardar elección' },
   'landing.modalClose': {
@@ -481,6 +477,82 @@ export const translations: Translations = {
   'waitlist.navCta': {
     en: 'Join the Waitlist',
     es: 'Únete a la Lista'
+  },
+  'waitlist.splashCta': {
+    en: 'Join the Grumi Waitlist',
+    es: 'Únete a la Lista de Espera de Grumi'
+  },
+  'waitlist.welcomeJoined': {
+    en: 'You are on the list. Check your inbox for a welcome note.',
+    es: 'Ya estás en la lista. Revisa tu correo de bienvenida.'
+  },
+  'waitlist.modalTitleJoin': {
+    en: 'Join the waitlist',
+    es: 'Únete a la lista de espera'
+  },
+  'waitlist.modalTitleSurvey': {
+    en: 'Quick survey (optional)',
+    es: 'Encuesta breve (opcional)'
+  },
+  'waitlist.modalTitleReferral': {
+    en: 'You are in — share your link',
+    es: 'Ya estás dentro — comparte tu enlace'
+  },
+  'waitlist.referralStepLead': {
+    en: 'Copy your referral link if you like, then continue to a few optional questions (or skip).',
+    es: 'Copia tu enlace de referido si quieres, luego continúa con unas preguntas opcionales (o omítelas).'
+  },
+  'waitlist.continueToSurvey': {
+    en: 'Continue to survey',
+    es: 'Continuar a la encuesta'
+  },
+  'waitlist.skipSurveyForNow': {
+    en: 'Skip survey for now',
+    es: 'Omitir encuesta por ahora'
+  },
+  'waitlist.modalFormLead': {
+    en: 'We will email you a welcome note. All fields are required.',
+    es: 'Te enviaremos un correo de bienvenida. Todos los campos son obligatorios.'
+  },
+  'waitlist.referralYourLink': {
+    en: 'Your referral link',
+    es: 'Tu enlace de referido'
+  },
+  'waitlist.referralCopy': {
+    en: 'Copy link',
+    es: 'Copiar enlace'
+  },
+  'waitlist.referralCopied': {
+    en: 'Link copied',
+    es: 'Enlace copiado'
+  },
+  'waitlist.referralBadge': {
+    en: 'Share Grumi',
+    es: 'Comparte Grumi'
+  },
+  'waitlist.referralExplain1': {
+    en: "This link includes your referral code so friends can join through you. The referral 10% off stacks with Founder's Price (25% off the first year) for one month once billing is live, subject to the terms in effect.",
+    es: 'Este enlace incluye tu código de referido para que otros se registren contigo. El 10% por referido se acumula con el Precio Fundador (25% off el primer año) durante un mes cuando activemos pagos, según los términos vigentes.'
+  },
+  'waitlist.referralExplain2': {
+    en: 'You may earn rewards when people you refer subscribe; details will follow when billing opens. Copy your link now—you will also find it in your welcome email.',
+    es: 'Podrías obtener beneficios cuando se suscriban personas que refieres; los detalles llegarán al abrir pagos. Copia tu enlace ahora; también lo verás en tu correo de bienvenida.'
+  },
+  'waitlist.referralCodeLabel': {
+    en: 'Referral code (optional)',
+    es: 'Código de referido (opcional)'
+  },
+  'waitlist.referralCodePlaceholder': {
+    en: 'Referral code if you have one',
+    es: 'Código de referido si tienes uno'
+  },
+  'waitlist.referralCodeHint': {
+    en: "A valid code from another groomer stacks an extra 10% with Founder's Price (25% off your first year) for one month once billing is live, subject to the terms in effect.",
+    es: 'Un código válido de otro groomer suma un 10% extra al Precio Fundador (25% off tu primer año) durante un mes cuando activemos pagos, según los términos vigentes.'
+  },
+  'waitlist.continueHome': {
+    en: 'Back to home',
+    es: 'Volver al inicio'
   },
   'waitlist.emailPlaceholder': {
     en: 'your@email.com',
@@ -505,10 +577,6 @@ export const translations: Translations = {
   'waitlist.founderLine': {
     en: "Founder's Price: 25% off your first year at launch",
     es: 'Precio Fundador: 25% off tu primer año al lanzar'
-  },
-  'waitlist.successCheckEmail': {
-    en: 'Check your email to confirm!',
-    es: '¡Revisa tu email para confirmar!'
   },
   'waitlist.alreadyRegistered': {
     en: "You're already on the list. We'll notify you soon!",
@@ -535,20 +603,20 @@ export const translations: Translations = {
     es: 'Te notificaremos cuando Grumi esté listo.'
   },
   'waitlist.surveyIntro': {
-    en: 'Help us with 3 quick questions?',
-    es: '¿Nos ayudas con 3 preguntas rápidas?'
-  },
-  'waitlist.surveyHint': {
-    en: 'This helps us build exactly what you need.',
-    es: 'Esto nos ayuda a construir exactamente lo que necesitas.'
+    en: 'Can you help us with 4 quick questions?',
+    es: '¿Nos ayudas con 4 preguntas rápidas?'
   },
   'waitlist.surveySubmit': {
     en: 'Submit answers',
     es: 'Enviar respuestas'
   },
-  'waitlist.surveySkip': {
-    en: 'Skip — thanks anyway',
-    es: 'Saltar — gracias de todos modos'
+  'waitlist.surveyErrorAnswerQuestion': {
+    en: 'Please answer question #{n}.',
+    es: 'Por favor responde la pregunta #{n}.'
+  },
+  'waitlist.surveyErrorOtherLength': {
+    en: 'The “other” note is too long (max 180 characters).',
+    es: 'La nota de “otro” es demasiado larga (máx. 180 caracteres).'
   },
   'waitlist.surveyThanks': {
     en: 'Thanks for your answers!',
@@ -566,40 +634,80 @@ export const translations: Translations = {
     en: 'How many groomers work at your business?',
     es: '¿Cuántos groomers trabajan en tu negocio?'
   },
-  'waitlist.surveyQ1solo': { en: 'Just me', es: 'Solo yo' },
-  'waitlist.surveyQ1_2_3': { en: '2–3', es: '2–3' },
-  'waitlist.surveyQ1_4_6': { en: '4–6', es: '4–6' },
-  'waitlist.surveyQ1_7plus': { en: '7+', es: '7+' },
+  'waitlist.surveyQ1solo': { en: 'Just Me', es: 'Solo yo' },
+  'waitlist.surveyQ1_2_5': { en: '2–5', es: '2–5' },
+  'waitlist.surveyQ1_6_9': { en: '6–9', es: '6–9' },
+  'waitlist.surveyQ1_10plus': { en: '10+', es: '10+' },
   'waitlist.surveyQ2': {
-    en: 'What do you use to run your business today?',
-    es: '¿Qué usas actualmente para manejar tu negocio?'
+    en: 'What tools do you use to run your business?',
+    es: '¿Qué herramientas usas para manejar tu negocio?'
   },
-  'waitlist.toolPenPaper': { en: 'Pen and paper', es: 'Papel y libreta' },
+  'waitlist.surveyQ2Hint': {
+    en: 'Select all that apply.',
+    es: 'Selecciona todas las que apliquen.'
+  },
+  'waitlist.toolPenPaper': { en: 'Paper or notebook', es: 'Papel o libreta' },
   'waitlist.toolSheet': { en: 'Excel / Google Sheets', es: 'Excel / Google Sheets' },
-  'waitlist.toolGingr': { en: 'Gingr', es: 'Gingr' },
-  'waitlist.toolDaySmart': { en: 'DaySmart Pet', es: 'DaySmart Pet' },
+  'waitlist.toolSoftware': {
+    en: 'Software (DaySmart Pet, Gingr, …)',
+    es: 'Software (DaySmart Pet, Gingr, …)'
+  },
   'waitlist.toolOther': { en: 'Other', es: 'Otro' },
+  'waitlist.toolOtherDetail': {
+    en: 'If other, tell us briefly (optional)',
+    es: 'Si es otro, cuéntanos brevemente (opcional)'
+  },
+  'waitlist.toolOtherPlaceholder': {
+    en: 'Which tool?',
+    es: '¿Cuál herramienta?'
+  },
   'waitlist.surveyQ3': {
     en: "What's your biggest operational headache?",
     es: '¿Cuál es tu mayor dolor de cabeza operacional?'
   },
   'waitlist.surveyQ4': {
     en: 'Which of these matter to you?',
-    es: '¿Cuáles de estas funciones son importantes para ti?'
+    es: '¿Cuáles de estas te importan?'
   },
-  'waitlist.featureAth': { en: 'ATH Móvil integration', es: 'ATH Móvil integrado' },
-  'waitlist.featureNomina': {
-    en: 'Payroll with SINOT / Choferil',
-    es: 'Nómina con SINOT/Choferil'
+  'waitlist.surveyQ4Hint': {
+    en: 'Select all that apply.',
+    es: 'Selecciona todas las que apliquen.'
   },
-  'waitlist.featureSpanish': { en: 'Spanish UI', es: 'Interfaz en español' },
-  'waitlist.featureBooking': {
-    en: 'Online booking for clients',
-    es: 'Citas en línea para clientes'
+  'waitlist.featureFAthMovil': {
+    en: 'ATH Móvil integration',
+    es: 'Integración ATH Móvil'
   },
-  'waitlist.businessNameOptional': {
-    en: 'Business name (optional)',
-    es: 'Nombre del negocio (opcional)'
+  'waitlist.featureFCosto': {
+    en: 'Cost / pricing',
+    es: 'Costo'
+  },
+  'waitlist.featureFNomina': {
+    en: 'Puerto Rico payroll',
+    es: 'Nómina de PR'
+  },
+  'waitlist.featureFStaff': {
+    en: 'Employee management',
+    es: 'Manejo de empleados'
+  },
+  'waitlist.featureFSpanish': {
+    en: 'Spanish interface',
+    es: 'Interfaz en español'
+  },
+  'waitlist.featureFCitas': {
+    en: 'Online appointments',
+    es: 'Citas en línea'
+  },
+  'waitlist.featureFCobrar': {
+    en: 'Charge online',
+    es: 'Cobrar online'
+  },
+  'waitlist.featureFInventory': {
+    en: 'Inventory',
+    es: 'Inventario'
+  },
+  'waitlist.featureFReports': {
+    en: 'Advanced reports',
+    es: 'Reportes avanzados'
   },
   'waitlist.invalidLink': {
     en: 'This confirmation link is invalid or expired.',

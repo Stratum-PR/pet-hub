@@ -7,6 +7,8 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
 import { MARKETING_NAV_ITEMS, type MarketingNavItem } from './marketingNavConfig';
+import { useWaitlistModal } from '@/contexts/WaitlistModalContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export type MarketingSiteHeaderMode = 'landing' | 'standard';
 
@@ -17,7 +19,6 @@ type Props = {
   /** Landing: scroll home + top. Standard: unused (logo is Link). */
   onLogoClick?: () => void;
   onOpenLoginModal?: () => void;
-  onScrollToWaitlist?: () => void;
 };
 
 function NavItemLink({ item, onNavigate }: { item: MarketingNavItem; onNavigate?: () => void }) {
@@ -49,9 +50,10 @@ export function MarketingSiteHeader({
   onMobileMenuOpenChange,
   onLogoClick,
   onOpenLoginModal,
-  onScrollToWaitlist,
 }: Props) {
   const logoSrc = useThemedGrumiWordmarkSrc();
+  const { openWaitlistModal } = useWaitlistModal();
+  useLanguage();
 
   const closeMobile = () => onMobileMenuOpenChange(false);
 
@@ -112,21 +114,15 @@ export function MarketingSiteHeader({
                 {t('landing.login')}
               </Link>
             )}
-            {mode === 'landing' ? (
-              <Button
-                type="button"
-                onClick={() => onScrollToWaitlist?.()}
-                className="bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
-              >
-                {t('waitlist.navCta')}
-              </Button>
-            ) : (
-              <Link to="/#waitlist" className="hidden sm:block">
-                <Button className="bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]">
-                  {t('waitlist.navCta')}
-                </Button>
-              </Link>
-            )}
+            <Button
+              type="button"
+              onClick={() => openWaitlistModal()}
+              className={`bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] ${
+                mode === 'standard' ? 'hidden sm:inline-flex' : 'inline-flex'
+              }`}
+            >
+              {t('waitlist.navCta')}
+            </Button>
           </div>
 
           <Sheet open={mobileMenuOpen} onOpenChange={onMobileMenuOpenChange}>
@@ -165,21 +161,15 @@ export function MarketingSiteHeader({
                     </Button>
                   </Link>
                 )}
-                {mode === 'landing' ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closeMobile();
-                      onScrollToWaitlist?.();
-                    }}
-                  >
-                    <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
-                  </button>
-                ) : (
-                  <Link to="/#waitlist" onClick={closeMobile}>
-                    <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
-                  </Link>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMobile();
+                    openWaitlistModal();
+                  }}
+                >
+                  <Button className="w-full justify-start">{t('waitlist.navCta')}</Button>
+                </button>
                 {MARKETING_NAV_ITEMS.map((item) =>
                   item.kind === 'hash' ? (
                     <Link key={item.hash} to={`/#${item.hash}`} onClick={closeMobile}>
