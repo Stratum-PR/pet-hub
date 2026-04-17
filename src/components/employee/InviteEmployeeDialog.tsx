@@ -114,7 +114,7 @@ export function InviteEmployeeDialog({
               toastMsg = parsed.error;
             }
             if (typeof parsed.detail === 'string' && parsed.detail.trim()) {
-              toastMsg = `${toastMsg} — ${parsed.detail.trim()}`;
+              toastMsg = `${toastMsg}: ${parsed.detail.trim()}`;
             }
           } catch {
             /* keep toastMsg */

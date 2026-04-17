@@ -98,7 +98,7 @@ export function DataDiagnostics() {
           effectiveBusinessId: businessId,
           resolvedBusiness,
           hint:
-            'You are on the public demo URL. Queries use the shared demo business id. Your Supabase profile may still show business_id null — that only means your account is not permanently linked to this tenant. If counts stay at 0, this project may have no seeded demo rows yet.',
+            'You are on the public demo URL. Queries use the shared demo business id. Your Supabase profile may still show business_id null; that only means your account is not permanently linked to this tenant. If counts stay at 0, this project may have no seeded demo rows yet.',
         };
       }
 
@@ -579,7 +579,7 @@ export function DataDiagnostics() {
                   </pre>
                 ) : (
                   <span className="text-muted-foreground">
-                    No business on profile{isDemoPath ? ' — normal on /demo when you are not a member of the demo tenant' : ''}
+                    No business on profile{isDemoPath ? ' (normal on /demo when you are not a member of the demo tenant)' : ''}
                   </span>
                 )}
               </div>

@@ -1734,7 +1734,7 @@ export function EmployeeManagement({
                           <SelectItem value="__custom">{t('employeeManagement.routingCustom')}</SelectItem>
                           {PUERTO_RICO_BANK_ROUTING.map((b) => (
                             <SelectItem key={b.routing} value={b.routing}>
-                              {b.name} — {b.routing}
+                              {b.name} · {b.routing}
                             </SelectItem>
                           ))}
                         </SelectContent>

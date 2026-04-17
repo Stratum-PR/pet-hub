@@ -229,102 +229,108 @@ export function WaitlistJoinModal({ open, onClose, pricingTier, mascotSrc }: Pro
       <DialogContent
         className={cn(
           /* Do not add `relative` here — tailwind-merge drops `fixed` from DialogContent and the panel vanishes behind the overlay. */
-          'border border-border bg-card text-card-foreground shadow-xl sm:max-w-md',
+          'border border-border bg-card text-card-foreground shadow-xl',
           step === 'form'
-            ? 'gap-0 overflow-visible p-0 pt-6 sm:pt-8'
-            : 'max-h-[min(90vh,720px)] gap-4 overflow-y-auto p-6',
+            ? 'w-[calc(100vw-2rem)] max-w-md gap-0 overflow-visible p-0 pt-7 sm:w-full sm:pt-8'
+            : 'max-h-[min(90vh,720px)] gap-4 overflow-y-auto p-6 sm:max-w-md',
         )}
         aria-labelledby={titleId}
       >
         {step === 'form' ? (
-          <div className="relative overflow-visible px-6 pb-14 pt-0 sm:px-8 sm:pb-16">
-            <DialogHeader className="space-y-3 border-b border-border pb-4 text-center sm:text-center">
-              <DialogTitle id={titleId} className="pr-8 text-2xl font-semibold leading-snug tracking-tight text-foreground sm:text-3xl">
-                {dialogTitle}
-              </DialogTitle>
-              <DialogDescription asChild>
-                <p className="text-center text-base leading-relaxed text-muted-foreground sm:text-lg">
-                  {t('waitlist.founderLineBefore')}
-                  <strong className="font-bold text-foreground">{t('waitlist.founderLineBold')}</strong>
-                  {t('waitlist.founderLineAfter')}
-                </p>
-              </DialogDescription>
-            </DialogHeader>
+          <div className="relative overflow-visible">
+            {/* Scroll only the card body so the mascot can paint outside the panel without clipping */}
+            <div className="max-h-[min(92dvh,880px)] overflow-y-auto overscroll-y-contain px-5 pb-8 pt-0 sm:px-8 sm:pb-10">
+              <DialogHeader className="space-y-3 border-b border-border pb-5 text-center sm:text-center">
+                <DialogTitle
+                  id={titleId}
+                  className="pr-10 text-xl font-semibold leading-snug tracking-tight text-foreground sm:pr-8 sm:text-2xl md:text-3xl"
+                >
+                  {dialogTitle}
+                </DialogTitle>
+                <DialogDescription asChild>
+                  <p className="text-center text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg">
+                    {t('waitlist.founderLineBefore')}
+                    <strong className="font-bold text-foreground">{t('waitlist.founderLineBold')}</strong>
+                    {t('waitlist.founderLineAfter')}
+                  </p>
+                </DialogDescription>
+              </DialogHeader>
 
-            <form onSubmit={(e) => void onSubmit(e)} className="relative z-[1] space-y-3 pt-4" noValidate>
-              <div className="grid grid-cols-2 gap-3">
+              <form onSubmit={(e) => void onSubmit(e)} className="relative z-[1] space-y-4 pt-5" noValidate>
+                <div className="grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 min-[400px]:gap-3">
+                  <FloatingLabeledInput
+                    id="waitlist-first-name"
+                    label={`${t('waitlist.labelFirstName')} *`}
+                    value={firstName}
+                    onChange={setFirstName}
+                    name="given-name"
+                    autoComplete="given-name"
+                    disabled={loading}
+                    invalid={Boolean(error)}
+                  />
+                  <FloatingLabeledInput
+                    id="waitlist-last-name"
+                    label={`${t('waitlist.labelLastName')} *`}
+                    value={lastName}
+                    onChange={setLastName}
+                    name="family-name"
+                    autoComplete="family-name"
+                    disabled={loading}
+                    invalid={Boolean(error)}
+                  />
+                </div>
                 <FloatingLabeledInput
-                  id="waitlist-first-name"
-                  label={`${t('waitlist.labelFirstName')} *`}
-                  value={firstName}
-                  onChange={setFirstName}
-                  name="given-name"
-                  autoComplete="given-name"
+                  id="waitlist-email"
+                  label={`${t('waitlist.labelEmail')} *`}
+                  type="email"
+                  value={email}
+                  onChange={setEmail}
+                  name="email"
+                  autoComplete="email"
+                  inputMode="email"
                   disabled={loading}
                   invalid={Boolean(error)}
                 />
                 <FloatingLabeledInput
-                  id="waitlist-last-name"
-                  label={`${t('waitlist.labelLastName')} *`}
-                  value={lastName}
-                  onChange={setLastName}
-                  name="family-name"
-                  autoComplete="family-name"
+                  id="waitlist-business-name"
+                  label={businessFieldLabel}
+                  value={businessName}
+                  onChange={setBusinessName}
+                  name="organization"
+                  autoComplete="organization"
                   disabled={loading}
                   invalid={Boolean(error)}
                 />
-              </div>
-              <FloatingLabeledInput
-                id="waitlist-email"
-                label={`${t('waitlist.labelEmail')} *`}
-                type="email"
-                value={email}
-                onChange={setEmail}
-                name="email"
-                autoComplete="email"
-                inputMode="email"
-                disabled={loading}
-                invalid={Boolean(error)}
-              />
-              <FloatingLabeledInput
-                id="waitlist-business-name"
-                label={businessFieldLabel}
-                value={businessName}
-                onChange={setBusinessName}
-                name="organization"
-                autoComplete="organization"
-                disabled={loading}
-                invalid={Boolean(error)}
-              />
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="mt-2 h-10 w-full rounded-xl bg-[#D4FF00] text-sm font-semibold text-black hover:bg-[#BFEF00] sm:text-base"
-              >
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                ) : (
-                  <>
-                    {t('waitlist.submitCta')}
-                    <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
-                  </>
-                )}
-              </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-2 h-10 w-full rounded-xl bg-[#D4FF00] text-sm font-semibold text-black hover:bg-[#BFEF00] sm:text-base"
+                >
+                  {loading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                  ) : (
+                    <>
+                      {t('waitlist.submitCta')}
+                      <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
+                    </>
+                  )}
+                </Button>
 
-              {error ? (
-                <p id="waitlist-join-error" className="text-center text-sm font-medium text-destructive" role="alert">
-                  {error}
-                </p>
-              ) : null}
-            </form>
+                {error ? (
+                  <p id="waitlist-join-error" className="text-center text-sm font-medium text-destructive" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+              </form>
+            </div>
 
             <img
               src={mascotSrc}
               alt=""
               width={256}
               height={256}
-              className="pointer-events-none absolute -left-1 bottom-0 z-[60] h-[7.8rem] w-[7.8rem] -translate-x-[34%] translate-y-[36%] select-none object-contain drop-shadow-lg sm:left-0 sm:h-[8.4rem] sm:w-[8.4rem] sm:-translate-x-[30%] sm:translate-y-[40%]"
+              className="pointer-events-none absolute bottom-0 left-0 z-[70] h-[8.5rem] w-[8.5rem] -translate-x-[32%] translate-y-[48%] select-none object-contain drop-shadow-xl sm:h-[9.25rem] sm:w-[9.25rem] sm:-translate-x-[28%] sm:translate-y-[52%]"
               aria-hidden
               decoding="async"
             />

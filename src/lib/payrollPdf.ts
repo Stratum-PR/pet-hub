@@ -179,7 +179,7 @@ export async function downloadEmployeeTimesheetPdf(opts: {
 
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  const headline = `${businessName} — ${format(payPeriodStart, 'MMM d')}–${format(payPeriodEnd, 'MMM d, yyyy')}`;
+  const headline = `${businessName}: ${format(payPeriodStart, 'MMM d')}–${format(payPeriodEnd, 'MMM d, yyyy')}`;
   const headlineMaxW = pageWidth - titleLeft - margin;
   const headlineLines = doc.splitTextToSize(headline, Math.max(40, headlineMaxW));
   let lineY = margin + 6;

@@ -101,7 +101,7 @@ function CompareCellContent({ cell, lang }: { cell: CompareCell; lang: PricingLo
   if (cell === 'dash') {
     return (
       <span className="text-sm font-light tabular-nums text-muted-foreground/45 sm:text-lg" aria-hidden>
-        —
+        –
       </span>
     );
   }

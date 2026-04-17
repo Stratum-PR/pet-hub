@@ -124,7 +124,7 @@ export const PAGE_CONTENT: Record<string, PageContent> = {
       },
       ...PRICING_TIERS.flatMap((t) => [
         {
-          heading: `${t.name} — TBD`,
+          heading: `${t.name}: TBD`,
           body: [t.description, ...t.features].join('. '),
         } as PageSection,
       ]),

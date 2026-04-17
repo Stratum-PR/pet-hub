@@ -41,7 +41,7 @@ export const PRICING_TIERS_CONFIG: PricingTierConfig[] = [
   {
     id: 'basic',
     name: L('Growth', 'Crecimiento'),
-    tagline: L('Solo & small salons', 'Salones pequeños y solitarios'),
+    tagline: L('Small salons', 'Salones pequeños'),
     price: { monthly: 29, annualPerMonth: 25 },
     buttonLabel: L('Get Started', 'Comenzar'),
     buttonVariant: 'trial',

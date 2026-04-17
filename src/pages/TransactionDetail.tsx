@@ -882,7 +882,7 @@ export function TransactionDetail() {
               />
             </div>
             <div className="space-y-2">
-              <Label>{t('transactions.amountPaid')} ($) — optional</Label>
+              <Label>{`${t('transactions.amountPaid')} ($) (${t('waitlist.optionalShort')})`}</Label>
               <Input
                 type="number"
                 min={0}

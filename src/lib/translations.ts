@@ -76,7 +76,7 @@ export const translations: Translations = {
     en: 'View Pricing Plans',
     es: 'Planes de Subscripción'
   },
-  // Splash hero (premium landing) — two lines, fixed break for all screen sizes
+  // Splash hero (premium landing): two lines, fixed break for all screen sizes
   'landing.splashHeadline': {
     en: 'Transform How You Run Your Pet Business',
     es: 'Transforma Cómo Gestionas Tu Negocio de Mascotas'
@@ -101,8 +101,8 @@ export const translations: Translations = {
     es: 'Ahorra horas cada semana con software hecho específicamente para tu industria.'
   },
   'landing.navFeatures': {
-    en: 'Features',
-    es: 'Características'
+    en: 'Solutions',
+    es: 'Soluciones'
   },
   'landing.navWhyPetHub': {
     en: 'Why Grumi',
@@ -145,8 +145,8 @@ export const translations: Translations = {
     es: '(Ahorra 15%)',
   },
   'pricing.billingAnnualAria': {
-    en: 'Annual billing — Save 15%',
-    es: 'Facturación anual — Ahorra 15%',
+    en: 'Annual billing: save 15%',
+    es: 'Facturación anual: ahorra 15%',
   },
   'pricing.billingMonthlyAria': {
     en: 'Monthly billing',
@@ -201,8 +201,8 @@ export const translations: Translations = {
     es: 'Solicitar acceso anticipado',
   },
   'pricing.ctaWaitlistHint': {
-    en: 'Grumi is in development — be among the first to try it.',
-    es: 'Grumi está en desarrollo — sé de los primeros en probarlo.',
+    en: 'Grumi is in development. Be among the first to try it.',
+    es: 'Grumi está en desarrollo. Sé de los primeros en probarlo.',
   },
   'pricing.ariaPricingPlans': {
     en: 'Pricing plans',
@@ -229,8 +229,8 @@ export const translations: Translations = {
     es: 'Todo lo que tu salón necesita, en un solo lugar',
   },
   'marketing.features.heroSubtitle': {
-    en: 'Grumi was built specifically for pet grooming salons in Puerto Rico—from appointments to payroll, without the hassle.',
-    es: 'Grumi fue diseñado específicamente para peluquerías de mascotas en Puerto Rico—desde citas hasta nómina, sin complicaciones.',
+    en: 'Grumi was built specifically for pet grooming salons in Puerto Rico, from appointments to payroll, without the hassle.',
+    es: 'Grumi fue diseñado específicamente para peluquerías de mascotas en Puerto Rico, desde citas hasta nómina, sin complicaciones.',
   },
   'marketing.features.highlight.spanish.title': {
     en: 'Spanish-language interface',
@@ -379,8 +379,8 @@ export const translations: Translations = {
   },
   'marketing.why.card2.title': { en: 'Payments without ATH Móvil', es: 'Pagos sin ATH Móvil' },
   'marketing.why.card2.body': {
-    en: 'Competitors do not integrate ATH Móvil—the preferred payment method in Puerto Rico.',
-    es: 'Ningún competidor integra ATH Móvil — el método de pago preferido en Puerto Rico.',
+    en: 'Competitors do not integrate ATH Móvil, the preferred payment method in Puerto Rico.',
+    es: 'Ningún competidor integra ATH Móvil, el método de pago preferido en Puerto Rico.',
   },
   'marketing.why.card3.title': { en: 'Unnecessary infrastructure', es: 'Infraestructura innecesaria' },
   'marketing.why.card3.body': {
@@ -393,8 +393,8 @@ export const translations: Translations = {
     es: 'Grumi nació del problema, no del laboratorio.',
   },
   'marketing.why.solutionBody': {
-    en: 'We work directly with groomers and salon owners in Puerto Rico to understand real challenges—not a generic market. The result speaks your language, accepts the payments your clients use, and adapts to how you work.',
-    es: 'Trabajamos directamente junto a peluqueros y dueños de salones en Puerto Rico para entender sus retos reales — no los de un mercado genérico. El resultado habla tu idioma, acepta los pagos que usan tus clientes, y se adapta a cómo tú trabajas.',
+    en: 'We work directly with groomers and salon owners in Puerto Rico to understand real challenges, not a generic market. The result speaks your language, accepts the payments your clients use, and adapts to how you work.',
+    es: 'Trabajamos directamente junto a peluqueros y dueños de salones en Puerto Rico para entender sus retos reales, no los de un mercado genérico. El resultado habla tu idioma, acepta los pagos que usan tus clientes, y se adapta a cómo tú trabajas.',
   },
   'marketing.why.pageTag': { en: 'The problem', es: 'El problema' },
   'marketing.why.diffHeading': {
@@ -410,8 +410,8 @@ export const translations: Translations = {
     es: 'Integración nativa con ATH Móvil y Stripe',
   },
   'marketing.why.diff3': {
-    en: 'No hardware required—works on any device',
-    es: 'Sin hardware requerido — funciona desde cualquier dispositivo',
+    en: 'No hardware required; works on any device.',
+    es: 'Sin hardware requerido; funciona desde cualquier dispositivo.',
   },
   'marketing.why.diff4': {
     en: 'Support and development from Puerto Rico',
@@ -516,6 +516,11 @@ export const translations: Translations = {
     en: 'Join the waitlist',
     es: 'Únete a la lista de espera'
   },
+  /** Header pill on narrow viewports: keep short so language + CTA + menu fit */
+  'waitlist.navCtaShort': {
+    en: 'Waitlist',
+    es: 'Lista de espera'
+  },
   'waitlist.splashCta': {
     en: 'Join the waitlist',
     es: 'Únete a la lista de espera'
@@ -545,8 +550,8 @@ export const translations: Translations = {
     es: 'Encuesta breve (opcional)'
   },
   'waitlist.modalTitleReferral': {
-    en: 'You are in — share your link',
-    es: 'Ya estás dentro — comparte tu enlace'
+    en: "You're in. Share your link.",
+    es: 'Ya estás dentro. Comparte tu enlace.'
   },
   'waitlist.referralStepLead': {
     en: 'Copy your referral link if you like, then continue to a few optional questions.',
@@ -613,7 +618,7 @@ export const translations: Translations = {
     es: 'Este enlace incluye tu código de referido para que otros se registren contigo. El 10% por referido se acumula con el Precio Fundador (25% off el primer año) durante un mes cuando activemos pagos, según los términos vigentes.'
   },
   'waitlist.referralExplain2': {
-    en: 'You may earn rewards when people you refer subscribe; details will follow when billing opens. Copy your link now—you will also find it in your welcome email.',
+    en: 'You may earn rewards when people you refer subscribe; details will follow when billing opens. Copy your link now; you will also find it in your welcome email.',
     es: 'Podrías obtener beneficios cuando se suscriban personas que refieres; los detalles llegarán al abrir pagos. Copia tu enlace ahora; también lo verás en tu correo de bienvenida.'
   },
   'waitlist.referralCodeLabel': {
@@ -1149,7 +1154,7 @@ export const translations: Translations = {
     es: 'Registrar mascotas en este negocio'
   },
   'portal.petNoAppointmentNeeded': {
-    en: 'No appointment is required—you can add pets as soon as your profile is saved and a business is selected.',
+    en: 'No appointment is required. You can add pets as soon as your profile is saved and a business is selected.',
     es: 'No necesitas cita previa: puedes agregar mascotas en cuanto guardes tu perfil y elijas un negocio.'
   },
   'portal.removePetTitle': {
@@ -1363,8 +1368,8 @@ export const translations: Translations = {
     es: 'Sin pagar'
   },
   'apptBook.paymentDash': {
-    en: '—',
-    es: '—'
+    en: '–',
+    es: '–'
   },
   'apptBook.noMatchingRows': {
     en: 'No appointments match your filters.',
@@ -1827,8 +1832,8 @@ export const translations: Translations = {
     es: 'Copiado al portapapeles',
   },
   'layout.supportInvokeFailedShort': {
-    en: 'Support sign-in failed — see details below.',
-    es: 'Error al iniciar sesión de soporte — vea los detalles abajo.',
+    en: 'Support sign-in failed. See details below.',
+    es: 'Error al iniciar sesión de soporte. Vea los detalles abajo.',
   },
   'layout.supportPickStaff': {
     en: 'Staff member',
@@ -1847,8 +1852,8 @@ export const translations: Translations = {
     es: 'Nadie en este negocio tiene inicio de sesión vinculado.',
   },
   'layout.supportStaffFilterEmpty': {
-    en: 'No staff match this filter — try “Any” or another role.',
-    es: 'Nadie coincide con el filtro — prueba “Cualquiera” u otro rol.',
+    en: 'No staff match this filter. Try “Any” or another role.',
+    es: 'Nadie coincide con el filtro. Prueba “Cualquiera” u otro rol.',
   },
   'layout.supportSessionBanner': {
     en: 'Support view: you are signed in as',
@@ -1981,7 +1986,7 @@ export const translations: Translations = {
   'accountSettings.demoProfileRole': { en: 'Role', es: 'Rol' },
   'accountSettings.demoProfileRoleValue': { en: 'Manager (full sample workspace)', es: 'Gerente (espacio de muestra completo)' },
   'accountSettings.demoProfileEmail': { en: 'Email', es: 'Correo' },
-  'accountSettings.demoProfileEmailValue': { en: 'Not signed in — no account email', es: 'Sin sesión — sin correo de cuenta' },
+  'accountSettings.demoProfileEmailValue': { en: 'Not signed in; no account email', es: 'Sin sesión; sin correo de cuenta' },
   'accountSettings.demoPasswordNote': {
     en: 'Password and account security are available after you sign up or log in.',
     es: 'La contraseña y la seguridad de la cuenta están disponibles después de registrarte o iniciar sesión.',
@@ -2227,8 +2232,8 @@ export const translations: Translations = {
     en: 'Stripe, ATH Móvil, PayPal, and other payment methods.',
     es: 'Stripe, ATH Móvil, PayPal y otros métodos de pago.',
   },
-  'businessSettings.paymentStripePlaceholder': { en: 'Credit Card (Stripe): connect account and API keys — coming soon.', es: 'Tarjeta (Stripe): conectar cuenta y API — próximamente.' },
-  'businessSettings.paymentATHPlaceholder': { en: 'ATH Móvil: business phone and token — coming soon.', es: 'ATH Móvil: teléfono y token — próximamente.' },
+  'businessSettings.paymentStripePlaceholder': { en: 'Credit Card (Stripe): connect account and API keys (coming soon).', es: 'Tarjeta (Stripe): conectar cuenta y API (próximamente).' },
+  'businessSettings.paymentATHPlaceholder': { en: 'ATH Móvil: business phone and token (coming soon).', es: 'ATH Móvil: teléfono y token (próximamente).' },
   'businessSettings.lowStockGlobal': { en: 'Default low-stock threshold', es: 'Umbral de stock bajo por defecto' },
   'businessSettings.lowStockGlobalDescription': { en: 'Applied to all products unless overridden per product (default 5).', es: 'Aplicado a todos los productos salvo que se sobrescriba (default 5).' },
   'businessSettings.defaultLowStock': { en: 'Default threshold', es: 'Umbral por defecto' },
@@ -2638,8 +2643,8 @@ export const translations: Translations = {
     es: 'Esta hora ya pasó. Úsala solo si registras una visita que ya ocurrió. ¿Continuar?',
   },
   'booking.closedThisDay': {
-    en: 'Closed — choose another date.',
-    es: 'Cerrado — elige otra fecha.',
+    en: 'Closed. Choose another date.',
+    es: 'Cerrado. Elige otra fecha.',
   },
   'booking.noTimesInBusinessHours': {
     en: 'No times fit within business hours for this day.',
@@ -3348,8 +3353,8 @@ export const translations: Translations = {
     es: 'Tu código interno (ej. DS-001 o PET-001). Obligatorio y único. Cualquier formato; deja el código de barras en blanco si no tiene.'
   },
   'inventory.barcodeHelp': {
-    en: 'UPC/EAN (number under the barcode). Optional—leave blank for custom items and use your own SKU above.',
-    es: 'UPC/EAN (número bajo el código de barras). Opcional—deja en blanco para productos sin código.'
+    en: 'UPC/EAN (number under the barcode). Optional: leave blank for custom items and use your own SKU above.',
+    es: 'UPC/EAN (número bajo el código de barras). Opcional: deja en blanco para productos sin código.'
   },
   'inventory.adjustQuantity': {
     en: 'Adjust quantity',
@@ -3642,7 +3647,7 @@ export const translations: Translations = {
     es: 'Eliminar'
   },
   'employeeManagement.deleteConfirm': {
-    en: 'They will be moved to Inactive and kept on file — not permanently deleted.',
+    en: 'They will be moved to Inactive and kept on file; they are not permanently deleted.',
     es: 'Pasarán a Inactivos y se conservarán en el sistema; no se borran del todo.'
   },
   'employeeManagement.removeEmployeeDialogTitle': {
@@ -4802,7 +4807,7 @@ export const translations: Translations = {
     es: 'Descargar informe'
   },
   'payroll.pdfPopupBlocked': {
-    en: 'Could not open a new tab. Check your pop-up settings—the report was downloaded instead.',
+    en: 'Could not open a new tab. Check your pop-up settings: the report was downloaded instead.',
     es: 'No se pudo abrir una pestaña nueva. Revise las ventanas emergentes: el informe se descargó en su lugar.'
   },
   'payroll.payCalculations': {

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { MarketingHeroBrandMotifs } from './MarketingBrandMotifs';
 
 type Props = {
   children: ReactNode;
@@ -22,7 +21,6 @@ export function MarketingPageHero({ children, showGlow = true, className = '' }:
           aria-hidden
         />
       ) : null}
-      <MarketingHeroBrandMotifs />
       <div className="relative z-[1]">{children}</div>
     </div>
   );

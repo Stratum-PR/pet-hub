@@ -31,7 +31,7 @@ export const DISCOVERABLE_ROUTES: DiscoverableRoute[] = [
     path: '/',
     title: 'Grumi – Pet Grooming Business Management',
     description:
-      'Grumi — software for pet grooming businesses in Puerto Rico. Join the waitlist for early access and Founders Price (25% off your first year).',
+      'Grumi: software for pet grooming businesses in Puerto Rico. Join the waitlist for early access and Founders Price (25% off your first year).',
     indexable: true,
     changefreq: 'weekly',
     priority: 1,

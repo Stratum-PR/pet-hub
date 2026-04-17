@@ -162,7 +162,7 @@ export function Landing() {
             <img
               src="/hero_background.png"
               alt=""
-              className="absolute inset-0 w-full h-full object-cover object-right md:object-center"
+              className="absolute inset-0 h-full w-full object-cover object-[50%_42%] sm:object-right md:object-center"
               aria-hidden
               onError={() => setHeroFallbackImageError(true)}
             />
@@ -178,7 +178,7 @@ export function Landing() {
               disablePictureInPicture
               preload="auto"
               poster={heroFallbackImageError ? undefined : '/hero_background.png'}
-              className="absolute inset-0 w-full h-full object-cover object-right md:object-center"
+              className="absolute inset-0 h-full w-full object-cover object-[50%_42%] sm:object-right md:object-center"
               aria-hidden
             >
               <source src="/hero_background_animated_720.mp4" type="video/mp4" media="(max-width: 767px)" />
@@ -196,8 +196,8 @@ export function Landing() {
         </div>
 
         {/* Hero: below lg, flexible height so title + CTAs are not clipped; lg+ keeps the framed viewport layout */}
-        <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center px-4 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4rem)] pt-[max(6.25rem,calc(env(safe-area-inset-top,0px)+5.25rem))] lg:min-h-dvh lg:pb-[30vh] lg:pt-[30vh]">
-          <div className="mx-auto flex w-full max-w-4xl min-h-0 flex-col items-center justify-center gap-2.5 text-center sm:gap-3 lg:h-[40vh] lg:min-h-[40vh] lg:max-h-[40vh] lg:gap-[clamp(0.35rem,1.8vh,1rem)]">
+        <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center px-5 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4rem)] pt-[max(6.75rem,calc(env(safe-area-inset-top,0px)+5.5rem))] sm:px-4 lg:min-h-dvh lg:pb-[30vh] lg:pt-[30vh]">
+          <div className="mx-auto flex w-full max-w-4xl min-h-0 flex-col items-center justify-center gap-3.5 text-center sm:gap-3 lg:h-[40vh] lg:min-h-[40vh] lg:max-h-[40vh] lg:gap-[clamp(0.35rem,1.8vh,1rem)]">
             {/* Title: two lines, letter-by-letter (0.5s delay, 1s total) */}
             <h1
               className="font-bold leading-tight tracking-tight text-white text-center w-full"

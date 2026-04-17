@@ -300,7 +300,7 @@ export function TransactionCreate() {
                         key={s.id}
                         onSelect={() => addService(s.id, s.name, Number(s.price))}
                       >
-                        {s.name} — ${Number(s.price).toFixed(2)}
+                        {s.name} · ${Number(s.price).toFixed(2)}
                       </CommandItem>
                     ))}
                   </CommandList>
@@ -322,7 +322,7 @@ export function TransactionCreate() {
                         key={p.id}
                         onSelect={() => addProduct(p.id, p.name, p.price, 1, p.quantity)}
                       >
-                        {p.name} — ${p.price.toFixed(2)} (stock: {p.quantity})
+                        {p.name} · ${p.price.toFixed(2)} (stock: {p.quantity})
                       </CommandItem>
                     ))}
                   </CommandList>

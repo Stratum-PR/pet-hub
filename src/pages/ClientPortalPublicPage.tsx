@@ -819,7 +819,7 @@ export function ClientPortalPublicPage() {
                     )}
                     {appointments.slice(0, 20).map((apt) => (
                       <p key={apt.id} className="text-sm">
-                        {apt.appointment_date ?? '—'} {apt.start_time ?? ''} — {apt.status ?? '—'}
+                        {apt.appointment_date ?? '—'} {apt.start_time ?? ''} · {apt.status ?? '—'}
                       </p>
                     ))}
                   </CardContent>
@@ -871,7 +871,7 @@ export function ClientPortalPublicPage() {
                           {t('portal.paymentsComingSoon')}
                         </div>
                         <div className="rounded-xl border border-dashed border-muted-foreground/30 p-6 text-center text-sm text-muted-foreground">
-                          —
+                          …
                         </div>
                       </div>
                     ) : (
@@ -938,7 +938,7 @@ export function ClientPortalPublicPage() {
                           <li key={tx.id} className="rounded-lg border border-border/60 p-3 text-sm">
                             <div className="flex flex-wrap justify-between gap-2 font-medium">
                               <span>
-                                {tx.created_at ? new Date(tx.created_at).toLocaleString() : '—'} — {tx.status}
+                                {tx.created_at ? new Date(tx.created_at).toLocaleString() : '—'} · {tx.status}
                               </span>
                               <span>{money(tx.total)}</span>
                             </div>
@@ -946,7 +946,7 @@ export function ClientPortalPublicPage() {
                               <ul className="mt-2 space-y-1 text-muted-foreground">
                                 {tx.transaction_line_items.map((li) => (
                                   <li key={li.id}>
-                                    {li.name} × {li.quantity} — {money(li.line_total)}
+                                    {li.name} × {li.quantity} · {money(li.line_total)}
                                   </li>
                                 ))}
                               </ul>
