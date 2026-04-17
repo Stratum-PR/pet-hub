@@ -57,9 +57,9 @@ export function MarketingSiteHeader({
   const closeMobile = () => onMobileMenuOpenChange(false);
 
   return (
-    <header className="pointer-events-none fixed left-0 right-0 top-[max(0.75rem,env(safe-area-inset-top,0px))] z-50 flex justify-center">
-      <nav className="container mx-auto px-4 pointer-events-auto" aria-label="Marketing">
-        <div className="relative flex items-center justify-between gap-4 rounded-full border border-white/30 bg-white/60 backdrop-blur-xl px-4 py-2 sm:px-6 sm:py-3 shadow-lg shadow-black/10">
+    <header className="pointer-events-none fixed left-0 right-0 top-[max(1rem,calc(env(safe-area-inset-top,0px)+0.5rem))] z-50 flex justify-center">
+      <nav className="container mx-auto px-5 pointer-events-auto sm:px-4" aria-label="Marketing">
+        <div className="relative flex min-h-[3rem] items-center gap-2 rounded-full border border-white/30 bg-white/60 px-3 py-2.5 shadow-lg shadow-black/10 backdrop-blur-xl sm:gap-3 sm:px-6 sm:py-3">
           {mode === 'landing' ? (
             <button
               type="button"
@@ -69,7 +69,7 @@ export function MarketingSiteHeader({
               <img
                 src={logoSrc}
                 alt="Grumi"
-                className="h-8 sm:h-9 w-auto max-w-[min(200px,42vw)] object-contain object-left"
+                className="h-8 w-auto max-w-[min(168px,40vw)] object-contain object-left sm:h-9 sm:max-w-[min(200px,42vw)]"
               />
             </button>
           ) : (
@@ -80,7 +80,7 @@ export function MarketingSiteHeader({
               <img
                 src={logoSrc}
                 alt="Grumi"
-                className="h-8 sm:h-9 w-auto max-w-[min(200px,42vw)] object-contain object-left"
+                className="h-8 w-auto max-w-[min(168px,40vw)] object-contain object-left sm:h-9 sm:max-w-[min(200px,42vw)]"
               />
             </Link>
           )}
@@ -91,11 +91,11 @@ export function MarketingSiteHeader({
             ))}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-3">
             <LanguageSwitcher
               variant="ghost"
               size="sm"
-              className="text-slate-900 hover:bg-white/70 hover:text-slate-900"
+              className="shrink-0 text-slate-900 hover:bg-white/70 hover:text-slate-900"
             />
             {mode === 'landing' ? (
               <button
@@ -116,25 +116,25 @@ export function MarketingSiteHeader({
             <Button
               type="button"
               onClick={() => openWaitlistModal()}
-              className={`bg-[#D4FF00] hover:bg-[#BFEF00] text-black rounded-full px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] ${
+              className={`shrink-0 bg-[#D4FF00] px-3 py-2 text-xs font-semibold text-black hover:bg-[#BFEF00] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00] sm:px-4 sm:text-sm ${
                 mode === 'standard' ? 'hidden sm:inline-flex' : 'inline-flex'
-              }`}
+              } rounded-full`}
             >
-              {t('waitlist.navCta')}
+              <span className="sm:hidden">{t('waitlist.navCtaShort')}</span>
+              <span className="hidden sm:inline">{t('waitlist.navCta')}</span>
             </Button>
-          </div>
 
-          <Sheet open={mobileMenuOpen} onOpenChange={onMobileMenuOpenChange}>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="lg:hidden text-slate-900 hover:bg-white/15 rounded-full"
-                aria-label="Menu"
-              >
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
+            <Sheet open={mobileMenuOpen} onOpenChange={onMobileMenuOpenChange}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 shrink-0 text-slate-900 hover:bg-white/15 lg:hidden"
+                  aria-label="Menu"
+                >
+                  <Menu className="h-6 w-6" aria-hidden />
+                </Button>
+              </SheetTrigger>
             <SheetContent side="right" className="flex flex-col gap-2 pt-8">
               <div className="flex flex-col gap-2">
                 {MARKETING_NAV_ITEMS.map((item) =>
@@ -182,7 +182,8 @@ export function MarketingSiteHeader({
                 </button>
               </div>
             </SheetContent>
-          </Sheet>
+            </Sheet>
+          </div>
         </div>
       </nav>
     </header>

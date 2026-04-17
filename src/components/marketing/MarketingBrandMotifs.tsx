@@ -35,24 +35,6 @@ function MotifImg({ src, className, fetchPriority = 'low' }: MotifImgProps) {
   );
 }
 
-/** Corner flowers for shared marketing hero panels (Pricing, Contact, Why Grumi). */
-export function MarketingHeroBrandMotifs() {
-  return (
-    <>
-      <MotifImg
-        src={BRAND.flower8}
-        fetchPriority="low"
-        className="absolute -left-6 -top-4 w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 opacity-[0.14] dark:opacity-[0.1]"
-      />
-      <MotifImg
-        src={BRAND.flower5}
-        fetchPriority="low"
-        className="absolute -right-4 bottom-0 w-20 h-20 sm:w-24 sm:h-24 opacity-[0.12] dark:opacity-[0.09]"
-      />
-    </>
-  );
-}
-
 /** Soft tile + flowers behind the features marketing hero strip and grid region. */
 export function FeaturesBrandBackdrop() {
   return (

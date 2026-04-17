@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { DEMO_WORKSPACE_SLUG } from "@/lib/demoWorkspace";
 import { DemoLegacyRedirect } from "@/components/DemoLegacyRedirect";
 import { DemoAwareThemeProvider } from "@/components/DemoAwareThemeProvider";
@@ -78,6 +79,7 @@ const App = () => (
     <LanguageProvider>
       <AuthProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <CookieConsentProvider>
             <WaitlistModalProvider>
             <DemoAwareThemeProvider>

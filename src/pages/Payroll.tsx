@@ -636,7 +636,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
           entry.clock_out ? (Math.round(hours * 4) / 4).toFixed(2) : '—',
         ]);
         bodyRows.push([
-          `Total — ${block.employee.name}`,
+          `Total: ${block.employee.name}`,
           '',
           '',
           blockTotalHours.toFixed(2),
@@ -685,7 +685,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
               return;
             }
             const raw0 = data.row.raw[0];
-            const isTotalRow = typeof raw0 === 'string' && raw0.startsWith('Total —');
+            const isTotalRow = typeof raw0 === 'string' && raw0.startsWith('Total:');
             if (isTotalRow) {
               data.cell.styles.fillColor = summarySubtotalBg;
               data.cell.styles.textColor = [25, 25, 25];
@@ -1042,7 +1042,7 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                             <tr className="border-t-2 border-border bg-primary/10 font-semibold">
                               <td className="py-2.5 pl-4 pr-2 sm:py-3">
                                 <span className="block sm:inline">
-                                  {t('employeePayroll.total')} — {block.employee.name}
+                                  {t('employeePayroll.total')}: {block.employee.name}
                                 </span>
                                 {timesheetRecordView === 'voided' && (
                                   <span className="mt-1 block text-[11px] font-normal normal-case text-muted-foreground sm:mt-0 sm:ml-2 sm:inline">
