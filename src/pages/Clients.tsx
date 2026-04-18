@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import type { Transaction, TransactionLineItem } from '@/types/transactions';
 import { useLocation, useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { Plus, X, LayoutGrid, List, Dog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,9 @@ import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useAuth } from '@/contexts/AuthContext';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { useTransactions, resolveDemoLocalTransactionEntries } from '@/hooks/useTransactions';
 import { format } from 'date-fns';
 
 interface ClientsProps {
@@ -57,7 +60,23 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const pageLoadRef = usePageLoadRef();
+  const { user } = useAuth();
+  const businessId = useBusinessId();
   const { transactions } = useTransactions();
+
+  const transactionNavigateState = useCallback(
+    (txn: Transaction): { transaction: Transaction; lineItems?: TransactionLineItem[] } => {
+      if (businessId && txn.id.startsWith('local-')) {
+        const entries = resolveDemoLocalTransactionEntries(businessId, user?.id);
+        const entry = entries.find((e) => e.transaction.id === txn.id);
+        if (entry) {
+          return { transaction: entry.transaction, lineItems: entry.lineItems };
+        }
+      }
+      return { transaction: txn };
+    },
+    [businessId, user?.id],
+  );
 
   const handleDeleteClick = (id: string) => {
     setClientToDelete(id);
@@ -454,8 +473,10 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                                 className="flex justify-between items-center w-full text-left py-1 px-2 rounded hover:bg-muted/60"
                                 onClick={() => {
                                   setClientDetailOpen(null);
-                                  if (businessSlug) navigate(`/${businessSlug}/transactions/${txn.id}`);
-                                  else navigate(`/transactions/${txn.id}`);
+                                  const path = businessSlug
+                                    ? `/${businessSlug}/transactions/${txn.id}`
+                                    : `/transactions/${txn.id}`;
+                                  navigate(path, { state: transactionNavigateState(txn as Transaction) });
                                 }}
                               >
                                 <span className="font-mono text-xs">{displayId}</span>

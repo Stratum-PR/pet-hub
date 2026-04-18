@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Plus, Settings, PawPrint, Bell } from 'lucide-react';
+import { Plus, Settings, Dog, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
 import { cn } from '@/lib/utils';
@@ -140,58 +140,57 @@ export function AppointmentBookDayGrid({
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="inline-block min-w-full min-h-full align-top">
-          <div
-            className="sticky top-0 z-30 flex border-b border-border bg-card"
-            style={{ minWidth: 64 + employees.length * 160 }}
-          >
-            <div className="sticky left-0 z-40 w-16 shrink-0 border-r border-border bg-muted/30" />
-            {employees.map((employee) => (
-              <div
-                key={employee.id}
-                className="w-[160px] shrink-0 border-r border-border bg-muted/30 px-2 py-2 text-center"
-              >
-                <div className="text-sm font-semibold text-foreground">
-                  {formatStaffNameAggregated(employee.name)}
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+        <div className="min-h-full w-full min-w-0 align-top">
+          <div className="sticky top-0 z-30 flex w-full min-w-0 border-b border-border bg-card">
+            <div className="sticky left-0 z-40 w-12 shrink-0 border-r border-border bg-muted/30 sm:w-16" />
+            <div className="flex min-w-0 flex-1">
+              {employees.map((employee) => (
+                <div
+                  key={employee.id}
+                  className="min-w-0 flex-1 border-r border-border bg-muted/30 px-1 py-1.5 text-center sm:px-2 sm:py-2"
+                >
+                  <div className="break-words text-xs font-semibold text-foreground [overflow-wrap:anywhere] sm:text-sm">
+                    {formatStaffNameAggregated(employee.name)}
+                  </div>
+                  <div className="mt-1 flex items-center justify-center gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      aria-label="Add"
+                      onClick={() => onStaffQuickBook?.(employee.id)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Settings">
+                      <Settings className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="mt-1 rounded-md bg-background/80 px-0.5 py-0.5 text-[9px] font-medium text-muted-foreground sm:px-1 sm:text-[10px]">
+                    — / —
+                  </div>
                 </div>
-                <div className="mt-1 flex items-center justify-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    aria-label="Add"
-                    onClick={() => onStaffQuickBook?.(employee.id)}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Settings">
-                    <Settings className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <div className="mt-1 rounded-md bg-background/80 px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  — / —
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          <div className="flex" style={{ minHeight: totalHeight, minWidth: 64 + employees.length * 160 }}>
+          <div className="flex w-full min-w-0" style={{ minHeight: totalHeight }}>
             {slots.length === 0 ? (
               <>
-                <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-border bg-card" />
-                <div className="flex flex-1 items-center justify-center border-b border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
+                <div className="sticky left-0 z-20 w-12 shrink-0 border-r border-border bg-card sm:w-16" />
+                <div className="flex min-w-0 flex-1 items-center justify-center border-b border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
                   {t('apptBook.noBusinessHoursThisDay')}
                 </div>
               </>
             ) : (
               <>
-                <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-border bg-card">
+                <div className="sticky left-0 z-20 w-12 shrink-0 border-r border-border bg-card sm:w-16">
                   {slots.map((slot) => (
                     <div
                       key={slot.time}
-                      className="flex justify-end border-b border-border/60 pr-2 pt-0.5 text-[10px] text-muted-foreground"
+                      className="flex justify-end border-b border-border/60 pr-1 pt-0.5 text-[9px] text-muted-foreground sm:pr-2 sm:text-[10px]"
                       style={{ height: PX_PER_SLOT }}
                     >
                       {slot.label}
@@ -199,11 +198,11 @@ export function AppointmentBookDayGrid({
                   ))}
                 </div>
 
-                <div className="flex flex-1">
+                <div className="flex min-w-0 flex-1">
                   {employees.map((employee) => (
                     <div
                       key={employee.id}
-                      className="relative w-[160px] shrink-0 border-r border-border"
+                      className="relative min-w-0 flex-1 border-r border-border"
                       style={{ height: totalHeight }}
                     >
                       {slots.map((slot) => (
@@ -238,7 +237,7 @@ export function AppointmentBookDayGrid({
                             onClick={() => onAppointmentClick?.(appointment)}
                           >
                             <div className="flex items-start gap-0.5">
-                              <PawPrint className="mt-0.5 h-3 w-3 shrink-0 text-foreground/80" />
+                              <Dog className="mt-0.5 h-3 w-3 shrink-0 text-foreground/80" aria-hidden />
                               {appointment.hasAlert ? (
                                 <Bell className="mt-0.5 h-3 w-3 shrink-0 text-destructive" />
                               ) : null}

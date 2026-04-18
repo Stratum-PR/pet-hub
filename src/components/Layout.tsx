@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { Menu, LogOut, Bell, LayoutDashboard } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -115,10 +115,17 @@ function getPageTitle(
   return titles[segment] || segment;
 }
 
+/** Appointment book + POS: hide ambient paw trails / Woof so navigation feels utilitarian (matches PageTransition quiet shells). */
+function suppressWorkspacePetDecor(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean);
+  return parts.includes('appt-book') || parts.includes('transactions');
+}
+
 export function Layout({ children, settings }: LayoutProps) {
   const layoutRootRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
+  const suppressPetDecor = useMemo(() => suppressWorkspacePetDecor(location.pathname), [location.pathname]);
   const navigate = useNavigate();
   const businessSlug = useResolvedBusinessSlug();
   const businessId = useBusinessId();
@@ -213,6 +220,8 @@ export function Layout({ children, settings }: LayoutProps) {
   const showAdminHeader = isAdmin && isImpersonating;
   const pageTitle = getPageTitle(location.pathname, businessSlug, role);
   const isHelpPage = /\/help\/?$/.test(location.pathname);
+  /** Full-height in-layout scroll (calendar grid); avoid whole-page scroll so the grid fits the viewport. */
+  const isApptBookPage = /\/appt-book(\/|$)/.test(location.pathname);
   const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
   /** Match `/:businessSlug/dashboard` without relying on `useParams` (avoids missed triggers). */
   const isDashboardPath = /^\/[^/]+\/dashboard$/.test(normalizedPath);
@@ -631,12 +640,17 @@ export function Layout({ children, settings }: LayoutProps) {
 
           <div
             data-print-scroll-region
-            className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto print:h-auto print:min-h-0 print:overflow-visible"
+            className={cn(
+              'flex min-h-0 flex-1 flex-col overflow-x-hidden print:h-auto print:min-h-0 print:overflow-visible',
+              isHelpPage || isApptBookPage ? 'overflow-y-hidden' : 'overflow-y-auto',
+            )}
           >
             <main
               className={cn(
                 'flex w-full flex-1 flex-col px-4 lg:px-6 print:overflow-visible print:min-h-0',
-                isHelpPage ? 'min-h-0 overflow-hidden py-3 print:overflow-visible' : 'min-h-0 overflow-x-hidden py-6'
+                isHelpPage || isApptBookPage
+                  ? 'min-h-0 overflow-hidden py-3 print:overflow-visible'
+                  : 'min-h-0 overflow-x-hidden py-6',
               )}
             >
               <PageTransition>
@@ -678,7 +692,10 @@ export function Layout({ children, settings }: LayoutProps) {
 
       {/* Mobile: hamburger opens sheet with full expanded sidebar (same as laptop) */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[280px] sm:w-[320px] max-w-[85vw] p-0 overflow-hidden flex flex-col">
+        <SheetContent
+          side="left"
+          className="w-[min(100vw-1rem,340px)] sm:w-[340px] max-w-[92vw] p-0 overflow-hidden flex flex-col"
+        >
           <AppSidebar
             collapsed={false}
             onCollapsedChange={() => {}}
@@ -715,7 +732,7 @@ export function Layout({ children, settings }: LayoutProps) {
       </Dialog>
     </div>
     {/* Outside overflow-hidden root so fixed paw overlays aren’t clipped mid-viewport */}
-    <PetAnimations />
+    {!suppressPetDecor ? <PetAnimations /> : null}
     {birthdayModalPayload && (
       <BirthdayCelebrationModal
         open={birthdayModalOpen}

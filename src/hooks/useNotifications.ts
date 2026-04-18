@@ -191,6 +191,13 @@ export function useNotifications(settings: Settings) {
 
     let rows = (data as any[]) as NotificationRow[];
 
+    if (isDemoWorkspaceBusiness(businessId)) {
+      rows = rows.filter((n) => {
+        const t = String(n.notification_type ?? '').toLowerCase();
+        return t !== 'birthday' && t !== 'birthday_team' && t !== 'birthday_celebration';
+      });
+    }
+
     // Demo backfill: payment notifications created previously may lack transaction_id.
     // If so, attach the most relevant currently-partial transaction so navigation works.
     const missingPaymentTx = rows.filter((n) => n.notification_type === 'payment' && !n.transaction_id);
@@ -305,6 +312,11 @@ export function useNotifications(settings: Settings) {
     }
     if (!businessId) {
       devConsole.debug('[pet-hub] Birthday jobs skipped: businessId not ready yet.');
+      return;
+    }
+    if (isDemoWorkspaceBusiness(businessId)) {
+      devConsole.debug('[pet-hub] Birthday jobs skipped: demo workspace.');
+      void fetchNotificationsRef.current();
       return;
     }
     if (!asEnabled(settings.notify_birthdays, true)) {

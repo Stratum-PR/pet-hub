@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
@@ -226,17 +227,67 @@ export function AppointmentBookListView({
     setDateSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
   };
 
-  const staffTriggerWidth = filters.service === 'Daycare' ? 'w-[160px]' : 'w-[160px]';
+  const listViewRows = useMemo(() => {
+    return displayRows.map((apt) => {
+      const aptAny = apt as Record<string, unknown>;
+      const pet = pets.find((p) => p.id === apt.pet_id);
+      const client = clients.find((c) => c.id === pet?.client_id);
+      const clientName =
+        `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim() || t('appointments.unknownClient');
+      const breed = pet?.breed ? ` (${pet.breed})` : '';
+      const svc = services.find((s) => s.id === apt.service_id);
+      const serviceLabel = (svc?.name as string | undefined) ?? (aptAny.service_type as string | undefined) ?? t('appointments.noService');
+      const staffRef = staffRecordIdFromRow(apt) ?? (aptAny.staff_id as string | undefined);
+      const employee = employees.find((e) => e.id === staffRef);
+      const staffName = employee?.name
+        ? formatStaffNameAggregated(employee.name)
+        : t('apptBook.unassigned');
+      const aptDate = parseAppointmentDate(apt);
+      const dateStr = aptDate ? format(aptDate, 'MM/dd/yyyy') : '—';
+      const timeStr = formatTime12H(apt.start_time);
+      const total =
+        typeof aptAny.price === 'number'
+          ? aptAny.price
+          : typeof apt.total_price === 'number'
+            ? apt.total_price
+            : null;
+      const totalStr =
+        total != null && !Number.isNaN(total as number) ? `$${(total as number).toFixed(2)}` : '—';
+      const hasPayment = Boolean(aptAny.transaction_id || aptAny.billed);
+      const paymentLabel = hasPayment
+        ? t('apptBook.paymentPaid')
+        : normalizeAppointmentStatus(apt.status) === 'completed'
+          ? t('apptBook.paymentUnpaid')
+          : t('apptBook.paymentDash');
+      const petLabel = pet ? `${pet.name}${breed}` : t('appointments.unknownPet');
+      const idShort = apt.id.replace(/-/g, '').slice(0, 8).toUpperCase();
+
+      return {
+        apt,
+        idShort,
+        petLabel,
+        clientName,
+        dateStr,
+        timeStr,
+        serviceLabel,
+        staffName,
+        paymentLabel,
+        totalStr,
+        statusLabel: formatStatusLabel(apt.status),
+        statusClass: getStatusColor(apt.status ?? ''),
+      };
+    });
+  }, [displayRows, pets, clients, services, employees, t]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <div className="border-b border-border bg-muted/30 px-6 py-4 shrink-0">
+      <div className="shrink-0 border-b border-border bg-muted/30 px-3 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" size="sm" onClick={onToday} className="font-medium">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+            <Button variant="outline" size="sm" onClick={onToday} className="shrink-0 font-medium">
               {t('appointments.today').toUpperCase()}
             </Button>
-            <div className="flex items-center gap-1">
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:flex-initial sm:justify-start">
               <button
                 type="button"
                 onClick={onPreviousDay}
@@ -245,7 +296,7 @@ export function AppointmentBookListView({
               >
                 <ChevronLeft className="h-5 w-5 text-muted-foreground" />
               </button>
-              <span className="min-w-[200px] text-center text-sm font-medium text-foreground sm:text-base">
+              <span className="min-w-0 flex-1 px-1 text-center text-xs font-medium text-foreground sm:flex-initial sm:text-sm md:text-base">
                 {formatDateHeader(selectedDate)}
               </span>
               <button
@@ -273,7 +324,7 @@ export function AppointmentBookListView({
               </PopoverContent>
             </Popover>
             <Select value={dateScope} onValueChange={(v) => setDateScope(v as 'day' | 'all')}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -309,7 +360,7 @@ export function AppointmentBookListView({
                 value={filters.service}
                 onValueChange={(value) => onFilterChange('service', value)}
               >
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -323,7 +374,7 @@ export function AppointmentBookListView({
                 value={filters.staff || (filters.service === 'Daycare' ? 'All Rooms' : 'All Employees')}
                 onValueChange={(value) => onFilterChange('staff', value)}
               >
-                <SelectTrigger className={staffTriggerWidth}>
+                <SelectTrigger className="w-full min-w-0 sm:w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -343,7 +394,7 @@ export function AppointmentBookListView({
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[168px]">
+                <SelectTrigger className="w-full min-w-0 sm:w-[168px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -366,118 +417,135 @@ export function AppointmentBookListView({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto px-3 py-3 sm:px-6 sm:py-4">
         {displayRows.length === 0 ? (
           <p className="py-12 text-center text-muted-foreground">{t('apptBook.noMatchingRows')}</p>
         ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[88px]">{t('apptBook.columnId')}</TableHead>
-                  <TableHead>{t('apptBook.columnStatus')}</TableHead>
-                  <TableHead>{t('apptBook.columnPet')}</TableHead>
-                  <TableHead>{t('apptBook.columnClient')}</TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={toggleDateSort}
-                  >
-                    <div className="flex items-center gap-2">
-                      {t('apptBook.columnDate')}
-                      <ArrowUpDown
-                        className={cn('h-4 w-4', dateSortDir === 'asc' && 'text-primary')}
-                      />
+          <>
+            <div className="space-y-3 md:hidden">
+              {listViewRows.map((row) => (
+                <Card key={row.apt.id} className="border border-border p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={row.statusClass}>{row.statusLabel}</Badge>
+                        <span className="font-mono text-[10px] text-muted-foreground">{row.idShort}</span>
+                      </div>
+                      <p className="text-sm font-semibold text-foreground">{row.petLabel}</p>
+                      <p className="text-xs text-muted-foreground">{row.clientName}</p>
+                      <p className="text-xs text-foreground">
+                        {row.dateStr} · {row.timeStr || '—'}
+                      </p>
+                      <p className="text-xs text-foreground">{row.serviceLabel}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t('apptBook.columnEmployee')}: {row.staffName}
+                      </p>
+                      <div className="flex items-center justify-between gap-2 pt-1 text-sm">
+                        <span className="text-muted-foreground">{row.paymentLabel}</span>
+                        <span className="font-semibold">{row.totalStr}</span>
+                      </div>
                     </div>
-                  </TableHead>
-                  <TableHead>{t('apptBook.columnTime')}</TableHead>
-                  <TableHead>{t('apptBook.columnServices')}</TableHead>
-                  <TableHead>{t('apptBook.columnEmployee')}</TableHead>
-                  <TableHead>{t('apptBook.columnPayment')}</TableHead>
-                  <TableHead className="text-right">{t('apptBook.columnTotal')}</TableHead>
-                  <TableHead className="text-right">{t('apptBook.columnActions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayRows.map((apt) => {
-                  const aptAny = apt as any;
-                  const pet = pets.find((p) => p.id === apt.pet_id);
-                  const client = clients.find((c) => c.id === pet?.client_id);
-                  const clientName =
-                    `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim() ||
-                    t('appointments.unknownClient');
-                  const breed = pet?.breed ? ` (${pet.breed})` : '';
-                  const svc = services.find((s) => s.id === apt.service_id);
-                  const serviceLabel = svc?.name ?? aptAny.service_type ?? t('appointments.noService');
-                  const staffRef = staffRecordIdFromRow(apt) ?? aptAny.staff_id;
-                  const employee = employees.find((e) => e.id === staffRef);
-                  const staffName = employee?.name
-                    ? formatStaffNameAggregated(employee.name)
-                    : t('apptBook.unassigned');
-                  const aptDate = parseAppointmentDate(apt);
-                  const dateStr = aptDate ? format(aptDate, 'MM/dd/yyyy') : '—';
-                  const timeStr = formatTime12H(apt.start_time);
-                  const total =
-                    typeof aptAny.price === 'number'
-                      ? aptAny.price
-                      : typeof apt.total_price === 'number'
-                        ? apt.total_price
-                        : null;
-                  const totalStr =
-                    total != null && !Number.isNaN(total)
-                      ? `$${total.toFixed(2)}`
-                      : '—';
-                  const hasPayment = Boolean(aptAny.transaction_id || aptAny.billed);
-                  const paymentLabel =
-                    hasPayment
-                      ? t('apptBook.paymentPaid')
-                      : normalizeAppointmentStatus(apt.status) === 'completed'
-                        ? t('apptBook.paymentUnpaid')
-                        : t('apptBook.paymentDash');
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {canMarkNoShow && onMarkNoShow ? (
+                        <AppointmentNoShowControl
+                          status={row.apt.status}
+                          compact
+                          onMarkNoShow={() => onMarkNoShow(row.apt.id)}
+                        />
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => onEdit(row.apt)}
+                        aria-label={t('common.edit')}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
 
-                  return (
-                    <TableRow key={apt.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {apt.id.replace(/-/g, '').slice(0, 8).toUpperCase()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(apt.status)}>{formatStatusLabel(apt.status)}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {pet ? `${pet.name}${breed}` : t('appointments.unknownPet')}
-                      </TableCell>
-                      <TableCell>{clientName}</TableCell>
-                      <TableCell>{dateStr}</TableCell>
-                      <TableCell>{timeStr || '—'}</TableCell>
-                      <TableCell>{serviceLabel}</TableCell>
-                      <TableCell>{staffName}</TableCell>
-                      <TableCell className="text-muted-foreground">{paymentLabel}</TableCell>
-                      <TableCell className="text-right font-medium">{totalStr}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap items-center justify-end gap-1">
-                          {canMarkNoShow && onMarkNoShow ? (
-                            <AppointmentNoShowControl
-                              status={apt.status}
-                              compact
-                              onMarkNoShow={() => onMarkNoShow(apt.id)}
-                            />
-                          ) : null}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => onEdit(apt)}
-                            aria-label={t('common.edit')}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+            <div className="hidden min-w-0 rounded-md border md:block">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[88px] whitespace-nowrap">{t('apptBook.columnId')}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t('apptBook.columnStatus')}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t('apptBook.columnPet')}</TableHead>
+                      <TableHead className="min-w-[120px]">{t('apptBook.columnClient')}</TableHead>
+                      <TableHead
+                        className="cursor-pointer select-none whitespace-nowrap hover:bg-muted/50"
+                        onClick={toggleDateSort}
+                      >
+                        <div className="flex items-center gap-2">
+                          {t('apptBook.columnDate')}
+                          <ArrowUpDown
+                            className={cn('h-4 w-4', dateSortDir === 'asc' && 'text-primary')}
+                          />
                         </div>
-                      </TableCell>
+                      </TableHead>
+                      <TableHead className="whitespace-nowrap">{t('apptBook.columnTime')}</TableHead>
+                      <TableHead className="min-w-[140px]">{t('apptBook.columnServices')}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t('apptBook.columnEmployee')}</TableHead>
+                      <TableHead className="whitespace-nowrap">{t('apptBook.columnPayment')}</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">{t('apptBook.columnTotal')}</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">{t('apptBook.columnActions')}</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {listViewRows.map((row) => (
+                      <TableRow key={row.apt.id}>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{row.idShort}</TableCell>
+                        <TableCell>
+                          <Badge className={row.statusClass}>{row.statusLabel}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[140px] truncate font-medium" title={row.petLabel}>
+                          {row.petLabel}
+                        </TableCell>
+                        <TableCell className="max-w-[160px] break-words [overflow-wrap:anywhere]">
+                          {row.clientName}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{row.dateStr}</TableCell>
+                        <TableCell className="whitespace-nowrap">{row.timeStr || '—'}</TableCell>
+                        <TableCell className="max-w-[200px] break-words text-sm [overflow-wrap:anywhere]">
+                          {row.serviceLabel}
+                        </TableCell>
+                        <TableCell className="max-w-[120px] break-words text-sm [overflow-wrap:anywhere]">
+                          {row.staffName}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{row.paymentLabel}</TableCell>
+                        <TableCell className="text-right font-medium">{row.totalStr}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-1">
+                            {canMarkNoShow && onMarkNoShow ? (
+                              <AppointmentNoShowControl
+                                status={row.apt.status}
+                                compact
+                                onMarkNoShow={() => onMarkNoShow(row.apt.id)}
+                              />
+                            ) : null}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => onEdit(row.apt)}
+                              aria-label={t('common.edit')}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

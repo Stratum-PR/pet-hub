@@ -11,7 +11,7 @@ import {
   addWeeks,
 } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { CalendarFilters, CalendarView } from '@/types/calendar';
 import { AppointmentBookSidebar } from '@/components/AppointmentBookSidebar';
 import { DaycareCalendarView } from '@/components/DaycareCalendarView';
@@ -33,8 +33,6 @@ import { BookingFormDialog } from '@/components/BookingFormDialog';
 import { devConsole } from '@/lib/clientDebug';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { AppointmentBookListView } from '@/components/AppointmentBookListView';
-import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
-import { PawRevealEnter } from '@/components/PawRevealEnter';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
@@ -76,6 +74,17 @@ export function AppointmentBook() {
   const dateFnsLocale = language === 'es' ? esLocale : enUS;
 
   const pathMode = apptBookPathMode(location.pathname);
+
+  /** Canonical URL: /…/appt-book → /…/appt-book/calendar (replaces old nested index route). */
+  useEffect(() => {
+    const segs = location.pathname.split('/').filter(Boolean);
+    const idx = segs.indexOf('appt-book');
+    if (idx < 0) return;
+    const rest = segs[idx + 1];
+    if (rest == null || rest === '') {
+      navigate(`${apptBookBase}/calendar`, { replace: true });
+    }
+  }, [location.pathname, apptBookBase, navigate]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [weekJumpOffset, setWeekJumpOffset] = useState<ApptBookWeekJumpOffset | null>(null);
@@ -510,7 +519,7 @@ export function AppointmentBook() {
   const showWeekJumpControls = showCalendarChrome && filters.service !== 'Daycare' && !loading;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background -m-6 sm:flex-row sm:items-stretch">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 sm:-mx-6 sm:flex-row sm:items-stretch sm:overflow-hidden">
       <AppointmentBookSidebar
         selectedDate={selectedDate}
         onDateChange={handleDateChange}
@@ -553,28 +562,34 @@ export function AppointmentBook() {
           </div>
         )}
 
-        <div className="page-toolbar-strip flex justify-end px-6 py-3">
+        <div className="page-toolbar-strip flex min-w-0 justify-end overflow-x-auto px-3 py-3 sm:px-6">
           <Tabs value={tabsValue} onValueChange={onTabChange}>
-            <TabsList className="bg-transparent">
-              <TabsTrigger value="calendar">{t('appointments.calendar')}</TabsTrigger>
-              <TabsTrigger value="list">{t('apptBook.appointmentList')}</TabsTrigger>
-              <TabsTrigger value="requests" className="relative">
+            <TabsList className="inline-flex h-auto min-w-0 flex-wrap justify-end gap-1 bg-transparent p-0 sm:flex-nowrap">
+              <TabsTrigger value="calendar" className="shrink-0 text-xs sm:text-sm">
+                {t('appointments.calendar')}
+              </TabsTrigger>
+              <TabsTrigger value="list" className="shrink-0 text-xs sm:text-sm">
+                {t('apptBook.appointmentList')}
+              </TabsTrigger>
+              <TabsTrigger value="requests" className="relative shrink-0 text-xs sm:text-sm">
                 {t('apptBook.onlineRequests')}
                 <Badge className="ml-2 bg-destructive text-xs text-destructive-foreground">13</Badge>
               </TabsTrigger>
-              <TabsTrigger value="settings">{t('apptBook.settings')}</TabsTrigger>
+              <TabsTrigger value="settings" className="shrink-0 text-xs sm:text-sm">
+                {t('apptBook.settings')}
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
 
         {showCalendarChrome && (
-          <div className="shrink-0 border-b border-border bg-muted/30 px-6 py-3">
+          <div className="shrink-0 border-b border-border bg-muted/30 px-3 py-3 sm:px-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-3">
-                <Button variant="outline" size="sm" onClick={handleToolbarToday}>
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+                <Button variant="outline" size="sm" onClick={handleToolbarToday} className="shrink-0">
                   {t('appointments.today')}
                 </Button>
-                <div className="flex items-center gap-1">
+                <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:flex-initial sm:justify-start">
                   <button
                     type="button"
                     onClick={handlePreviousPeriod}
@@ -583,7 +598,7 @@ export function AppointmentBook() {
                   >
                     <ChevronLeft className="h-5 w-5 text-muted-foreground" />
                   </button>
-                  <span className="min-w-[200px] text-center text-sm font-medium capitalize text-foreground sm:text-base">
+                  <span className="min-w-0 flex-1 px-1 text-center text-xs font-medium capitalize text-foreground sm:flex-initial sm:text-sm md:text-base">
                     {toolbarDateLabel}
                   </span>
                   <button
@@ -612,12 +627,12 @@ export function AppointmentBook() {
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Select
                   value={filters.service}
                   onValueChange={(value) => handleFilterChange('service', value)}
                 >
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -632,7 +647,7 @@ export function AppointmentBook() {
                     value={filters.staff || 'All Rooms'}
                     onValueChange={(value) => handleFilterChange('staff', value)}
                   >
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -648,7 +663,7 @@ export function AppointmentBook() {
                     value={filters.staff || 'All Employees'}
                     onValueChange={(value) => handleFilterChange('staff', value)}
                   >
-                    <SelectTrigger className="w-[160px]">
+                    <SelectTrigger className="w-full min-w-0 sm:w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -670,112 +685,103 @@ export function AppointmentBook() {
           </div>
         )}
 
-        {tabsValue === 'calendar' && (
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {(tabsValue === 'calendar' || tabsValue === 'list') && (
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             {loading ? (
-              <div className="relative flex min-h-[320px] flex-1 flex-col">
-                <PawStagedLoadingArea label={t('common.loading')} size="lg" className="min-h-0 flex-1" />
+              <div className="relative flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin shrink-0" aria-hidden />
+                <span className="text-sm">{t('common.loading')}</span>
               </div>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {weekJumpNoAvailability && filters.service !== 'Daycare' ? (
-                  <div
-                    className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-6 py-2 text-center text-sm text-amber-900 dark:text-amber-100"
-                    role="status"
-                  >
-                    {t('apptBook.noAvailabilityInWeek')}
-                  </div>
-                ) : null}
-                <PawRevealEnter className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                  {filters.service === 'Daycare' ? (
-                    <DaycareCalendarView
-                      selectedDate={selectedDate}
-                      appointments={displayCalendarAppointments}
-                      pets={pets}
-                      filters={filters}
-                      onFilterChange={handleFilterChange}
-                      onPreviousDay={handlePreviousPeriod}
-                      onNextDay={handleNextPeriod}
-                      onToday={handleToolbarToday}
-                      onCheckIn={(appointmentId) => {
-                        devConsole.log('Check in:', appointmentId);
-                      }}
-                      onCreateClick={() => openCreate()}
-                      canMarkNoShow={canMarkNoShow}
-                      onMarkNoShow={handleMarkNoShow}
-                      suppressHeader
-                    />
-                  ) : calendarScope === 'by-week' ? (
-                    <AppointmentBookWeekView
-                      weekDays={weekDays}
-                      employees={calendarEmployees}
-                      appointments={displayCalendarAppointments}
-                      selectedDate={selectedDate}
-                      dateLocale={dateFnsLocale}
-                      onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
-                      onCellClick={handleWeekCellClick}
-                    />
-                  ) : (
-                    <AppointmentBookDayGrid
-                      appointments={displayCalendarAppointments}
-                      employees={calendarEmployees}
-                      hoursPerDay={hoursPerDay}
-                      selectedDate={selectedDate}
-                      onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
-                      canMarkNoShow={canMarkNoShow}
-                      onMarkNoShow={handleMarkNoShow}
-                      onStaffQuickBook={(employeeId) => openCreate({ staffId: employeeId })}
-                    />
-                  )}
-                </PawRevealEnter>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                {tabsValue === 'calendar' ? (
+                  <>
+                    {weekJumpNoAvailability && filters.service !== 'Daycare' ? (
+                      <div
+                        className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-900 sm:px-6 dark:text-amber-100"
+                        role="status"
+                      >
+                        {t('apptBook.noAvailabilityInWeek')}
+                      </div>
+                    ) : null}
+                    {filters.service === 'Daycare' ? (
+                      <DaycareCalendarView
+                        selectedDate={selectedDate}
+                        appointments={displayCalendarAppointments}
+                        pets={pets}
+                        filters={filters}
+                        onFilterChange={handleFilterChange}
+                        onPreviousDay={handlePreviousPeriod}
+                        onNextDay={handleNextPeriod}
+                        onToday={handleToolbarToday}
+                        onCheckIn={(appointmentId) => {
+                          devConsole.log('Check in:', appointmentId);
+                        }}
+                        onCreateClick={() => openCreate()}
+                        canMarkNoShow={canMarkNoShow}
+                        onMarkNoShow={handleMarkNoShow}
+                        suppressHeader
+                      />
+                    ) : calendarScope === 'by-week' ? (
+                      <AppointmentBookWeekView
+                        weekDays={weekDays}
+                        employees={calendarEmployees}
+                        appointments={displayCalendarAppointments}
+                        selectedDate={selectedDate}
+                        dateLocale={dateFnsLocale}
+                        onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
+                        onCellClick={handleWeekCellClick}
+                      />
+                    ) : (
+                      <AppointmentBookDayGrid
+                        appointments={displayCalendarAppointments}
+                        employees={calendarEmployees}
+                        hoursPerDay={hoursPerDay}
+                        selectedDate={selectedDate}
+                        onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
+                        canMarkNoShow={canMarkNoShow}
+                        onMarkNoShow={handleMarkNoShow}
+                        onStaffQuickBook={(employeeId) => openCreate({ staffId: employeeId })}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <AppointmentBookListView
+                    appointments={appointments}
+                    pets={pets}
+                    clients={clients}
+                    services={services}
+                    employees={employees}
+                    calendarEmployees={calendarEmployees}
+                    selectedDate={selectedDate}
+                    onSelectDate={(d) => {
+                      clearWeekJump();
+                      setSelectedDate(startOfDay(d));
+                    }}
+                    onPreviousDay={() => {
+                      clearWeekJump();
+                      setSelectedDate((p) => subDays(p, 1));
+                    }}
+                    onNextDay={() => {
+                      clearWeekJump();
+                      setSelectedDate((p) => addDays(p, 1));
+                    }}
+                    onToday={() => {
+                      clearWeekJump();
+                      setSelectedDate(startOfDay(new Date()));
+                    }}
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    canMarkNoShow={canMarkNoShow}
+                    onMarkNoShow={handleMarkNoShow}
+                    onEdit={(apt) => {
+                      setEditingAppointment(apt);
+                      setEditDialogOpen(true);
+                    }}
+                    onClearFilters={clearFilters}
+                  />
+                )}
               </div>
-            )}
-          </div>
-        )}
-
-        {tabsValue === 'list' && (
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-            {loading ? (
-              <div className="relative flex min-h-[320px] flex-1 flex-col">
-                <PawStagedLoadingArea label={t('common.loading')} size="lg" className="min-h-0 flex-1" />
-              </div>
-            ) : (
-              <PawRevealEnter className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <AppointmentBookListView
-                  appointments={appointments}
-                  pets={pets}
-                  clients={clients}
-                  services={services}
-                  employees={employees}
-                  calendarEmployees={calendarEmployees}
-                  selectedDate={selectedDate}
-                  onSelectDate={(d) => {
-                    clearWeekJump();
-                    setSelectedDate(startOfDay(d));
-                  }}
-                  onPreviousDay={() => {
-                    clearWeekJump();
-                    setSelectedDate((p) => subDays(p, 1));
-                  }}
-                  onNextDay={() => {
-                    clearWeekJump();
-                    setSelectedDate((p) => addDays(p, 1));
-                  }}
-                  onToday={() => {
-                    clearWeekJump();
-                    setSelectedDate(startOfDay(new Date()));
-                  }}
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  canMarkNoShow={canMarkNoShow}
-                  onMarkNoShow={handleMarkNoShow}
-                  onEdit={(apt) => {
-                    setEditingAppointment(apt);
-                    setEditDialogOpen(true);
-                  }}
-                  onClearFilters={clearFilters}
-                />
-              </PawRevealEnter>
             )}
           </div>
         )}

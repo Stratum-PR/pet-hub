@@ -1,20 +1,21 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Plus, CheckCircle, LayoutGrid, List } from 'lucide-react';
+import type { Transaction, TransactionLineItem } from '@/types/transactions';
+import { useNavigate, Link } from 'react-router-dom';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
+import { Plus, CheckCircle, LayoutGrid, List, Loader2 } from 'lucide-react';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SearchFilter } from '@/components/SearchFilter';
 import { useBusinessId } from '@/hooks/useBusinessId';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useTransactions, resolveDemoLocalTransactionEntries } from '@/hooks/useTransactions';
 import { useClientNames, useSettings } from '@/hooks/useSupabaseData';
 import { useNotifications } from '@/hooks/useNotifications';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getPaymentStatusLabel } from '@/types/transactions';
-import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
@@ -51,12 +52,36 @@ function centsToDollars(cents: number): string {
 }
 
 export function Transactions() {
-  const { businessSlug } = useParams();
+  const businessSlug = useResolvedBusinessSlug();
   const navigate = useNavigate();
   const { user } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
   const businessId = useBusinessId();
-  const { transactions: rawTransactions, loading, loadingMore, hasMore, loadMore, updateTransaction, error: fetchError, refetch } = useTransactions();
+  const { transactions: rawTransactions, loading, loadingMore, hasMore, loadMore, updateTransaction, error: fetchError, refetch } =
+    useTransactions();
+
+  const transactionNavigateState = useCallback(
+    (txn: Transaction): { transaction: Transaction; lineItems?: TransactionLineItem[] } => {
+      if (businessId && txn.id.startsWith('local-')) {
+        const entries = resolveDemoLocalTransactionEntries(businessId, user?.id);
+        const entry = entries.find((e) => e.transaction.id === txn.id);
+        if (entry) {
+          return { transaction: entry.transaction, lineItems: entry.lineItems };
+        }
+      }
+      return { transaction: txn };
+    },
+    [businessId, user?.id],
+  );
+
+  const goToTransaction = useCallback(
+    (txn: Transaction) => {
+      const path = businessSlug ? `/${businessSlug}/transactions/${txn.id}` : `/transactions/${txn.id}`;
+      const st = transactionNavigateState(txn);
+      navigate(path, { state: st });
+    },
+    [businessSlug, navigate, transactionNavigateState],
+  );
   const { clients } = useClientNames();
   const { settings } = useSettings();
   const { createNotification } = useNotifications(settings);
@@ -222,8 +247,9 @@ export function Transactions() {
         <Card>
           <CardContent className="p-0">
           {loading ? (
-            <div className="relative min-h-[220px] py-6">
-              <PawStagedLoadingArea label="Loading transactions" compact size="md" />
+            <div className="relative flex min-h-[220px] flex-col items-center justify-center gap-3 py-6 text-muted-foreground">
+              <Loader2 className="h-7 w-7 animate-spin shrink-0" aria-hidden />
+              <span className="text-sm">Loading transactions</span>
             </div>
           ) : fetchError ? (
             <div className="py-8 text-center space-y-2">
@@ -250,8 +276,7 @@ export function Transactions() {
                   txn.transaction_number != null
                     ? `TXN-${String(txn.transaction_number).padStart(5, '0')}`
                     : txn.id.slice(0, 8);
-                const go = () =>
-                  navigate(businessSlug ? `/${businessSlug}/transactions/${txn.id}` : `/transactions/${txn.id}`);
+                const go = () => goToTransaction(txn);
                 return (
                   <Card
                     key={txn.id}
@@ -341,9 +366,7 @@ export function Transactions() {
                       <tr
                         key={txn.id}
                         className="border-t hover:bg-muted/50 cursor-pointer"
-                        onClick={() =>
-                          navigate(businessSlug ? `/${businessSlug}/transactions/${txn.id}` : `/transactions/${txn.id}`)
-                        }
+                        onClick={() => goToTransaction(txn)}
                       >
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2 font-mono">
