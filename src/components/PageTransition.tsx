@@ -9,7 +9,7 @@ interface PageTransitionProps {
 
 function suppressPageTransitionRevealStagger(pathname: string): boolean {
   const parts = pathname.split('/').filter(Boolean);
-  return parts.includes('appt-book') || parts.includes('transactions');
+  return parts.includes('appt-book') || parts.includes('transactions') || parts.includes('time-kiosk');
 }
 
 /** Cover rolls down over old page (on top, z-index high). New page content reveals after with left-to-right, top-to-bottom stagger. */

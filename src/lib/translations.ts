@@ -1431,6 +1431,14 @@ export const translations: Translations = {
     en: 'By Week',
     es: 'Por semana'
   },
+  'apptBook.calendarViewScope': {
+    en: 'Switch between day and week calendar',
+    es: 'Cambiar vista del calendario (día o semana)'
+  },
+  'apptBook.weekMobileDayEmpty': {
+    en: 'No appointments this day.',
+    es: 'No hay citas este día.'
+  },
   'apptBook.filterCalendar': {
     en: 'Filter calendar',
     es: 'Filtrar calendario'

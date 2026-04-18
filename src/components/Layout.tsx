@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
-import { Menu, LogOut, Bell, LayoutDashboard } from 'lucide-react';
+import { Menu, LogOut, Bell, LayoutDashboard, User } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import {
 import { Settings as SettingsType } from '@/hooks/useSupabaseData';
 import { t } from '@/lib/translations';
 import { signOut } from '@/lib/auth';
-import { setDemoMode, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
+import { setDemoMode, setAuthContext, AUTH_CONTEXTS, isDemoMode } from '@/lib/authRouting';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -45,6 +45,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import type { SuperAdminViewerTier } from '@/lib/featureRollout';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { clearStaffSummaryFilterIfOutsidePayroll } from '@/lib/timesheetsStaffSummaryFilterStorage';
 import { devConsole } from '@/lib/clientDebug';
 
@@ -222,6 +223,11 @@ export function Layout({ children, settings }: LayoutProps) {
   const isHelpPage = /\/help\/?$/.test(location.pathname);
   /** Full-height in-layout scroll (calendar grid); avoid whole-page scroll so the grid fits the viewport. */
   const isApptBookPage = /\/appt-book(\/|$)/.test(location.pathname);
+  const isTimeKioskPage = /\/time-kiosk(\/|$)/.test(location.pathname);
+  /** Demo punch preview: lock main to viewport so the page fits without scrolling (mobile). */
+  const timeKioskDemoViewportFit =
+    isTimeKioskPage &&
+    (isPublicDemoPath(location.pathname) || isDemoMode() || isDemoWorkspaceBusiness(businessId));
   const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
   /** Match `/:businessSlug/dashboard` without relying on `useParams` (avoids missed triggers). */
   const isDashboardPath = /^\/[^/]+\/dashboard$/.test(normalizedPath);
@@ -229,9 +235,6 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const [displayTitle, setDisplayTitle] = useState(pageTitle);
   const [prevTitle, setPrevTitle] = useState<string | null>(null);
-  /** Wider of old/new title so the in-flow probe sizes the absolute title stack; keeps BETA beside the text, not at column edge. */
-  const titleLayoutProbe =
-    prevTitle != null && prevTitle.length > displayTitle.length ? prevTitle : displayTitle;
 
   useEffect(() => {
     if (pageTitle === displayTitle && !prevTitle) return;
@@ -346,21 +349,15 @@ export function Layout({ children, settings }: LayoutProps) {
               >
                 <Menu className="w-5 h-5" />
               </Button>
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <div
                   className={cn(
-                    'relative h-8 min-w-0',
+                    'relative h-8 min-w-0 flex-1 overflow-hidden',
                     demoLocalOnly
-                      ? 'max-w-[min(calc(100vw-6.5rem),28rem)] md:max-w-[min(calc(100vw-13rem),26rem)]'
-                      : 'max-w-[min(calc(100vw-11rem),22rem)] sm:max-w-[min(calc(100vw-13rem),26rem)]'
+                      ? 'md:max-w-[min(calc(100vw-13rem),28rem)]'
+                      : 'md:max-w-[min(calc(100vw-16rem),26rem)]',
                   )}
                 >
-                  <span
-                    className="invisible block select-none truncate whitespace-nowrap text-lg font-semibold"
-                    aria-hidden
-                  >
-                    {titleLayoutProbe}
-                  </span>
                   <div className="absolute inset-0 overflow-hidden">
                     {prevTitle && (
                       <div
@@ -371,6 +368,7 @@ export function Layout({ children, settings }: LayoutProps) {
                       </div>
                     )}
                     <h1
+                      title={displayTitle}
                       className={`absolute inset-0 m-0 flex items-center text-lg font-semibold ${prevTitle ? 'opacity-0 animate-fade-in-up' : ''}`}
                     >
                       <span className="min-w-0 truncate">{displayTitle}</span>
@@ -379,7 +377,7 @@ export function Layout({ children, settings }: LayoutProps) {
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="shrink-0 cursor-default rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    <span className="hidden shrink-0 cursor-default rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary sm:inline">
                       BETA
                     </span>
                   </TooltipTrigger>
@@ -399,7 +397,7 @@ export function Layout({ children, settings }: LayoutProps) {
               <LanguageSwitcher
                 variant="ghost"
                 size="sm"
-                className="text-foreground hover:bg-muted/80 hover:text-foreground h-9 rounded-full px-2.5"
+                className="h-9 shrink-0 rounded-full px-2.5 text-foreground hover:bg-muted/80 hover:text-foreground max-sm:px-2 max-sm:[&>span]:sr-only"
               />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -501,9 +499,17 @@ export function Layout({ children, settings }: LayoutProps) {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="h-9 max-w-[min(100vw-12rem,220px)] px-2 font-normal text-foreground hover:bg-muted/80"
+                    className="h-9 max-w-[min(100vw-12rem,220px)] px-2 font-normal text-foreground hover:bg-muted/80 max-sm:max-w-10 max-sm:min-w-10 max-sm:justify-center max-sm:px-0"
+                    aria-label={
+                      onDemoWorkspace
+                        ? t('layout.demoUserName')
+                        : profile?.full_name?.trim() ||
+                            profile?.email?.trim() ||
+                            (demoLocalOnly ? t('layout.demoProfileMenuLabel') : t('layout.accountLabel'))
+                    }
                   >
-                    <span className="truncate">
+                    <User className="hidden h-4 w-4 shrink-0 max-sm:block" aria-hidden />
+                    <span className="truncate max-sm:sr-only">
                       {onDemoWorkspace
                         ? t('layout.demoUserName')
                         : profile?.full_name?.trim() ||
@@ -642,13 +648,13 @@ export function Layout({ children, settings }: LayoutProps) {
             data-print-scroll-region
             className={cn(
               'flex min-h-0 flex-1 flex-col overflow-x-hidden print:h-auto print:min-h-0 print:overflow-visible',
-              isHelpPage || isApptBookPage ? 'overflow-y-hidden' : 'overflow-y-auto',
+              isHelpPage || isApptBookPage || timeKioskDemoViewportFit ? 'overflow-y-hidden' : 'overflow-y-auto',
             )}
           >
             <main
               className={cn(
                 'flex w-full flex-1 flex-col px-4 lg:px-6 print:overflow-visible print:min-h-0',
-                isHelpPage || isApptBookPage
+                isHelpPage || isApptBookPage || timeKioskDemoViewportFit
                   ? 'min-h-0 overflow-hidden py-3 print:overflow-visible'
                   : 'min-h-0 overflow-x-hidden py-6',
               )}

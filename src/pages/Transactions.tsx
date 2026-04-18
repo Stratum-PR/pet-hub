@@ -195,9 +195,9 @@ export function Transactions() {
   }, [rawTransactions, searchTerm, getCustomerName]);
 
   return (
-    <div ref={pageLoadRef} className="space-y-6 animate-fade-in" data-transition-root>
+    <div ref={pageLoadRef} className="min-w-0 space-y-6 animate-fade-in" data-transition-root>
       <div
-        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap min-w-0"
+        className="flex w-full min-w-0 flex-col flex-wrap items-stretch gap-3 sm:flex-row sm:items-center"
         data-page-toolbar
         data-page-search
       >
@@ -286,13 +286,11 @@ export function Transactions() {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-mono text-sm font-medium">{displayId}</div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <div className="font-mono text-sm font-medium break-all">{displayId}</div>
+                          <p className="text-xs text-muted-foreground mt-0.5 break-words">
                             {format(new Date(txn.created_at), 'PPp')}
                           </p>
-                          <p className="font-medium mt-2 truncate" title={name}>
-                            {name}
-                          </p>
+                          <p className="mt-2 font-medium break-words">{name}</p>
                         </div>
                         {!isFullyPaid(txn) ? (
                           <Button
@@ -342,55 +340,46 @@ export function Transactions() {
               })}
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border-0 bg-card" data-table-load>
-              <table className="w-full text-sm">
-                <thead className="bg-muted/60">
-                  <tr>
-                    <th className="text-left py-3 px-2 font-medium">ID</th>
-                    <th className="text-left py-3 px-2 font-medium">{t('transactions.date')}</th>
-                    <th className="text-left py-3 px-2 font-medium">{t('transactions.customer')}</th>
-                    <th className="text-right py-3 px-2 font-medium">{t('transactions.amountPaid')}</th>
-                    <th className="text-right py-3 px-2 font-medium">{t('transactions.totalDue')}</th>
-                    <th className="text-left py-3 px-2 font-medium">{t('transactions.status')}</th>
-                    <th className="text-left py-3 px-2 font-medium">{t('transactions.payment')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((txn) => {
-                    const name = getCustomerName(txn.customer_id);
-                    const displayId =
-                      txn.transaction_number != null
-                        ? `TXN-${String(txn.transaction_number).padStart(5, '0')}`
-                        : txn.id.slice(0, 8);
-                    return (
-                      <tr
-                        key={txn.id}
-                        className="border-t hover:bg-muted/50 cursor-pointer"
+            <>
+              <ul className="space-y-3 p-4 lg:hidden" data-transactions-list-mobile>
+                {filtered.map((txn) => {
+                  const name = getCustomerName(txn.customer_id);
+                  const displayId =
+                    txn.transaction_number != null
+                      ? `TXN-${String(txn.transaction_number).padStart(5, '0')}`
+                      : txn.id.slice(0, 8);
+                  const statusLabel =
+                    txn.status === 'void' || txn.status === 'refunded' || txn.status === 'partial_refund'
+                      ? (STATUS_LABELS[txn.status] || txn.status)
+                      : getPaymentStatusLabel(txn.amount_tendered ?? 0, txn.total);
+                  return (
+                    <li key={txn.id} className="rounded-lg border border-border bg-card p-3 shadow-sm">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="min-w-0 cursor-pointer space-y-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         onClick={() => goToTransaction(txn)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            goToTransaction(txn);
+                          }
+                        }}
                       >
-                        <td className="py-3 px-2">
-                          <div className="flex items-center gap-2 font-mono">
-                            <span>{displayId}</span>
-                            {!isFullyPaid(txn) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs shrink-0"
-                                disabled={demoBrowseOnly}
-                                title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
-                                onClick={(e) => handleMarkAsPaid(e, txn)}
-                              >
-                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                {t('transactions.markAsPaid')}
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-2">{format(new Date(txn.created_at), 'PPp')}</td>
-                        <td className="py-3 px-2">{name}</td>
-                        <td className="py-3 px-2 text-right">${centsToDollars(txn.amount_tendered ?? 0)}</td>
-                        <td className="py-3 px-2 text-right font-medium">${centsToDollars(txn.total)}</td>
-                        <td className="py-3 px-2">
+                        <div className="font-mono text-sm font-medium break-all">{displayId}</div>
+                        <p className="text-xs text-muted-foreground break-words">
+                          {format(new Date(txn.created_at), 'PPp')}
+                        </p>
+                        <p className="font-medium break-words">{name}</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          <span>
+                            {t('transactions.amountPaid')}: ${centsToDollars(txn.amount_tendered ?? 0)}
+                          </span>
+                          <span className="font-semibold text-foreground">
+                            {t('transactions.totalDue')}: ${centsToDollars(txn.total)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
                           <Badge
                             variant={
                               txn.status === 'refunded' || txn.status === 'partial_refund' || txn.status === 'void'
@@ -400,18 +389,122 @@ export function Transactions() {
                                   : 'secondary'
                             }
                           >
-                            {txn.status === 'void' || txn.status === 'refunded' || txn.status === 'partial_refund'
-                              ? (STATUS_LABELS[txn.status] || txn.status)
-                              : getPaymentStatusLabel(txn.amount_tendered ?? 0, txn.total)}
+                            {statusLabel}
                           </Badge>
-                        </td>
-                        <td className="py-3 px-2">{PAYMENT_METHOD_LABELS[txn.payment_method] || txn.payment_method}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <span className="text-xs text-muted-foreground break-words">
+                            {PAYMENT_METHOD_LABELS[txn.payment_method] || txn.payment_method}
+                          </span>
+                        </div>
+                      </div>
+                      {!isFullyPaid(txn) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 w-full gap-1 sm:w-auto"
+                          disabled={demoBrowseOnly}
+                          title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
+                          onClick={(e) => handleMarkAsPaid(e, txn)}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                          {t('transactions.markAsPaid')}
+                        </Button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="hidden min-w-0 overflow-x-auto p-0 lg:block" data-table-load>
+                <table className="w-full min-w-0 text-sm table-fixed">
+                  <thead className="bg-muted/60">
+                    <tr>
+                      <th className="w-[18%] px-2 py-3 text-left text-xs font-medium sm:text-sm">ID</th>
+                      <th className="w-[18%] px-2 py-3 text-left text-xs font-medium sm:text-sm">
+                        {t('transactions.date')}
+                      </th>
+                      <th className="px-2 py-3 text-left text-xs font-medium sm:text-sm">
+                        {t('transactions.customer')}
+                      </th>
+                      <th className="w-[10%] px-2 py-3 text-right text-xs font-medium whitespace-nowrap sm:text-sm">
+                        {t('transactions.amountPaid')}
+                      </th>
+                      <th className="w-[10%] px-2 py-3 text-right text-xs font-medium whitespace-nowrap sm:text-sm">
+                        {t('transactions.totalDue')}
+                      </th>
+                      <th className="w-[14%] px-2 py-3 text-left text-xs font-medium sm:text-sm">
+                        {t('transactions.status')}
+                      </th>
+                      <th className="w-[12%] px-2 py-3 text-left text-xs font-medium sm:text-sm">
+                        {t('transactions.payment')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((txn) => {
+                      const name = getCustomerName(txn.customer_id);
+                      const displayId =
+                        txn.transaction_number != null
+                          ? `TXN-${String(txn.transaction_number).padStart(5, '0')}`
+                          : txn.id.slice(0, 8);
+                      return (
+                        <tr
+                          key={txn.id}
+                          className="cursor-pointer border-t hover:bg-muted/50"
+                          onClick={() => goToTransaction(txn)}
+                        >
+                          <td className="px-2 py-3 align-top">
+                            <div className="space-y-2 font-mono text-xs break-all sm:text-sm">
+                              <span className="block">{displayId}</span>
+                              {!isFullyPaid(txn) ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  disabled={demoBrowseOnly}
+                                  title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
+                                  onClick={(e) => handleMarkAsPaid(e, txn)}
+                                >
+                                  <CheckCircle className="mr-1 h-3.5 w-3.5 shrink-0" />
+                                  {t('transactions.markAsPaid')}
+                                </Button>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3 align-top break-words text-xs sm:text-sm">
+                            {format(new Date(txn.created_at), 'PPp')}
+                          </td>
+                          <td className="px-2 py-3 align-top break-words">{name}</td>
+                          <td className="px-2 py-3 align-top text-right whitespace-nowrap">
+                            ${centsToDollars(txn.amount_tendered ?? 0)}
+                          </td>
+                          <td className="px-2 py-3 align-top text-right font-medium whitespace-nowrap">
+                            ${centsToDollars(txn.total)}
+                          </td>
+                          <td className="px-2 py-3 align-top">
+                            <Badge
+                              variant={
+                                txn.status === 'refunded' || txn.status === 'partial_refund' || txn.status === 'void'
+                                  ? 'destructive'
+                                  : (txn.amount_tendered ?? 0) >= txn.total
+                                    ? 'default'
+                                    : 'secondary'
+                              }
+                              className="max-w-full whitespace-normal text-left"
+                            >
+                              {txn.status === 'void' || txn.status === 'refunded' || txn.status === 'partial_refund'
+                                ? (STATUS_LABELS[txn.status] || txn.status)
+                                : getPaymentStatusLabel(txn.amount_tendered ?? 0, txn.total)}
+                            </Badge>
+                          </td>
+                          <td className="px-2 py-3 align-top break-words text-xs sm:text-sm">
+                            {PAYMENT_METHOD_LABELS[txn.payment_method] || txn.payment_method}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
           {!loading && hasMore && (
             <div className="flex justify-center pt-4 pb-2">

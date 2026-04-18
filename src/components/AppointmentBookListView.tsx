@@ -280,7 +280,7 @@ export function AppointmentBookListView({
   }, [displayRows, pets, clients, services, employees, t]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background max-sm:h-auto max-sm:min-h-0">
       <div className="shrink-0 border-b border-border bg-muted/30 px-3 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
@@ -417,7 +417,7 @@ export function AppointmentBookListView({
         </div>
       </div>
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto px-3 py-3 sm:px-6 sm:py-4">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto px-3 py-3 max-sm:flex-none max-sm:overflow-visible sm:px-6 sm:py-4">
         {displayRows.length === 0 ? (
           <p className="py-12 text-center text-muted-foreground">{t('apptBook.noMatchingRows')}</p>
         ) : (

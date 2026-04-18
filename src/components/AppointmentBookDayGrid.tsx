@@ -124,13 +124,13 @@ export function AppointmentBookDayGrid({
   }, [appointments]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background max-sm:h-auto max-sm:min-h-0">
       {categorySegments.length > 0 ? (
-        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-muted/20 px-3 py-2">
+        <div className="flex shrink-0 flex-wrap gap-1 border-b border-border bg-muted/20 px-3 py-2 sm:flex-nowrap sm:overflow-x-auto">
           {categorySegments.map(({ name, color }) => (
             <div
               key={name}
-              className="min-w-0 max-w-[200px] flex-1 truncate rounded-md px-2 py-1.5 text-center text-xs font-semibold text-foreground shadow-sm"
+              className="min-w-0 max-w-full shrink-0 rounded-md px-2 py-1.5 text-center text-xs font-semibold text-foreground shadow-sm sm:max-w-[200px] sm:flex-1 sm:truncate"
               style={{ backgroundColor: color }}
               title={name}
             >
@@ -140,7 +140,7 @@ export function AppointmentBookDayGrid({
         </div>
       ) : null}
 
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto max-sm:flex-none max-sm:overflow-visible">
         <div className="min-h-full w-full min-w-0 align-top">
           <div className="sticky top-0 z-30 flex w-full min-w-0 border-b border-border bg-card">
             <div className="sticky left-0 z-40 w-12 shrink-0 border-r border-border bg-muted/30 sm:w-16" />
