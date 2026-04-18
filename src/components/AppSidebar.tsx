@@ -50,6 +50,7 @@ import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
 import { DEFAULT_BUSINESS_BRANDING_LAYOUT } from '@/lib/businessBrandingLayout';
 import { BrandingIconCompact, BrandingLogoSidebarExpanded } from '@/components/BrandingMark';
 import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
+import { DEMO_WORKSPACE_BUSINESS_ID, isPublicDemoPath } from '@/lib/demoWorkspace';
 
 const SIDEBAR_COLLAPSED_KEY = 'pet-hub-sidebar-collapsed';
 
@@ -113,12 +114,15 @@ export function AppSidebar({
   const businessSlug = useResolvedBusinessSlug();
   const location = useLocation();
   const { theme, setTheme } = useTheme();
-  const { role, staffId } = useAuth();
+  const { role, staffId, business } = useAuth();
   const { employees: navEmployees, loading: navEmployeesLoading } = useEmployees();
   const { isFeatureVisible } = useFeatureRollout();
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
+
+  const demoWorkspaceNav =
+    isPublicDemoPath(location.pathname) || business?.id === DEMO_WORKSPACE_BUSINESS_ID;
 
   const featureGateSnapshot = {
     appointments: isFeatureVisible('appointments'),
@@ -292,7 +296,11 @@ export function AppSidebar({
 
   const visibleMainNavItems = mainNavItems.filter((item) => {
     if (item.path === 'appointments') return isFeatureVisible('appointments');
-    if (item.path.startsWith('appt-book')) return isFeatureVisible('appointment_book');
+    if (item.path.startsWith('appt-book')) {
+      if (!isFeatureVisible('appointment_book')) return false;
+      if (mobile && demoWorkspaceNav) return false;
+      return true;
+    }
     if (item.path === 'inventory') return isFeatureVisible('inventory');
     if (item.path === 'transactions') return isFeatureVisible('transactions_list');
     return true;
