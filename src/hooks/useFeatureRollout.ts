@@ -17,7 +17,8 @@ import { DEMO_WORKSPACE_BUSINESS_ID, isPublicDemoPath } from '@/lib/demoWorkspac
 
 /** Public demo URL or logged-in profile on the seeded demo tenant — bypass subscription/role gates for these tabs. */
 const DEMO_WORKSPACE_NAV_FEATURE_KEYS = new Set<FeatureKey>([
-  // Not 'appointments': demo nav shows Reservar cita (appointment_book) only, not the Citas list route.
+  /** Citas list: needed for deep links (e.g. Past appointments from Pets). Reservar cita is hidden from the mobile demo sidebar in AppSidebar. */
+  'appointments',
   'appointment_book',
   'inventory',
   'transactions_list',
@@ -128,9 +129,6 @@ export function useFeatureRollout() {
 
   const isFeatureVisible = useCallback(
     (key: FeatureKey): boolean => {
-      if (isDemoWorkspaceNav && key === 'appointments') {
-        return false;
-      }
       if (isDemoWorkspaceNav && DEMO_WORKSPACE_NAV_FEATURE_KEYS.has(key)) {
         return true;
       }
