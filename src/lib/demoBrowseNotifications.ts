@@ -1,4 +1,4 @@
-import { getDemoStaffSeed, isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 
 function localDayKey(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -33,11 +33,11 @@ export function markDemoBrowseNotificationsAllRead(businessId: string, ids: stri
   sessionStorage.setItem(readKey(businessId), JSON.stringify([...s]));
 }
 
-/** Inbox rows for anonymous /demo so the bell can show a sample birthday workflow (no Supabase user). */
+/** Inbox rows for anonymous /demo (no Supabase user). Birthday samples removed — bell stays clean on demo. */
 export function buildDemoBrowseSyntheticNotifications(
   businessId: string,
-  notifyBirthdaysEnabled: boolean,
-  businessName: string
+  _notifyBirthdaysEnabled: boolean,
+  _businessName: string
 ): Array<{
   id: string;
   user_id: string;
@@ -50,36 +50,6 @@ export function buildDemoBrowseSyntheticNotifications(
   staff_id?: string | null;
   metadata?: unknown;
 }> {
-  if (!isDemoWorkspaceBusiness(businessId) || !notifyBirthdaysEnabled) return [];
-  const mgr = getDemoStaffSeed().find((s) => s.access_role === 'admin' || s.access_role === 'manager');
-  if (!mgr) return [];
-  const n = new Date();
-  if (mgr.birth_month !== n.getMonth() + 1 || mgr.birth_day !== n.getDate()) return [];
-  const label = businessName.trim() || 'Demo';
-  return [
-    {
-      id: 'demo-synthetic-birthday-team',
-      user_id: '00000000-0000-0000-0000-000000000000',
-      business_id: businessId,
-      message: `🎉 Birthday Today! ${mgr.name}'s birthday is today!`,
-      product_id: null,
-      read: false,
-      created_at: new Date().toISOString(),
-      notification_type: 'birthday_team',
-      staff_id: mgr.id,
-      metadata: { kind: 'employee_birthday_team', employee_name: mgr.name, demo_browse: true },
-    },
-    {
-      id: 'demo-synthetic-birthday-hint',
-      user_id: '00000000-0000-0000-0000-000000000000',
-      business_id: businessId,
-      message: `Demo: Sign in to save staff birthdays and receive real notifications in ${label}.`,
-      product_id: null,
-      read: false,
-      created_at: new Date().toISOString(),
-      notification_type: 'general',
-      staff_id: null,
-      metadata: { demo_browse: true },
-    },
-  ];
+  if (!isDemoWorkspaceBusiness(businessId)) return [];
+  return [];
 }

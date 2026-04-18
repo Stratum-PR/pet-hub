@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { Plus, Trash2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,7 @@ function fromCents(c: number): number {
 }
 
 export function TransactionCreate() {
-  const { businessSlug } = useParams();
+  const businessSlug = useResolvedBusinessSlug();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const urlAppointmentId = searchParams.get('appointmentId');

@@ -236,15 +236,36 @@ export function AppSidebar({
   const compactImageUrl = businessIconUrl || businessLogoUrl || null;
   const expandedLogoUrl = businessLogoUrl || null;
   const showBrandImage = useCompactBrand ? !!compactImageUrl : !!expandedLogoUrl;
-  const linkClass = (active: boolean, isCollapsedNav = false) =>
-    cn(
-      'flex items-center gap-3 rounded-full text-sm font-medium transition-all duration-200 min-w-0',
-      isCollapsedNav ? 'justify-center w-10 h-9 flex-shrink-0' : 'rounded-full w-10 h-9 flex-shrink-0 justify-center sm:justify-start sm:w-full sm:px-3 sm:py-1 sm:h-auto',
-      mobile && !isCollapsedNav && 'justify-start w-full px-3 py-1.5 h-auto',
+  /** Wrap long labels (e.g. Spanish) instead of clipping with ellipsis in narrow sidebars. */
+  const navItemLabelClass =
+    'min-w-0 text-left leading-snug break-words [overflow-wrap:anywhere]';
+  /** Fixed slot so every label starts on the same x regardless of Lucide stroke bounds. */
+  const navIconSlotClass =
+    'flex size-9 shrink-0 items-center justify-center rounded-full bg-inherit [&_svg]:shrink-0';
+  /** Expanded rows: grid keeps icon / label / chevron on one alignment track (flex + buttons was drifting). */
+  const linkClass = (
+    active: boolean,
+    isCollapsedNav = false,
+    opts: { trail?: boolean } = {}
+  ) => {
+    const { trail = false } = opts;
+    return cn(
+      'rounded-full text-sm font-medium transition-all duration-200 min-w-0',
+      isCollapsedNav
+        ? 'flex h-9 w-10 shrink-0 items-center justify-center gap-0'
+        : mobile
+          ? cn('flex w-full min-w-0 items-center gap-2.5 px-3 py-2')
+          : cn(
+              'grid w-full items-center gap-x-2.5 px-3 py-2 sm:gap-x-3',
+              trail
+                ? 'grid-cols-[2.25rem_minmax(0,1fr)_auto]'
+                : 'grid-cols-[2.25rem_minmax(0,1fr)]'
+            ),
       active
         ? 'bg-primary text-primary-foreground'
         : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
     );
+  };
 
   const NavLink = ({ path, labelKey, label, icon: Icon }: { path: string; labelKey?: string; label?: string; icon: React.ElementType }) => {
     const to = `${basePath}/${path}`;
@@ -259,10 +280,12 @@ export function AppSidebar({
     const collapsedNav = collapsed && !mobile;
     return (
       <Link to={to} className={linkClass(active, collapsedNav)}>
-        <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-          <Icon className="h-5 w-5 shrink-0" />
+        <span className={navIconSlotClass}>
+          <Icon className="h-5 w-5" aria-hidden />
         </span>
-        {(!collapsed || mobile) && <span className="truncate">{labelKey ? t(labelKey) : label}</span>}
+        {(!collapsed || mobile) && (
+          <span className={cn(navItemLabelClass, mobile && 'flex-1')}>{labelKey ? t(labelKey) : label}</span>
+        )}
       </Link>
     );
   };
@@ -288,7 +311,7 @@ export function AppSidebar({
           ? 'w-full bg-sidebar border-sidebar-border'
           : cn(
               'h-[calc(100%-0px)] rounded-xl shadow-sm border-0 flex-shrink-0 bg-sidebar backdrop-blur-md dark:backdrop-blur-none',
-              collapsed ? 'w-[72px] min-w-[72px]' : 'w-60 min-w-[240px]'
+              collapsed ? 'w-[72px] min-w-[72px]' : 'w-64 min-w-[256px]'
             )
       )}
     >
@@ -368,10 +391,10 @@ export function AppSidebar({
               to={isEmployeeRole ? `${basePath}/${employeeHomeSegment}` : `${basePath}/dashboard`}
               className={linkClass(false, collapsed && !mobile)}
             >
-              <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                <LayoutDashboard className="h-5 w-5 shrink-0" />
+              <span className={navIconSlotClass}>
+                <LayoutDashboard className="h-5 w-5" aria-hidden />
               </span>
-              {(!collapsed || mobile) && <span className="truncate">{t('nav.backToApp')}</span>}
+              {(!collapsed || mobile) && <span className={navItemLabelClass}>{t('nav.backToApp')}</span>}
             </Link>
             {isEmployeeRole ? (
               accountSettingsVisibleNav ? (
@@ -406,10 +429,10 @@ export function AppSidebar({
                           href={`${basePath}/settings/business#${item.id}`}
                           className={linkClass(businessAnchorActive(item.id), collapsedNav)}
                         >
-                          <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
+                          <span className={navIconSlotClass}>
                             <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" aria-hidden />
                           </span>
-                          {(!collapsed || mobile) && <span className="truncate">{t(item.labelKey)}</span>}
+                          {(!collapsed || mobile) && <span className={navItemLabelClass}>{t(item.labelKey)}</span>}
                         </a>
                       );
                     })}
@@ -434,12 +457,12 @@ export function AppSidebar({
                   <div className="w-full flex justify-center">
                     <DropdownMenuTrigger asChild>
                       <button className={cn('w-full', linkClass(staffNavSectionActive, true))}>
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                          <UserCog className="h-5 w-5 shrink-0" />
+                        <span className={navIconSlotClass}>
+                          <UserCog className="h-5 w-5" aria-hidden />
                         </span>
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent side="right" align="start" className="w-48">
+                    <DropdownMenuContent side="right" align="start" className="min-w-[12rem] max-w-[min(90vw,20rem)]">
                       {employeeItems.map((item) => (
                         <DropdownMenuItem key={item.path} asChild>
                           <Link to={`${basePath}/${item.path}`}>
@@ -454,12 +477,12 @@ export function AppSidebar({
                   <div className="w-full flex justify-center">
                     <DropdownMenuTrigger asChild>
                       <button className={cn('w-full', linkClass(location.pathname.includes('reports'), true))}>
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                          <BarChart3 className="h-5 w-5 shrink-0" />
+                        <span className={navIconSlotClass}>
+                          <BarChart3 className="h-5 w-5" aria-hidden />
                         </span>
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent side="right" align="start" className="w-48">
+                    <DropdownMenuContent side="right" align="start" className="min-w-[12rem] max-w-[min(90vw,20rem)]">
                       {reportsItems.map((item) => (
                         <DropdownMenuItem key={item.path} asChild>
                           <Link to={`${basePath}/${item.path}`}>
@@ -475,15 +498,26 @@ export function AppSidebar({
               <>
                 <Collapsible open={employeesOpen} onOpenChange={setEmployeesOpen}>
                   <div className="w-full">
-                    <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(staffNavSectionActive))}>
-                      <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                        <UserCog className="h-5 w-5 shrink-0" />
+                    <CollapsibleTrigger
+                      className={cn('w-full min-w-0', linkClass(staffNavSectionActive, false, { trail: true }))}
+                    >
+                      <span className={navIconSlotClass}>
+                        <UserCog className="h-5 w-5" aria-hidden />
                       </span>
-                      {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.employees')}</span>}
-                      {(!collapsed || mobile) && (employeesOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
+                      {(!collapsed || mobile) && (
+                        <span className={cn(navItemLabelClass, 'font-medium', mobile && 'flex-1')}>
+                          {t('nav.employees')}
+                        </span>
+                      )}
+                      {(!collapsed || mobile) &&
+                        (employeesOpen ? (
+                          <ChevronDown className="size-4 shrink-0 opacity-70" aria-hidden />
+                        ) : (
+                          <ChevronRight className="size-4 shrink-0 opacity-70" aria-hidden />
+                        ))}
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
+                      <div className="ml-1.5 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-2 sm:ml-2 sm:pl-3">
                         {employeeItems.map((item) => (
                           <NavLink key={item.path} path={item.path} labelKey={item.path === 'employee-schedule' ? scheduleLabelKey : item.labelKey} icon={item.icon} />
                         ))}
@@ -494,15 +528,29 @@ export function AppSidebar({
 
                 <Collapsible open={reportsOpen} onOpenChange={setReportsOpen}>
                   <div className="w-full">
-                    <CollapsibleTrigger className={cn('w-full min-w-0', linkClass(location.pathname.includes('reports')))}>
-                      <span className="flex items-center justify-center w-8 h-8 rounded-full flex-shrink-0 bg-inherit">
-                        <BarChart3 className="h-5 w-5 shrink-0" />
+                    <CollapsibleTrigger
+                      className={cn(
+                        'w-full min-w-0',
+                        linkClass(location.pathname.includes('reports'), false, { trail: true })
+                      )}
+                    >
+                      <span className={navIconSlotClass}>
+                        <BarChart3 className="h-5 w-5" aria-hidden />
                       </span>
-                      {(!collapsed || mobile) && <span className="flex-1 min-w-0 text-left truncate">{t('nav.reports')}</span>}
-                      {(!collapsed || mobile) && (reportsOpen ? <ChevronDown className="h-4 w-4 shrink-0 opacity-70" /> : <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />)}
+                      {(!collapsed || mobile) && (
+                        <span className={cn(navItemLabelClass, 'font-medium', mobile && 'flex-1')}>
+                          {t('nav.reports')}
+                        </span>
+                      )}
+                      {(!collapsed || mobile) &&
+                        (reportsOpen ? (
+                          <ChevronDown className="size-4 shrink-0 opacity-70" aria-hidden />
+                        ) : (
+                          <ChevronRight className="size-4 shrink-0 opacity-70" aria-hidden />
+                        ))}
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <div className="ml-2 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-3">
+                      <div className="ml-1.5 mt-0.5 space-y-0.5 border-l border-sidebar-border pl-2 sm:ml-2 sm:pl-3">
                         {reportsItems.map((item) => (
                           <NavLink key={item.path} path={item.path} labelKey={item.labelKey} icon={item.icon} />
                         ))}
@@ -522,7 +570,9 @@ export function AppSidebar({
       <div className={cn('border-t p-3', isPill ? 'border-border/50' : 'border-sidebar-border')}>
         <div className={cn('flex items-center gap-2', isPill && collapsed && 'justify-center')}>
           {(!collapsed || mobile) && (
-            <span className="text-sm text-muted-foreground">{t('nav.darkMode')}</span>
+            <span className="min-w-0 flex-1 text-sm leading-snug text-muted-foreground break-words [overflow-wrap:anywhere]">
+              {t('nav.darkMode')}
+            </span>
           )}
           <button
             type="button"

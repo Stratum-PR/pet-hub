@@ -10,6 +10,11 @@ import {
 } from '@/lib/businessValidation';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { devConsole } from '@/lib/clientDebug';
+import { getDemoStaffSeed, isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import {
+  buildDemoApptBookSeedAppointments,
+  stripDemoApptBookSeedRows,
+} from '@/lib/demoApptBookSeed';
 
 function uuidv4(): string {
   if (typeof crypto !== 'undefined') {
@@ -641,14 +646,43 @@ export function useAppointments() {
     } else if (data) {
       setError(null);
       devConsole.log('[useAppointments] Fetched', data.length, 'appointments');
-      const withStaff = (data as any[]).map((apt) => {
+      let baseRows = stripDemoApptBookSeedRows(data as { id: string }[]);
+      const withStaff = (baseRows as any[]).map((apt) => {
         const staff_id = staffRecordIdFromRow(apt) ?? apt.staff_id;
         return { ...apt, staff_id };
       });
+
+      if (demoBrowseOnly && isDemoWorkspaceBusiness(businessId)) {
+        const [{ data: petRows, error: petErr }, { data: svcRows, error: svcErr }, { data: staffRows, error: staffErr }] =
+          await Promise.all([
+            supabase.from('pets').select('id, client_id').eq('business_id', businessId).limit(12),
+            supabase.from('services').select('id, duration_minutes, price').eq('business_id', businessId).limit(12),
+            supabase.from('staff').select('id').eq('business_id', businessId).eq('status', 'active').limit(12),
+          ]);
+        if (!petErr && !svcErr && !staffErr && petRows?.length && svcRows?.length) {
+          let staffIds = (staffRows ?? []).map((r) => r.id);
+          if (staffIds.length === 0) {
+            staffIds = getDemoStaffSeed().map((e) => e.id);
+          }
+          const seeds = buildDemoApptBookSeedAppointments({
+            businessId,
+            pets: petRows as { id: string; client_id: string }[],
+            services: svcRows as { id: string; duration_minutes: number | null; price: number | null }[],
+            staffIds,
+          });
+          setAppointments([...withStaff, ...seeds] as any);
+          setLoading(false);
+          return;
+        }
+        if (petErr || svcErr || staffErr) {
+          devConsole.warn('[useAppointments] demo appt-book seed skipped:', petErr || svcErr || staffErr);
+        }
+      }
+
       setAppointments(withStaff as any);
     }
     setLoading(false);
-  }, [businessId]);
+  }, [businessId, demoBrowseOnly]);
 
   const refetch = async () => {
     setError(null);

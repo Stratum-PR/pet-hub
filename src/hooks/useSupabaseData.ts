@@ -20,6 +20,7 @@ import {
 } from '@/lib/businessThemeCss';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
+import { withDemoWorkspacePetPhotoFallbacks } from '@/lib/demoWorkspacePetPhotos';
 import { devConsole } from '@/lib/clientDebug';
 import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
 import {
@@ -497,7 +498,8 @@ export function usePets() {
           });
         }
       }
-      setPets(data as Pet[]);
+      const withDemoPhotos = withDemoWorkspacePetPhotoFallbacks(businessId, data as Pet[]);
+      setPets(withDemoPhotos as Pet[]);
     } else {
       devConsole.warn('[usePets] No data returned');
       setPets([]);

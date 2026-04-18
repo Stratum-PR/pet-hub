@@ -1,6 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Printer, Mail, DollarSign, XCircle, Pencil, ChevronDown, FileText, Receipt, Eye, CheckCircle } from 'lucide-react';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
+import {
+  ArrowLeft,
+  Printer,
+  Mail,
+  DollarSign,
+  XCircle,
+  Pencil,
+  ChevronDown,
+  FileText,
+  Receipt,
+  Eye,
+  CheckCircle,
+  Loader2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,8 +41,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { t } from '@/lib/translations';
-import { PawStagedLoadingArea } from '@/components/PawStagedLoading';
-import { PawRevealEnter } from '@/components/PawRevealEnter';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
@@ -84,7 +96,8 @@ function getMarkedAsPaidLine(change_summary: { field: string; old_value: unknown
 }
 
 export function TransactionDetail() {
-  const { businessSlug, transactionId } = useParams<{ businessSlug: string; transactionId: string }>();
+  const { transactionId } = useParams<{ transactionId: string }>();
+  const businessSlug = useResolvedBusinessSlug();
   const location = useLocation();
   const { fetchTransactionById, fetchTransactionHistory, updateTransactionStatus, updateTransaction, createRefund, fetchReceiptSettings } = useTransactions();
   const { clients } = useClients();
@@ -124,15 +137,27 @@ export function TransactionDetail() {
     if (!transactionId) return;
     setLoadError(null);
     const state = location.state as { transaction?: Transaction; lineItems?: TransactionLineItem[] } | null;
+    const prefetchMatch = state?.transaction?.id === transactionId;
+
+    if (prefetchMatch) {
+      setTransaction(state!.transaction!);
+      setLineItems(state?.lineItems ?? []);
+      setLoading(false);
+    } else {
+      setTransaction(null);
+      setLineItems([]);
+      setLoading(true);
+    }
+
     fetchTransactionById(transactionId).then((result) => {
       if (result.ok) {
         setTransaction(result.transaction);
         setLineItems(result.lineItems);
         setLoadError(null);
       } else if ('notFound' in result && result.notFound) {
-        if (state?.transaction && state?.lineItems && state.transaction.id === transactionId) {
+        if (state?.transaction?.id === transactionId) {
           setTransaction(state.transaction);
-          setLineItems(state.lineItems);
+          setLineItems(state.lineItems ?? []);
           setLoadError(null);
         } else {
           setTransaction(null);
@@ -350,8 +375,9 @@ export function TransactionDetail() {
             {t('transactions.backToList')}
           </Link>
         </Button>
-        <div className="relative min-h-[280px]">
-          <PawStagedLoadingArea label="Loading transaction" size="md" />
+        <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+          <p className="text-sm">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -444,8 +470,7 @@ export function TransactionDetail() {
   };
 
   return (
-    <PawRevealEnter className="max-w-3xl">
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="ghost" size="icon" asChild>
@@ -908,6 +933,5 @@ export function TransactionDetail() {
         </DialogContent>
       </Dialog>
     </div>
-    </PawRevealEnter>
   );
 }

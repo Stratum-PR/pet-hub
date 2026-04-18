@@ -24,6 +24,29 @@ function skipGlobalPageTransitionForPath(pathname: string): boolean {
   return isDashboardAppPath(pathname) || isBusinessRootPath(pathname);
 }
 
+/** No initial 900ms reveal stagger on these shells (appointment book + POS feel snappy). */
+function skipInitialRevealForPath(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean);
+  return parts.includes('appt-book') || parts.includes('transactions');
+}
+
+/** Calendar ↔ list (and other sub-routes) under the same appointment book shell. */
+function isApptBookSubtreePath(pathname: string): boolean {
+  return pathname.split('/').filter(Boolean).includes('appt-book');
+}
+
+/** List ↔ detail ↔ new under the same transactions area. */
+function isTransactionsSubtreePath(pathname: string): boolean {
+  return pathname.split('/').filter(Boolean).includes('transactions');
+}
+
+/** Skip cover + delayed swap when moving inside one workspace shell (not cross-feature). */
+function shouldSkipCoverForInternalShellNavigation(fromPath: string, toPath: string): boolean {
+  if (isApptBookSubtreePath(fromPath) && isApptBookSubtreePath(toPath)) return true;
+  if (isTransactionsSubtreePath(fromPath) && isTransactionsSubtreePath(toPath)) return true;
+  return false;
+}
+
 type PageTransitionContextValue = {
   /** Real pathname from router (updates immediately on navigation) */
   pathname: string;
@@ -57,7 +80,7 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     if (initialMountRef.current) {
       initialMountRef.current = false;
-      if (!skipGlobalPageTransitionForPath(pathname)) {
+      if (!skipGlobalPageTransitionForPath(pathname) && !skipInitialRevealForPath(pathname)) {
         setIsRevealing(true);
         revealTimeoutRef.current = setTimeout(() => {
           revealTimeoutRef.current = null;
@@ -70,6 +93,25 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
     }
 
     if (prevPathRef.current === pathname) return;
+    const fromPath = prevPathRef.current;
+
+    // Avoid cover + delayed display swap when only moving within the same shell (e.g. appt-book tabs, transactions list ↔ detail).
+    const shellSkip = shouldSkipCoverForInternalShellNavigation(fromPath, pathname);
+    if (shellSkip) {
+      prevPathRef.current = pathname;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+      timeoutRef.current = null;
+      revealTimeoutRef.current = null;
+      setDisplayPathname(pathname);
+      setIsCovering(false);
+      setIsRevealing(false);
+      return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+      };
+    }
+
     prevPathRef.current = pathname;
 
     if (skipGlobalPageTransitionForPath(pathname)) {
@@ -96,11 +138,15 @@ export function PageTransitionProvider({ children }: { children: ReactNode }) {
       timeoutRef.current = null;
       setDisplayPathname(pathname);
       setIsCovering(false);
-      setIsRevealing(true);
-      revealTimeoutRef.current = setTimeout(() => {
-        revealTimeoutRef.current = null;
+      if (!skipInitialRevealForPath(pathname)) {
+        setIsRevealing(true);
+        revealTimeoutRef.current = setTimeout(() => {
+          revealTimeoutRef.current = null;
+          setIsRevealing(false);
+        }, REVEAL_DURATION_MS);
+      } else {
         setIsRevealing(false);
-      }, REVEAL_DURATION_MS);
+      }
     }, COVER_DURATION_MS);
 
     return () => {

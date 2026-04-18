@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate, useParams, useLocation, useSearchParams, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { useMemo, useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { PageTransitionProvider, usePageTransition } from '@/contexts/PageTransitionContext';
@@ -43,7 +43,6 @@ import { TransactionCreate } from '@/pages/TransactionCreate';
 import { TransactionDetail } from '@/pages/TransactionDetail';
 import { isKioskLocked } from '@/lib/kioskLock';
 import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
-import { PawRevealEnter } from '@/components/PawRevealEnter';
 
 /** Old bookmarks / notifications used /employee-management; canonical URL is /staff-management. */
 function RedirectLegacyEmployeeManagement() {
@@ -298,7 +297,7 @@ const Index = () => {
           {settingsLoading ? (
             <PawStagedLoadingFullscreen label="Loading business settings" />
           ) : (
-            <PawRevealEnter className="flex h-[100svh] max-h-[100svh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <div className="flex h-[100svh] max-h-[100svh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <Layout settings={settings}>
               <TransitionRoutes>
               <Route
@@ -401,14 +400,11 @@ const Index = () => {
                 )
               }
             />
+            {/* Single element so calendar ↔ list does not remount AppointmentBook (avoids PawReveal / staged loaders replaying). */}
             <Route
-              path="appt-book"
-              element={appointmentBookVisible ? <Outlet /> : <Navigate to="dashboard" replace />}
-            >
-              <Route index element={<Navigate to="calendar" replace />} />
-              <Route path="calendar" element={<AppointmentBook />} />
-              <Route path="appointments" element={<AppointmentBook />} />
-            </Route>
+              path="appt-book/*"
+              element={appointmentBookVisible ? <AppointmentBook /> : <Navigate to="dashboard" replace />}
+            />
             <Route
               path="inventory"
               element={
@@ -624,7 +620,7 @@ const Index = () => {
             <Route path="notifications" element={<Notifications />} />
               </TransitionRoutes>
             </Layout>
-            </PawRevealEnter>
+            </div>
           )}
         </PageTransitionProvider>
       )} />

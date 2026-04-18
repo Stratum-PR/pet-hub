@@ -94,6 +94,39 @@ function loadDemoEntriesFromStorage(businessId: string): { transaction: Transact
   }
 }
 
+/**
+ * Demo `/…/transactions` list merges sessionStorage POS rows. Resolves them synchronously so
+ * `fetchTransactionById` works on the first paint (refs from React state are not updated until after effects).
+ */
+export function resolveDemoLocalTransactionEntries(
+  businessId: string,
+  userId: string | undefined,
+): { transaction: Transaction; lineItems: TransactionLineItem[] }[] {
+  if (!isDemoLocalMode() || !businessId) return [];
+  let stored = loadDemoEntriesFromStorage(businessId);
+  const looksValid =
+    stored.length > 0 &&
+    stored.every(
+      (e) =>
+        e &&
+        typeof e === 'object' &&
+        (e as { transaction?: { id?: string } }).transaction?.id?.startsWith('local-') &&
+        Array.isArray((e as { lineItems?: unknown }).lineItems),
+    );
+  if (!looksValid) {
+    stored = [];
+  }
+  if (stored.length === 0 && !userId) {
+    stored = buildDefaultDemoTransactionSeed(businessId);
+    try {
+      sessionStorage.setItem(getDemoTransactionStorageKey(businessId), JSON.stringify(stored));
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+  return stored;
+}
+
 /** Demo local transactions in sessionStorage (same source as `useTransactions` merge). */
 export function loadDemoTransactionEntries(businessId: string): { transaction: Transaction; lineItems: TransactionLineItem[] }[] {
   return loadDemoEntriesFromStorage(businessId);
@@ -106,8 +139,6 @@ export function useTransactions() {
   const [serverTransactions, setServerTransactions] = useState<Transaction[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [localDemoEntries, setLocalDemoEntries] = useState<{ transaction: Transaction; lineItems: TransactionLineItem[] }[]>([]);
-  const localDemoEntriesRef = useRef(localDemoEntries);
-  localDemoEntriesRef.current = localDemoEntries;
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -126,16 +157,7 @@ export function useTransactions() {
       setLocalDemoEntries([]);
       return;
     }
-    let stored = loadDemoEntriesFromStorage(businessId);
-    if (stored.length === 0 && !user?.id) {
-      stored = buildDefaultDemoTransactionSeed(businessId);
-      try {
-        sessionStorage.setItem(getDemoTransactionStorageKey(businessId), JSON.stringify(stored));
-      } catch {
-        /* ignore quota / private mode */
-      }
-    }
-    setLocalDemoEntries(stored);
+    setLocalDemoEntries(resolveDemoLocalTransactionEntries(businessId, user?.id));
   }, [businessId, user?.id]);
 
   const transactions = [
@@ -223,7 +245,9 @@ export function useTransactions() {
 
   const fetchTransactionById = useCallback(async (id: string): Promise<FetchTransactionByIdResult> => {
     if (id.startsWith('local-')) {
-      const entry = localDemoEntriesRef.current.find((e) => e.transaction.id === id);
+      if (!businessId) return { ok: false, notFound: true };
+      const entries = resolveDemoLocalTransactionEntries(businessId, user?.id);
+      const entry = entries.find((e) => e.transaction.id === id);
       return entry ? { ok: true, transaction: entry.transaction, lineItems: entry.lineItems } : { ok: false, notFound: true };
     }
     if (!businessId) return { ok: false, error: 'No business selected.' };
@@ -240,7 +264,7 @@ export function useTransactions() {
     if (!txn) return { ok: false, notFound: true };
     const lineItems = !itemsError && items ? (items as any[]).map(mapRowToLineItem) : [];
     return { ok: true, transaction: mapRowToTransaction(txn), lineItems };
-  }, [businessId]);
+  }, [businessId, user?.id]);
 
   const fetchTaxSettings = async (): Promise<TaxSettingRow[]> => {
     if (!businessId) return [];
