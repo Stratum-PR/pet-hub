@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Clock, LogIn, LogOut, User, AlertTriangle, X, Lock, Settings, Info } from 'lucide-react';
+import { ArrowLeft, Clock, LogIn, LogOut, User, AlertTriangle, X, Lock, Settings, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,6 +32,11 @@ import { devConsole } from '@/lib/clientDebug';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { BrandingLogoKiosk } from '@/components/BrandingMark';
+import { isDemoMode } from '@/lib/authRouting';
+import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
+import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
+import { DEFAULT_GRUMI_WORDMARK_SRC } from '@/lib/marketingLogoFromTheme';
+import { TimeKioskPreview } from '@/components/TimeKioskPreview';
 
 type KioskState = 'pin_entry' | 'employee_verified' | 'success' | 'error' | 'off_schedule_warning';
 
@@ -62,6 +67,8 @@ export function TimeKiosk() {
   const kioskWarnOffSchedule = settings.kiosk_warn_off_schedule !== 'false';
   const managerPinGateFetchGen = useRef(0);
   const [businessResolveTimedOut, setBusinessResolveTimedOut] = useState(false);
+  const kioskNonInteractiveDemo =
+    isDemoMode() || isDemoWorkspaceBusiness(businessId);
 
   // If we never get a business id (slug/profile), stop spinning forever.
   useEffect(() => {
@@ -79,6 +86,14 @@ export function TimeKiosk() {
     if (!businessId) {
       managerPinGateFetchGen.current += 1;
       setManagerPinGate('loading');
+      return;
+    }
+
+    if (isDemoMode() || isDemoWorkspaceBusiness(businessId)) {
+      const gen = ++managerPinGateFetchGen.current;
+      if (gen === managerPinGateFetchGen.current) {
+        setManagerPinGate('configured');
+      }
       return;
     }
 
@@ -115,14 +130,16 @@ export function TimeKiosk() {
   }, [businessId]);
 
   useEffect(() => {
+    if (kioskNonInteractiveDemo) return;
     if (managerPinGate !== 'configured') return;
     setKioskLocked(true);
-  }, [managerPinGate]);
+  }, [managerPinGate, kioskNonInteractiveDemo]);
 
   useEffect(() => {
+    if (kioskNonInteractiveDemo) return;
     if (managerPinGate !== 'missing') return;
     setKioskLocked(false);
-  }, [managerPinGate]);
+  }, [managerPinGate, kioskNonInteractiveDemo]);
 
   const logoLight =
     settings.business_logo_url_light ?? settings.business_logo_url;
@@ -458,14 +475,26 @@ export function TimeKiosk() {
 
   // Focus capture field on PIN screen so the first physical key isn't lost to body/document.
   useEffect(() => {
-    if (managerPinGate !== 'configured' || state !== 'pin_entry' || showManagerChoice) return;
+    if (
+      kioskNonInteractiveDemo ||
+      managerPinGate !== 'configured' ||
+      state !== 'pin_entry' ||
+      showManagerChoice
+    )
+      return;
     const t = window.setTimeout(() => pinCaptureInputRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
-  }, [managerPinGate, state, showManagerChoice]);
+  }, [kioskNonInteractiveDemo, managerPinGate, state, showManagerChoice]);
 
   // Keyboard/numpad PIN entry: digits/backspace work even when focus is on keypad buttons (they stay focused after tap).
   useEffect(() => {
-    if (managerPinGate !== 'configured' || state !== 'pin_entry' || showManagerChoice) return;
+    if (
+      kioskNonInteractiveDemo ||
+      managerPinGate !== 'configured' ||
+      state !== 'pin_entry' ||
+      showManagerChoice
+    )
+      return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target === pinCaptureInputRef.current) return;
 
@@ -509,6 +538,7 @@ export function TimeKiosk() {
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [
+    kioskNonInteractiveDemo,
     managerPinGate,
     state,
     showManagerChoice,
@@ -523,6 +553,36 @@ export function TimeKiosk() {
         <div className="flex flex-col items-center gap-4" role="status" aria-busy="true">
           <div className="animate-spin rounded-full h-12 w-12 border-2 border-muted-foreground/30 border-t-primary" />
           <span className="sr-only">{t('common.loading')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (kioskNonInteractiveDemo && businessId) {
+    const goBackFromDemoKiosk = () => {
+      const slug = businessSlug?.trim() || DEMO_WORKSPACE_SLUG;
+      navigate(`/${slug}/dashboard`);
+    };
+
+    return (
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-gradient-to-br from-background to-muted px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:pb-4 sm:pt-4">
+        <div className="mx-auto w-full max-w-4xl shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-10 gap-2 px-2 text-muted-foreground hover:text-foreground sm:h-11 sm:px-3"
+            onClick={goBackFromDemoKiosk}
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+            {t('cookies.back')}
+          </Button>
+        </div>
+        <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col py-2 sm:py-4">
+          <TimeKioskPreview
+            viewportFit
+            logoUrl={DEFAULT_GRUMI_WORDMARK_SRC}
+            layout={settings.business_branding_layout.logo.kiosk}
+          />
         </div>
       </div>
     );

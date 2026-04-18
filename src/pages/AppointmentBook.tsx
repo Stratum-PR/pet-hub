@@ -11,7 +11,7 @@ import {
   addWeeks,
 } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Inbox, List, Loader2, Settings } from 'lucide-react';
 import { CalendarFilters, CalendarView } from '@/types/calendar';
 import { AppointmentBookSidebar } from '@/components/AppointmentBookSidebar';
 import { DaycareCalendarView } from '@/components/DaycareCalendarView';
@@ -519,8 +519,9 @@ export function AppointmentBook() {
   const showWeekJumpControls = showCalendarChrome && filters.service !== 'Daycare' && !loading;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 sm:-mx-6 sm:flex-row sm:items-stretch sm:overflow-hidden">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 max-sm:pb-2 sm:-mx-6 sm:flex-row sm:items-stretch sm:overflow-hidden">
       <AppointmentBookSidebar
+        className="max-sm:order-2 max-sm:border-t max-sm:border-border"
         selectedDate={selectedDate}
         onDateChange={handleDateChange}
         onToday={handleToolbarToday}
@@ -550,7 +551,7 @@ export function AppointmentBook() {
         onClearFilters={clearFilters}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 max-w-full flex-col overflow-visible max-sm:order-1 max-sm:min-h-0 sm:flex-1 sm:overflow-hidden">
         {fetchError && (
           <div className="mx-4 mt-2 flex flex-col items-start justify-between gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 sm:flex-row sm:items-center">
             <p className="text-sm font-medium text-destructive">
@@ -562,21 +563,50 @@ export function AppointmentBook() {
           </div>
         )}
 
-        <div className="page-toolbar-strip flex min-w-0 justify-end overflow-x-auto px-3 py-3 sm:px-6">
-          <Tabs value={tabsValue} onValueChange={onTabChange}>
-            <TabsList className="inline-flex h-auto min-w-0 flex-wrap justify-end gap-1 bg-transparent p-0 sm:flex-nowrap">
-              <TabsTrigger value="calendar" className="shrink-0 text-xs sm:text-sm">
-                {t('appointments.calendar')}
+        <div className="page-toolbar-strip -mx-px flex w-full min-w-0 justify-start overflow-x-auto overflow-y-hidden overscroll-x-contain px-3 py-3 touch-pan-x [-webkit-overflow-scrolling:touch] sm:mx-0 sm:justify-end sm:px-6">
+          <Tabs value={tabsValue} onValueChange={onTabChange} className="w-max min-w-0 shrink-0 sm:w-auto">
+            <TabsList className="inline-flex h-auto w-max shrink-0 flex-nowrap items-center justify-start gap-1 rounded-lg border border-border/60 bg-muted/40 p-1 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
+              <TabsTrigger
+                value="calendar"
+                className="shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
+                aria-label={t('appointments.calendar')}
+                title={t('appointments.calendar')}
+              >
+                <CalendarDays className="h-4 w-4 shrink-0 sm:hidden" aria-hidden />
+                <span className="hidden sm:inline">{t('appointments.calendar')}</span>
               </TabsTrigger>
-              <TabsTrigger value="list" className="shrink-0 text-xs sm:text-sm">
-                {t('apptBook.appointmentList')}
+              <TabsTrigger
+                value="list"
+                className="shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
+                aria-label={t('apptBook.appointmentList')}
+                title={t('apptBook.appointmentList')}
+              >
+                <List className="h-4 w-4 shrink-0 sm:hidden" aria-hidden />
+                <span className="hidden sm:inline">{t('apptBook.appointmentList')}</span>
               </TabsTrigger>
-              <TabsTrigger value="requests" className="relative shrink-0 text-xs sm:text-sm">
-                {t('apptBook.onlineRequests')}
-                <Badge className="ml-2 bg-destructive text-xs text-destructive-foreground">13</Badge>
+              <TabsTrigger
+                value="requests"
+                className="relative shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
+                aria-label={t('apptBook.onlineRequests')}
+                title={t('apptBook.onlineRequests')}
+              >
+                <span className="relative inline-flex sm:hidden">
+                  <Inbox className="h-4 w-4 shrink-0" aria-hidden />
+                  <Badge className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center border-2 border-background bg-destructive px-0.5 text-[9px] text-destructive-foreground sm:hidden">
+                    13
+                  </Badge>
+                </span>
+                <span className="hidden sm:inline">{t('apptBook.onlineRequests')}</span>
+                <Badge className="ml-2 hidden bg-destructive text-xs text-destructive-foreground sm:inline-flex">13</Badge>
               </TabsTrigger>
-              <TabsTrigger value="settings" className="shrink-0 text-xs sm:text-sm">
-                {t('apptBook.settings')}
+              <TabsTrigger
+                value="settings"
+                className="shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
+                aria-label={t('apptBook.settings')}
+                title={t('apptBook.settings')}
+              >
+                <Settings className="h-4 w-4 shrink-0 sm:hidden" aria-hidden />
+                <span className="hidden sm:inline">{t('apptBook.settings')}</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -611,19 +641,37 @@ export function AppointmentBook() {
                   </button>
                 </div>
                 {filters.service !== 'Daycare' ? (
-                  <Tabs
-                    value={calendarScope}
-                    onValueChange={(v) => setCalendarScope(v as ApptBookCalendarScope)}
-                  >
-                    <TabsList className="h-9">
-                      <TabsTrigger value="by-day" className="px-3 text-xs sm:text-sm">
-                        {t('apptBook.byDay')}
-                      </TabsTrigger>
-                      <TabsTrigger value="by-week" className="px-3 text-xs sm:text-sm">
-                        {t('apptBook.byWeek')}
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                  <>
+                    <div className="hidden sm:block">
+                      <Tabs
+                        value={calendarScope}
+                        onValueChange={(v) => setCalendarScope(v as ApptBookCalendarScope)}
+                      >
+                        <TabsList className="h-9">
+                          <TabsTrigger value="by-day" className="px-3 text-xs sm:text-sm">
+                            {t('apptBook.byDay')}
+                          </TabsTrigger>
+                          <TabsTrigger value="by-week" className="px-3 text-xs sm:text-sm">
+                            {t('apptBook.byWeek')}
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                    </div>
+                    <div className="w-full min-w-0 sm:hidden">
+                      <Select
+                        value={calendarScope}
+                        onValueChange={(v) => setCalendarScope(v as ApptBookCalendarScope)}
+                      >
+                        <SelectTrigger className="h-9 w-full" aria-label={t('apptBook.calendarViewScope')}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="by-day">{t('apptBook.byDay')}</SelectItem>
+                          <SelectItem value="by-week">{t('apptBook.byWeek')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
                 ) : null}
               </div>
 
@@ -686,14 +734,14 @@ export function AppointmentBook() {
         )}
 
         {(tabsValue === 'calendar' || tabsValue === 'list') && (
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden max-sm:flex-none max-sm:overflow-visible sm:flex-1 sm:overflow-hidden">
             {loading ? (
-              <div className="relative flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+              <div className="relative flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 text-muted-foreground max-sm:min-h-[240px]">
                 <Loader2 className="h-8 w-8 animate-spin shrink-0" aria-hidden />
                 <span className="text-sm">{t('common.loading')}</span>
               </div>
             ) : (
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden max-sm:flex-none max-sm:overflow-visible sm:flex-1 sm:overflow-hidden">
                 {tabsValue === 'calendar' ? (
                   <>
                     {weekJumpNoAvailability && filters.service !== 'Daycare' ? (
@@ -787,13 +835,13 @@ export function AppointmentBook() {
         )}
 
         {tabsValue === 'requests' && (
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-4 sm:p-6 max-sm:flex-none">
             <p className="text-gray-500">Online Requests view coming soon...</p>
           </div>
         )}
 
         {tabsValue === 'settings' && (
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-4 sm:p-6 max-sm:flex-none">
             <p className="text-gray-500">Settings view coming soon...</p>
           </div>
         )}

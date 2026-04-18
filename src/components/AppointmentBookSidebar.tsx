@@ -63,6 +63,8 @@ interface AppointmentBookSidebarProps {
   isBookableDate?: (date: Date) => boolean;
   /** date-fns locale for month/weekday labels. */
   dateLocale?: Locale;
+  /** Merged onto root (e.g. responsive `order-*`). */
+  className?: string;
 }
 
 export function AppointmentBookSidebar({
@@ -93,6 +95,7 @@ export function AppointmentBookSidebar({
   weekJumpNoAvailability = false,
   isBookableDate,
   dateLocale,
+  className,
 }: AppointmentBookSidebarProps) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(selectedDate));
 
@@ -127,7 +130,12 @@ export function AppointmentBookSidebar({
   }, [fmtOpts]);
 
   return (
-    <div className="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden border-r border-border bg-card sm:h-full sm:min-h-0 sm:w-80">
+    <div
+      className={cn(
+        'flex h-auto min-h-0 w-full shrink-0 flex-col overflow-x-hidden overflow-y-visible border-r border-border bg-card sm:h-full sm:min-h-0 sm:w-80 sm:overflow-hidden',
+        className,
+      )}
+    >
       {/* Header */}
       <div className="p-4 border-b border-border">
         <h2 className="text-xl font-semibold mb-3 text-foreground">{t('apptBook.pageTitle')}</h2>
@@ -231,7 +239,7 @@ export function AppointmentBookSidebar({
                   aria-pressed={weekJumpOffset === n}
                   onClick={() => onWeekJump(n)}
                   className={cn(
-                    'min-w-[1.65rem] rounded-md px-1.5 py-1 text-center text-xs font-semibold transition-colors',
+                    'min-h-9 min-w-9 rounded-md px-2 py-2 text-center text-xs font-semibold transition-colors sm:min-h-0 sm:min-w-[1.65rem] sm:px-1.5 sm:py-1',
                     weekJumpOffset === n
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-foreground hover:bg-muted hover:text-foreground',
@@ -369,8 +377,8 @@ export function AppointmentBookSidebar({
           </div>
         )}
 
-      {/* Waitlist Section */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      {/* Waitlist Section — avoid flex-1 + h-auto on mobile (collapses / steals space from calendar sibling) */}
+      <div className="flex flex-col overflow-hidden max-sm:flex-none sm:flex-1">
         <button
           onClick={onWaitlistToggle}
           className="flex items-center justify-between p-4 border-b border-border hover:bg-muted/50"

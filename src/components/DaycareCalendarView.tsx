@@ -100,7 +100,7 @@ export function DaycareCalendarView({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex h-full flex-col bg-background max-sm:h-auto max-sm:min-h-0">
       {!suppressHeader ? (
       <div className="border-b border-border bg-muted/30 px-6 py-4">
         <div className="flex items-center justify-between mb-4">
@@ -194,7 +194,7 @@ export function DaycareCalendarView({
       ) : null}
 
       {/* Daycare Rooms */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 max-sm:flex-none max-sm:overflow-visible sm:p-6">
         <div className="space-y-6">
           {DAYCARE_ROOMS.map((room) => {
             const roomAppointments = appointmentsByRoom[room.id] || [];
