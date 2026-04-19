@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Product } from '@/types/inventory';
+import type { Product } from '@/types/inventory';
 import { useBusinessId } from './useBusinessId';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { supabase } from '@/integrations/supabase/client';
@@ -136,7 +136,6 @@ export function useInventory() {
       product_name: productData.name,
       description: productData.description || null,
       category: productData.category || null,
-      brand: null,
       cost_price: productData.cost ?? null,
       retail_price: productData.price,
       sale_price: null,

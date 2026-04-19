@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Product } from '@/types/inventory';
+import type { Product } from '@/types/inventory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,13 +17,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +37,23 @@ import { t } from '@/lib/translations';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { generateSkuForBarcode } from '@/lib/skuFromBarcode';
 
-const defaultFormData = {
+type FormState = {
+  name: string;
+  sku: string;
+  barcode: string;
+  price: number;
+  quantity: number;
+  supplier: string;
+  category: string;
+  description: string;
+  cost: number;
+  reorder_level: number;
+  notes: string;
+  photo_url: string | null;
+  custom_fields: Record<string, string | number | boolean | null>;
+};
+
+const defaultFormData: FormState = {
   name: '',
   sku: '',
   barcode: '',
@@ -56,8 +65,8 @@ const defaultFormData = {
   cost: 0,
   reorder_level: 0,
   notes: '',
-  photo_url: null as string | null,
-  custom_fields: {} as Record<string, string | number | boolean | null>,
+  photo_url: null,
+  custom_fields: {},
 };
 
 interface InventoryProductFormProps {
@@ -95,7 +104,7 @@ export function InventoryProductForm({
   initialPrefilledFromLookup,
 }: InventoryProductFormProps) {
   const isMobile = useIsMobile();
-  const [formData, setFormData] = useState(defaultFormData);
+  const [formData, setFormData] = useState<FormState>(defaultFormData);
   const [registryOpen, setRegistryOpen] = useState(false);
   const [registryQuery, setRegistryQuery] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -167,12 +176,29 @@ export function InventoryProductForm({
     return Object.keys(next).length === 0;
   };
 
+  const payloadFromForm = (): Omit<Product, 'id' | 'created_at' | 'updated_at'> => ({
+    name: formData.name.trim(),
+    sku: formData.sku.trim(),
+    barcode: formData.barcode || undefined,
+    price: formData.price,
+    quantity: formData.quantity,
+    supplier: formData.supplier.trim() || undefined,
+    category: formData.category.trim() || undefined,
+    description: formData.description.trim() || undefined,
+    cost: formData.cost,
+    reorder_level: formData.reorder_level,
+    notes: formData.notes.trim() || undefined,
+    photo_url: formData.photo_url,
+    custom_fields: formData.custom_fields,
+  });
+
   const doSubmit = () => {
     if (readOnly) return;
+    const payload = payloadFromForm();
     if (isEditing && product) {
-      onUpdate(product.id, formData, photoFile || undefined);
+      onUpdate(product.id, payload, photoFile || undefined);
     } else {
-      onSave(formData, photoFile || undefined);
+      onSave(payload, photoFile || undefined);
     }
     setPhotoFile(null);
     setErrors({});

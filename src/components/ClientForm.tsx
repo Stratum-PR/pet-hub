@@ -17,10 +17,16 @@ interface ClientFormProps {
   isEditing?: boolean;
   /** When true, omit outer Card (parent provides section chrome). */
   embedded?: boolean;
+  /** Prefix for field `id` / label `htmlFor` when multiple forms can mount (e.g. page + dialog). */
+  fieldIdPrefix?: string;
+  /** When embedded, optional root element id (omit to avoid duplicate ids with another form). */
+  embeddedWrapperId?: string;
   /** Override CardTitle text (e.g. portal section heading). */
   titleOverride?: string | null;
   /** Business app: load/save client_business_notes (staff-only). */
   showStaffInternalNotes?: boolean;
+  /** CRM profile tab: tighter rows (name pair, contact pair, city/state/ZIP row). */
+  profileView?: boolean;
 }
 
 export function ClientForm({
@@ -29,10 +35,14 @@ export function ClientForm({
   onCancel,
   isEditing,
   embedded,
+  fieldIdPrefix = '',
+  embeddedWrapperId,
   titleOverride,
   showStaffInternalNotes = false,
+  profileView = false,
 }: ClientFormProps) {
   const businessId = useBusinessId();
+  const fid = (name: string) => `${fieldIdPrefix}${name}`;
   const [staffNotes, setStaffNotes] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
@@ -108,107 +118,205 @@ export function ClientForm({
 
   const formInner = (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="first_name">{t('form.firstName')} *</Label>
-              <Input
-                id="first_name"
-                value={formData.first_name}
-                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                required
-                placeholder={t('form.firstName')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="last_name">{t('form.lastName')} *</Label>
-              <Input
-                id="last_name"
-                value={formData.last_name}
-                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                required
-                placeholder={t('form.lastName')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('form.email')}</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder={t('form.email')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">{t('form.phone')} *</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={handlePhoneChange}
-                required
-                placeholder={t('form.phone')}
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="address">{t('form.address')}</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder={t('form.address')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">{t('form.city')}</Label>
-              <Input
-                id="city"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                placeholder={t('form.city')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="state">{t('form.state')}</Label>
-              <Input
-                id="state"
-                value={formData.state}
-                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                placeholder={t('form.state')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="zip_code">{t('form.zipCode')}</Label>
-              <Input
-                id="zip_code"
-                value={formData.zip_code}
-                onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                placeholder={t('form.zipCode')}
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="notes">{t('form.notes')}</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder={t('form.notes')}
-                rows={3}
-              />
-            </div>
-            {showStaffInternalNotes && (
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="staff_client_notes">Notas internas (solo personal)</Label>
+          {profileView ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor={fid('first_name')}>{t('form.firstName')} *</Label>
+                  <Input
+                    id={fid('first_name')}
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    required
+                    placeholder={t('form.firstName')}
+                  />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor={fid('last_name')}>{t('form.lastName')} *</Label>
+                  <Input
+                    id={fid('last_name')}
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    required
+                    placeholder={t('form.lastName')}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor={fid('email')}>{t('form.email')}</Label>
+                  <Input
+                    id={fid('email')}
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder={t('form.email')}
+                  />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor={fid('phone')}>{t('form.phone')} *</Label>
+                  <Input
+                    id={fid('phone')}
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handlePhoneChange}
+                    required
+                    placeholder={t('form.phone')}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('address')}>{t('form.address')}</Label>
+                <Input
+                  id={fid('address')}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder={t('form.address')}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor={fid('city')}>{t('form.city')}</Label>
+                  <Input
+                    id={fid('city')}
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder={t('form.city')}
+                  />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor={fid('state')}>{t('form.state')}</Label>
+                  <Input
+                    id={fid('state')}
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder={t('form.state')}
+                  />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor={fid('zip_code')}>{t('form.zipCode')}</Label>
+                  <Input
+                    id={fid('zip_code')}
+                    value={formData.zip_code}
+                    onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                    placeholder={t('form.zipCode')}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('notes')}>{t('form.notes')}</Label>
                 <Textarea
-                  id="staff_client_notes"
-                  value={staffNotes}
-                  onChange={(e) => setStaffNotes(e.target.value)}
-                  placeholder="Notas visibles solo en este negocio."
+                  id={fid('notes')}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder={t('form.notes')}
                   rows={3}
                 />
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={fid('first_name')}>{t('form.firstName')} *</Label>
+                <Input
+                  id={fid('first_name')}
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  required
+                  placeholder={t('form.firstName')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('last_name')}>{t('form.lastName')} *</Label>
+                <Input
+                  id={fid('last_name')}
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  required
+                  placeholder={t('form.lastName')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('email')}>{t('form.email')}</Label>
+                <Input
+                  id={fid('email')}
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder={t('form.email')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('phone')}>{t('form.phone')} *</Label>
+                <Input
+                  id={fid('phone')}
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handlePhoneChange}
+                  required
+                  placeholder={t('form.phone')}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor={fid('address')}>{t('form.address')}</Label>
+                <Input
+                  id={fid('address')}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder={t('form.address')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('city')}>{t('form.city')}</Label>
+                <Input
+                  id={fid('city')}
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder={t('form.city')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('state')}>{t('form.state')}</Label>
+                <Input
+                  id={fid('state')}
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  placeholder={t('form.state')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={fid('zip_code')}>{t('form.zipCode')}</Label>
+                <Input
+                  id={fid('zip_code')}
+                  value={formData.zip_code}
+                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                  placeholder={t('form.zipCode')}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor={fid('notes')}>{t('form.notes')}</Label>
+                <Textarea
+                  id={fid('notes')}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder={t('form.notes')}
+                  rows={3}
+                />
+              </div>
+              {showStaffInternalNotes && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor={fid('staff_client_notes')}>Notas internas (solo personal)</Label>
+                  <Textarea
+                    id={fid('staff_client_notes')}
+                    value={staffNotes}
+                    onChange={(e) => setStaffNotes(e.target.value)}
+                    placeholder="Notas visibles solo en este negocio."
+                    rows={3}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex gap-3 pt-4">
             <Button type="submit" className="shadow-sm">
               {isEditing ? t('common.save') : t('clients.addClient')}
@@ -224,7 +332,7 @@ export function ClientForm({
 
   if (embedded) {
     return (
-      <div id="client-form" className="animate-fade-in">
+      <div id={embeddedWrapperId} className="animate-fade-in">
         {formInner}
       </div>
     );

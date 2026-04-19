@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Mail, Phone, MapPin, Dog, Plus } from 'lucide-react';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
+import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 
 interface ClientListProps {
   clients: Client[];
@@ -67,7 +68,7 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
               id={`client-${client.id}`}
               role={onViewClient ? 'button' : undefined}
               tabIndex={onViewClient ? 0 : undefined}
-              className={`shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''} ${onViewClient ? 'cursor-pointer' : ''}`}
+              className={`h-full shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''} ${onViewClient ? 'cursor-pointer' : ''}`}
               onClick={onViewClient ? () => onViewClient(client) : undefined}
               onKeyDown={onViewClient ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewClient(client); } } : undefined}
             >
@@ -82,7 +83,7 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Phone className="w-4 h-4" />
-                    <span>{client.phone}</span>
+                    <span className="tabular-nums">{formatPhoneNumberDisplay(client.phone)}</span>
                   </div>
                   {client.address && (
                     <div className="flex items-center gap-2 text-muted-foreground">
