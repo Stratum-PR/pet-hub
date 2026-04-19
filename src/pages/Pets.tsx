@@ -5,20 +5,15 @@ import { Button } from '@/components/ui/button';
 import { PetForm } from '@/components/PetForm';
 import { PetList } from '@/components/PetList';
 import { SearchFilter } from '@/components/SearchFilter';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { DetailModalActionBar } from '@/components/DetailModalActionBar';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
+import { PetProfileDialog } from '@/components/PetProfileDialog';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
+import { useTransactions } from '@/hooks/useTransactions';
 import { format, parseISO, isWithinInterval, subDays, differenceInDays } from 'date-fns';
-import { formatPhoneNumber } from '@/lib/phoneFormat';
+import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 
 interface PetsProps {
   clients: Client[];
@@ -50,6 +45,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     return window.localStorage.getItem(PET_VIEW_KEY) === 'list' ? 'list' : 'cards';
   });
   const pageLoadRef = usePageLoadRef();
+  const { transactions } = useTransactions();
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(PET_VIEW_KEY, viewMode);
@@ -416,10 +412,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
                   : t('pets.notAssigned') || '—';
                 const photoUrl = (pet as any).photo_url;
                 const breedName = (pet as any).breeds?.name ?? (pet as any).breed ?? '—';
-                const ownerPhoneDisplay =
-                  owner?.phone && String(owner.phone).replace(/\D/g, '').length > 0
-                    ? formatPhoneNumber(String(owner.phone))
-                    : '—';
+                const ownerPhoneDisplay = formatPhoneNumberDisplay(owner?.phone);
                 const lastAppt = lastAppointmentByPet[pet.id];
                 let lastApptFormatted = '—';
                 let daysAgo: number | null = null;
@@ -490,86 +483,27 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
         </div>
       )}
 
-      <Dialog open={!!petDetailOpen} onOpenChange={(open) => !open && setPetDetailOpen(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          {petDetailOpen && (
-            <>
-              <DetailModalActionBar
-                editLabel={t('common.edit')}
-                deleteLabel={t('common.delete')}
-                onEdit={() => {
-                  setPetDetailOpen(null);
-                  handleEdit(petDetailOpen);
-                }}
-                onDelete={() => setPetDeleteConfirmOpen(true)}
-              />
-              <DialogHeader>
-                <DialogTitle>{petDetailOpen.name}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 text-sm">
-                <p><span className="text-muted-foreground">Species:</span> {petDetailOpen.species || '—'}</p>
-                <p><span className="text-muted-foreground">Breed:</span> {(petDetailOpen as any).breeds?.name ?? (petDetailOpen as any).breed ?? '—'}</p>
-                <p><span className="text-muted-foreground">Weight:</span> {petDetailOpen.weight ?? '—'} {t('pets.lbs')}</p>
-                {(() => {
-                  const owner = clients.find(c => c.id === petDetailOpen.client_id);
-                  return owner ? (
-                    <p>
-                      <span className="text-muted-foreground">Owner:</span>{' '}
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary font-medium hover:bg-primary/20"
-                        onClick={() => {
-                          setPetDetailOpen(null);
-                          if (businessSlug) navigate(`/${businessSlug}/clients?highlight=${owner.id}`);
-                          else navigate(`/clients?highlight=${owner.id}`);
-                        }}
-                      >
-                        {owner.first_name} {owner.last_name}
-                      </button>
-                    </p>
-                  ) : null;
-                })()}
-                {(petDetailOpen as any).notes && (
-                  <p><span className="text-muted-foreground">Notes:</span> {(petDetailOpen as any).notes}</p>
-                )}
-                {/* Appointment history for this pet */}
-                <div className="pt-2 border-t border-border">
-                  <h4 className="font-medium text-foreground mb-2">Appointment history</h4>
-                  {(() => {
-                    const petAppointments = (appointments as any[])
-                      .filter((a: any) => a.pet_id === petDetailOpen.id)
-                      .map((a: any) => ({
-                        ...a,
-                        dateStr: a.appointment_date || a.scheduled_date,
-                      }))
-                      .filter((a: any) => a.dateStr)
-                      .sort((a: any, b: any) => new Date(b.dateStr).getTime() - new Date(a.dateStr).getTime());
-                    if (petAppointments.length === 0) {
-                      return <p className="text-muted-foreground">No appointments yet.</p>;
-                    }
-                    return (
-                      <ul className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {petAppointments.map((apt: any) => {
-                          const d = apt.dateStr.includes('T') ? apt.dateStr : apt.dateStr + 'T00:00:00';
-                          const service = apt.service_type || apt.service_name || 'Appointment';
-                          const status = apt.status || '—';
-                          return (
-                            <li key={apt.id} className="flex justify-between items-baseline gap-2 text-muted-foreground">
-                              <span>{format(parseISO(d), 'MMM d, yyyy')}</span>
-                              <span className="truncate">{service}</span>
-                              <span className="text-xs capitalize">{status}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    );
-                  })()}
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <PetProfileDialog
+        open={!!petDetailOpen}
+        pet={petDetailOpen}
+        clients={clients}
+        appointments={appointments as any[]}
+        transactions={transactions ?? []}
+        onOpenChange={(open) => {
+          if (!open) setPetDetailOpen(null);
+        }}
+        onEdit={() => {
+          if (!petDetailOpen) return;
+          setPetDetailOpen(null);
+          handleEdit(petDetailOpen);
+        }}
+        onDelete={() => setPetDeleteConfirmOpen(true)}
+        onViewOwner={(clientId) => {
+          setPetDetailOpen(null);
+          if (businessSlug) navigate(`/${businessSlug}/clients?highlight=${clientId}`);
+          else navigate(`/clients?highlight=${clientId}`);
+        }}
+      />
 
       <DeleteConfirmDialog
         open={petDeleteConfirmOpen}

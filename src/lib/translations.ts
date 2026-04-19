@@ -2482,6 +2482,186 @@ export const translations: Translations = {
     en: 'Pets',
     es: 'Mascotas'
   },
+  'clients.profile.modalSubtitle': {
+    en: 'Profile & activity',
+    es: 'Perfil y actividad'
+  },
+  'clients.profile.tabOverview': {
+    en: 'Overview',
+    es: 'Resumen'
+  },
+  'clients.profile.tabProfile': {
+    en: 'Profile',
+    es: 'Perfil'
+  },
+  'clients.profile.recordUpdated': {
+    en: 'Last updated',
+    es: 'Última actualización'
+  },
+  'clients.profile.tabPets': {
+    en: 'Pets',
+    es: 'Mascotas'
+  },
+  'clients.profile.tabTransactions': {
+    en: 'Transactions',
+    es: 'Transacciones'
+  },
+  'clients.profile.tabAppointments': {
+    en: 'Appointments',
+    es: 'Citas'
+  },
+  'clients.profile.clientSince': {
+    en: 'Client since {date}',
+    es: 'Cliente desde {date}'
+  },
+  'clients.profile.notes': {
+    en: 'Notes',
+    es: 'Notas'
+  },
+  'clients.profile.phase2Hint': {
+    en: 'Custom tags, client profile photos, and marketing-channel analytics are not in this version; they can be added later if your team needs them.',
+    es: 'Etiquetas personalizadas, foto de perfil del cliente y analíticas de canales de marketing no están en esta versión; se pueden añadir después si las necesitas.'
+  },
+  'clients.profile.dismissAlert': {
+    en: 'Dismiss',
+    es: 'Cerrar'
+  },
+  'clients.profile.alertPetUnknown': {
+    en: 'Pet',
+    es: 'Mascota'
+  },
+  'clients.profile.alertNextAppt': {
+    en: 'Next appointment: {when} — {pet} · {service}',
+    es: 'Próxima cita: {when} — {pet} · {service}'
+  },
+  'clients.profile.alertBook': {
+    en: 'Book',
+    es: 'Agendar'
+  },
+  'clients.profile.alertVac': {
+    en: '{pet} — vaccination is out of date',
+    es: '{pet} — vacunas desactualizadas'
+  },
+  'clients.profile.alertBirthday': {
+    en: "{pet}'s birthday is this month",
+    es: 'Cumpleaños de {pet} este mes'
+  },
+  'clients.profile.alertViewPet': {
+    en: 'View pet',
+    es: 'Ver mascota'
+  },
+  'clients.profile.kpiLifetime': {
+    en: 'Lifetime spend',
+    es: 'Gasto total'
+  },
+  'clients.profile.kpiCheckoutCount': {
+    en: '{n} checkouts',
+    es: '{n} cobros'
+  },
+  'clients.profile.kpiAvgTicket': {
+    en: 'Avg ticket {amount}',
+    es: 'Ticket promedio {amount}'
+  },
+  'clients.profile.kpiVisits': {
+    en: 'Visits / bookings',
+    es: 'Visitas / citas'
+  },
+  'clients.profile.kpiVisitBreakdown': {
+    en: '{done} completed · {noShow} no-show',
+    es: '{done} completadas · {noShow} inasistencias'
+  },
+  'clients.profile.kpiNextVisit': {
+    en: 'Next: {when}',
+    es: 'Próxima: {when}'
+  },
+  'clients.profile.kpiNoUpcoming': {
+    en: 'No upcoming visits on the calendar.',
+    es: 'Sin visitas próximas en el calendario.'
+  },
+  'clients.profile.recentCheckouts': {
+    en: 'Recent checkouts',
+    es: 'Cobros recientes'
+  },
+  'clients.profile.noTransactions': {
+    en: 'No transactions yet.',
+    es: 'Aún no hay transacciones.'
+  },
+  'clients.profile.txnLineSummary': {
+    en: '{name} ×{qty} · {amount}',
+    es: '{name} ×{qty} · {amount}'
+  },
+  'clients.profile.petsAtAGlance': {
+    en: 'Pets at a glance',
+    es: 'Mascotas de un vistazo'
+  },
+  'clients.profile.noPets': {
+    en: 'No pets on file.',
+    es: 'No hay mascotas registradas.'
+  },
+  'clients.profile.lastGroom': {
+    en: 'Last groom {date}',
+    es: 'Último grooming {date}'
+  },
+  'clients.profile.noGroomDate': {
+    en: 'No last groom date',
+    es: 'Sin fecha de grooming'
+  },
+  'clients.profile.vacReview': {
+    en: 'Vaccination: review',
+    es: 'Vacunas: revisar'
+  },
+  'clients.profile.vacOk': {
+    en: 'Vaccination: up to date',
+    es: 'Vacunas: al día'
+  },
+  'clients.profile.vacUnknown': {
+    en: 'Vaccination: unknown',
+    es: 'Vacunas: sin datos'
+  },
+  'clients.profile.purchaseInsightsTitle': {
+    en: 'Top services & purchases',
+    es: 'Servicios e ítems más comprados'
+  },
+  'clients.profile.topServicesHeading': {
+    en: 'Services',
+    es: 'Servicios'
+  },
+  'clients.profile.topProductsHeading': {
+    en: 'Products & items',
+    es: 'Productos e ítems'
+  },
+  'clients.profile.purchaseInsightsNeedTxns': {
+    en: 'Checkout history will appear here after this client has transactions.',
+    es: 'Aquí verás el historial cuando este cliente tenga transacciones.'
+  },
+  'clients.profile.purchaseInsightsNoLines': {
+    en: 'No saved line items on these checkouts yet.',
+    es: 'Aún no hay partidas guardadas en estas transacciones.'
+  },
+  'clients.profile.petsCount': {
+    en: 'Pets',
+    es: 'Mascotas'
+  },
+  'clients.profile.badgeMultiPet': {
+    en: 'Multi-pet',
+    es: 'Varias mascotas'
+  },
+  'clients.profile.badgeNewThisMonth': {
+    en: 'New this month',
+    es: 'Nuevo este mes'
+  },
+  'clients.profile.petWeight': {
+    en: 'Weight: {w} lb',
+    es: 'Peso: {w} lb'
+  },
+  'clients.profile.openPet': {
+    en: 'Open in Pets',
+    es: 'Abrir en Mascotas'
+  },
+  'clients.profile.noAppointments': {
+    en: 'No appointments linked to this client or their pets.',
+    es: 'No hay citas vinculadas a este cliente o sus mascotas.'
+  },
   'clients.deleteClientTitle': {
     en: 'Delete client?',
     es: '¿Eliminar cliente?'
@@ -2591,6 +2771,162 @@ export const translations: Translations = {
   'pets.listNextAppointment': {
     en: 'Next appointment',
     es: 'Próxima cita'
+  },
+  'pets.profile.modalSubtitle': {
+    en: 'Profile, care & revenue',
+    es: 'Perfil, cuidado e ingresos'
+  },
+  'pets.profile.tabOverview': {
+    en: 'Overview',
+    es: 'Resumen'
+  },
+  'pets.profile.tabAppointments': {
+    en: 'Appointments',
+    es: 'Citas'
+  },
+  'pets.profile.ownerSection': {
+    en: 'Owner',
+    es: 'Dueño'
+  },
+  'pets.profile.vaccinationTitle': {
+    en: 'Vaccination',
+    es: 'Vacunas'
+  },
+  'pets.profile.vaccinationStatus': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'pets.profile.lastVaccination': {
+    en: 'Last vaccination',
+    es: 'Última vacuna'
+  },
+  'pets.profile.noLastVaccination': {
+    en: 'No last vaccination date on file.',
+    es: 'No hay fecha de última vacuna registrada.'
+  },
+  'pets.profile.vaccStatusUpToDate': {
+    en: 'Up to date',
+    es: 'Al día'
+  },
+  'pets.profile.vaccStatusOutOfDate': {
+    en: 'Out of date',
+    es: 'Vencido'
+  },
+  'pets.profile.vaccStatusUnknown': {
+    en: 'Unknown',
+    es: 'Desconocido'
+  },
+  'pets.profile.birthMonth': {
+    en: 'Birth month: {month}',
+    es: 'Mes de nacimiento: {month}'
+  },
+  'pets.profile.notesTitle': {
+    en: 'Notes & instructions',
+    es: 'Notas e instrucciones'
+  },
+  'pets.profile.noNotes': {
+    en: 'No notes or special instructions on file.',
+    es: 'No hay notas ni instrucciones especiales.'
+  },
+  'pets.profile.editPet': {
+    en: 'Edit pet',
+    es: 'Editar mascota'
+  },
+  'pets.profile.dismissAlert': {
+    en: 'Dismiss',
+    es: 'Cerrar'
+  },
+  'pets.profile.alertNextAppt': {
+    en: 'Next appointment: {when} · {service}',
+    es: 'Próxima cita: {when} · {service}'
+  },
+  'pets.profile.serviceFallback': {
+    en: 'Service',
+    es: 'Servicio'
+  },
+  'pets.profile.openCalendar': {
+    en: 'Open calendar',
+    es: 'Abrir calendario'
+  },
+  'pets.profile.alertVacReview': {
+    en: '{name} — vaccination needs review',
+    es: '{name} — revisar vacunas'
+  },
+  'pets.profile.alertBirthday': {
+    en: "{name}'s birthday is this month",
+    es: 'Cumpleaños de {name} este mes'
+  },
+  'pets.profile.visitHistory': {
+    en: 'Visit history',
+    es: 'Historial de visitas'
+  },
+  'pets.profile.visitBreakdown': {
+    en: '{done} completed · {noShow} no-show',
+    es: '{done} completadas · {noShow} inasistencias'
+  },
+  'pets.profile.upcoming': {
+    en: 'Upcoming',
+    es: 'Próximas'
+  },
+  'pets.profile.noUpcoming': {
+    en: 'No upcoming appointment',
+    es: 'Sin cita próxima'
+  },
+  'pets.profile.revenueCollected': {
+    en: 'Collected (checkout)',
+    es: 'Cobrado (caja)'
+  },
+  'pets.profile.revenueBookedSubtitle': {
+    en: 'Booked on appointments: {amount}',
+    es: 'Reservado en citas: {amount}'
+  },
+  'pets.profile.revenueByMonth': {
+    en: 'Revenue by month',
+    es: 'Ingresos por mes'
+  },
+  'pets.profile.colMonth': {
+    en: 'Month',
+    es: 'Mes'
+  },
+  'pets.profile.colCharged': {
+    en: 'Collected',
+    es: 'Cobrado'
+  },
+  'pets.profile.colBooked': {
+    en: 'Booked',
+    es: 'Reservado'
+  },
+  'pets.profile.recentAppointments': {
+    en: 'Recent appointments',
+    es: 'Citas recientes'
+  },
+  'pets.profile.noAppointments': {
+    en: 'No appointments linked to this pet.',
+    es: 'No hay citas vinculadas a esta mascota.'
+  },
+  'pets.profile.pendingCheckout': {
+    en: 'Pending checkout',
+    es: 'Pendiente en caja'
+  },
+  'pets.profile.bookedLabel': {
+    en: 'Booked',
+    es: 'Reservado'
+  },
+  'pets.profile.chargedLabel': {
+    en: 'Charged',
+    es: 'Cobrado'
+  },
+  'pets.profile.appointmentNotes': {
+    en: 'Appointment notes',
+    es: 'Notas de la cita'
+  },
+  'pets.profile.openOwner': {
+    en: 'Open client profile',
+    es: 'Abrir perfil del cliente'
+  },
+  'pets.profile.noOwner': {
+    en: 'No owner linked to this pet.',
+    es: 'Esta mascota no tiene dueño vinculado.'
   },
   'pets.deletePetTitle': {
     en: 'Delete pet?',
@@ -4058,7 +4394,7 @@ export const translations: Translations = {
   },
   'form.notes': {
     en: 'Notes',
-    es: 'Notas (lo que te quieras acordar)'
+    es: 'Notas'
   },
   'form.owner': {
     en: 'Owner',
@@ -4079,6 +4415,18 @@ export const translations: Translations = {
   'form.species': {
     en: 'Species',
     es: 'Especie'
+  },
+  'form.speciesDog': {
+    en: 'Dog',
+    es: 'Perro'
+  },
+  'form.speciesCat': {
+    en: 'Cat',
+    es: 'Gato'
+  },
+  'form.speciesOther': {
+    en: 'Other',
+    es: 'Otro'
   },
   'form.breed': {
     en: 'Breed',

@@ -344,6 +344,7 @@ const Index = () => {
                 <Clients
                   clients={clients}
                   pets={pets}
+                  appointments={appointments}
                   onAddClient={addClient}
                   onUpdateClient={updateClient}
                   onDeleteClient={deleteClient}

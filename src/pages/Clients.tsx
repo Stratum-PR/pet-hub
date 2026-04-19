@@ -8,25 +8,20 @@ import { ClientForm } from '@/components/ClientForm';
 import { ClientList } from '@/components/ClientList';
 import { SearchFilter } from '@/components/SearchFilter';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { DetailModalActionBar } from '@/components/DetailModalActionBar';
-import { Client, Pet } from '@/types';
+import { ClientProfileDialog, type ClientProfileSavePayload } from '@/components/ClientProfileDialog';
+import { Client, Pet, Appointment } from '@/types';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useTransactions, resolveDemoLocalTransactionEntries } from '@/hooks/useTransactions';
-import { format } from 'date-fns';
+import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 
 interface ClientsProps {
   clients: Client[];
   pets: Pet[];
+  appointments: Appointment[];
   onAddClient: (client: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => Promise<Client | null>;
   onUpdateClient: (id: string, client: Partial<Client>) => Promise<Client | null>;
   onDeleteClient: (id: string) => Promise<boolean>;
@@ -34,7 +29,16 @@ interface ClientsProps {
   onUpdatePet?: (id: string, pet: Partial<Pet>) => Promise<Pet | null>;
 }
 
-export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteClient, onAddPet, onUpdatePet }: ClientsProps) {
+export function Clients({
+  clients,
+  pets,
+  appointments,
+  onAddClient,
+  onUpdateClient,
+  onDeleteClient,
+  onAddPet,
+  onUpdatePet,
+}: ClientsProps) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -259,13 +263,11 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
       </div>
 
       {showForm && (
-        <ClientForm 
-          onSubmit={handleSubmit} 
+        <ClientForm
+          onSubmit={handleSubmit}
           onCancel={handleCancel}
           initialData={editingClient}
           isEditing={!!editingClient}
-          pets={pets}
-          onUpdatePet={onUpdatePet}
         />
       )}
 
@@ -338,7 +340,9 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                         </button>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">{(client as any).email || '—'}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{(client as any).phone || '—'}</td>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums whitespace-nowrap">
+                        {formatPhoneNumberDisplay((client as any).phone)}
+                      </td>
                       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-wrap gap-1">
                           {clientPets.length === 0 ? (
@@ -376,141 +380,42 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
         </div>
       )}
 
-      {/* Client detail popup (shared for list and cards) */}
-      <Dialog open={!!clientDetailOpen} onOpenChange={(open) => !open && setClientDetailOpen(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          {clientDetailOpen && (
-            <>
-              <DetailModalActionBar
-                editLabel={t('common.edit')}
-                deleteLabel={t('common.delete')}
-                onEdit={() => {
-                  handleEdit(clientDetailOpen);
-                  setClientDetailOpen(null);
-                }}
-                onDelete={() => {
-                  handleDeleteClick(clientDetailOpen.id);
-                  setClientDetailOpen(null);
-                }}
-              />
-              <DialogHeader>
-                <DialogTitle>
-                  {clientDetailOpen.first_name} {clientDetailOpen.last_name}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-2 text-sm">
-                <div className="space-y-1.5">
-                  <p>
-                    <span className="text-muted-foreground">Email:</span>{' '}
-                    {(clientDetailOpen as any).email || '—'}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Phone:</span>{' '}
-                    {(clientDetailOpen as any).phone || '—'}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Address:</span>{' '}
-                    {[(clientDetailOpen as any).address, (clientDetailOpen as any).city, (clientDetailOpen as any).state, (clientDetailOpen as any).zip_code]
-                      .filter(Boolean)
-                      .join(', ') || '—'}
-                  </p>
-                  <p className="whitespace-pre-wrap">
-                    <span className="text-muted-foreground">Notes:</span>{' '}
-                    {(clientDetailOpen as any).notes || '—'}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Created:</span>{' '}
-                    {(() => {
-                      const createdAt = new Date(clientDetailOpen.created_at);
-                      return Number.isNaN(createdAt.getTime()) ? '—' : format(createdAt, 'MMM d, yyyy');
-                    })()}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Updated:</span>{' '}
-                    {(() => {
-                      const updatedAt = new Date(clientDetailOpen.updated_at);
-                      return Number.isNaN(updatedAt.getTime()) ? '—' : format(updatedAt, 'MMM d, yyyy');
-                    })()}
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <span className="text-muted-foreground font-medium">Pets:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {getClientPets(clientDetailOpen.id).length === 0 ? (
-                      <span className="text-muted-foreground">None</span>
-                    ) : (
-                      getClientPets(clientDetailOpen.id).map((pet) => (
-                        <button
-                          key={pet.id}
-                          type="button"
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-primary/10 text-primary text-sm hover:bg-primary/20"
-                          onClick={() => openPetInPetsPage(pet, clientDetailOpen.id)}
-                        >
-                          <Dog className="w-3.5 h-3.5" />
-                          {pet.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div className="pt-2">
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    className="w-full gap-1"
-                    onClick={() => beginAddPetForClient(clientDetailOpen)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    {t('clients.addPetForClient')}
-                  </Button>
-                </div>
-                {/* Transaction history for this client */}
-                <div className="pt-3 border-t border-border">
-                  <h4 className="font-medium text-foreground mb-2">Transaction history</h4>
-                  {(() => {
-                    const clientTxns = (transactions ?? []).filter(
-                      (txn: any) => txn.customer_id === clientDetailOpen.id
-                    ).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                    if (clientTxns.length === 0) {
-                      return <p className="text-muted-foreground">No transactions yet.</p>;
-                    }
-                    return (
-                      <ul className="space-y-1.5 max-h-40 overflow-y-auto">
-                        {clientTxns.map((txn: any) => {
-                          const totalDollars = (Number(txn.total) / 100).toFixed(2);
-                          const displayId = txn.transaction_number != null
-                            ? `TXN-${String(txn.transaction_number).padStart(5, '0')}`
-                            : txn.id.slice(0, 8);
-                          return (
-                            <li key={txn.id}>
-                              <button
-                                type="button"
-                                className="flex justify-between items-center w-full text-left py-1 px-2 rounded hover:bg-muted/60"
-                                onClick={() => {
-                                  setClientDetailOpen(null);
-                                  const path = businessSlug
-                                    ? `/${businessSlug}/transactions/${txn.id}`
-                                    : `/transactions/${txn.id}`;
-                                  navigate(path, { state: transactionNavigateState(txn as Transaction) });
-                                }}
-                              >
-                                <span className="font-mono text-xs">{displayId}</span>
-                                <span>{format(new Date(txn.created_at), 'MMM d, yyyy')}</span>
-                                <span className="font-medium">${totalDollars}</span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    );
-                  })()}
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ClientProfileDialog
+        open={!!clientDetailOpen}
+        client={clientDetailOpen}
+        pets={pets}
+        appointments={appointments}
+        transactions={transactions ?? []}
+        onOpenChange={(open) => {
+          if (!open) setClientDetailOpen(null);
+        }}
+        onSaveClientProfile={async (data: ClientProfileSavePayload) => {
+          if (!clientDetailOpen) return null;
+          const { staff_notes_business: _sn, ...rest } = data;
+          void _sn;
+          const result = await onUpdateClient(clientDetailOpen.id, rest);
+          if (result) {
+            toast.success(t('clients.updateSuccess'));
+            setClientDetailOpen(result);
+            return result;
+          }
+          toast.error(t('clients.saveError'));
+          return null;
+        }}
+        onDelete={() => {
+          if (clientDetailOpen) handleDeleteClick(clientDetailOpen.id);
+          setClientDetailOpen(null);
+        }}
+        onAddPet={() => {
+          if (clientDetailOpen) beginAddPetForClient(clientDetailOpen);
+        }}
+        onOpenPet={(pet, clientId) => openPetInPetsPage(pet, clientId)}
+        onOpenTransaction={(txn) => {
+          setClientDetailOpen(null);
+          const path = businessSlug ? `/${businessSlug}/transactions/${txn.id}` : `/transactions/${txn.id}`;
+          navigate(path, { state: transactionNavigateState(txn) });
+        }}
+      />
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}

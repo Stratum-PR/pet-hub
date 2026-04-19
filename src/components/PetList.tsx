@@ -231,7 +231,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
               id={`pet-${pet.id}`}
               role={onViewPet ? 'button' : undefined}
               tabIndex={onViewPet ? 0 : undefined}
-              className={`shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in ${onViewPet ? 'cursor-pointer' : ''}`}
+              className={`h-full shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in ${onViewPet ? 'cursor-pointer' : ''}`}
               onClick={onViewPet ? () => onViewPet(pet) : undefined}
               onKeyDown={onViewPet ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewPet(pet); } } : undefined}
             >

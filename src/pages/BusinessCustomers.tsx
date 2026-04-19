@@ -10,6 +10,7 @@ import { ClientForm } from '@/components/ClientForm';
 import { SearchFilter } from '@/components/SearchFilter';
 import { t } from '@/lib/translations';
 import { toast } from 'sonner';
+import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 
 export function BusinessCustomers() {
@@ -216,7 +217,7 @@ export function BusinessCustomers() {
                       {client.email && (
                         <p className="text-sm text-muted-foreground">{client.email}</p>
                       )}
-                      <p className="text-sm text-muted-foreground">{client.phone}</p>
+                      <p className="text-sm text-muted-foreground tabular-nums">{formatPhoneNumberDisplay(client.phone)}</p>
                     </div>
                     <div className="flex gap-1">
                       <Button
@@ -280,7 +281,9 @@ export function BusinessCustomers() {
                       </div>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{client.email || '—'}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{client.phone || '—'}</td>
+                    <td className="px-3 py-2 text-muted-foreground tabular-nums whitespace-nowrap">
+                      {formatPhoneNumberDisplay(client.phone)}
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-1">
                         <Button
