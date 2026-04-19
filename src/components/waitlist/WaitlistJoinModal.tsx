@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { WaitlistSurvey } from '@/components/waitlist/WaitlistSurvey';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { t } from '@/lib/translations';
@@ -61,6 +60,9 @@ function FloatingLabeledInput({
 }) {
   return (
     <div className={cn('relative min-w-0', wrapperClassName)}>
+      <label htmlFor={id} className="sr-only">
+        {label}
+      </label>
       <Input
         id={id}
         type={type}
@@ -68,25 +70,15 @@ function FloatingLabeledInput({
         autoComplete={autoComplete}
         inputMode={inputMode}
         disabled={disabled}
-        placeholder=" "
+        placeholder={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          'peer h-11 w-full rounded-xl border border-border bg-background/90 pt-4 pb-2 text-sm shadow-sm transition-colors',
-          'placeholder:text-transparent focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
+          'h-14 w-full rounded-xl border border-border bg-background/90 px-3 text-base shadow-sm transition-colors',
+          'placeholder:text-muted-foreground/80 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
         )}
         aria-invalid={invalid}
       />
-      <Label
-        htmlFor={id}
-        className={cn(
-          'pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-sm text-muted-foreground transition-all duration-150',
-          'peer-focus:top-2 peer-focus:translate-y-0 peer-focus:text-[11px] peer-focus:text-foreground',
-          'peer-[:not(:placeholder-shown)]:top-2 peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:text-foreground',
-        )}
-      >
-        {label}
-      </Label>
     </div>
   );
 }
