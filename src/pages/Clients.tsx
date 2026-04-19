@@ -313,7 +313,6 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listEmail')}</th>
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listPhone')}</th>
                   <th className="text-left px-3 py-2 font-medium">{t('clients.listPets')}</th>
-                  <th className="text-right px-3 py-2 font-medium w-[1px] whitespace-nowrap">{t('clients.listActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -357,19 +356,16 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                               </button>
                             ))
                           )}
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded border border-border text-xs font-medium hover:bg-muted/60"
+                            onClick={() => beginAddPetForClient(client)}
+                            aria-label={t('clients.addPetForClient')}
+                          >
+                            <Plus className="w-3 h-3" />
+                            <Dog className="w-3 h-3" />
+                          </button>
                         </div>
-                      </td>
-                      <td className="px-3 py-2 text-right align-middle" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 shrink-0"
-                          onClick={() => beginAddPetForClient(client)}
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="hidden min-[480px]:inline">{t('clients.addPetForClient')}</span>
-                        </Button>
                       </td>
                     </tr>
                   );
@@ -403,20 +399,40 @@ export function Clients({ clients, pets, onAddClient, onUpdateClient, onDeleteCl
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-2 text-sm">
-                {(clientDetailOpen as any).email && (
-                  <p><span className="text-muted-foreground">Email:</span> {(clientDetailOpen as any).email}</p>
-                )}
-                {(clientDetailOpen as any).phone && (
-                  <p><span className="text-muted-foreground">Phone:</span> {(clientDetailOpen as any).phone}</p>
-                )}
-                {[(clientDetailOpen as any).address, (clientDetailOpen as any).city, (clientDetailOpen as any).state].filter(Boolean).length > 0 && (
-                  <p><span className="text-muted-foreground">Address:</span>{' '}
-                    {[(clientDetailOpen as any).address, (clientDetailOpen as any).city, (clientDetailOpen as any).state, (clientDetailOpen as any).zip_code].filter(Boolean).join(', ')}
+                <div className="space-y-1.5">
+                  <p>
+                    <span className="text-muted-foreground">Email:</span>{' '}
+                    {(clientDetailOpen as any).email || '—'}
                   </p>
-                )}
-                {(clientDetailOpen as any).notes && (
-                  <p><span className="text-muted-foreground">Notes:</span> {(clientDetailOpen as any).notes}</p>
-                )}
+                  <p>
+                    <span className="text-muted-foreground">Phone:</span>{' '}
+                    {(clientDetailOpen as any).phone || '—'}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Address:</span>{' '}
+                    {[(clientDetailOpen as any).address, (clientDetailOpen as any).city, (clientDetailOpen as any).state, (clientDetailOpen as any).zip_code]
+                      .filter(Boolean)
+                      .join(', ') || '—'}
+                  </p>
+                  <p className="whitespace-pre-wrap">
+                    <span className="text-muted-foreground">Notes:</span>{' '}
+                    {(clientDetailOpen as any).notes || '—'}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Created:</span>{' '}
+                    {(() => {
+                      const createdAt = new Date(clientDetailOpen.created_at);
+                      return Number.isNaN(createdAt.getTime()) ? '—' : format(createdAt, 'MMM d, yyyy');
+                    })()}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Updated:</span>{' '}
+                    {(() => {
+                      const updatedAt = new Date(clientDetailOpen.updated_at);
+                      return Number.isNaN(updatedAt.getTime()) ? '—' : format(updatedAt, 'MMM d, yyyy');
+                    })()}
+                  </p>
+                </div>
                 <div className="pt-2">
                   <span className="text-muted-foreground font-medium">Pets:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
