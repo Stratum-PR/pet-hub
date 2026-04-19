@@ -10,7 +10,7 @@ AS $$
   SELECT lower(trim(coalesce(p_email, ''))) = 'jovanielrodriguez4@gmail.com';
 $$;
 
--- Hosted projects may define this trigger (e.g. Lovable); keep it but align with allowlist + canonical auth email.
+-- Some hosted environments may define this trigger; keep it but align with allowlist + canonical auth email.
 CREATE OR REPLACE FUNCTION public.enforce_super_admin_domain()
 RETURNS trigger
 LANGUAGE plpgsql

@@ -2,32 +2,20 @@
 
 Pet grooming business management – multi-tenant SaaS (React, Vite, Supabase).
 
-## Project info
-
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
-
 ## Repo name and local folder
 
 - **Package/repo identity**: This project is named **pet-hub** (`package.json`).
 - **Rename on GitHub**: In your repo → Settings → General → Repository name, set it to `pet-hub`. GitHub will redirect the old URL.
-- **Rename your local folder** (optional): To match the repo name, rename the folder on your PC (e.g. from `stratum-hub-lovable` to `pet-hub`). Git will keep working because the remote URL is stored inside `.git`. After renaming the repo on GitHub, update the remote once:
+- **Rename your local folder** (optional): To match the repo name, rename the folder on your PC (e.g. from `old-project-name` to `pet-hub`). Git will keep working because the remote URL is stored inside `.git`. After renaming the repo on GitHub, update the remote once:
   ```sh
   git remote set-url origin https://github.com/YOUR_USERNAME/pet-hub.git
   ```
 
 ## How can I edit this code?
 
-There are several ways of editing your application.
+Edit using your preferred IDE:
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Clone this repo, make changes locally, and push them to your remote.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -82,12 +70,8 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Deploy with your preferred platform (for example Vercel, Netlify, or your own infrastructure) after building with:
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```sh
+npm run build
+```
