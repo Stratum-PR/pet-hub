@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Grumi Favicon Preview</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b1020;
+        --card: #121a2b;
+        --muted: #9fb0cf;
+        --text: #eaf0ff;
+        --border: #26314a;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: radial-gradient(circle at top, #13203c 0%, var(--bg) 52%);
+        color: var(--text);
+      }
+
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 28px 18px 40px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.35rem;
+      }
+
+      p {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        background: color-mix(in oklab, var(--card), black 8%);
+      }
+
+      .label {
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .tab {
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+      }
+
+      .app {
+        width: 64px;
+        height: 64px;
+        border-radius: 14px;
+        background: white;
+      }
+
+      .tiny {
+        width: 16px;
+        height: 16px;
+      }
+
+      .small {
+        width: 32px;
+        height: 32px;
+      }
+
+      .large {
+        width: 180px;
+        height: 180px;
+        border-radius: 28px;
+        background: white;
+      }
+
+      .browser-chip {
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 8px 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-right: 8px;
+      }
+
+      code {
+        color: #c4f8d0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Grumi Favicon Preview</h1>
+      <p>
+        These previews use the exact production icon files:
+        <code>/favicon-16x16.png</code>, <code>/favicon-32x32.png</code>, and
+        <code>/apple-touch-icon.png</code>.
+      </p>
+
+      <section class="grid">
+        <article class="card">
+          <div class="label">Desktop Browser Tab (Chrome / Firefox / Safari)</div>
+          <div class="row">
+            <span class="browser-chip"><img class="tiny" src="/favicon-16x16.png?v=3" alt="16x16 favicon" />16px</span>
+            <span class="browser-chip"><img class="tab" src="/favicon-32x32.png?v=3" alt="32x32 favicon" />32px source</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="label">Pinned / Shortcut Icon</div>
+          <div class="row">
+            <img class="small" src="/favicon-32x32.png?v=3" alt="32x32 favicon" />
+            <img class="tiny" src="/favicon-16x16.png?v=3" alt="16x16 favicon" />
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="label">iOS Home Screen (Apple Touch Icon)</div>
+          <div class="row">
+            <img class="app" src="/apple-touch-icon.png?v=3" alt="Apple touch icon preview" />
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="label">Raw 180x180 Asset</div>
+          <div class="row">
+            <img class="large" src="/apple-touch-icon.png?v=3" alt="180x180 apple touch icon" />
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

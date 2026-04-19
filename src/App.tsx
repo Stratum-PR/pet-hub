@@ -31,7 +31,6 @@ import { AdminDashboard } from "@/pages/AdminDashboard";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
-import { ThemedFavicon } from "@/components/ThemedFavicon";
 import { NoIndexForProtectedRoutes } from "@/components/NoIndexForProtectedRoutes";
 import AcceptInvitation from "@/pages/employee/AcceptInvitation";
 import EmployeeProfile from "@/pages/employee/EmployeeProfile";
@@ -88,7 +87,6 @@ const App = () => (
                 <Sonner />
             <NoIndexForProtectedRoutes />
             <ThemeGuard />
-            <ThemedFavicon />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
