@@ -92,7 +92,10 @@ export interface Employee {
   compensation_type?: StaffCompensationType | null;
   /** Commission percentage when `compensation_type` is commission. */
   commission_rate?: number | null;
+  staff_address?: string | null;
+  ssn?: string | null;
   bank_routing_number?: string | null;
+  bank_account_type?: string | null;
   bank_account_number?: string | null;
   bank_name?: string | null;
   payment_notes?: string | null;
@@ -111,6 +114,7 @@ export interface TimeEntry {
   business_id?: string;
   clock_in: string;
   clock_out?: string;
+  lunch_deduction_hours?: number;
   notes?: string;
   location_latitude?: number;
   location_longitude?: number;

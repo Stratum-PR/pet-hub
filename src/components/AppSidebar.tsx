@@ -116,7 +116,8 @@ export function AppSidebar({
   const { theme, setTheme } = useTheme();
   const { role, staffId, business } = useAuth();
   const { employees: navEmployees, loading: navEmployeesLoading } = useEmployees();
-  const { isFeatureVisible } = useFeatureRollout();
+  const { isFeatureVisible, viewerTier, isSuperAdmin } = useFeatureRollout();
+  const showDevOnlyBusinessSettings = isSuperAdmin && viewerTier === 'development';
   const [employeesOpen, setEmployeesOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
@@ -447,7 +448,7 @@ export function AppSidebar({
                         {t('businessSettings.onThisPage')}
                       </p>
                     )}
-                    {getBusinessSettingsAnchorNavItems(isFeatureVisible).map((item) => {
+                    {getBusinessSettingsAnchorNavItems(isFeatureVisible, showDevOnlyBusinessSettings).map((item) => {
                       const collapsedNav = collapsed && !mobile;
                       return (
                         <a

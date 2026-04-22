@@ -515,14 +515,21 @@ export function usePets() {
     fetchPets();
   }, [businessId]);
 
-  const addPet = async (petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'>) => {
+  const addPet = async (
+    petData: Omit<Pet, 'id' | 'created_at' | 'updated_at'> & { staff_notes_business?: string | null },
+  ) => {
     if (!businessId) return null;
+
+    const { staff_notes_business, ...rest } = petData as Omit<Pet, 'id' | 'created_at' | 'updated_at'> & {
+      staff_notes_business?: string | null;
+    };
+    const newId = uuidv4();
 
     if (demoBrowseOnly) {
       const now = new Date().toISOString();
       const newPet = {
-        id: uuidv4(),
-        ...petData,
+        id: newId,
+        ...rest,
         business_id: businessId,
         created_at: now,
         updated_at: now,
@@ -533,7 +540,7 @@ export function usePets() {
 
     const { data, error } = await supabase
       .from('pets')
-      .insert({ id: uuidv4(), ...petData, business_id: businessId })
+      .insert({ id: newId, ...rest, business_id: businessId })
       .select(`
         *,
         clients:client_id(
@@ -555,6 +562,17 @@ export function usePets() {
       devConsole.error('[usePets] addPet error:', error.message, error.code, error.details);
       return null;
     }
+    if (staff_notes_business !== undefined && staff_notes_business?.trim()) {
+      await supabase.from('pet_business_notes').upsert(
+        {
+          pet_id: newId,
+          business_id: businessId,
+          notes: staff_notes_business.trim(),
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: 'pet_id,business_id' },
+      );
+    }
     if (data) {
       await fetchPets();
       return data;
@@ -562,20 +580,24 @@ export function usePets() {
     return null;
   };
 
-  const updatePet = async (id: string, petData: Partial<Pet>) => {
+  const updatePet = async (id: string, petData: Partial<Pet> & { staff_notes_business?: string | null }) => {
     if (!businessId) return null;
+
+    const { staff_notes_business, ...petRow } = petData as Partial<Pet> & {
+      staff_notes_business?: string | null;
+    };
 
     if (demoBrowseOnly) {
       const prev = pets.find((p) => p.id === id);
       if (!prev) return null;
-      const updated = { ...prev, ...petData, id: prev.id } as Pet;
+      const updated = { ...prev, ...petRow, id: prev.id } as Pet;
       setPets(pets.map((p) => (p.id === id ? updated : p)));
       return updated;
     }
 
     const { data, error } = await supabase
       .from('pets')
-      .update(petData)
+      .update(petRow)
       .eq('id', id)
       .eq('business_id', businessId)
       .select(`
@@ -598,6 +620,17 @@ export function usePets() {
     if (error) {
       devConsole.error('[usePets] updatePet error:', error.message, error.code, error.details);
       return null;
+    }
+    if (staff_notes_business !== undefined) {
+      await supabase.from('pet_business_notes').upsert(
+        {
+          pet_id: id,
+          business_id: businessId,
+          notes: staff_notes_business?.trim() || null,
+          updated_at: new Date().toISOString(),
+        } as never,
+        { onConflict: 'pet_id,business_id' },
+      );
     }
     if (data) {
       await fetchPets();
@@ -637,7 +670,10 @@ const PGRST204_STRIP_KEYS = [
   'photo_url',
   'compensation_type',
   'commission_rate',
+  'staff_address',
+  'ssn',
   'bank_routing_number',
+  'bank_account_type',
   'bank_account_number',
   'bank_name',
   'payment_notes',
@@ -850,7 +886,10 @@ export function useEmployees() {
         photo_url: (employeeData as any).photo_url ?? null,
         compensation_type: (employeeData as any).compensation_type ?? 'hourly',
         commission_rate: (employeeData as any).commission_rate ?? null,
+        staff_address: (employeeData as any).staff_address ?? null,
+        ssn: (employeeData as any).ssn ?? null,
         bank_routing_number: (employeeData as any).bank_routing_number ?? null,
+        bank_account_type: (employeeData as any).bank_account_type ?? null,
         bank_account_number: (employeeData as any).bank_account_number ?? null,
         bank_name: (employeeData as any).bank_name ?? null,
         payment_notes: (employeeData as any).payment_notes ?? null,
@@ -885,7 +924,10 @@ export function useEmployees() {
       photo_url: (employeeData as any).photo_url ?? null,
       compensation_type: (employeeData as any).compensation_type ?? 'hourly',
       commission_rate: (employeeData as any).commission_rate ?? null,
+      staff_address: (employeeData as any).staff_address ?? null,
+      ssn: (employeeData as any).ssn ?? null,
       bank_routing_number: (employeeData as any).bank_routing_number ?? null,
+      bank_account_type: (employeeData as any).bank_account_type ?? null,
       bank_account_number: (employeeData as any).bank_account_number ?? null,
       bank_name: (employeeData as any).bank_name ?? null,
       payment_notes: (employeeData as any).payment_notes ?? null,
@@ -959,7 +1001,10 @@ export function useEmployees() {
         'photo_url',
         'compensation_type',
         'commission_rate',
+        'staff_address',
+        'ssn',
         'bank_routing_number',
+        'bank_account_type',
         'bank_account_number',
         'bank_name',
         'payment_notes',
@@ -996,7 +1041,10 @@ export function useEmployees() {
       'photo_url',
       'compensation_type',
       'commission_rate',
+      'staff_address',
+      'ssn',
       'bank_routing_number',
+      'bank_account_type',
       'bank_account_number',
       'bank_name',
       'payment_notes',
@@ -1151,19 +1199,23 @@ export function useTimeEntries() {
   }, [businessId]);
 
   const clockIn = async (employeeId: string) => {
+    if (!businessId && !demoBrowseOnly) return null;
     if (demoBrowseOnly) {
       const row = {
         id: uuidv4(),
         staff_id: employeeId,
+        business_id: businessId ?? null,
         clock_in: new Date().toISOString(),
         clock_out: null,
       } as TimeEntry;
       setTimeEntries([row, ...timeEntries]);
       return row;
     }
+    const payload: any = { id: uuidv4(), staff_id: employeeId };
+    if (businessId) payload.business_id = businessId;
     const { data, error } = await supabase
       .from('time_entries')
-      .insert({ id: uuidv4(), staff_id: employeeId })
+      .insert(payload)
       .select()
       .single();
     
@@ -1226,8 +1278,10 @@ export function useTimeEntries() {
   };
 
   const addTimeEntry = async (employeeId: string, clockIn: string, clockOut?: string) => {
+    if (!businessId && !demoBrowseOnly) return null;
     const entryData: any = {
       staff_id: employeeId,
+      business_id: businessId ?? null,
       clock_in: clockIn,
     };
     if (clockOut) {

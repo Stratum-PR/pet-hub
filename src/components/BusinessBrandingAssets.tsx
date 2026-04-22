@@ -460,8 +460,6 @@ export function BusinessBrandingAssets({
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <Label className="text-base">{t('businessSettings.brandingLightSection')}</Label>
-        <p className="text-sm text-muted-foreground">{t('businessSettings.brandingLightSectionHint')}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {renderAssetBlock(
             'logo',

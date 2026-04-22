@@ -13,22 +13,25 @@ export type BusinessSettingsAnchorId =
   | 'data-export';
 
 export function getBusinessSettingsAnchorNavItems(
-  isFeatureVisible: (key: string) => boolean
+  isFeatureVisible: (key: string) => boolean,
+  includeDevOnlySections = true
 ): { id: BusinessSettingsAnchorId; labelKey: string }[] {
   const items: { id: BusinessSettingsAnchorId; labelKey: string }[] = [
     { id: 'general', labelKey: 'businessSettings.navGeneral' },
     { id: 'business-hours', labelKey: 'businessSettings.navBusinessHours' },
     { id: 'branding', labelKey: 'businessSettings.navBranding' },
-    { id: 'inventory', labelKey: 'businessSettings.navInventory' },
     { id: 'payroll', labelKey: 'businessSettings.navPayroll' },
   ];
-  if (isFeatureVisible('tax_settings')) {
+  if (includeDevOnlySections) {
+    items.push({ id: 'inventory', labelKey: 'businessSettings.navInventory' });
+  }
+  if (includeDevOnlySections && isFeatureVisible('tax_settings')) {
     items.push({ id: 'tax', labelKey: 'businessSettings.navTax' });
   }
-  if (isFeatureVisible('receipt_personalization')) {
+  if (includeDevOnlySections && isFeatureVisible('receipt_personalization')) {
     items.push({ id: 'receipts', labelKey: 'businessSettings.navReceipts' });
   }
-  if (isFeatureVisible('payment_configuration')) {
+  if (includeDevOnlySections && isFeatureVisible('payment_configuration')) {
     items.push({ id: 'payments', labelKey: 'businessSettings.navPayments' });
   }
   items.push({ id: 'data-export', labelKey: 'businessSettings.navDataExport' });

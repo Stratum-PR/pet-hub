@@ -203,7 +203,10 @@ export type Database = {
           photo_url: string | null
           compensation_type: string | null
           commission_rate: number | null
+          staff_address: string | null
+          ssn: string | null
           bank_routing_number: string | null
+          bank_account_type: string | null
           bank_account_number: string | null
           bank_name: string | null
           payment_notes: string | null
@@ -236,7 +239,10 @@ export type Database = {
           photo_url?: string | null
           compensation_type?: string | null
           commission_rate?: number | null
+          staff_address?: string | null
+          ssn?: string | null
           bank_routing_number?: string | null
+          bank_account_type?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
           payment_notes?: string | null
@@ -269,7 +275,10 @@ export type Database = {
           photo_url?: string | null
           compensation_type?: string | null
           commission_rate?: number | null
+          staff_address?: string | null
+          ssn?: string | null
           bank_routing_number?: string | null
+          bank_account_type?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
           payment_notes?: string | null
@@ -513,6 +522,7 @@ export type Database = {
           clock_in: string
           clock_out: string | null
           created_at: string
+          lunch_deduction_hours: number
           staff_id: string
           id: string
           notes: string | null
@@ -521,6 +531,7 @@ export type Database = {
           clock_in?: string
           clock_out?: string | null
           created_at?: string
+          lunch_deduction_hours?: number
           staff_id: string
           id?: string
           notes?: string | null
@@ -529,6 +540,7 @@ export type Database = {
           clock_in?: string
           clock_out?: string | null
           created_at?: string
+          lunch_deduction_hours?: number
           staff_id?: string
           id?: string
           notes?: string | null

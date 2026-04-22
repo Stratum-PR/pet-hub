@@ -13,8 +13,10 @@ import { APPOINTMENT_COLORS } from '@/types/calendar';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { SearchFilter } from '@/components/SearchFilter';
 import { devConsole } from '@/lib/clientDebug';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function BusinessServices() {
+  useLanguage(); // Ensure instant re-render on language toggle
   const { services, loading, error, refetch, addService, updateService, deleteService } = useServices();
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);

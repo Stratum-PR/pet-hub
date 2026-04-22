@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { devConsole } from '@/lib/clientDebug';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type TransactionStatus =
   | 'pending'
@@ -52,6 +53,7 @@ function centsToDollars(cents: number): string {
 }
 
 export function Transactions() {
+  useLanguage(); // Ensure instant re-render on language toggle
   const businessSlug = useResolvedBusinessSlug();
   const navigate = useNavigate();
   const { user } = useAuth();

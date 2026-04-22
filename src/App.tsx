@@ -1,9 +1,8 @@
-import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { DEMO_WORKSPACE_SLUG } from "@/lib/demoWorkspace";
 import { DemoLegacyRedirect } from "@/components/DemoLegacyRedirect";
@@ -44,34 +43,8 @@ import { ClientDirectoryPage } from "@/pages/ClientDirectoryPage";
 import { useAuth } from "@/contexts/AuthContext";
 
 const queryClient = new QueryClient();
-
-/** Dev-only: confirm router mounted and which path is active (white-screen triage). */
-function AgentRouteDebug() {
-  const location = useLocation();
-  useEffect(() => {
-    // #region agent log
-    if (import.meta.env.DEV) {
-      fetch("/__agent-debug-be8983", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: "be8983",
-          location: "src/App.tsx:AgentRouteDebug",
-          message: "router location after mount/update",
-          data: {
-            pathname: location.pathname,
-            searchLen: location.search.length,
-          },
-          timestamp: Date.now(),
-          hypothesisId: "D",
-          runId: "pre-fix",
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
-  }, [location.pathname, location.search]);
-  return null;
-}
+const isLocalHostSignupEnabled =
+  typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
 function LegacyBusinessLoginRoute() {
   const { businessSlug } = useParams<{ businessSlug?: string }>();
@@ -107,7 +80,6 @@ const App = () => (
     <LanguageProvider>
       <AuthProvider>
         <BrowserRouter>
-          <AgentRouteDebug />
           <ScrollToTop />
           <CookieConsentProvider>
             <WaitlistModalProvider>
@@ -128,7 +100,7 @@ const App = () => (
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/cookie-notice" element={<CookieNotice />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/registrarse" element={<Register />} />
+              <Route path="/registrarse" element={isLocalHostSignupEnabled ? <Register /> : <Navigate to="/" replace />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/portal" element={<ClientPortalPublicPage />} />
               <Route path="/cliente" element={<Navigate to="/portal" replace />} />
@@ -146,7 +118,10 @@ const App = () => (
 
               {/* Legacy business-scoped auth routes: canonicalize to root auth */}
               <Route path="/:businessSlug/login" element={<LegacyBusinessLoginRoute />} />
-              <Route path="/:businessSlug/register" element={<Navigate to="/registrarse" replace />} />
+              <Route
+                path="/:businessSlug/register"
+                element={isLocalHostSignupEnabled ? <Navigate to="/registrarse" replace /> : <Navigate to="/" replace />}
+              />
               <Route
                 path="/:businessSlug/portal"
                 element={<ClientPortalPublicPage />}

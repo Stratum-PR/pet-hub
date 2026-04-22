@@ -11,6 +11,7 @@ import { formatAgeFromBirth, formatVaccinationStatusSpanish, getVaccinationStatu
 import { isDemoMode } from '@/lib/authRouting';
 import { format, parseISO } from 'date-fns';
 import { devConsole } from '@/lib/clientDebug';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PetListProps {
   pets: Pet[] | any[];
@@ -40,6 +41,7 @@ const vaccinationColors: Record<string, string> = {
 };
 
 export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEdit }: PetListProps) {
+  useLanguage(); // Keep pet list labels synced immediately
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
