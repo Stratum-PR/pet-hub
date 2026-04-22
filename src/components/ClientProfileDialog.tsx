@@ -14,10 +14,10 @@ import { useBusinessId } from '@/hooks/useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 import { resolveDemoLocalTransactionEntries } from '@/hooks/useTransactions';
 import { devConsole } from '@/lib/clientDebug';
-import { Calendar, Dog, Mail, Phone, Plus, X } from 'lucide-react';
+import { Calendar, ChevronRight, Dog, Mail, Phone, Plus, X } from 'lucide-react';
 import { format, startOfDay } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { DetailModalActionBar } from '@/components/DetailModalActionBar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +26,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   profileDialogShellClassName,
+  profileDialogTabsChromeClassName,
+  profileDialogTabsListClassName,
+  profileDialogTabsTriggerClassName,
   profileTabPanelClassName,
   profileTabsBodyShellClassName,
 } from '@/lib/profileDialogLayout';
+import { ProfileDialogPrimaryHero } from '@/components/ProfileDialogPrimaryHero';
 import { t } from '@/lib/translations';
+import { cn } from '@/lib/utils';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 import type { Appointment, Client, Pet } from '@/types';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
@@ -438,49 +443,77 @@ export function ClientProfileDialog({
 
   if (!client) return null;
 
-  const createdAt = new Date(client.created_at);
-  const clientSince = Number.isNaN(createdAt.getTime()) ? '—' : format(createdAt, 'MMM d, yyyy');
-  const updatedAt = new Date(client.updated_at);
-  const clientUpdated = Number.isNaN(updatedAt.getTime()) ? '—' : format(updatedAt, 'MMM d, yyyy');
+  const formatProfileDate = (value: string | null | undefined) => {
+    if (value == null || value === '') return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    // Hide uninitialized / epoch timestamps in the UI
+    if (d.getUTCFullYear() < 1971) return '—';
+    return format(d, 'MMM d, yyyy');
+  };
+
+  const clientSince = formatProfileDate(client.created_at);
+  const clientUpdated = formatProfileDate(client.updated_at);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={profileDialogShellClassName}>
-        <div className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6">
+        <ProfileDialogPrimaryHero
+          avatar={
+            <Avatar className="h-14 w-14 shrink-0 border-2 border-primary-foreground/25">
+              <AvatarFallback className="bg-primary-foreground/15 text-base font-semibold text-primary-foreground">
+                {initials(client.first_name, client.last_name)}
+              </AvatarFallback>
+            </Avatar>
+          }
+          title={[client.first_name, client.last_name].filter(Boolean).join(' ') || '—'}
+          subtitle={t('clients.profile.modalSubtitle')}
+          kpis={[
+            { label: t('clients.profile.heroKpiSpendLabel'), value: `$${(spendKpis.totalCents / 100).toFixed(2)}` },
+            { label: t('clients.profile.heroKpiVisitsLabel'), value: visitKpis.total },
+            { label: t('clients.profile.heroKpiPetsLabel'), value: clientPets.length },
+          ]}
+          contactTel={client.phone}
+          contactEmail={client.email || undefined}
+          phoneAriaLabel={t('common.call')}
+          emailAriaLabel={t('common.sendEmail')}
+          onCalendar={() => {
+            const path = businessSlug ? `/${businessSlug}/appointments` : '/appointments';
+            navigate(path);
+            onOpenChange(false);
+          }}
+          calendarLabel={t('clients.profile.heroCalendarAria')}
+        >
           <DetailModalActionBar
+            tone="on-primary"
+            className="max-sm:pr-14 justify-end border-0 pb-0"
             editLabel={t('common.edit')}
             deleteLabel={t('common.delete')}
             onEdit={() => setActiveTab('profile')}
             onDelete={onDelete}
           />
-          <DialogHeader className="text-left space-y-0.5 pb-2 pr-10">
-            <DialogTitle className="text-xl font-semibold tracking-tight">
-              {client.first_name} {client.last_name}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">{t('clients.profile.modalSubtitle')}</p>
-          </DialogHeader>
-        </div>
+        </ProfileDialogPrimaryHero>
 
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
           key={client.id}
-          className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6"
+          className={profileDialogTabsChromeClassName}
         >
-          <TabsList className="mb-3 h-auto w-full shrink-0 flex-wrap justify-start gap-1 bg-muted/60 p-1">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm">
+          <TabsList className={profileDialogTabsListClassName}>
+            <TabsTrigger value="overview" className={profileDialogTabsTriggerClassName}>
               {t('clients.profile.tabOverview')}
             </TabsTrigger>
-            <TabsTrigger value="profile" className="text-xs sm:text-sm">
+            <TabsTrigger value="profile" className={profileDialogTabsTriggerClassName}>
               {t('clients.profile.tabProfile')}
             </TabsTrigger>
-            <TabsTrigger value="pets" className="text-xs sm:text-sm">
+            <TabsTrigger value="pets" className={profileDialogTabsTriggerClassName}>
               {t('clients.profile.tabPets')}
             </TabsTrigger>
-            <TabsTrigger value="transactions" className="text-xs sm:text-sm">
+            <TabsTrigger value="transactions" className={profileDialogTabsTriggerClassName}>
               {t('clients.profile.tabTransactions')}
             </TabsTrigger>
-            <TabsTrigger value="appointments" className="text-xs sm:text-sm">
+            <TabsTrigger value="appointments" className={profileDialogTabsTriggerClassName}>
               {t('clients.profile.tabAppointments')}
             </TabsTrigger>
           </TabsList>
@@ -488,35 +521,12 @@ export function ClientProfileDialog({
           <div className={profileTabsBodyShellClassName}>
           <TabsContent value="overview" className={profileTabPanelClassName}>
             <div className="space-y-4 min-w-0">
-              <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3">
-                  <Avatar className="h-12 w-12 shrink-0 border border-border/50">
-                    <AvatarFallback className="text-sm font-semibold bg-primary/10 text-primary">
-                      {initials(client.first_name, client.last_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="truncate font-semibold text-foreground">
-                      {[client.first_name, client.last_name].filter(Boolean).join(' ') || '—'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t('clients.profile.clientSince', { date: clientSince })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {t('clients.profile.recordUpdated')}: {clientUpdated}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex min-w-0 flex-col gap-1.5 text-sm text-muted-foreground sm:items-end sm:text-right">
-                  <div className="flex items-center gap-2 sm:justify-end">
-                    <Phone className="h-4 w-4 shrink-0 opacity-70" />
-                    <span className="break-all tabular-nums">{formatPhoneNumberDisplay(client.phone)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 sm:justify-end">
-                    <Mail className="h-4 w-4 shrink-0 opacity-70" />
-                    <span className="break-all">{client.email || '—'}</span>
-                  </div>
-                </div>
+              <div className="rounded-xl border border-border/50 bg-muted/15 px-3 py-2.5 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{t('clients.profile.clientSince', { date: clientSince })}</span>
+                <span className="mx-1.5 text-muted-foreground/50">·</span>
+                <span>
+                  {t('clients.profile.recordUpdated')}: {clientUpdated}
+                </span>
               </div>
 
                 {visibleAlerts.length > 0 ? (
@@ -602,7 +612,7 @@ export function ClientProfileDialog({
                   {clientTxns.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t('clients.profile.noTransactions')}</p>
                   ) : (
-                    <ul className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-border/50 bg-card/50">
+                    <ul className="max-h-36 divide-y divide-border/60 overflow-y-auto rounded-lg border border-border/50 bg-card/40">
                       {clientTxns.slice(0, 6).map((txn) => {
                         const totalDollars = (Number(txn.total) / 100).toFixed(2);
                         const displayId =
@@ -613,14 +623,15 @@ export function ClientProfileDialog({
                           <li key={txn.id}>
                             <button
                               type="button"
-                              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted/60"
+                              className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/50"
                               onClick={() => onOpenTransaction(txn)}
                             >
-                              <span className="font-mono text-xs">{displayId}</span>
-                              <span className="text-muted-foreground text-xs">
+                              <span className="font-mono text-xs text-muted-foreground">{displayId}</span>
+                              <span className="min-w-0 flex-1 text-muted-foreground text-xs">
                                 {format(new Date(txn.created_at), 'MMM d, yyyy')}
                               </span>
                               <span className="font-medium tabular-nums">${totalDollars}</span>
+                              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" aria-hidden />
                             </button>
                           </li>
                         );
@@ -650,8 +661,8 @@ export function ClientProfileDialog({
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm truncate">{p.name}</p>
-                                <p className="text-xs text-muted-foreground truncate">
+                                <p className="truncate text-sm font-medium">{p.name}</p>
+                                <p className="truncate text-xs text-muted-foreground">
                                   {(() => {
                                     if (!p.last_grooming_date) return t('clients.profile.noGroomDate');
                                     const d = new Date(p.last_grooming_date);
@@ -669,6 +680,7 @@ export function ClientProfileDialog({
                                       : t('clients.profile.vacUnknown')}
                                 </p>
                               </div>
+                              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" aria-hidden />
                             </button>
                           </li>
                         ))}

@@ -8,6 +8,8 @@ import {
   DollarSign,
   CheckCircle2,
   UserX,
+  Users,
+  LineChart,
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { StatCard } from '@/components/StatCard';
@@ -45,6 +47,7 @@ import { useTransactions, loadDemoTransactionEntries } from '@/hooks/useTransact
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { supabase } from '@/integrations/supabase/client';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
 import { cn } from '@/lib/utils';
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { dashboardStaggerDelayMs } from '@/lib/dashboardEnterAnimation';
@@ -59,6 +62,14 @@ import {
   normalizeAppointmentStatus,
 } from '@/lib/appointmentStatus';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import {
+  DASHBOARD_PERIOD_KEY,
+  loadSavedCustomRange,
+  loadSavedPeriod,
+  persistCustomRange,
+  sumSaleCentsInInclusiveDayRange,
+  type DashboardPeriodType,
+} from '@/lib/dashboardPeriodRange';
 
 interface DashboardProps {
   clients: Client[];
@@ -172,21 +183,6 @@ function TopServiceRevenueBar({
   );
 }
 
-function sumSaleCentsInInclusiveDayRange(
-  sales: { created_at: string; total: number }[],
-  rangeStart: Date,
-  rangeEnd: Date
-): number {
-  const startTs = startOfDay(rangeStart).getTime();
-  const endExclusive = addDays(startOfDay(rangeEnd), 1).getTime();
-  let sum = 0;
-  for (const t of sales) {
-    const ct = new Date(t.created_at).getTime();
-    if (ct >= startTs && ct < endExclusive) sum += t.total;
-  }
-  return sum;
-}
-
 const TODAY_APPOINTMENTS_DISPLAY_MAX = 5;
 
 /** Placeholder row matching appointment slot height when list is short or empty */
@@ -228,6 +224,7 @@ export function Dashboard({
   const { transactions, loading: transactionsLoading } = useTransactions();
   const { language } = useLanguage();
   const dateLocale = language === 'es' ? dateFnsEs : undefined;
+  const isWide = useMinWidthSm();
   const lowStockProductsAll = useMemo(() => {
     return products
       .filter((p) => p.quantity <= reorderThresholdForProduct(p, defaultLowStockThreshold))
@@ -251,31 +248,7 @@ export function Dashboard({
 
   const todayAppointments = todaysAppointmentsList.length;
 
-  type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
-  const DASHBOARD_PERIOD_KEY = 'pet-hub-dashboard-period';
-  const DASHBOARD_CUSTOM_RANGE_KEY = 'pet-hub-dashboard-custom-range';
-
-  const loadSavedPeriod = (): PeriodType => {
-    if (typeof window === 'undefined') return 'monthly';
-    try {
-      const saved = localStorage.getItem(DASHBOARD_PERIOD_KEY);
-      if (saved === 'weekly' || saved === 'monthly' || saved === 'quarterly' || saved === 'yearly' || saved === 'custom') return saved;
-    } catch (_) { /* ignore */ }
-    return 'monthly';
-  };
-
-  const loadSavedCustomRange = (): { start: Date; end: Date } | null => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const raw = localStorage.getItem(DASHBOARD_CUSTOM_RANGE_KEY);
-      if (!raw) return null;
-      const { start, end } = JSON.parse(raw);
-      if (start && end) return { start: new Date(start), end: new Date(end) };
-    } catch (_) { /* ignore */ }
-    return null;
-  };
-
-  const [dashboardPeriod, setDashboardPeriodState] = useState<PeriodType>('monthly');
+  const [dashboardPeriod, setDashboardPeriodState] = useState<DashboardPeriodType>('monthly');
   const [customRangeStart, setCustomRangeStart] = useState<Date | null>(null);
   const [customRangeEnd, setCustomRangeEnd] = useState<Date | null>(null);
   const [showCustomPicker, setShowCustomPicker] = useState(false);
@@ -294,17 +267,13 @@ export function Dashboard({
     }
   }, []);
 
-  const setDashboardPeriod = (period: PeriodType) => {
+  const setDashboardPeriod = (period: DashboardPeriodType) => {
     setDashboardPeriodState(period);
     try {
       localStorage.setItem(DASHBOARD_PERIOD_KEY, period);
-    } catch (_) { /* ignore */ }
-  };
-
-  const persistCustomRange = (start: Date, end: Date) => {
-    try {
-      localStorage.setItem(DASHBOARD_CUSTOM_RANGE_KEY, JSON.stringify({ start: start.toISOString(), end: end.toISOString() }));
-    } catch (_) { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
   const pieContainerRef = useRef<HTMLDivElement>(null);
   const [pieSize, setPieSize] = useState({ w: 0, h: 0 });
@@ -730,6 +699,96 @@ export function Dashboard({
 
   const invHref = businessSlug ? `/${businessSlug}/inventory` : '/inventory';
   const apptHref = businessSlug ? `/${businessSlug}/appointments` : '/appointments';
+  const clientsHref = businessSlug ? `/${businessSlug}/clients` : '/clients';
+  const analyticsHref = businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics';
+
+  const renderPeriodMenu = (triggerClassName: string) => (
+    <DropdownMenu open={dropdownOpen} onOpenChange={(open) => { setDropdownOpen(open); if (!open) setShowCustomPicker(false); }}>
+      <DropdownMenuTrigger className={triggerClassName} aria-label={t('dashboard.period')}>
+        <span className="font-medium truncate">
+          {dashboardPeriod === 'weekly' && t('dashboard.chartWeekly')}
+          {dashboardPeriod === 'monthly' && t('dashboard.chartMonthly')}
+          {dashboardPeriod === 'quarterly' && t('dashboard.chartQuarterly')}
+          {dashboardPeriod === 'yearly' && t('dashboard.chartYearly')}
+          {dashboardPeriod === 'custom' && (customRangeStart && customRangeEnd
+            ? `${format(customRangeStart, 'd MMM', { locale: dateLocale })} – ${format(customRangeEnd, 'd MMM', { locale: dateLocale })}`
+            : t('dashboard.chartCustom'))}
+        </span>
+        <ChevronDown className="w-4 h-4 shrink-0" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className={showCustomPicker ? 'p-0 max-h-[85vh] overflow-y-auto' : ''}>
+        {!showCustomPicker ? (
+          <>
+            <DropdownMenuItem onClick={() => { setDashboardPeriod('weekly'); setDropdownOpen(false); }}>
+              {t('dashboard.chartWeekly')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setDashboardPeriod('monthly'); setDropdownOpen(false); }}>
+              {t('dashboard.chartMonthly')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setDashboardPeriod('quarterly'); setDropdownOpen(false); }}>
+              {t('dashboard.chartQuarterly')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setDashboardPeriod('yearly'); setDropdownOpen(false); }}>
+              {t('dashboard.chartYearly')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setShowCustomPicker(true);
+                setRangeSelect({ from: periodStart, to: periodEnd });
+              }}
+            >
+              {t('dashboard.chartCustom')}
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <div className="p-3 overflow-x-auto">
+            <div className="grid grid-cols-2 gap-2 mb-1 min-w-[280px]">
+              <p className="text-sm font-medium text-center">{t('dashboard.from')}</p>
+              <p className="text-sm font-medium text-center">{t('dashboard.to')}</p>
+            </div>
+            <CalendarDateRange
+              mode="range"
+              numberOfMonths={2}
+              className="min-w-[280px]"
+              defaultMonth={rangeSelect.from ?? periodStart ?? new Date()}
+              selected={rangeSelect}
+              onSelect={(range) => setRangeSelect(range ?? {})}
+              locale={dateLocale}
+            />
+            <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setShowCustomPicker(false); setRangeSelect({}); }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (rangeSelect.from) {
+                    const start = startOfDay(rangeSelect.from);
+                    const end = startOfDay(rangeSelect.to ?? rangeSelect.from);
+                    setCustomRangeStart(start);
+                    setCustomRangeEnd(end);
+                    setDashboardPeriod('custom');
+                    persistCustomRange(start, end);
+                    setShowCustomPicker(false);
+                    setDropdownOpen(false);
+                    setRangeSelect({});
+                  }
+                }}
+                disabled={!rangeSelect.from}
+              >
+                {t('dashboard.apply')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <PawLoadedContent
@@ -739,103 +798,74 @@ export function Dashboard({
       viewportCover
       leavingTransition="scaleReveal"
     >
-    <div className="space-y-8" data-transition-root data-dashboard-stagger>
-      {/* Period selector above the card grid */}
+    <div
+      className={cn('space-y-8', !isWide && 'max-sm:space-y-5')}
+      data-transition-root
+      data-dashboard-stagger
+      data-dashboard-mobile-shell
+    >
       <DashboardStaggerItem key={`dsk-${chartEnterKey}-0`} index={0}>
-      <div className="flex justify-end min-w-0">
-        <DropdownMenu open={dropdownOpen} onOpenChange={(open) => { setDropdownOpen(open); if (!open) setShowCustomPicker(false); }}>
-          <DropdownMenuTrigger
-            className="flex items-center gap-1.5 text-sm text-foreground hover:opacity-80 bg-transparent border-0 shadow-none p-0 outline-none focus:ring-0 cursor-pointer max-w-full min-w-0"
-            aria-label={t('dashboard.period')}
-          >
-            <span className="font-medium truncate">
-              {dashboardPeriod === 'weekly' && t('dashboard.chartWeekly')}
-              {dashboardPeriod === 'monthly' && t('dashboard.chartMonthly')}
-              {dashboardPeriod === 'quarterly' && t('dashboard.chartQuarterly')}
-              {dashboardPeriod === 'yearly' && t('dashboard.chartYearly')}
-              {dashboardPeriod === 'custom' && (customRangeStart && customRangeEnd
-                ? `${format(customRangeStart, 'd MMM', { locale: dateLocale })} – ${format(customRangeEnd, 'd MMM', { locale: dateLocale })}`
-                : t('dashboard.chartCustom'))}
-            </span>
-            <ChevronDown className="w-4 h-4 shrink-0" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className={showCustomPicker ? 'p-0 max-h-[85vh] overflow-y-auto' : ''}>
-            {!showCustomPicker ? (
-              <>
-                <DropdownMenuItem onClick={() => { setDashboardPeriod('weekly'); setDropdownOpen(false); }}>
-                  {t('dashboard.chartWeekly')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setDashboardPeriod('monthly'); setDropdownOpen(false); }}>
-                  {t('dashboard.chartMonthly')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setDashboardPeriod('quarterly'); setDropdownOpen(false); }}>
-                  {t('dashboard.chartQuarterly')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setDashboardPeriod('yearly'); setDropdownOpen(false); }}>
-                  {t('dashboard.chartYearly')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setShowCustomPicker(true);
-                    setRangeSelect({ from: periodStart, to: periodEnd });
-                  }}
-                >
-                  {t('dashboard.chartCustom')}
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <div className="p-3 overflow-x-auto">
-                <div className="grid grid-cols-2 gap-2 mb-1 min-w-[280px]">
-                  <p className="text-sm font-medium text-center">{t('dashboard.from')}</p>
-                  <p className="text-sm font-medium text-center">{t('dashboard.to')}</p>
-                </div>
-                <CalendarDateRange
-                  mode="range"
-                  numberOfMonths={2}
-                  className="min-w-[280px]"
-                  defaultMonth={rangeSelect.from ?? periodStart ?? new Date()}
-                  selected={rangeSelect}
-                  onSelect={(range) => setRangeSelect(range ?? {})}
-                  locale={dateLocale}
-                />
-                <div className="flex justify-end gap-2 mt-3 pt-2 border-t border-border">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { setShowCustomPicker(false); setRangeSelect({}); }}
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (rangeSelect.from) {
-                        const start = startOfDay(rangeSelect.from);
-                        const end = startOfDay(rangeSelect.to ?? rangeSelect.from);
-                        setCustomRangeStart(start);
-                        setCustomRangeEnd(end);
-                        setDashboardPeriod('custom');
-                        persistCustomRange(start, end);
-                        setShowCustomPicker(false);
-                        setDropdownOpen(false);
-                        setRangeSelect({});
-                      }
-                    }}
-                    disabled={!rangeSelect.from}
-                  >
-                    {t('dashboard.apply')}
-                  </Button>
+        {isWide ? (
+          <div className="flex justify-end min-w-0">
+            {renderPeriodMenu(
+              'flex items-center gap-1.5 text-sm text-foreground hover:opacity-80 bg-transparent border-0 shadow-none p-0 outline-none focus:ring-0 cursor-pointer max-w-full min-w-0',
+            )}
+          </div>
+        ) : (
+          <>
+            <section className="relative -mx-4 overflow-hidden rounded-b-[1.75rem] bg-gradient-to-b from-primary via-primary to-primary/25 px-4 pb-12 pt-2 text-primary-foreground shadow-[0_12px_40px_-16px_hsl(var(--primary)_/_0.35)] dark:to-primary/40 dark:shadow-[0_14px_40px_-12px_rgb(0_0_0_/_0.55)]">
+              <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <span className="min-w-0" aria-hidden />
+                <p className="min-w-0 text-center text-base font-semibold tracking-tight">
+                  {t('dashboard.mobileWelcome')}
+                </p>
+                <div className="flex min-w-0 justify-end">
+                  {renderPeriodMenu(
+                    'flex min-w-0 max-w-[10rem] items-center gap-1 rounded-full border-0 bg-primary-foreground/20 px-2.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-none outline-none backdrop-blur-sm hover:bg-primary-foreground/30 focus:ring-0 cursor-pointer [&_svg]:text-primary-foreground',
+                  )}
                 </div>
               </div>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              <p className="text-center text-xs font-medium text-primary-foreground/90">{t('dashboard.mobileRevenueLabel')}</p>
+              <p className="mt-1 text-center text-[1.65rem] font-bold tabular-nums leading-tight tracking-tight">
+                {formatUsd(periodRevenueDollars)}
+              </p>
+              <div className="mt-2 flex min-h-[1.25rem] items-center justify-center gap-1 text-sm">
+                {growthPct !== null && Number.isFinite(growthPct) ? (
+                  <>
+                    <TrendingUp className={cn('h-4 w-4 shrink-0', growthPct < 0 && 'rotate-180')} aria-hidden />
+                    <span className={cn('font-semibold tabular-nums', growthPct >= 0 ? 'text-emerald-100' : 'text-rose-100')}>
+                      {growthPct >= 0 ? '+' : ''}
+                      {growthPct}%{' '}
+                      <span className="font-normal text-primary-foreground/90">{growthPeriodLabel}</span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-primary-foreground/75">—</span>
+                )}
+              </div>
+            </section>
+            <div className="relative z-[2] -mt-10 grid grid-cols-2 gap-3 px-0.5">
+              <Link
+                to={clientsHref}
+                className="card-glass block rounded-2xl p-4 text-center shadow-lg ring-1 ring-black/5 transition active:scale-[0.99] dark:ring-white/10"
+              >
+                <Users className="mx-auto h-5 w-5 text-primary" aria-hidden />
+                <p className="mt-2 text-sm font-semibold text-foreground">{t('dashboard.mobileNavClients')}</p>
+              </Link>
+              <Link
+                to={analyticsHref}
+                className="card-glass block rounded-2xl p-4 text-center shadow-lg ring-1 ring-black/5 transition active:scale-[0.99] dark:ring-white/10"
+              >
+                <LineChart className="mx-auto h-5 w-5 text-primary" aria-hidden />
+                <p className="mt-2 text-sm font-semibold text-foreground">{t('dashboard.mobileNavAnalytics')}</p>
+              </Link>
+            </div>
+          </>
+        )}
       </DashboardStaggerItem>
 
       {/* Stats row: cards left→right top→bottom */}
-      <div>
+      <div className={cn(!isWide && '-mt-1')}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4" data-transition-containers>
           {/* Card 1: Top selling — same row height as client-type / KPI cards (no fixed aspect) */}
           <DashboardStaggerItem
@@ -1116,7 +1146,10 @@ export function Dashboard({
           className="min-w-0 lg:col-span-2 lg:row-start-1"
         >
         <Card
-          className="shadow-none hover:shadow-md transition-shadow h-full flex flex-col min-h-[22rem] max-h-[560px] cursor-pointer"
+          className={cn(
+            'transition-shadow h-full flex flex-col min-h-[22rem] max-h-[560px] cursor-pointer',
+            isWide ? 'shadow-none hover:shadow-md' : 'card-glass dashboard-mobile-chart-card border-0 shadow-lg hover:shadow-xl',
+          )}
           role="link"
           tabIndex={0}
           onKeyDown={(e) => {
@@ -1255,7 +1288,12 @@ export function Dashboard({
             to={businessSlug ? `/${businessSlug}/reports/analytics` : '/reports/analytics'}
             className="block cursor-pointer w-full min-h-0"
           >
-            <Card className="h-full min-h-0 flex flex-col cursor-pointer transition-shadow">
+            <Card
+              className={cn(
+                'h-full min-h-0 flex flex-col cursor-pointer transition-shadow',
+                !isWide && 'card-glass dashboard-mobile-chart-card border-0 shadow-lg hover:shadow-xl',
+              )}
+            >
               <CardHeader className="pb-2 pt-4 px-4 sm:px-6 shrink-0">
                 <CardTitle className="text-base" data-card-title>
                   {t('dashboard.salesTrend')}
@@ -1294,7 +1332,12 @@ export function Dashboard({
           className="min-w-0"
         >
           <Link to={invHref} className="block cursor-pointer w-full min-h-0">
-            <Card className="h-full min-h-0 flex flex-col cursor-pointer transition-shadow">
+            <Card
+              className={cn(
+                'h-full min-h-0 flex flex-col cursor-pointer transition-shadow',
+                !isWide && 'card-glass dashboard-mobile-chart-card border-0 shadow-lg hover:shadow-xl',
+              )}
+            >
               <CardHeader className="pb-2 pt-4 px-4 sm:px-6 shrink-0">
                 <CardTitle className="text-base" data-card-title>
                   {t('dashboard.inventoryCardTitle')}

@@ -14,6 +14,8 @@ import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { useTransactions } from '@/hooks/useTransactions';
 import { format, parseISO, isWithinInterval, subDays, differenceInDays } from 'date-fns';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PetsProps {
   clients: Client[];
@@ -44,6 +46,9 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     if (typeof window === 'undefined') return 'cards';
     return window.localStorage.getItem(PET_VIEW_KEY) === 'list' ? 'list' : 'cards';
   });
+  const isWide = useMinWidthSm();
+  useLanguage(); // subscribe so search placeholder updates when language changes
+  const displayViewMode = isWide ? viewMode : 'cards';
   const pageLoadRef = usePageLoadRef();
   const { transactions } = useTransactions();
   useEffect(() => {
@@ -252,23 +257,23 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
         <SearchFilter
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          placeholder={t('pets.searchPlaceholder')}
+          placeholder={t(isWide ? 'pets.searchPlaceholder' : 'pets.searchPlaceholderMobile')}
         />
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">Last appointment:</span>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">{t('pets.lastAppointment')}</span>
           <select
             value={lastAppointmentFilter}
             onChange={(e) => setLastAppointmentFilter(e.target.value)}
             className="h-10 rounded-xl border border-input bg-background/80 backdrop-blur-sm px-3 py-2 text-sm"
           >
-            <option value="all">All</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="none">No appointment</option>
+            <option value="all">{t('pets.filterAll')}</option>
+            <option value="7">{t('pets.filterLast7')}</option>
+            <option value="30">{t('pets.filterLast30')}</option>
+            <option value="90">{t('pets.filterLast90')}</option>
+            <option value="none">{t('pets.filterNoAppointment')}</option>
           </select>
         </div>
-        <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5">
+        <div className="hidden sm:inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5">
           <button
             type="button"
             className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
@@ -336,7 +341,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
         </div>
       )}
 
-      {viewMode === 'cards' ? (
+      {displayViewMode === 'cards' ? (
         <div data-page-content>
           <PetList
             pets={filteredPets as any}

@@ -762,7 +762,12 @@ export function BusinessSettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="business-name">{t('businessSettings.businessName')}</Label>
-                <Input id="business-name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Business name" />
+                <Input
+                  id="business-name"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder={t('businessSettings.placeholderBusinessName')}
+                />
               </div>
               {!demoLocalOnly && (
                 <div className="space-y-2">
@@ -773,7 +778,7 @@ export function BusinessSettingsPage() {
                         id="business-public-slug"
                         value={publicSlug}
                         onChange={(e) => setPublicSlug(e.target.value)}
-                        placeholder="my-grooming-salon"
+                        placeholder={t('businessSettings.placeholderSlug')}
                         autoComplete="off"
                         spellCheck={false}
                         className={cn(
@@ -828,11 +833,21 @@ export function BusinessSettingsPage() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="business-phone">{t('businessSettings.phone')}</Label>
-                <Input id="business-phone" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} placeholder="(787) 555-5555" />
+                <Input
+                  id="business-phone"
+                  value={businessPhone}
+                  onChange={(e) => setBusinessPhone(e.target.value)}
+                  placeholder={t('businessSettings.placeholderPhone')}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="business-address">{t('businessSettings.address')}</Label>
-                <Input id="business-address" value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)} placeholder="Trujillo Alto, Puerto Rico" />
+                <Input
+                  id="business-address"
+                  value={businessAddress}
+                  onChange={(e) => setBusinessAddress(e.target.value)}
+                  placeholder={t('businessSettings.placeholderAddress')}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="maps-embed-url">{t('businessSettings.mapsEmbedUrl')}</Label>
@@ -840,7 +855,7 @@ export function BusinessSettingsPage() {
                   id="maps-embed-url"
                   value={mapsEmbedUrl}
                   onChange={(e) => setMapsEmbedUrl(e.target.value)}
-                  placeholder="https://www.google.com/maps/embed?pb=..."
+                  placeholder={t('businessSettings.placeholderMapsEmbed')}
                 />
                 <p className="text-xs text-muted-foreground">{t('businessSettings.mapsEmbedUrlHint')}</p>
               </div>
@@ -1194,7 +1209,7 @@ export function BusinessSettingsPage() {
                         min={0}
                         max={100}
                         step={0.01}
-                        placeholder="%"
+                        placeholder={t('businessSettings.placeholderPercent')}
                         value={row.rate || ''}
                         onChange={(e) => updateCustomTaxRow(index, { rate: parseFloat(e.target.value) || 0 })}
                         className="w-20"

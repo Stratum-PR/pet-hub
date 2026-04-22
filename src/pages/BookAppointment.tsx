@@ -17,6 +17,7 @@ import { useBusinessId } from '@/hooks/useBusinessId';
 import { useAuth } from '@/contexts/AuthContext';
 import { ensureBusinessClientLink } from '@/lib/businessClientLink';
 import { devConsole } from '@/lib/clientDebug';
+import { t } from '@/lib/translations';
 
 const CAT_BREEDS = [
   'Mixed Breed - Shorthair',
@@ -539,7 +540,7 @@ export function BookAppointment() {
                       type="tel"
                       value={phoneInput}
                       onChange={(e) => setPhoneInput(formatPhoneNumber(e.target.value))}
-                      placeholder="(555) 123-4567"
+                      placeholder={t('bookAppointment.phoneExample')}
                       className="text-center text-lg"
                       autoFocus
                       onKeyDown={(e) => {
@@ -694,7 +695,7 @@ export function BookAppointment() {
                       value={formData.clientName}
                       onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                       required
-                      placeholder="John Doe"
+                      placeholder={t('bookAppointment.clientNameExample')}
                     />
                   </div>
                   <div className="space-y-2">
@@ -703,7 +704,7 @@ export function BookAppointment() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="john@example.com"
+                      placeholder={t('bookAppointment.clientEmailExample')}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
@@ -713,7 +714,7 @@ export function BookAppointment() {
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: formatPhoneNumber(e.target.value) })}
                       required
-                      placeholder="(555) 123-4567"
+                      placeholder={t('bookAppointment.phoneExample')}
                       disabled
                     />
                     <Button
@@ -760,7 +761,7 @@ export function BookAppointment() {
                         required
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a pet" />
+                          <SelectValue placeholder={t('bookAppointment.selectPet')} />
                         </SelectTrigger>
                         <SelectContent>
                           {matchingPets.map(pet => (
@@ -792,7 +793,7 @@ export function BookAppointment() {
                         value={formData.petName}
                         onChange={(e) => setFormData({ ...formData, petName: e.target.value })}
                         required
-                        placeholder="Buddy"
+                        placeholder={t('bookAppointment.petNameExample')}
                       />
                     </div>
                     <div className="space-y-2">
@@ -820,7 +821,7 @@ export function BookAppointment() {
                         required
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select breed" />
+                          <SelectValue placeholder={t('bookAppointment.selectBreed')} />
                         </SelectTrigger>
                         <SelectContent>
                           {BREED_OPTIONS.map(breed => (
@@ -838,7 +839,7 @@ export function BookAppointment() {
                         min="0"
                         value={formData.petAge}
                         onChange={(e) => setFormData({ ...formData, petAge: Number(e.target.value) })}
-                        placeholder="0"
+                        placeholder={t('bookAppointment.weightZero')}
                       />
                     </div>
                     <div className="space-y-2">
@@ -848,7 +849,7 @@ export function BookAppointment() {
                         min="0"
                         value={formData.petWeight}
                         onChange={(e) => setFormData({ ...formData, petWeight: Number(e.target.value) })}
-                        placeholder="0"
+                        placeholder={t('bookAppointment.weightZero')}
                       />
                     </div>
                     {showAddPetForm && matchingClient && (
@@ -915,11 +916,11 @@ export function BookAppointment() {
 
               {/* Additional Notes */}
               <div className="space-y-2 border-t pt-4">
-                <Label>Additional Notes (Optional)</Label>
+                <Label>{t('form.additionalNotes')}</Label>
                 <Textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Any special instructions or requests..."
+                  placeholder={t('bookAppointment.specialInstructions')}
                   className="min-h-[100px]"
                 />
               </div>

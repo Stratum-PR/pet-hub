@@ -42,6 +42,7 @@ import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { SupportImpersonationDialogContent } from '@/components/SupportImpersonationDialog';
 import { SupportSessionBanner } from '@/components/SupportSessionBanner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { SuperAdminViewerTier } from '@/lib/featureRollout';
 import { applyPrimarySecondaryToDocument, writeCachedBusinessTheme } from '@/lib/businessThemeCss';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
@@ -123,6 +124,7 @@ function suppressWorkspacePetDecor(pathname: string): boolean {
 }
 
 export function Layout({ children, settings }: LayoutProps) {
+  const { language } = useLanguage();
   const layoutRootRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
@@ -219,7 +221,10 @@ export function Layout({ children, settings }: LayoutProps) {
 
   const isImpersonating = typeof window !== 'undefined' && sessionStorage.getItem('is_impersonating') === 'true';
   const showAdminHeader = isAdmin && isImpersonating;
-  const pageTitle = getPageTitle(location.pathname, businessSlug, role);
+  const pageTitle = useMemo(
+    () => getPageTitle(location.pathname, businessSlug, role),
+    [location.pathname, businessSlug, role, language],
+  );
   const isHelpPage = /\/help\/?$/.test(location.pathname);
   /** Full-height in-layout scroll (calendar grid); avoid whole-page scroll so the grid fits the viewport. */
   const isApptBookPage = /\/appt-book(\/|$)/.test(location.pathname);

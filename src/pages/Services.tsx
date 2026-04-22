@@ -10,6 +10,8 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { SearchFilter } from '@/components/SearchFilter';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { devConsole } from '@/lib/clientDebug';
@@ -35,6 +37,9 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
     if (typeof window === 'undefined') return 'cards';
     return window.localStorage.getItem(SERVICE_VIEW_KEY) === 'list' ? 'list' : 'cards';
   });
+  const isWide = useMinWidthSm();
+  useLanguage(); // subscribe so search placeholder updates when language changes
+  const displayViewMode = isWide ? viewMode : 'cards';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -167,9 +172,9 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
           <SearchFilter
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
-            placeholder={t('services.searchPlaceholder')}
+            placeholder={t(isWide ? 'services.searchPlaceholder' : 'services.searchPlaceholderMobile')}
           />
-          <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5 shrink-0">
+          <div className="hidden shrink-0 sm:inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5">
             <button
               type="button"
               className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
@@ -213,16 +218,16 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Service Name *</Label>
+                  <Label>{t('servicesPage.labelServiceName')}</Label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
-                    placeholder="Full Grooming"
+                    placeholder={t('servicesPage.placeholderServiceExample')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Price ($) *</Label>
+                  <Label>{t('servicesPage.labelPrice')}</Label>
                   <Input
                     type="text"
                     value={formData.price === 0 ? '' : formData.price.toString()}
@@ -244,12 +249,12 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
                       }
                     }}
                     required
-                    placeholder="15"
+                    placeholder={t('servicesPage.placeholderMinutes')}
                   />
-                  <p className="text-xs text-muted-foreground">Enter amount (e.g., 15 for $15.00)</p>
+                  <p className="text-xs text-muted-foreground">{t('servicesPage.priceHint')}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Duration (minutes) *</Label>
+                  <Label>{t('servicesPage.labelDuration')}</Label>
                   <Input
                     type="text"
                     value={formData.duration_minutes === 0 ? '' : formData.duration_minutes.toString()}
@@ -273,18 +278,18 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
                       }
                     }}
                     required
-                    placeholder="30"
+                    placeholder={t('servicesPage.placeholderDurationDefault')}
                   />
-                  <p className="text-xs text-muted-foreground">Enter minutes (e.g., 30 for 30 minutes)</p>
+                  <p className="text-xs text-muted-foreground">{t('servicesPage.durationHint')}</p>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>{t('servicesPage.labelDescription')}</Label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full min-h-[100px] px-3 py-2 text-sm border border-input rounded-md bg-background"
-                  placeholder="Service description..."
+                  placeholder={t('servicesPage.placeholderDescription')}
                 />
               </div>
               <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:flex-wrap">
@@ -305,7 +310,7 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
           <Card>
             <CardContent className="p-12 text-center">
               <Scissors className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No services yet. Add your first service above!</p>
+              <p className="text-muted-foreground">{t('servicesPage.emptyList')}</p>
             </CardContent>
           </Card>
         ) : filteredServices.length === 0 ? (
@@ -318,10 +323,10 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">All Services</CardTitle>
+              <CardTitle className="text-lg">{t('servicesPage.allServicesTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
-              {viewMode === 'cards' ? (
+              {displayViewMode === 'cards' ? (
                 <div
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                   data-page-cards-grid
@@ -357,11 +362,11 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
                         </div>
                         <div className="space-y-1 text-sm mt-3 pt-3 border-t">
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Price:</span>
+                            <span className="text-muted-foreground">{t('servicesPage.cardPrice')}</span>
                             <span className="font-semibold">${service.price.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Duration:</span>
+                            <span className="text-muted-foreground">{t('servicesPage.cardDuration')}</span>
                             <span className="text-muted-foreground">{service.duration_minutes} min</span>
                           </div>
                         </div>

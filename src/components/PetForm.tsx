@@ -747,13 +747,13 @@ export function PetForm({
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                   <Command>
-                    <CommandInput 
-                      placeholder="Buscar por nombre o teléfono..." 
+                    <CommandInput
+                      placeholder={t('form.searchClientByNameOrPhone')}
                       value={ownerSearch}
                       onValueChange={setOwnerSearch}
                     />
                     <CommandList>
-                      <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                      <CommandEmpty>{t('clients.typeaheadEmpty')}</CommandEmpty>
                       <CommandGroup>
                         {safeClients
                           .filter((cl) => {
@@ -815,7 +815,7 @@ export function PetForm({
                   setErrors({ ...errors, name: '' });
                 }}
                 required
-                placeholder="Buddy"
+                placeholder={t('form.examplePetName')}
                 className={errors.name ? 'border-destructive' : ''}
               />
               {errors.name && (
@@ -833,7 +833,7 @@ export function PetForm({
                 required
               >
                 <SelectTrigger className={errors.species ? 'border-destructive' : ''}>
-                  <SelectValue placeholder="Seleccionar especie" />
+                  <SelectValue placeholder={t('form.selectSpecies')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="dog">Perro</SelectItem>
@@ -871,13 +871,13 @@ export function PetForm({
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                   <Command>
-                    <CommandInput 
-                      placeholder="Buscar raza..." 
+                    <CommandInput
+                      placeholder={t('form.searchBreedPlaceholder')}
                       value={breedSearch}
                       onValueChange={setBreedSearch}
                     />
                     <CommandList>
-                      <CommandEmpty>No se encontraron razas.</CommandEmpty>
+                      <CommandEmpty>{t('pets.breedTypeaheadEmpty')}</CommandEmpty>
                       <CommandGroup>
                         {availableBreeds
                           .filter((breed) => {

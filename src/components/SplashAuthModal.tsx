@@ -71,7 +71,7 @@ export function SplashAuthModal({
       onClick={handleOverlayClick}
     >
       <div
-        className={`relative z-[1000] w-[min(92vw,920px)] max-w-[920px] max-h-[min(92dvh,880px)] overflow-y-auto overscroll-y-contain rounded-3xl bg-white shadow-2xl animate-zoom-out-up ${panelClassName ?? ''}`}
+        className={`relative z-[1000] w-[min(92vw,920px)] max-w-[920px] ph-max-h-modal-sheet overflow-y-auto overscroll-y-contain rounded-3xl bg-white shadow-2xl animate-zoom-out-up ${panelClassName ?? ''}`}
         style={{
           boxShadow: '0 32px 64px rgba(0,0,0,0.24), 0 0 1px rgba(0,0,0,0.1)',
         }}

@@ -196,12 +196,10 @@ export function useClients() {
 
   const fetchClients = async () => {
     if (!businessId) {
-      if (import.meta.env.DEV) {
-        devConsole.warn('[useClients] No businessId, skipping fetch.', {
-          profile: profile ? { email: profile.email, business_id: profile.business_id } : null,
-          location: window.location.pathname,
-        });
-      }
+      devConsole.debug('[useClients] No businessId, skipping fetch.', {
+        profile: profile ? { email: profile.email, business_id: profile.business_id } : null,
+        location: typeof window !== 'undefined' ? window.location.pathname : '',
+      });
       setLoading(false);
       setClients([]);
       return;
@@ -443,7 +441,7 @@ export function usePets() {
 
   const fetchPets = async () => {
     if (!businessId) {
-      devConsole.warn('[usePets] No businessId, skipping fetch');
+      devConsole.debug('[usePets] No businessId, skipping fetch');
       setLoading(false);
       return;
     }
@@ -1427,7 +1425,7 @@ export function useAppointments() {
 
   const fetchAppointments = useCallback(async () => {
     if (!businessId) {
-      devConsole.warn('[useAppointments] No businessId, skipping fetch');
+      devConsole.debug('[useAppointments] No businessId, skipping fetch');
       setLoading(false);
       return;
     }
@@ -1649,7 +1647,7 @@ export function useServices() {
 
   const fetchServices = async () => {
     if (!businessId) {
-      devConsole.warn('[useServices] No businessId, skipping fetch');
+      devConsole.debug('[useServices] No businessId, skipping fetch');
       setLoading(false);
       return;
     }
@@ -1926,16 +1924,10 @@ export function useSettings() {
       .eq('id', businessId)
       .maybeSingle();
 
-    // Prefer full settings row, but fall back gracefully if newer columns
-    // (e.g. timezone/logo variants) haven't been migrated in this environment yet.
-    const fullSelect =
-      'business_name, business_hours, primary_color, secondary_color, business_logo_url, business_logo_url_light, business_logo_url_dark, business_icon_url_light, business_icon_url_dark, business_branding_layout, navbar_logo_mode, navbar_logo_size_px, timezone, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks, notify_appointment_unbilled, notify_inventory_low_stock, notify_payment_overdue, notify_birthdays, notify_general, payroll_pdf_include_logo, kiosk_warn_off_schedule, allow_employee_mobile_punch';
-    const legacySelect =
-      'business_name, business_hours, primary_color, secondary_color, business_logo_url, default_low_stock_threshold, pay_schedule_anchor_date, pay_schedule_cadence_weeks';
-
+    // `select('*')` returns whatever columns exist on `settings`. Explicit column lists cause PostgREST
+    // 400 when this project’s DB is behind migrations; the old per-column merge then spammed the same errors.
     let row: any = null;
     let error: any = null;
-    let usedLegacySettingsSelect = false;
     if (role === 'employee' && user && !mergeLocalDemo) {
       const res = await supabase.rpc('get_employee_portal_settings', {
         p_business_id: businessId,
@@ -1945,71 +1937,11 @@ export function useSettings() {
     } else {
       const res = await supabase
         .from('settings')
-        .select(fullSelect)
+        .select('*')
         .eq('business_id', businessId)
         .maybeSingle();
       row = res.data as any;
       error = res.error as any;
-    }
-    const isMissingColumnError = (err: any) => {
-      const msg = (err?.message ?? '').toLowerCase();
-      return err?.code === '42703' || msg.includes('column') || msg.includes('schema cache');
-    };
-    if (error) {
-      const isMissingColumn = isMissingColumnError(error);
-      if (isMissingColumn) {
-        const res2 = await supabase
-          .from('settings')
-          .select(legacySelect)
-          .eq('business_id', businessId)
-          .maybeSingle();
-        row = res2.data as any;
-        error = res2.error as any;
-        usedLegacySettingsSelect = true;
-      }
-    }
-
-    // Legacy SELECT omits newer columns; if any *other* column in `fullSelect` is missing from the DB
-    // or schema cache, we still need layout + logo variants + toggles that may exist on the row.
-    if (!error && row && usedLegacySettingsSelect && !(role === 'employee' && user && !mergeLocalDemo)) {
-      const mergeSettingsCols = async (selectList: string) =>
-        supabase.from('settings').select(selectList).eq('business_id', businessId).maybeSingle();
-
-      const brandingList =
-        'business_logo_url_light, business_logo_url_dark, business_icon_url_light, business_icon_url_dark, business_branding_layout, navbar_logo_mode, navbar_logo_size_px';
-      const brandingRes = await mergeSettingsCols(brandingList);
-      if (!brandingRes.error && brandingRes.data) {
-        row = { ...row, ...brandingRes.data };
-      } else {
-        const layoutOnly = await mergeSettingsCols('business_branding_layout');
-        if (!layoutOnly.error && layoutOnly.data) {
-          row = { ...row, ...layoutOnly.data };
-        }
-      }
-
-      const restColumns = [
-        'timezone',
-        'notify_appointment_unbilled',
-        'notify_inventory_low_stock',
-        'notify_payment_overdue',
-        'notify_birthdays',
-        'notify_general',
-        'payroll_pdf_include_logo',
-        'kiosk_warn_off_schedule',
-        'allow_employee_mobile_punch',
-      ] as const;
-      const restRes = await mergeSettingsCols(restColumns.join(', '));
-      if (!restRes.error && restRes.data) {
-        row = { ...row, ...restRes.data };
-      } else if (isMissingColumnError(restRes.error)) {
-        // Fall back to per-column fetches so one missing optional column does not hide timezone.
-        for (const col of restColumns) {
-          const singleRes = await mergeSettingsCols(col);
-          if (!singleRes.error && singleRes.data && Object.prototype.hasOwnProperty.call(singleRes.data, col)) {
-            row = { ...row, [col]: (singleRes.data as Record<string, unknown>)[col] };
-          }
-        }
-      }
     }
 
     const defaults = {

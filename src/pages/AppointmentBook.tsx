@@ -836,13 +836,13 @@ export function AppointmentBook() {
 
         {tabsValue === 'requests' && (
           <div className="flex-1 p-4 sm:p-6 max-sm:flex-none">
-            <p className="text-gray-500">Online Requests view coming soon...</p>
+            <p className="text-gray-500">{t('apptBook.onlineRequestsComingSoon')}</p>
           </div>
         )}
 
         {tabsValue === 'settings' && (
           <div className="flex-1 p-4 sm:p-6 max-sm:flex-none">
-            <p className="text-gray-500">Settings view coming soon...</p>
+            <p className="text-gray-500">{t('apptBook.settingsViewComingSoon')}</p>
           </div>
         )}
       </div>

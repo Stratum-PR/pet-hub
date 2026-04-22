@@ -22,7 +22,7 @@ export function EmployeePortalRoute() {
   const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
 
   if (loading) {
-    return <PawStagedLoadingFullscreen label="Cargando" />;
+    return <PawStagedLoadingFullscreen label={t('employeePortal.loading')} />;
   }
 
   if (!user) {

@@ -340,8 +340,26 @@ export function AppSidebar({
           )}
         >
           {showBrandImage ? (
-            <span className="shrink-0 flex items-center justify-center overflow-visible animate-logo-appear">
-              {useCompactBrand && compactImageUrl ? (
+            <span
+              className={cn(
+                'flex animate-logo-appear',
+                mobile && expandedLogoUrl
+                  ? 'w-full min-w-0 max-w-full items-center justify-center overflow-hidden'
+                  : 'shrink-0 items-center justify-center overflow-visible'
+              )}
+            >
+              {mobile && expandedLogoUrl ? (
+                <BrandingLogoSidebarExpanded
+                  logoUrl={expandedLogoUrl}
+                  layout={{
+                    ...brandingLayout.logo.sidebarExpanded,
+                    heightPx: Math.min(40, brandingLayout.logo.sidebarExpanded.heightPx),
+                    maxWidthPx:
+                      brandingLayout.logo.sidebarExpanded.maxWidthPx ??
+                      Math.min(280, Math.min(40, brandingLayout.logo.sidebarExpanded.heightPx) * 6),
+                  }}
+                />
+              ) : useCompactBrand && compactImageUrl ? (
                 <BrandingIconCompact
                   imageUrl={compactImageUrl}
                   layout={mobile ? brandingLayout.icon.mobile : brandingLayout.icon.sidebarCollapsed}

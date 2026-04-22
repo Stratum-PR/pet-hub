@@ -9,11 +9,14 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { ClientForm } from '@/components/ClientForm';
 import { SearchFilter } from '@/components/SearchFilter';
 import { t } from '@/lib/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
 
 export function BusinessCustomers() {
+  useLanguage(); // re-render when locale changes so t() placeholders update
   const { clients, loading, error, refetch, addClient, updateClient, deleteClient } = useClients();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -28,6 +31,8 @@ export function BusinessCustomers() {
     const stored = window.localStorage.getItem(CLIENT_VIEW_KEY);
     return stored === 'list' ? 'list' : 'cards';
   });
+  const isWide = useMinWidthSm();
+  const displayViewMode = isWide ? viewMode : 'cards';
 
   // Handle highlight from URL parameter
   useEffect(() => {
@@ -136,7 +141,7 @@ export function BusinessCustomers() {
       <div className="flex flex-col gap-3" data-page-toolbar data-page-search>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="inline-flex rounded-md border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40">
+          <div className="hidden rounded-md border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40 sm:inline-flex">
             <button
               type="button"
               className={`inline-flex items-center justify-center h-8 w-8 rounded-sm ${
@@ -198,7 +203,7 @@ export function BusinessCustomers() {
             </p>
           </CardContent>
         </Card>
-      ) : viewMode === 'cards' ? (
+      ) : displayViewMode === 'cards' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredClients.map((client) => {
             const isHighlighted = highlightId === client.id;
@@ -238,18 +243,6 @@ export function BusinessCustomers() {
                       </Button>
                     </div>
                   </div>
-                  {(client.address || client.city || client.state) && (
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {[client.address, client.city, client.state, client.zip_code]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </p>
-                  )}
-                  {client.notes && (
-                    <p className="text-sm text-muted-foreground mt-2 border-t pt-2">
-                      {client.notes}
-                    </p>
-                  )}
                 </CardContent>
               </Card>
             );

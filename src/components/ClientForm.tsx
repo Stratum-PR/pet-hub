@@ -305,12 +305,12 @@ export function ClientForm({
               </div>
               {showStaffInternalNotes && (
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor={fid('staff_client_notes')}>Notas internas (solo personal)</Label>
+                  <Label htmlFor={fid('staff_client_notes')}>{t('clients.staffInternalNotesLabel')}</Label>
                   <Textarea
                     id={fid('staff_client_notes')}
                     value={staffNotes}
                     onChange={(e) => setStaffNotes(e.target.value)}
-                    placeholder="Notas visibles solo en este negocio."
+                    placeholder={t('form.staffOnlyBusinessNotes')}
                     rows={3}
                   />
                 </div>

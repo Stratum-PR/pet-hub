@@ -49,7 +49,7 @@ export function PawStagedLoadingFullscreen({
       className="fixed inset-0 flex flex-col bg-background"
       style={{ zIndex }}
     >
-      <PawStagedLoadingArea label={label} size="lg" className="min-h-[100dvh] flex-1" />
+      <PawStagedLoadingArea label={label} size="lg" className="ph-min-h-screen-safe flex-1" />
     </div>
   );
 }

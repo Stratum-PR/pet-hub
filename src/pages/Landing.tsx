@@ -141,7 +141,7 @@ export function Landing() {
   };
 
   return (
-    <div className="min-h-dvh bg-background">
+    <div className="ph-min-h-screen-safe bg-background">
       <PageMeta route={LANDING_ROUTE} jsonLd={getLandingJsonLd()} />
       <MarketingSiteHeader
         mode="landing"
@@ -154,7 +154,7 @@ export function Landing() {
       {/* Hero: prefer video; if video doesn't load/play, fall back to static image */}
       <section
         ref={heroRef}
-        className="relative flex min-h-dvh flex-col items-stretch overflow-x-hidden lg:overflow-hidden"
+        className="relative flex ph-min-h-screen-safe flex-col items-stretch overflow-x-hidden lg:overflow-hidden"
       >
         <div className="absolute inset-0 z-0 overflow-hidden bg-gradient-to-br from-emerald-900/90 via-teal-900/80 to-slate-900/90">
           {/* Static image fallback when video is loading or fails; hidden if image errors so we only show gradient */}
@@ -196,7 +196,7 @@ export function Landing() {
         </div>
 
         {/* Hero: below lg, flexible height so title + CTAs are not clipped; lg+ keeps the framed viewport layout */}
-        <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center px-5 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4rem)] pt-[max(6.75rem,calc(env(safe-area-inset-top,0px)+5.5rem))] sm:px-4 lg:min-h-dvh lg:pb-[30vh] lg:pt-[30vh]">
+        <div className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center px-5 pb-[max(5.5rem,env(safe-area-inset-bottom,0px)+4rem)] pt-[max(6.75rem,calc(env(safe-area-inset-top,0px)+5.5rem))] sm:px-4 lg:ph-min-h-screen-safe lg:pb-[30vh] lg:pt-[30vh]">
           <div className="mx-auto flex w-full max-w-4xl min-h-0 flex-col items-center justify-center gap-3.5 text-center sm:gap-3 lg:h-[40vh] lg:min-h-[40vh] lg:max-h-[40vh] lg:gap-[clamp(0.35rem,1.8vh,1rem)]">
             {/* Title: two lines, letter-by-letter (0.5s delay, 1s total) */}
             <h1

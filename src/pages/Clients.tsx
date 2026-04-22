@@ -11,12 +11,14 @@ import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { ClientProfileDialog, type ClientProfileSavePayload } from '@/components/ClientProfileDialog';
 import { Client, Pet, Appointment } from '@/types';
 import { t } from '@/lib/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useTransactions, resolveDemoLocalTransactionEntries } from '@/hooks/useTransactions';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
 
 interface ClientsProps {
   clients: Client[];
@@ -39,6 +41,7 @@ export function Clients({
   onAddPet,
   onUpdatePet,
 }: ClientsProps) {
+  useLanguage(); // re-render when locale changes so t() placeholders update
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -51,6 +54,8 @@ export function Clients({
     if (typeof window === 'undefined') return 'cards';
     return window.localStorage.getItem(CLIENT_VIEW_KEY) === 'list' ? 'list' : 'cards';
   });
+  const isWide = useMinWidthSm();
+  const displayViewMode = isWide ? viewMode : 'cards';
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(CLIENT_VIEW_KEY, viewMode);
@@ -226,7 +231,7 @@ export function Clients({
           onSearchChange={setSearchTerm}
           placeholder={t('clients.searchPlaceholder')}
         />
-        <div className="inline-flex rounded-xl border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40">
+        <div className="hidden sm:inline-flex rounded-xl border border-border/50 bg-white/50 p-0.5 backdrop-blur-sm dark:bg-background/40">
           <button
             type="button"
             className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
@@ -293,7 +298,7 @@ export function Clients({
             selectedClientId={selectedClientId}
           />
         </div>
-      ) : viewMode === 'cards' ? (
+      ) : displayViewMode === 'cards' ? (
         <div data-page-content>
           <ClientList
             clients={filteredClients}

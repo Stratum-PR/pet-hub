@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mail, Phone, MapPin, Dog, Plus } from 'lucide-react';
+import { Mail, Phone, Dog, Plus } from 'lucide-react';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
@@ -50,7 +50,7 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
     return (
       <Card>
         <CardContent className="p-12 text-center">
-          <p className="text-muted-foreground">No clients found. Add your first client above!</p>
+          <p className="text-muted-foreground">{t('clients.emptyListHint')}</p>
         </CardContent>
       </Card>
     );
@@ -85,12 +85,6 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
                     <Phone className="w-4 h-4" />
                     <span className="tabular-nums">{formatPhoneNumberDisplay(client.phone)}</span>
                   </div>
-                  {client.address && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="w-4 h-4" />
-                      <span className="truncate">{client.address}</span>
-                    </div>
-                  )}
                 </div>
                 {(clientPets.length > 0 || onAddPetForClient) && (
                   <div className="mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
@@ -106,8 +100,9 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
                               key={pet.id}
                               id={`pet-${pet.id}`}
                               onClick={() => handlePetClick(pet.id)}
-                              className="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-md hover:bg-accent/80 transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20"
                             >
+                              <Dog className="w-3 h-3 shrink-0" />
                               {pet.name}
                             </button>
                           ))}

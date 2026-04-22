@@ -191,7 +191,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     }
     if (showPostLoginLoading && user) {
       return (
-        <div className="relative flex min-h-[100dvh] flex-1 flex-col">
+        <div className="relative flex ph-min-h-screen-safe flex-1 flex-col">
           {children}
           <PostLoginLoading
             onTimeout={() => {

@@ -1,8 +1,9 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { DEMO_WORKSPACE_SLUG } from "@/lib/demoWorkspace";
 import { DemoLegacyRedirect } from "@/components/DemoLegacyRedirect";
@@ -44,6 +45,34 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
+/** Dev-only: confirm router mounted and which path is active (white-screen triage). */
+function AgentRouteDebug() {
+  const location = useLocation();
+  useEffect(() => {
+    // #region agent log
+    if (import.meta.env.DEV) {
+      fetch("/__agent-debug-be8983", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: "be8983",
+          location: "src/App.tsx:AgentRouteDebug",
+          message: "router location after mount/update",
+          data: {
+            pathname: location.pathname,
+            searchLen: location.search.length,
+          },
+          timestamp: Date.now(),
+          hypothesisId: "D",
+          runId: "pre-fix",
+        }),
+      }).catch(() => {});
+    }
+    // #endregion
+  }, [location.pathname, location.search]);
+  return null;
+}
+
 function LegacyBusinessLoginRoute() {
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const { user, loading } = useAuth();
@@ -78,6 +107,7 @@ const App = () => (
     <LanguageProvider>
       <AuthProvider>
         <BrowserRouter>
+          <AgentRouteDebug />
           <ScrollToTop />
           <CookieConsentProvider>
             <WaitlistModalProvider>

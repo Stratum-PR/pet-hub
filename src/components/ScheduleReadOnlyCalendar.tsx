@@ -7,7 +7,7 @@ import type { Employee, EmployeeShift } from '@/types';
 import type { WeekTimeRange } from '@/lib/businessHours';
 import { getShiftColor } from '@/lib/scheduleColors';
 import { formatHours1Decimal, scheduledHoursBetween } from '@/lib/scheduleHours';
-import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import { employeeFullName } from '@/lib/employeeName';
 
 const DEFAULT_START_MINUTES = 7 * 60;
 const DEFAULT_END_MINUTES = 21 * 60;
@@ -186,7 +186,7 @@ export function ScheduleReadOnlyCalendar({
                           )}
                           style={{ minHeight: Math.max(height, 28) - 6 }}
                         >
-                          {emp ? formatStaffNameAggregated(emp.name) : t('schedule.employee')}
+                          {emp ? employeeFullName(emp) : t('schedule.employee')}
                           <br />
                           <span className="text-muted-foreground font-normal opacity-90">{label}</span>
                         </div>

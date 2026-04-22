@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,9 @@ import type { WeekTimeRange } from '@/lib/businessHours';
 import { getShiftColor } from '@/lib/scheduleColors';
 import { hasSameEmployeeOverlap } from '@/lib/scheduleUtils';
 import { formatHours1Decimal, scheduledHoursBetween } from '@/lib/scheduleHours';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
+import { ScheduleWeekAgenda, getDefaultScheduleAgendaDayIndex } from '@/components/ScheduleWeekAgenda';
+import { employeeFullName } from '@/lib/employeeName';
 import { Link } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { Badge } from '@/components/ui/badge';
@@ -99,12 +100,28 @@ export function ManagerScheduleView({
     ? `/${businessSlug}/employee-schedule/change-requests`
     : '/employee-schedule/change-requests';
   const { pendingCount } = usePendingShiftChangeRequestCount();
-  const isMobile = useIsMobile();
+  const isWide = useMinWidthSm();
+  const isMobile = !isWide;
   const rangeStartMinutes = timeRange?.startMinutes ?? DEFAULT_START_MINUTES;
   const rangeEndMinutes = timeRange?.endMinutes ?? DEFAULT_END_MINUTES;
   const timeSlots = useMemo(() => generateTimeSlots(rangeStartMinutes, rangeEndMinutes), [rangeStartMinutes, rangeEndMinutes]);
   const weekEnd = endOfWeek(weekStart);
-  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  const weekDays = useMemo(
+    () => eachDayOfInterval({ start: weekStart, end: endOfWeek(weekStart) }),
+    [weekStart.getTime()],
+  );
+
+  const scheduleWeekKey = useMemo(
+    () => weekDays.map((d) => format(d, 'yyyy-MM-dd')).join('|'),
+    [weekDays],
+  );
+  const [mobileAgendaDayIndex, setMobileAgendaDayIndex] = useState(() =>
+    getDefaultScheduleAgendaDayIndex(weekDays),
+  );
+  useEffect(() => {
+    if (!isMobile) return;
+    setMobileAgendaDayIndex(getDefaultScheduleAgendaDayIndex(weekDays));
+  }, [scheduleWeekKey, isMobile, weekDays]);
 
   const [editingShift, setEditingShift] = useState<EmployeeShift | null>(null);
   const [addShiftContext, setAddShiftContext] = useState<AddShiftContext | null>(null);
@@ -396,6 +413,12 @@ export function ManagerScheduleView({
   );
   const showCopyFromLastWeek = weekShifts.length === 0 && shiftsInLastWeek.length > 0;
 
+  const openShiftForEdit = useCallback((shift: EmployeeShift) => {
+    setEditingShift(shift);
+    setAddShiftContext(null);
+    setEditOpen(true);
+  }, []);
+
   const handleCopyFromLastWeek = useCallback(async () => {
     setCopyingFromLastWeek(true);
     try {
@@ -474,7 +497,38 @@ export function ManagerScheduleView({
         </div>
       </div>
 
+      {isMobile ? (
+        <div className="flex flex-col gap-4">
+          <ScheduleWeekAgenda
+            shifts={weekShifts}
+            employees={employees}
+            weekDays={weekDays}
+            selectedDayIndex={mobileAgendaDayIndex}
+            onSelectedDayIndexChange={setMobileAgendaDayIndex}
+            onEditShift={openShiftForEdit}
+            onAddShift={(employeeId, date) => {
+              setEditingShift(null);
+              setAddShiftContext({ employeeId, date });
+              setEditOpen(true);
+            }}
+          />
+        </div>
+      ) : (
       <div className="flex flex-col gap-4">
+        <div className="min-w-0">
+          <ScheduleTable
+            shifts={weekShifts}
+            employees={employees}
+            weekDays={weekDays}
+            onEditShift={openShiftForEdit}
+            onAddShift={(employeeId, date) => {
+              setEditingShift(null);
+              setAddShiftContext({ employeeId, date });
+              setEditOpen(true);
+            }}
+          />
+        </div>
+
         <div className="min-w-0">
         <Card>
           <CardContent className="p-4">
@@ -497,7 +551,7 @@ export function ManagerScheduleView({
                         )}
                       >
                         <User className="w-4 h-4 inline-block mr-2 text-muted-foreground" />
-                        {formatStaffNameAggregated(emp.name)}
+                        {employeeFullName(emp)}
                       </div>
                     ))}
                     {activeEmployees.length === 0 && (
@@ -653,7 +707,7 @@ export function ManagerScheduleView({
                                         }
                                       }}
                                     >
-                                      {emp?.name ?? ''}
+                                      {emp ? employeeFullName(emp) : ''}
                                       <br />
                                       <span className="text-muted-foreground font-normal opacity-90">
                                         {label}
@@ -728,7 +782,7 @@ export function ManagerScheduleView({
                                       }
                                     }}
                                   >
-                                    {emp?.name ?? ''}
+                                    {emp ? employeeFullName(emp) : ''}
                                     <br />
                                     <span className="text-muted-foreground font-normal opacity-90">
                                       {displayLabel}
@@ -782,7 +836,7 @@ export function ManagerScheduleView({
                                     className={cn('flex-1 min-h-0 px-2 py-1 text-left text-xs font-medium cursor-grabbing flex flex-col justify-center', colors.hover)}
                                     style={{ minHeight: bodyHeight }}
                                   >
-                                    {emp?.name ?? ''}
+                                    {emp ? employeeFullName(emp) : ''}
                                     <br />
                                     <span className="text-muted-foreground font-normal opacity-90">
                                       {previewLabel}
@@ -801,25 +855,8 @@ export function ManagerScheduleView({
           </CardContent>
         </Card>
         </div>
-
-        <div className="min-w-0">
-          <ScheduleTable
-            shifts={weekShifts}
-            employees={employees}
-            weekDays={weekDays}
-            onEditShift={(shift) => {
-              setEditingShift(shift);
-              setAddShiftContext(null);
-              setEditOpen(true);
-            }}
-            onAddShift={(employeeId, date) => {
-              setEditingShift(null);
-              setAddShiftContext({ employeeId, date });
-              setEditOpen(true);
-            }}
-          />
-        </div>
       </div>
+      )}
 
       <EditShiftDialog
         open={editOpen}
