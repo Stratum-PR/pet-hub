@@ -62,13 +62,14 @@ export function TimeKiosk() {
   const [managerPinGate, setManagerPinGate] = useState<ManagerPinGate>('loading');
   const [managerPinResetOpen, setManagerPinResetOpen] = useState(false);
   const canResetKioskManagerPin = useCanResetKioskManagerPin();
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, profile } = useAuth();
   const { settings } = useSettings();
   const kioskWarnOffSchedule = settings.kiosk_warn_off_schedule !== 'false';
   const managerPinGateFetchGen = useRef(0);
   const [businessResolveTimedOut, setBusinessResolveTimedOut] = useState(false);
   const kioskNonInteractiveDemo =
     isDemoMode() || isDemoWorkspaceBusiness(businessId);
+  const shouldRequestKioskLocation = import.meta.env.DEV && (profile?.is_super_admin ?? false);
 
   // If we never get a business id (slug/profile), stop spinning forever.
   useEffect(() => {
@@ -359,18 +360,20 @@ export function TimeKiosk() {
     setErrorMessage(null);
 
     try {
-      // Get geolocation
+      // Only collect kiosk geolocation in development for super admin accounts.
       let location;
-      try {
-        const geolocationTimeoutMs = 1500;
-        const timeoutPromise = new Promise<undefined>((resolve) => {
-          window.setTimeout(() => resolve(undefined), geolocationTimeoutMs);
-        });
-        location = await Promise.race([getCurrentLocation(), timeoutPromise]);
-      } catch (geoErr) {
-        // Continue without geolocation
-        if (import.meta.env.DEV) {
-          devConsole.warn('Geolocation not available:', geoErr);
+      if (shouldRequestKioskLocation) {
+        try {
+          const geolocationTimeoutMs = 1500;
+          const timeoutPromise = new Promise<undefined>((resolve) => {
+            window.setTimeout(() => resolve(undefined), geolocationTimeoutMs);
+          });
+          location = await Promise.race([getCurrentLocation(), timeoutPromise]);
+        } catch (geoErr) {
+          // Continue without geolocation
+          if (import.meta.env.DEV) {
+            devConsole.warn('Geolocation not available:', geoErr);
+          }
         }
       }
 
@@ -417,7 +420,7 @@ export function TimeKiosk() {
         resetToPinEntry();
       }, 3000);
     }
-  }, [employee, clockInOut, getCurrentLocation, resetToPinEntry, t, kioskWarnOffSchedule]);
+  }, [employee, clockInOut, getCurrentLocation, resetToPinEntry, t, kioskWarnOffSchedule, shouldRequestKioskLocation]);
 
   const handleContinueOffSchedule = useCallback(() => {
     setState('success');

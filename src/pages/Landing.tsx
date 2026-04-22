@@ -48,6 +48,7 @@ function getLandingJsonLd(): string {
 }
 
 export function Landing() {
+  const showRegisterAccountOnRoot = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -289,6 +290,18 @@ export function Landing() {
                     {t('landing.viewDemo')}
                   </Button>
                 </Link>
+                {showRegisterAccountOnRoot && (
+                  <Link to="/registrarse" className="w-full sm:w-auto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto inline-flex items-center gap-2 rounded-xl px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white border-white/25 bg-white/10 backdrop-blur-2xl hover:bg-white/15 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D4FF00]"
+                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                    >
+                      {t('register.createAccount')}
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -324,6 +337,7 @@ export function Landing() {
         titleId="splash-login-modal-title"
       >
         <LoginForm
+          showRegisterAccountButton={showRegisterAccountOnRoot}
           onClose={() => setLoginModalOpen(false)}
           onLoginSuccess={(destination) => {
             setLoginModalOpen(false);

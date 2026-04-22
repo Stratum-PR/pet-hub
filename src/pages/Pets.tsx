@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, X, LayoutGrid, List, Dog, Cat, ArrowLeft, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,10 +12,10 @@ import { t } from '@/lib/translations';
 import { toast } from 'sonner';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { useTransactions } from '@/hooks/useTransactions';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { format, parseISO, isWithinInterval, subDays, differenceInDays } from 'date-fns';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 import { useMinWidthSm } from '@/hooks/useMinWidthSm';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PetsProps {
   clients: Client[];
@@ -27,6 +27,7 @@ interface PetsProps {
 }
 
 export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, onDeletePet }: PetsProps) {
+  useLanguage(); // Ensure instant re-render on language toggle
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -56,7 +57,16 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
     window.localStorage.setItem(PET_VIEW_KEY, viewMode);
   }, [viewMode]);
 
-  // Scroll to and highlight pet when navigated from client page (?highlight=petId)
+  // Open pet profile when opened via URL (?highlight=petId), e.g. from clients table
+  useEffect(() => {
+    const highlightId = searchParams.get('highlight');
+    if (!highlightId) return;
+    const pet = pets.find((p) => String(p.id).trim() === String(highlightId).trim());
+    if (!pet) return;
+    setPetDetailOpen((prev) => (prev?.id === pet.id ? prev : pet));
+  }, [searchParams, pets]);
+
+  // Scroll to and highlight pet row/card when navigated with ?highlight=petId
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const highlightId = params.get('highlight');
@@ -77,6 +87,30 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
       if (highlightClear) clearTimeout(highlightClear);
     };
   }, [location.search, viewMode]);
+
+  /** Clear ?highlight=&fromClient= on the pets page, or go back to clients if opened from there. */
+  const leavePetDeepLink = useCallback(
+    (opts: { returnToClientIfPresent: boolean }) => {
+      const fromClientId = searchParams.get('fromClient');
+      if (opts.returnToClientIfPresent && fromClientId) {
+        if (businessSlug) {
+          navigate(`/${businessSlug}/clients?highlight=${encodeURIComponent(fromClientId)}`, { replace: true });
+        } else {
+          navigate(`/clients?highlight=${encodeURIComponent(fromClientId)}`, { replace: true });
+        }
+        return;
+      }
+      const hl = searchParams.get('highlight');
+      const fc = searchParams.get('fromClient');
+      if (!hl && !fc) return;
+      const next = new URLSearchParams(searchParams);
+      next.delete('highlight');
+      next.delete('fromClient');
+      const qs = next.toString();
+      navigate({ pathname: location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
+    },
+    [searchParams, navigate, location.pathname, businessSlug],
+  );
 
   const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
 
@@ -495,16 +529,21 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
         appointments={appointments as any[]}
         transactions={transactions ?? []}
         onOpenChange={(open) => {
-          if (!open) setPetDetailOpen(null);
+          if (!open) {
+            setPetDetailOpen(null);
+            leavePetDeepLink({ returnToClientIfPresent: true });
+          }
         }}
         onEdit={() => {
           if (!petDetailOpen) return;
           setPetDetailOpen(null);
+          leavePetDeepLink({ returnToClientIfPresent: false });
           handleEdit(petDetailOpen);
         }}
         onDelete={() => setPetDeleteConfirmOpen(true)}
         onViewOwner={(clientId) => {
           setPetDetailOpen(null);
+          leavePetDeepLink({ returnToClientIfPresent: false });
           if (businessSlug) navigate(`/${businessSlug}/clients?highlight=${clientId}`);
           else navigate(`/clients?highlight=${clientId}`);
         }}
@@ -517,6 +556,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
           if (petDetailOpen) {
             await onDeletePet(petDetailOpen.id);
             setPetDetailOpen(null);
+            leavePetDeepLink({ returnToClientIfPresent: true });
             setPetDeleteConfirmOpen(false);
           }
         }}

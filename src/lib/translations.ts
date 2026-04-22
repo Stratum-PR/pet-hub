@@ -2466,6 +2466,18 @@ export const translations: Translations = {
     en: 'Search by name, email, or phone',
     es: 'Buscar por nombre, correo o teléfono'
   },
+  'clients.emptyState': {
+    en: 'No clients found. Add your first client above!',
+    es: 'No se encontraron clientes. Agrega tu primer cliente arriba.'
+  },
+  'clients.cardView': {
+    en: 'Card view',
+    es: 'Vista de tarjetas'
+  },
+  'clients.listView': {
+    en: 'List view',
+    es: 'Vista de lista'
+  },
   'clients.saveError': {
     en: 'Could not save client. Please try again.',
     es: 'No se pudo guardar el cliente. Por favor intente de nuevo.'
@@ -3067,6 +3079,10 @@ export const translations: Translations = {
   'services.noSearchResults': {
     en: 'No services match your search.',
     es: 'Ningún servicio coincide con tu búsqueda.'
+  },
+  'services.noServicesYetPrompt': {
+    en: 'No services yet. Add your first service above!',
+    es: 'Aún no hay servicios. Agrega tu primer servicio arriba.'
   },
   'services.serviceAdded': {
     en: 'Service added successfully.',
@@ -4018,6 +4034,26 @@ export const translations: Translations = {
     en: 'Last name',
     es: 'Apellido'
   },
+  'employeeManagement.address': {
+    en: 'Address',
+    es: 'Dirección'
+  },
+  'employeeManagement.addressPlaceholder': {
+    en: 'Calle, ciudad, estado, código postal',
+    es: 'Calle, ciudad, estado, código postal'
+  },
+  'employeeManagement.ssn': {
+    en: 'SSN',
+    es: 'SSN'
+  },
+  'employeeManagement.ssnHint': {
+    en: 'Store as 9 digits. Cards only show the last 4.',
+    es: 'Guarda 9 dígitos. Las tarjetas solo muestran los últimos 4.'
+  },
+  'employeeManagement.encryptedSsn': {
+    en: 'Encrypted SSN',
+    es: 'SSN encriptado'
+  },
   'employeeManagement.firstNameRequired': {
     en: 'First name is required.',
     es: 'El nombre es obligatorio.'
@@ -4138,6 +4174,18 @@ export const translations: Translations = {
     en: '4-digit PIN',
     es: 'PIN de 4 dígitos'
   },
+  'employeeManagement.showPin': {
+    en: 'Show',
+    es: 'Mostrar'
+  },
+  'employeeManagement.hidePin': {
+    en: 'Hide',
+    es: 'Ocultar'
+  },
+  'employeeManagement.resetPin': {
+    en: 'Reset PIN',
+    es: 'Restablecer PIN'
+  },
   'employeeManagement.generatePin': {
     en: 'Generate PIN',
     es: 'Generar PIN'
@@ -4181,6 +4229,10 @@ export const translations: Translations = {
   'employeeManagement.saveStaffFailed': {
     en: 'Could not save this staff member. Check your connection and that Supabase allows updating staff (including birth date columns).',
     es: 'No se pudo guardar. Revisa la conexión y los permisos en Supabase.',
+  },
+  'employeeManagement.pinAlreadyInUse': {
+    en: 'This PIN cannot be used right now. Please try a different 4-digit PIN.',
+    es: 'Este PIN no se puede usar ahora mismo. Intenta con otro PIN de 4 dígitos.',
   },
   'employeeManagement.statusFilter': {
     en: 'Show',
@@ -4307,8 +4359,8 @@ export const translations: Translations = {
     es: 'Foto de perfil'
   },
   'employeeManagement.profilePhotoHint': {
-    en: 'JPEG, PNG, WebP or GIF, up to 5 MB (same as pet photos).',
-    es: 'JPEG, PNG, WebP o GIF, hasta 5 MB (igual que fotos de mascotas).'
+    en: 'JPEG, PNG, WebP or GIF, up to 5 MB.',
+    es: 'JPEG, PNG, WebP o GIF, hasta 5 MB.'
   },
   'employeeManagement.removePhoto': {
     en: 'Remove photo',
@@ -4363,12 +4415,28 @@ export const translations: Translations = {
     es: 'Nombre del banco'
   },
   'employeeManagement.routingNumber': {
-    en: 'Routing (ABA) number',
-    es: 'Número de ruta (ABA)'
+    en: 'Bank',
+    es: 'Banco'
+  },
+  'employeeManagement.accountType': {
+    en: 'Account type',
+    es: 'Tipo de cuenta'
+  },
+  'employeeManagement.accountTypePlaceholder': {
+    en: 'Select account type',
+    es: 'Selecciona tipo de cuenta'
+  },
+  'employeeManagement.accountTypeChecking': {
+    en: 'Checking',
+    es: 'Cheque'
+  },
+  'employeeManagement.accountTypeSavings': {
+    en: 'Savings',
+    es: 'Ahorros'
   },
   'employeeManagement.routingCustom': {
-    en: 'Custom (enter routing below)',
-    es: 'Personalizado (ingrese la ruta abajo)'
+    en: 'Other',
+    es: 'Otro'
   },
   'employeeManagement.routingNumberManual': {
     en: 'Routing number (9 digits)',
@@ -4974,7 +5042,7 @@ export const translations: Translations = {
   },
   'nav.shiftChangeRequests': {
     en: 'Shift requests',
-    es: 'Solicitudes de horario'
+    es: 'Solicitudes de Cambio de Horario'
   },
   'schedule.shiftRequest.openButton': {
     en: 'Request change',
@@ -5150,6 +5218,22 @@ export const translations: Translations = {
     en: 'Pay Period',
     es: 'Período de Pago'
   },
+  'payroll.generatedOn': {
+    en: 'Generated',
+    es: 'Generado'
+  },
+  'payroll.employeeId': {
+    en: 'Employee ID',
+    es: 'ID de empleado'
+  },
+  'payroll.totals': {
+    en: 'TOTALS',
+    es: 'TOTALES'
+  },
+  'payroll.openEntry': {
+    en: 'Open',
+    es: 'Abierto'
+  },
   'payroll.editEntry': {
     en: 'Edit Entry',
     es: 'Editar Entrada'
@@ -5317,6 +5401,10 @@ export const translations: Translations = {
   'payroll.pdfPopupBlocked': {
     en: 'Could not open a new tab. Check your pop-up settings: the report was downloaded instead.',
     es: 'No se pudo abrir una pestaña nueva. Revise las ventanas emergentes: el informe se descargó en su lugar.'
+  },
+  'payroll.reportFileLabel': {
+    en: 'Payroll Report',
+    es: 'Informe de Nómina'
   },
   'payroll.payCalculations': {
     en: 'Pay calculations',
@@ -5594,6 +5682,34 @@ export const translations: Translations = {
     en: 'Leave empty if employee is still clocked in',
     es: 'Deje vacío si el empleado aún está registrado'
   },
+  'payroll.clockInRequired': {
+    en: 'Clock-in time is required.',
+    es: 'La hora de entrada es obligatoria.'
+  },
+  'payroll.clockOutMustBeAfterClockIn': {
+    en: 'Clock-out time must be after clock-in time.',
+    es: 'La hora de salida debe ser después de la hora de entrada.'
+  },
+  'payroll.saveFailed': {
+    en: 'Could not save this timesheet entry.',
+    es: 'No se pudo guardar esta entrada de hoja de tiempo.'
+  },
+  'payroll.addEntryFailed': {
+    en: 'Could not add this timesheet entry.',
+    es: 'No se pudo agregar esta entrada de hoja de tiempo.'
+  },
+  'payroll.lunch': {
+    en: 'Lunch',
+    es: 'Almuerzo'
+  },
+  'payroll.lunchDeducted': {
+    en: 'Lunch deducted',
+    es: 'Almuerzo descontado'
+  },
+  'payroll.lunchDeductionColumn': {
+    en: 'Lunch discount',
+    es: 'Descuento de almuerzo'
+  },
 
   // Time Kiosk / Manager UI
   'timeKiosk.managerChoiceTitle': {
@@ -5687,7 +5803,7 @@ export const translations: Translations = {
   },
   'scheduleCheck.body': {
     en: 'You are clocking in at a time that does not match a shift on your schedule. Your time will still be recorded normally; it will simply be tagged as outside the scheduled window. If you have a shift on file, it is shown below for reference.',
-    es: 'Estás fichando en un horario que no coincide con un turno en tu agenda. Tu tiempo se registrará igual; solo se marcará como fuera de la ventana programada. Si hay un turno registrado, aparece abajo como referencia.'
+    es: 'Estás ponchando en un horario que no coincide con un turno en tu agenda. Tu tiempo se registrará igual; solo se marcará como fuera de la ventana programada. Si hay un turno registrado, aparece abajo como referencia.'
   },
   'scheduleCheck.shiftReference': {
     en: 'Scheduled shift on file',
@@ -5699,7 +5815,7 @@ export const translations: Translations = {
   },
   'scheduleCheck.continue': {
     en: 'Clock in',
-    es: 'Fichar entrada'
+    es: 'Ponchar'
   },
 
   'kioskManager.accessTitle': {

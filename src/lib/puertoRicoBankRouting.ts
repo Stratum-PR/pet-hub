@@ -4,10 +4,9 @@
  */
 export const PUERTO_RICO_BANK_ROUTING: readonly { routing: string; name: string }[] = [
   { routing: '021502011', name: 'Banco Popular de Puerto Rico' },
-  { routing: '021502189', name: 'FirstBank Puerto Rico' },
-  { routing: '021502118', name: 'Oriental Bank' },
-  { routing: '021502080', name: 'Banco Santander Puerto Rico' },
-  { routing: '021502271', name: 'Scotiabank de Puerto Rico' },
+  { routing: '221571473', name: 'First Bank' },
+  { routing: '221571415', name: 'Oriental Bank' },
+  { routing: '021502341', name: 'Santander' },
   { routing: '021502383', name: 'Banco Cooperativo de Puerto Rico (Coop)' },
 ] as const;
 

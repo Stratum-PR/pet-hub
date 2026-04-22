@@ -2,10 +2,11 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Mail, Phone, Dog, Plus } from 'lucide-react';
+import { Mail, Phone, MapPin, Dog, Plus } from 'lucide-react';
 import { Client, Pet } from '@/types';
 import { t } from '@/lib/translations';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ClientListProps {
   clients: Client[];
@@ -18,6 +19,7 @@ interface ClientListProps {
 }
 
 export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAddPetForClient, selectedClientId }: ClientListProps) {
+  useLanguage(); // Keep empty-state copy in sync immediately
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug: string }>();
 
@@ -37,12 +39,15 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
   }, [selectedClientId]);
 
 
-  const handlePetClick = (petId: string) => {
-    // Preserve the business slug (e.g. /demo/pets?highlight=...)
+  const handlePetClick = (petId: string, clientId: string) => {
+    const q = new URLSearchParams({
+      highlight: petId,
+      fromClient: clientId,
+    });
     if (businessSlug) {
-      navigate(`/${businessSlug}/pets?highlight=${petId}`);
+      navigate(`/${businessSlug}/pets?${q.toString()}`);
     } else {
-      navigate(`/pets?highlight=${petId}`);
+      navigate(`/pets?${q.toString()}`);
     }
   };
 
@@ -50,7 +55,7 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
     return (
       <Card>
         <CardContent className="p-12 text-center">
-          <p className="text-muted-foreground">{t('clients.emptyListHint')}</p>
+          <p className="text-muted-foreground">{t('clients.emptyState')}</p>
         </CardContent>
       </Card>
     );
@@ -85,6 +90,12 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
                     <Phone className="w-4 h-4" />
                     <span className="tabular-nums">{formatPhoneNumberDisplay(client.phone)}</span>
                   </div>
+                  {client.address && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      <span className="truncate">{client.address}</span>
+                    </div>
+                  )}
                 </div>
                 {(clientPets.length > 0 || onAddPetForClient) && (
                   <div className="mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
@@ -99,10 +110,9 @@ export function ClientList({ clients, pets, onViewClient, onDelete, onEdit, onAd
                             <button
                               key={pet.id}
                               id={`pet-${pet.id}`}
-                              onClick={() => handlePetClick(pet.id)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20"
+                              onClick={() => handlePetClick(pet.id, client.id)}
+                              className="px-2 py-1 bg-accent text-accent-foreground text-xs rounded-md hover:bg-accent/80 transition-colors cursor-pointer"
                             >
-                              <Dog className="w-3 h-3 shrink-0" />
                               {pet.name}
                             </button>
                           ))}

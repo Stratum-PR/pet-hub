@@ -25,6 +25,7 @@ import {
 import { useDemoLocalSettingsMode } from '@/hooks/useDemoLocalSettingsMode';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { loadDemoStored, patchDemoStored } from '@/lib/demoLocalSettings';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Download, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { GeofencingSettings } from '@/components/GeofencingSettings';
@@ -88,6 +89,7 @@ function isPuertoRicoTaxSetup(rows: { label: string; rate: number }[]): boolean 
 }
 
 export function BusinessSettingsPage() {
+  useLanguage(); // Force re-render on language change
   const location = useLocation();
   const { businessSlug: routeBusinessSlug } = useParams<{ businessSlug?: string }>();
   const queryClient = useQueryClient();
@@ -95,7 +97,8 @@ export function BusinessSettingsPage() {
   const businessId = useBusinessId();
   const demoLocalOnly = useDemoLocalSettingsMode();
   const { settings, updateSetting, saveAllSettings, refetch } = useSettings();
-  const { isFeatureVisible } = useFeatureRollout();
+  const { isFeatureVisible, viewerTier, isSuperAdmin } = useFeatureRollout();
+  const showDevOnlyBusinessSettings = isSuperAdmin && viewerTier === 'development';
 
   // Punch clock / deep links: scroll to kiosk manager PIN when navigating with #kiosk-manager-pin
   useEffect(() => {
@@ -762,12 +765,7 @@ export function BusinessSettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="business-name">{t('businessSettings.businessName')}</Label>
-                <Input
-                  id="business-name"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder={t('businessSettings.placeholderBusinessName')}
-                />
+                <Input id="business-name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Business name" />
               </div>
               {!demoLocalOnly && (
                 <div className="space-y-2">
@@ -778,7 +776,7 @@ export function BusinessSettingsPage() {
                         id="business-public-slug"
                         value={publicSlug}
                         onChange={(e) => setPublicSlug(e.target.value)}
-                        placeholder={t('businessSettings.placeholderSlug')}
+                        placeholder="my-grooming-salon"
                         autoComplete="off"
                         spellCheck={false}
                         className={cn(
@@ -833,32 +831,24 @@ export function BusinessSettingsPage() {
               )}
               <div className="space-y-2">
                 <Label htmlFor="business-phone">{t('businessSettings.phone')}</Label>
-                <Input
-                  id="business-phone"
-                  value={businessPhone}
-                  onChange={(e) => setBusinessPhone(e.target.value)}
-                  placeholder={t('businessSettings.placeholderPhone')}
-                />
+                <Input id="business-phone" value={businessPhone} onChange={(e) => setBusinessPhone(e.target.value)} placeholder="(787) 555-5555" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="business-address">{t('businessSettings.address')}</Label>
-                <Input
-                  id="business-address"
-                  value={businessAddress}
-                  onChange={(e) => setBusinessAddress(e.target.value)}
-                  placeholder={t('businessSettings.placeholderAddress')}
-                />
+                <Input id="business-address" value={businessAddress} onChange={(e) => setBusinessAddress(e.target.value)} placeholder="Trujillo Alto, Puerto Rico" />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="maps-embed-url">{t('businessSettings.mapsEmbedUrl')}</Label>
-                <Input
-                  id="maps-embed-url"
-                  value={mapsEmbedUrl}
-                  onChange={(e) => setMapsEmbedUrl(e.target.value)}
-                  placeholder={t('businessSettings.placeholderMapsEmbed')}
-                />
-                <p className="text-xs text-muted-foreground">{t('businessSettings.mapsEmbedUrlHint')}</p>
-              </div>
+              {showDevOnlyBusinessSettings && (
+                <div className="space-y-2">
+                  <Label htmlFor="maps-embed-url">{t('businessSettings.mapsEmbedUrl')}</Label>
+                  <Input
+                    id="maps-embed-url"
+                    value={mapsEmbedUrl}
+                    onChange={(e) => setMapsEmbedUrl(e.target.value)}
+                    placeholder="https://www.google.com/maps/embed?pb=..."
+                  />
+                  <p className="text-xs text-muted-foreground">{t('businessSettings.mapsEmbedUrlHint')}</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="block text-xs text-muted-foreground">{t('businessSettings.timezoneLabel')}</Label>
                 <BusinessTimezoneCombobox value={businessTimezone} onChange={setBusinessTimezone} />
@@ -954,74 +944,78 @@ export function BusinessSettingsPage() {
           </Card>
         </section>
 
-        <section id="portal-qr" className="scroll-mt-24">
-          <Card>
-            <CardHeader>
-              <CardTitle>QR del Portal de Clientes</CardTitle>
-              <CardDescription>
-                Comparte el acceso directo a {business?.slug ? `/${business.slug}/portal` : 'tu portal'}. Si cambias el color principal o el logo del negocio, vuelve a generar el QR para reflejar la marca.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                <div className="flex h-44 w-44 items-center justify-center rounded-lg border border-border bg-card">
-                  {qrLoading ? (
-                    <span className="text-xs text-muted-foreground">Cargando QR...</span>
-                  ) : qrCodeSvg ? (
-                    <div
-                      className="h-40 w-40 [&>svg]:h-full [&>svg]:w-full"
-                      dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
-                    />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Aun no generado</span>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    Enlace: {business?.slug ? buildBusinessPortalUrl(business.slug, resolvePortalBaseUrl(window.location.origin)) : 'pendiente'}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button onClick={handleGenerateQrCode} disabled={!business?.slug || qrBusy}>
-                      {qrBusy ? t('common.saving') : 'Generar / Actualizar QR'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleDownloadQrPng}
-                      disabled={!business?.slug}
-                    >
-                      Descargar PNG
-                    </Button>
-                    <Button variant="outline" onClick={handlePrintQr} disabled={!qrCodeSvg}>
-                      Imprimir
-                    </Button>
+        {showDevOnlyBusinessSettings && (
+          <section id="portal-qr" className="scroll-mt-24">
+            <Card>
+              <CardHeader>
+                <CardTitle>QR del Portal de Clientes</CardTitle>
+                <CardDescription>
+                  Comparte el acceso directo a {business?.slug ? `/${business.slug}/portal` : 'tu portal'}. Si cambias el color principal o el logo del negocio, vuelve a generar el QR para reflejar la marca.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  <div className="flex h-44 w-44 items-center justify-center rounded-lg border border-border bg-card">
+                    {qrLoading ? (
+                      <span className="text-xs text-muted-foreground">Cargando QR...</span>
+                    ) : qrCodeSvg ? (
+                      <div
+                        className="h-40 w-40 [&>svg]:h-full [&>svg]:w-full"
+                        dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Aun no generado</span>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      Enlace: {business?.slug ? buildBusinessPortalUrl(business.slug, resolvePortalBaseUrl(window.location.origin)) : 'pendiente'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={handleGenerateQrCode} disabled={!business?.slug || qrBusy}>
+                        {qrBusy ? t('common.saving') : 'Generar / Actualizar QR'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleDownloadQrPng}
+                        disabled={!business?.slug}
+                      >
+                        Descargar PNG
+                      </Button>
+                      <Button variant="outline" onClick={handlePrintQr} disabled={!qrCodeSvg}>
+                        Imprimir
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
-        <section id="inventory" className="scroll-mt-24">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('businessSettings.sectionInventoryTitle')}</CardTitle>
-              <CardDescription>{t('businessSettings.lowStockGlobalDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap items-end gap-4">
-              <div className="space-y-2">
-                <Label>{t('businessSettings.defaultLowStock')}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={defaultLowStock}
-                  onChange={(e) => setDefaultLowStock(e.target.value)}
-                  className="w-24"
-                />
-              </div>
-              <Button onClick={handleSaveLowStock}>{t('common.save')}</Button>
-            </CardContent>
-          </Card>
-        </section>
+        {showDevOnlyBusinessSettings && (
+          <section id="inventory" className="scroll-mt-24">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('businessSettings.sectionInventoryTitle')}</CardTitle>
+                <CardDescription>{t('businessSettings.lowStockGlobalDescription')}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap items-end gap-4">
+                <div className="space-y-2">
+                  <Label>{t('businessSettings.defaultLowStock')}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={defaultLowStock}
+                    onChange={(e) => setDefaultLowStock(e.target.value)}
+                    className="w-24"
+                  />
+                </div>
+                <Button onClick={handleSaveLowStock}>{t('common.save')}</Button>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         <section id="payroll" className="scroll-mt-24 space-y-6">
           <div>
@@ -1096,7 +1090,7 @@ export function BusinessSettingsPage() {
                       onCheckedChange={handleKioskWarnOffScheduleChange}
                     />
                   </div>
-                  {isFeatureVisible('employee_mobile_punch') && (
+                  {showDevOnlyBusinessSettings && isFeatureVisible('employee_mobile_punch') && (
                     <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4 border-t border-border pt-6">
                       <div className="space-y-0.5">
                         <Label htmlFor="allow-employee-mobile-punch">
@@ -1129,7 +1123,7 @@ export function BusinessSettingsPage() {
           )}
         </section>
 
-      {(isFeatureVisible('tax_settings') || isFeatureVisible('receipt_personalization')) && (
+      {showDevOnlyBusinessSettings && (isFeatureVisible('tax_settings') || isFeatureVisible('receipt_personalization')) && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {isFeatureVisible('tax_settings') && (
       <section id="tax" className="scroll-mt-24 min-w-0">
@@ -1209,7 +1203,7 @@ export function BusinessSettingsPage() {
                         min={0}
                         max={100}
                         step={0.01}
-                        placeholder={t('businessSettings.placeholderPercent')}
+                        placeholder="%"
                         value={row.rate || ''}
                         onChange={(e) => updateCustomTaxRow(index, { rate: parseFloat(e.target.value) || 0 })}
                         className="w-20"
@@ -1277,7 +1271,7 @@ export function BusinessSettingsPage() {
       </div>
       )}
 
-      {isFeatureVisible('payment_configuration') && (
+      {showDevOnlyBusinessSettings && isFeatureVisible('payment_configuration') && (
       <section id="payments" className="scroll-mt-24">
       <Card>
         <CardHeader>

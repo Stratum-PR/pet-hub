@@ -8,6 +8,7 @@ import { MyScheduleView } from '@/components/MyScheduleView';
 import type { Employee, TimeEntry } from '@/types';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { t } from '@/lib/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface EmployeeScheduleProps {
   employees: Employee[];
@@ -15,6 +16,7 @@ interface EmployeeScheduleProps {
 }
 
 export function EmployeeSchedule({ employees, timeEntries }: EmployeeScheduleProps) {
+  useLanguage(); // Ensure instant re-render on language toggle
   const { role, employeeId } = useAuth();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const isManager = role === 'manager' || role === 'super_admin';
