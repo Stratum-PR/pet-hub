@@ -108,12 +108,12 @@ export function PawLoadedContent({
     overlayMounted && viewportCover && typeof document !== 'undefined'
       ? createPortal(
           <div
-            className="fixed inset-0 z-[10050] flex min-h-[100dvh] w-full flex-col bg-background"
+            className="fixed inset-0 z-[10050] flex ph-min-h-screen-safe w-full flex-col bg-background"
             style={{ pointerEvents: loading ? 'auto' : 'none' }}
             aria-busy={loading}
             aria-label={loaderLabel}
           >
-            <PawStagedLoadingArea {...areaProps} className="min-h-[100dvh] flex-1" />
+            <PawStagedLoadingArea {...areaProps} className="ph-min-h-screen-safe flex-1" />
           </div>,
           document.body
         )
@@ -133,7 +133,7 @@ export function PawLoadedContent({
           className={cn(
             'flex flex-1 flex-col',
             loading
-              ? cn('min-h-[max(70vh,calc(100dvh-10rem))]', loaderWrapperClassName)
+              ? cn('ph-min-h-load-stretch', loaderWrapperClassName)
               : 'pointer-events-none absolute inset-0 z-10 min-h-0'
           )}
         >

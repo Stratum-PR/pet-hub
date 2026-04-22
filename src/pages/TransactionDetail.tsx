@@ -786,7 +786,7 @@ export function TransactionDetail() {
                 type="email"
                 value={emailTo}
                 onChange={(e) => setEmailTo(e.target.value)}
-                placeholder="email@example.com"
+                placeholder={t('transactions.emailExample')}
               />
             </div>
           </div>
@@ -814,7 +814,7 @@ export function TransactionDetail() {
                 step={0.01}
                 value={refundAmount}
                 onChange={(e) => setRefundAmount(e.target.value)}
-                placeholder="0.00"
+                placeholder={t('transactions.zeroAmount')}
               />
             </div>
             <div className="space-y-2">
@@ -856,7 +856,7 @@ export function TransactionDetail() {
               <Input
                 id="walk-in-email"
                 type="email"
-                placeholder="customer@example.com"
+                placeholder={t('transactions.customerEmailExample')}
                 value={walkInEmail}
                 onChange={(e) => setWalkInEmail(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleWalkInEmailSubmit()}
@@ -878,9 +878,7 @@ export function TransactionDetail() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t('common.edit') ?? 'Edit transaction'}</DialogTitle>
-            <DialogDescription>
-              Correct payment amount, method, or notes (e.g. if cash received didn&apos;t match).
-            </DialogDescription>
+            <DialogDescription>{t('transactions.editTransactionDescription')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -903,7 +901,7 @@ export function TransactionDetail() {
                 step={0.01}
                 value={editTotal}
                 onChange={(e) => setEditTotal(e.target.value)}
-                placeholder="0.00"
+                placeholder={t('transactions.zeroAmount')}
               />
             </div>
             <div className="space-y-2">
@@ -914,12 +912,16 @@ export function TransactionDetail() {
                 step={0.01}
                 value={editAmountTendered}
                 onChange={(e) => setEditAmountTendered(e.target.value)}
-                placeholder={transaction ? (transaction.total / 100).toFixed(2) : '0.00'}
+                placeholder={transaction ? (transaction.total / 100).toFixed(2) : t('transactions.zeroAmount')}
               />
             </div>
             <div className="space-y-2">
-              <Label>Notes</Label>
-              <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional notes" />
+              <Label>{t('transactions.notes')}</Label>
+              <Input
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder={t('transactions.optionalNotesShort')}
+              />
             </div>
           </div>
           <DialogFooter>

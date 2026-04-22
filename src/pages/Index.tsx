@@ -43,6 +43,7 @@ import { TransactionCreate } from '@/pages/TransactionCreate';
 import { TransactionDetail } from '@/pages/TransactionDetail';
 import { isKioskLocked } from '@/lib/kioskLock';
 import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
+import { t } from '@/lib/translations';
 
 /** Old bookmarks / notifications used /employee-management; canonical URL is /staff-management. */
 function RedirectLegacyEmployeeManagement() {
@@ -93,7 +94,7 @@ function EmployeeHomeRedirect({
   employeesLoading: boolean;
 }) {
   if (employeesLoading) {
-    return <PawStagedLoadingFullscreen label="Loading" />;
+    return <PawStagedLoadingFullscreen label={t('common.loading')} />;
   }
   const me = staffId ? employees.find((e) => e.id === staffId) : undefined;
   const target = me?.status === 'inactive' ? 'staff-management' : 'clients';
@@ -295,7 +296,7 @@ const Index = () => {
         element={kioskLocked ? <TimeKiosk /> : (
         <PageTransitionProvider>
           {settingsLoading ? (
-            <PawStagedLoadingFullscreen label="Loading business settings" />
+            <PawStagedLoadingFullscreen label={t('index.loadingBusinessSettings')} />
           ) : (
             <div className="flex h-[100svh] max-h-[100svh] min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <Layout settings={settings}>
@@ -467,7 +468,6 @@ const Index = () => {
               path="reports/analytics"
               element={
                 <Reports
-                  clients={clients}
                   pets={pets}
                   employees={employees}
                   timeEntries={timeEntries}
@@ -514,7 +514,6 @@ const Index = () => {
               path="reports"
               element={
                 <Reports
-                  clients={clients}
                   pets={pets}
                   employees={employees}
                   timeEntries={timeEntries}

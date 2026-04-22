@@ -262,7 +262,7 @@ export function TransactionCreate() {
                   <CommandEmpty>{t('transactions.noCustomers')}</CommandEmpty>
                   <CommandGroup>
                     <CommandItem onSelect={() => { setCustomerId(null); setAppointmentId(null); }}>
-                      Walk-in
+                      {t('transactions.walkIn')}
                     </CommandItem>
                     {clients.map((c) => (
                       <CommandItem
@@ -289,12 +289,12 @@ export function TransactionCreate() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="gap-1">
-                  <Plus className="h-4 w-4" /> Add service
+                  <Plus className="h-4 w-4" /> {t('transactions.addServiceLine')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[300px] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Search services..." />
+                  <CommandInput placeholder={t('transactions.searchServices')} />
                   <CommandList>
                     {services.filter((s) => s.is_active !== false).map((s) => (
                       <CommandItem
@@ -311,12 +311,12 @@ export function TransactionCreate() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="gap-1">
-                  <Plus className="h-4 w-4" /> Add product
+                  <Plus className="h-4 w-4" /> {t('transactions.addProductLine')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[300px] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Search products..." />
+                  <CommandInput placeholder={t('transactions.searchProducts')} />
                   <CommandList>
                     {products.map((p) => (
                       <CommandItem
@@ -376,7 +376,7 @@ export function TransactionCreate() {
             <div className="space-y-2">
               <Label>{t('transactions.discountLabel')}</Label>
               <Input
-                placeholder="e.g. Loyalty"
+                placeholder={t('transactions.discountLabelExample')}
                 value={discountLabel}
                 onChange={(e) => setDiscountLabel(e.target.value)}
               />
@@ -448,10 +448,10 @@ export function TransactionCreate() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="card">Card</SelectItem>
+                <SelectItem value="cash">{t('transactions.paymentCash')}</SelectItem>
+                <SelectItem value="card">{t('transactions.paymentCard')}</SelectItem>
                 <SelectItem value="ath_movil">ATH Móvil</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="other">{t('transactions.paymentOther')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -2368,6 +2368,14 @@ export const translations: Translations = {
     en: 'Cancel',
     es: 'Cancelar'
   },
+  'common.call': {
+    en: 'Call',
+    es: 'Llamar'
+  },
+  'common.sendEmail': {
+    en: 'Send email',
+    es: 'Enviar correo'
+  },
   'common.continue': {
     en: 'Continue',
     es: 'Continuar'
@@ -2407,6 +2415,10 @@ export const translations: Translations = {
   'common.delete': {
     en: 'Delete',
     es: 'Eliminar'
+  },
+  'common.chooseSection': {
+    en: 'Choose section',
+    es: 'Elegir sección'
   },
   'common.search': {
     en: 'Search',
@@ -2451,8 +2463,8 @@ export const translations: Translations = {
     es: 'Acciones'
   },
   'clients.searchPlaceholder': {
-    en: 'Search clients by name, email, or phone...',
-    es: 'Buscar clientes por nombre, correo o teléfono...'
+    en: 'Search by name, email, or phone',
+    es: 'Buscar por nombre, correo o teléfono'
   },
   'clients.saveError': {
     en: 'Could not save client. Please try again.',
@@ -2485,6 +2497,22 @@ export const translations: Translations = {
   'clients.profile.modalSubtitle': {
     en: 'Profile & activity',
     es: 'Perfil y actividad'
+  },
+  'clients.profile.heroCalendarAria': {
+    en: 'Open appointments calendar',
+    es: 'Abrir calendario de citas'
+  },
+  'clients.profile.heroKpiSpendLabel': {
+    en: 'Spend',
+    es: 'Gasto'
+  },
+  'clients.profile.heroKpiVisitsLabel': {
+    en: 'Visits',
+    es: 'Visitas'
+  },
+  'clients.profile.heroKpiPetsLabel': {
+    en: 'Pets',
+    es: 'Mascotas'
   },
   'clients.profile.tabOverview': {
     en: 'Overview',
@@ -2704,6 +2732,10 @@ export const translations: Translations = {
     en: 'Search pets by name, breed, or owner...',
     es: 'Buscar mascotas por nombre, raza o dueño...'
   },
+  'pets.searchPlaceholderMobile': {
+    en: 'Search pets…',
+    es: 'Buscar mascotas…'
+  },
   'pets.species': {
     en: 'Species',
     es: 'Especie'
@@ -2775,6 +2807,22 @@ export const translations: Translations = {
   'pets.profile.modalSubtitle': {
     en: 'Profile, care & revenue',
     es: 'Perfil, cuidado e ingresos'
+  },
+  'pets.profile.heroCalendarAria': {
+    en: 'Open appointments calendar',
+    es: 'Abrir calendario de citas'
+  },
+  'pets.profile.heroKpiVisitsLabel': {
+    en: 'Visits',
+    es: 'Visitas'
+  },
+  'pets.profile.heroKpiVaccLabel': {
+    en: 'Vaccination',
+    es: 'Vacunas'
+  },
+  'pets.profile.heroKpiRevenueLabel': {
+    en: 'Collected',
+    es: 'Cobrado'
   },
   'pets.profile.tabOverview': {
     en: 'Overview',
@@ -3011,6 +3059,10 @@ export const translations: Translations = {
   'services.searchPlaceholder': {
     en: 'Search services by name or description...',
     es: 'Buscar servicios por nombre o descripción...'
+  },
+  'services.searchPlaceholderMobile': {
+    en: 'Search services…',
+    es: 'Buscar servicios…'
   },
   'services.noSearchResults': {
     en: 'No services match your search.',
@@ -3405,6 +3457,22 @@ export const translations: Translations = {
   'dashboard.inventorySubtitleOk': {
     en: 'All products at or above reorder',
     es: 'Todo el stock en o por encima del mínimo'
+  },
+  'dashboard.mobileWelcome': {
+    en: 'Welcome back',
+    es: 'Bienvenido de nuevo',
+  },
+  'dashboard.mobileRevenueLabel': {
+    en: 'POS sales this period',
+    es: 'Ventas POS en este período',
+  },
+  'dashboard.mobileNavClients': {
+    en: 'Clients',
+    es: 'Clientes',
+  },
+  'dashboard.mobileNavAnalytics': {
+    en: 'Analytics',
+    es: 'Analíticas',
   },
   'dashboard.chartWeekly': {
     en: 'Weekly',
@@ -3810,6 +3878,30 @@ export const translations: Translations = {
     en: 'Edit staff member',
     es: 'Editar miembro del personal'
   },
+  'employeeManagement.profileHeroSubtitleNew': {
+    en: 'Fill in details below',
+    es: 'Completa los datos abajo'
+  },
+  'employeeManagement.heroKpiStatus': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'employeeManagement.heroKpiAccess': {
+    en: 'Access',
+    es: 'Acceso'
+  },
+  'employeeManagement.heroKpiPay': {
+    en: 'Pay',
+    es: 'Pago'
+  },
+  'employeeManagement.statusActiveShort': {
+    en: 'Active',
+    es: 'Activo'
+  },
+  'employeeManagement.statusInactiveShort': {
+    en: 'Inactive',
+    es: 'Inactivo'
+  },
   'employeeManagement.addNewEmployee': {
     en: 'Add new staff member',
     es: 'Agregar nuevo miembro del personal'
@@ -3817,6 +3909,10 @@ export const translations: Translations = {
   'employeeManagement.searchPlaceholder': {
     en: 'Search staff by name, email, phone, or job title...',
     es: 'Buscar personal por nombre, correo, teléfono o puesto...',
+  },
+  'employeeManagement.searchPlaceholderMobile': {
+    en: 'Search staff…',
+    es: 'Buscar personal…',
   },
   'employeeManagement.noSearchResults': {
     en: 'No staff match your search.',
@@ -4764,6 +4860,34 @@ export const translations: Translations = {
     en: 'Click to add shift',
     es: 'Clic para agregar turno'
   },
+  'schedule.weekAgendaTitle': {
+    en: 'Week at a glance',
+    es: 'Resumen de la semana'
+  },
+  'schedule.weekAgendaDescription': {
+    en: 'Pick a day in the row above, use the arrows, or swipe on the schedule to change day. Tap a shift to edit.',
+    es: 'Elige un día en la fila superior, usa las flechas o desliza sobre el horario para cambiar de día. Toca un turno para editarlo.'
+  },
+  'schedule.weekAgendaDescriptionReadOnly': {
+    en: 'Pick a day above or swipe to see shifts for that day.',
+    es: 'Elige un día arriba o desliza para ver los turnos de ese día.'
+  },
+  'schedule.weekDayStripLabel': {
+    en: 'Days this week',
+    es: 'Días de la semana'
+  },
+  'schedule.previousDay': {
+    en: 'Previous day',
+    es: 'Día anterior'
+  },
+  'schedule.nextDay': {
+    en: 'Next day',
+    es: 'Día siguiente'
+  },
+  'schedule.weekAgendaEmptyDay': {
+    en: 'No shifts',
+    es: 'Sin turnos'
+  },
   'schedule.startTime': {
     en: 'Start time',
     es: 'Hora de inicio'
@@ -4791,6 +4915,10 @@ export const translations: Translations = {
   'schedule.weeklySummary': {
     en: 'Weekly hours (scheduled)',
     es: 'Horas semanales (programadas)'
+  },
+  'schedule.dailyHoursSubtitle': {
+    en: 'Scheduled hours for this day.',
+    es: 'Horas programadas para este día.'
   },
   'schedule.myScheduleTitle': {
     en: 'My Schedule',
@@ -5010,6 +5138,14 @@ export const translations: Translations = {
     en: 'Total Pay',
     es: 'Pago Total'
   },
+  'payroll.totalsRow': {
+    en: 'Totals',
+    es: 'Totales'
+  },
+  'payroll.noPayCalculationsRows': {
+    en: 'No staff have payable hours recorded in this pay period.',
+    es: 'Ningún miembro del personal tiene horas pagaderas registradas en este período de pago.'
+  },
   'payroll.payPeriod': {
     en: 'Pay Period',
     es: 'Período de Pago'
@@ -5085,6 +5221,22 @@ export const translations: Translations = {
   'payroll.clearStaffSelection': {
     en: 'Clear',
     es: 'Limpiar'
+  },
+  'payroll.staffFilterQuickWithRecords': {
+    en: 'With time this period',
+    es: 'Con tiempo este período'
+  },
+  'payroll.staffFilterTriggerSummary': {
+    en: '{withRecords} with time · {teamSize} on team',
+    es: '{withRecords} con tiempo · {teamSize} en el equipo'
+  },
+  'payroll.emptyStaffFilterHint': {
+    en: 'No one matches the current view yet. Show all staff or add a time entry.',
+    es: 'Nadie coincide con la vista actual. Muestre a todo el personal o agregue un fichaje.'
+  },
+  'payroll.showAllStaffCta': {
+    en: 'Show all staff',
+    es: 'Mostrar a todo el personal'
   },
   'payroll.selectStaffToView': {
     en: 'Select one or more staff members to view their time entries for this pay period.',
@@ -5176,6 +5328,14 @@ export const translations: Translations = {
   },
 
   // Reports/Analytics page
+  'reports.mobileHeroEyebrow': {
+    en: 'Analytics overview',
+    es: 'Resumen de analíticas',
+  },
+  'reports.mobileNavDashboard': {
+    en: 'Dashboard',
+    es: 'Panel',
+  },
   'reports.title': {
     en: 'Analytics & Reports',
     es: 'Análisis y Reportes'
@@ -5229,24 +5389,24 @@ export const translations: Translations = {
     es: 'Ingresos Totales'
   },
   'reports.totalRevenueLast30Days': {
-    en: 'Total Revenue (Last 30 Days)',
-    es: 'Ingresos Totales (Últimos 30 Días)'
+    en: 'Total revenue',
+    es: 'Ingresos totales'
   },
   'reports.revenueFromTransactions': {
     en: 'From transactions',
     es: 'De transacciones'
   },
   'reports.revenueDescription': {
-    en: 'Daily revenue from transactions (last 7 days)',
-    es: 'Ingresos diarios de transacciones (últimos 7 días)'
+    en: 'Paid and partial transaction totals for the selected period.',
+    es: 'Totales de transacciones pagadas y parciales para el periodo seleccionado.'
   },
   'reports.hoursWorked': {
     en: 'Hours Worked',
     es: 'Horas Trabajadas'
   },
   'reports.payrollWeek': {
-    en: 'Payroll (Week)',
-    es: 'Nómina (Semana)'
+    en: 'Payroll (period)',
+    es: 'Nómina (periodo)'
   },
   'reports.revenueLast7Days': {
     en: 'Revenue (Last 7 Days)',
@@ -5277,8 +5437,12 @@ export const translations: Translations = {
     es: 'Nuevos clientes y mascotas esta semana'
   },
   'reports.hoursWorkedByStaff': {
-    en: 'Hours worked by active staff',
-    es: 'Horas trabajadas por personal activo'
+    en: 'Completed clock entries for active staff (non-voided).',
+    es: 'Fichajes completados del personal activo (no anulados).'
+  },
+  'reports.noHoursInPeriod': {
+    en: 'No completed clock entries in this period.',
+    es: 'No hay fichajes completados en este periodo.'
   },
   'reports.noEmployeeData': {
     en: 'No employee data yet',
@@ -5944,6 +6108,18 @@ export const translations: Translations = {
     en: 'Inactive',
     es: 'Inactivo'
   },
+  'serviceForm.category': {
+    en: 'Category',
+    es: 'Categoría'
+  },
+  'serviceForm.calendarColor': {
+    en: 'Appointment color',
+    es: 'Color de la cita'
+  },
+  'serviceForm.calendarColorHint': {
+    en: 'Color used in the appointment calendar',
+    es: 'Color usado en el calendario de citas'
+  },
   'serviceForm.description': {
     en: 'Description',
     es: 'Descripción'
@@ -6120,6 +6296,211 @@ export const translations: Translations = {
     en: 'Paste the Maps share link or the iframe src URL. Shown on the client portal store locator.',
     es: 'Pega el enlace de compartir o la URL src del iframe. Se muestra en el portal del cliente.'
   },
+
+  'apptBook.onlineRequestsComingSoon': {
+    en: 'Online requests view coming soon.',
+    es: 'Vista de solicitudes en línea próximamente.',
+  },
+  'apptBook.settingsViewComingSoon': {
+    en: 'Settings view coming soon.',
+    es: 'Vista de configuración próximamente.',
+  },
+
+  'servicesPage.labelServiceName': { en: 'Service Name *', es: 'Nombre del servicio *' },
+  'servicesPage.labelPrice': { en: 'Price ($) *', es: 'Precio ($) *' },
+  'servicesPage.priceHint': {
+    en: 'Enter amount (e.g., 15 for $15.00)',
+    es: 'Ingresa el monto (ej. 15 para $15.00)',
+  },
+  'servicesPage.labelDuration': { en: 'Duration (minutes) *', es: 'Duración (minutos) *' },
+  'servicesPage.durationHint': {
+    en: 'Enter minutes (e.g., 30 for 30 minutes)',
+    es: 'Ingresa minutos (ej. 30 para 30 minutos)',
+  },
+  'servicesPage.labelDescription': { en: 'Description', es: 'Descripción' },
+  'servicesPage.placeholderServiceExample': { en: 'Full Grooming', es: 'Baño y corte completo' },
+  'servicesPage.placeholderMinutes': { en: '15', es: '15' },
+  'servicesPage.placeholderDurationDefault': { en: '30', es: '30' },
+  'servicesPage.placeholderDescription': {
+    en: 'Service description…',
+    es: 'Descripción del servicio…',
+  },
+  'servicesPage.emptyList': {
+    en: 'No services yet. Add your first service above!',
+    es: 'Aún no hay servicios. ¡Agrega tu primer servicio arriba!',
+  },
+  'servicesPage.allServicesTitle': { en: 'All Services', es: 'Todos los servicios' },
+  'servicesPage.cardPrice': { en: 'Price:', es: 'Precio:' },
+  'servicesPage.cardDuration': { en: 'Duration:', es: 'Duración:' },
+
+  'pets.lastAppointment': { en: 'Last appointment:', es: 'Última cita:' },
+  'pets.filterAll': { en: 'All', es: 'Todos' },
+  'pets.filterLast7': { en: 'Last 7 days', es: 'Últimos 7 días' },
+  'pets.filterLast30': { en: 'Last 30 days', es: 'Últimos 30 días' },
+  'pets.filterLast90': { en: 'Last 90 days', es: 'Últimos 90 días' },
+  'pets.filterNoAppointment': { en: 'No appointment', es: 'Sin cita' },
+  'pets.breedTypeaheadEmpty': {
+    en: 'No breeds found.',
+    es: 'No se encontraron razas.',
+  },
+
+  'clients.emptyListHint': {
+    en: 'No clients found. Add your first client above!',
+    es: 'No hay clientes. ¡Agrega tu primer cliente arriba!',
+  },
+  'clients.staffInternalNotesLabel': {
+    en: 'Internal notes (staff only)',
+    es: 'Notas internas (solo personal)',
+  },
+  'clients.typeaheadEmpty': {
+    en: 'No clients found.',
+    es: 'No se encontraron clientes.',
+  },
+
+  'form.searchClientByNameOrPhone': {
+    en: 'Search by name or phone…',
+    es: 'Buscar por nombre o teléfono…',
+  },
+  'form.examplePetName': { en: 'Buddy', es: 'Firulais' },
+  'form.selectSpecies': { en: 'Select species', es: 'Seleccionar especie' },
+  'form.searchBreedPlaceholder': { en: 'Search breed…', es: 'Buscar raza…' },
+  'form.staffOnlyBusinessNotes': {
+    en: 'Notes visible only to staff at this business.',
+    es: 'Notas visibles solo para el personal de este negocio.',
+  },
+
+  'petList.noBreed': { en: 'No breed', es: 'Sin raza' },
+  'petList.clientNotFound': {
+    en: 'Client not found (ID: {id}…)',
+    es: 'Cliente no encontrado (ID: {id}…)',
+  },
+
+  'inventoryForm.searchOrAdd': {
+    en: 'Search or add new product…',
+    es: 'Buscar o agregar producto…',
+  },
+  'inventoryForm.searchProducts': {
+    en: 'Search products…',
+    es: 'Buscar productos…',
+  },
+  'inventoryForm.noProductFound': { en: 'No product found.', es: 'No se encontró el producto.' },
+  'inventoryForm.nameExample': { en: 'e.g. Dog Shampoo', es: 'ej. Champú para perro' },
+  'inventoryForm.skuExample': { en: 'e.g. DS-001', es: 'ej. DS-001' },
+  'inventoryForm.tagsExample': { en: 'Shampoo, Food, Toys', es: 'Champú, Comida, Juguetes' },
+  'inventoryForm.supplierPlaceholder': { en: 'Supplier name', es: 'Nombre del proveedor' },
+  'inventoryForm.lowStockPlaceholder': { en: 'Low stock threshold', es: 'Umbral de stock bajo' },
+  'inventoryForm.moneyZero': { en: '0.00', es: '0.00' },
+  'inventoryForm.productDescription': {
+    en: 'Product description…',
+    es: 'Descripción del producto…',
+  },
+  'inventoryForm.internalNotes': {
+    en: 'Internal notes…',
+    es: 'Notas internas…',
+  },
+  'inventoryForm.addNewProduct': { en: 'Add New Product', es: 'Agregar producto nuevo' },
+
+  'transactions.searchServices': {
+    en: 'Search services…',
+    es: 'Buscar servicios…',
+  },
+  'transactions.searchProducts': {
+    en: 'Search products…',
+    es: 'Buscar productos…',
+  },
+  'transactions.discountLabelExample': { en: 'e.g. Loyalty', es: 'ej. Lealtad' },
+  'transactions.emailExample': { en: 'email@example.com', es: 'correo@ejemplo.com' },
+  'transactions.customerEmailExample': {
+    en: 'customer@example.com',
+    es: 'cliente@ejemplo.com',
+  },
+  'transactions.optionalNotesShort': {
+    en: 'Optional notes',
+    es: 'Notas opcionales',
+  },
+  'transactions.zeroAmount': { en: '0.00', es: '0.00' },
+  'transactions.walkIn': { en: 'Walk-in', es: 'Cliente sin cita' },
+  'transactions.addServiceLine': { en: 'Add service', es: 'Agregar servicio' },
+  'transactions.addProductLine': { en: 'Add product', es: 'Agregar producto' },
+  'transactions.paymentCash': { en: 'Cash', es: 'Efectivo' },
+  'transactions.paymentCard': { en: 'Card', es: 'Tarjeta' },
+  'transactions.paymentOther': { en: 'Other', es: 'Otro' },
+  'transactions.editTransactionDescription': {
+    en: 'Correct payment amount, method, or notes (for example if cash received did not match).',
+    es: 'Corrige el monto, método de pago o notas (por ejemplo si el efectivo recibido no coincidía).',
+  },
+
+  'bookAppointment.phoneExample': { en: '(555) 123-4567', es: '(787) 555-5555' },
+  'bookAppointment.clientNameExample': { en: 'John Doe', es: 'Juan Pérez' },
+  'bookAppointment.clientEmailExample': { en: 'john@example.com', es: 'juan@ejemplo.com' },
+  'bookAppointment.selectPet': { en: 'Select a pet', es: 'Seleccionar mascota' },
+  'bookAppointment.petNameExample': { en: 'Buddy', es: 'Firulais' },
+  'bookAppointment.selectBreed': { en: 'Select breed', es: 'Seleccionar raza' },
+  'bookAppointment.weightZero': { en: '0', es: '0' },
+  'bookAppointment.specialInstructions': {
+    en: 'Any special instructions or requests…',
+    es: 'Instrucciones o solicitudes especiales…',
+  },
+
+  'businessSettings.placeholderBusinessName': { en: 'Business name', es: 'Nombre del negocio' },
+  'businessSettings.placeholderSlug': { en: 'my-grooming-salon', es: 'mi-salon-de-mascotas' },
+  'businessSettings.placeholderPhone': { en: '(787) 555-5555', es: '(787) 555-5555' },
+  'businessSettings.placeholderAddress': {
+    en: 'City, State or region',
+    es: 'Ciudad, estado o región',
+  },
+  'businessSettings.placeholderMapsEmbed': {
+    en: 'https://www.google.com/maps/embed?pb=…',
+    es: 'https://www.google.com/maps/embed?pb=…',
+  },
+  'businessSettings.placeholderWebsite': {
+    en: 'https://example.com',
+    es: 'https://ejemplo.com',
+  },
+  'businessSettings.placeholderPercent': { en: '%', es: '%' },
+
+  'businessServices.categoryPlaceholder': {
+    en: 'e.g., Grooming, Bath, etc.',
+    es: 'ej., Grooming, Baño, etc.',
+  },
+  'businessServices.placeholderPrice': { en: '0.00', es: '0.00' },
+  'businessServices.placeholderDuration': { en: '60', es: '60' },
+
+  'employeeMgmt.placeholderFirstName': { en: 'Jane', es: 'María' },
+  'employeeMgmt.placeholderLastName': { en: 'Smith', es: 'García' },
+  'employeeMgmt.placeholderEmail': { en: 'jane@example.com', es: 'maria@ejemplo.com' },
+  'employeeMgmt.placeholderPhone': { en: '(555) 123-4567', es: '(787) 555-5555' },
+  'employeeMgmt.placeholderEllipsis': { en: '…', es: '…' },
+  'employeeMgmt.placeholderZero': { en: '0', es: '0' },
+  'employeeMgmt.placeholderRoutingDigits': { en: '021502011', es: '021502011' },
+  'employeeMgmt.placeholderBankName': { en: 'Banco Popular', es: 'Banco Popular' },
+  'employeeMgmt.placeholderMaskedAccount': { en: '••••••••', es: '••••••••' },
+  'employeeMgmt.labelEmail': { en: 'Email', es: 'Correo' },
+  'employeeMgmt.labelPhone': { en: 'Phone', es: 'Teléfono' },
+  'employeeMgmt.labelHourlyRate': { en: 'Hourly Rate ($)', es: 'Tarifa por hora ($)' },
+  'employeeMgmt.labelStatus': { en: 'Status', es: 'Estado' },
+  'employeeMgmt.statusActive': { en: 'Active', es: 'Activo' },
+  'employeeMgmt.statusInactive': { en: 'Inactive', es: 'Inactivo' },
+  'employeeMgmt.labelHireDate': { en: 'Hire Date', es: 'Fecha de contratación' },
+  'employeeMgmt.labelLastDate': {
+    en: 'Last Date (Termination/End Date)',
+    es: 'Última fecha (fin o terminación)',
+  },
+  'employeeMgmt.loadStaffError': { en: 'Could not load staff', es: 'No se pudo cargar el personal' },
+  'employeeMgmt.noStaffReturned': {
+    en: 'No staff members returned for this business.',
+    es: 'No se devolvió personal para este negocio.',
+  },
+  'employeeMgmt.noFilterResults': {
+    en: 'No staff match this filter.',
+    es: 'Ningún miembro del personal coincide con este filtro.',
+  },
+
+  'index.loadingBusinessSettings': {
+    en: 'Loading business settings',
+    es: 'Cargando configuración del negocio',
+  },
+  'employeePortal.loading': { en: 'Loading', es: 'Cargando' },
 
   'transactions.status': {
     en: 'Status',

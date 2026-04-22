@@ -231,7 +231,7 @@ export function WaitlistJoinModal({ open, onClose, pricingTier, mascotSrc }: Pro
         {step === 'form' ? (
           <div className="relative overflow-visible">
             {/* Scroll only the card body so the mascot can paint outside the panel without clipping */}
-            <div className="max-h-[min(92dvh,880px)] overflow-y-auto overscroll-y-contain px-5 pb-8 pt-0 sm:px-8 sm:pb-10">
+            <div className="ph-max-h-modal-sheet overflow-y-auto overscroll-y-contain px-5 pb-8 pt-0 sm:px-8 sm:pb-10">
               <DialogHeader className="space-y-3 border-b border-border pb-5 text-center sm:text-center">
                 <DialogTitle
                   id={titleId}

@@ -20,6 +20,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
+import { ScheduleWeekAgenda } from '@/components/ScheduleWeekAgenda';
 
 interface MyScheduleViewProps {
   shifts: EmployeeShift[];
@@ -102,6 +104,8 @@ export function MyScheduleView({
   timeRange,
   onShiftsUpdated,
 }: MyScheduleViewProps) {
+  const isWide = useMinWidthSm();
+  const isCompactSchedule = !isWide;
   const demoBrowseOnly = useDemoBrowseOnly();
   const { createRequest, listMine, cancelMyRequest, error: reqError } = useShiftChangeRequests();
   const [requests, setRequests] = useState<StaffShiftChangeRequest[]>([]);
@@ -238,15 +242,27 @@ export function MyScheduleView({
                 )}
               </Button>
             </div>
-            <ScheduleTable
-              shifts={shifts}
-              employees={employees}
-              weekDays={weekDays}
-              readOnly
-              singleStaffId={staffId}
-              onEditShift={() => {}}
-              onAddShift={() => {}}
-            />
+            {isCompactSchedule ? (
+              <ScheduleWeekAgenda
+                shifts={shifts}
+                employees={employees}
+                weekDays={weekDays}
+                readOnly
+                singleStaffId={staffId}
+                onEditShift={() => {}}
+                onAddShift={() => {}}
+              />
+            ) : (
+              <ScheduleTable
+                shifts={shifts}
+                employees={employees}
+                weekDays={weekDays}
+                readOnly
+                singleStaffId={staffId}
+                onEditShift={() => {}}
+                onAddShift={() => {}}
+              />
+            )}
           </div>
 
           <Sheet open={requestsSheetOpen} onOpenChange={setRequestsSheetOpen}>
@@ -324,12 +340,14 @@ export function MyScheduleView({
             </SheetContent>
           </Sheet>
 
-          <ScheduleReadOnlyCalendar
-            weekStart={weekStart}
-            shifts={shifts}
-            employee={me}
-            timeRange={timeRange}
-          />
+          {!isCompactSchedule && (
+            <ScheduleReadOnlyCalendar
+              weekStart={weekStart}
+              shifts={shifts}
+              employee={me}
+              timeRange={timeRange}
+            />
+          )}
           {sortedShifts.length === 0 && (
             <Card>
               <CardContent className="py-8">

@@ -261,7 +261,7 @@ export function BusinessServices() {
                     value={formData.price || ''}
                     onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
                     required
-                    placeholder="0.00"
+                    placeholder={t('businessServices.placeholderPrice')}
                   />
                 </div>
                 <div className="space-y-2">
@@ -273,7 +273,7 @@ export function BusinessServices() {
                     value={formData.duration_minutes || ''}
                     onChange={(e) => setFormData({ ...formData, duration_minutes: Number(e.target.value) })}
                     required
-                    placeholder="60"
+                    placeholder={t('businessServices.placeholderDuration')}
                   />
                   <p className="text-xs text-muted-foreground">{t('serviceForm.durationHint')}</p>
                 </div>
@@ -293,16 +293,16 @@ export function BusinessServices() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">{t('serviceForm.category')}</Label>
                   <Input
                     id="category"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="e.g., Grooming, Bath, etc."
+                    placeholder={t('businessServices.categoryPlaceholder')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="color">Appointment Color</Label>
+                  <Label htmlFor="color">{t('serviceForm.calendarColor')}</Label>
                   <Select
                     value={formData.color}
                     onValueChange={(value) => setFormData({ ...formData, color: value })}
@@ -332,7 +332,7 @@ export function BusinessServices() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">Color used in appointment calendar</p>
+                  <p className="text-xs text-muted-foreground">{t('serviceForm.calendarColorHint')}</p>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="description">{t('serviceForm.description')}</Label>

@@ -130,7 +130,7 @@ export function BusinessSettings() {
                   type="url"
                   value={formData.website}
                   onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                  placeholder="https://example.com"
+                  placeholder={t('businessSettings.placeholderWebsite')}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">

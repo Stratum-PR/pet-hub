@@ -80,7 +80,7 @@ export function PawprintLoader({
     return (
       <div
         className={cn(
-          'fixed inset-0 grid h-[100dvh] max-h-[100dvh] w-full place-items-center overflow-hidden bg-background p-4',
+          'fixed inset-0 grid ph-h-screen-safe ph-max-h-screen-safe w-full place-items-center overflow-hidden bg-background p-4',
           className
         )}
         style={{ zIndex: fullscreenZ }}
@@ -96,7 +96,7 @@ export function PawprintLoader({
       className={cn(
         compact
           ? 'grid w-full place-items-center'
-          : 'grid w-full flex-1 place-items-center self-stretch min-h-[max(70vh,calc(100dvh-10rem))]',
+          : 'grid w-full flex-1 place-items-center self-stretch ph-min-h-load-stretch',
         className
       )}
     >

@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Scale, Shield } from 'lucide-react';
+import { Edit, Trash2, Dog, Cat, Rabbit, User, Calendar, Phone } from 'lucide-react';
 import { Pet, BusinessClient, Appointment } from '@/hooks/useBusinessData';
 import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 import { t } from '@/lib/translations';
+import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 import { formatAgeFromBirth, formatVaccinationStatusSpanish, getVaccinationStatusColor } from '@/lib/petHelpers';
 import { isDemoMode } from '@/lib/authRouting';
 import { format, parseISO } from 'date-fns';
@@ -64,15 +65,6 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
       navigate(`/${businessSlug}/clients?highlight=${clientId}`);
     } else {
       navigate(`/clients?highlight=${clientId}`);
-    }
-  };
-
-  const handleVisitHistoryClick = (petId: string) => {
-    // Navigate to appointments filtered by pet
-    if (businessSlug) {
-      navigate(`/${businessSlug}/appointments?pet=${petId}`);
-    } else {
-      navigate(`/appointments?pet=${petId}`);
     }
   };
 
@@ -256,7 +248,9 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg">{pet.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {breedName || <span className="text-muted-foreground italic">Sin raza</span>}
+                        {breedName || (
+                          <span className="text-muted-foreground italic">{t('petList.noBreed')}</span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -287,7 +281,11 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                     (pet as any).client_id ? (
                       <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                         <User className="w-4 h-4" />
-                        <span className="text-xs">Cliente no encontrado (ID: {(pet as any).client_id.substring(0, 8)}...)</span>
+                        <span className="text-xs">
+                          {t('petList.clientNotFound', {
+                            id: (pet as any).client_id.substring(0, 8),
+                          })}
+                        </span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
@@ -296,6 +294,12 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                       </div>
                     )
                   )}
+                  {owner && (owner as any).phone != null && String((owner as any).phone).trim() !== '' ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="w-4 h-4 shrink-0" />
+                      <span className="tabular-nums">{formatPhoneNumberDisplay((owner as any).phone)}</span>
+                    </div>
+                  ) : null}
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="w-4 h-4 flex-shrink-0" />
                     <span>{t('pets.listLastAppointment')}: {(() => {
@@ -320,25 +324,6 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                     })()}</span>
                   </div>
                 </div>
-                
-                {/* Past Appointments Button */}
-                <div className="mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => handleVisitHistoryClick(pet.id)}
-                  >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Past Appointments
-                  </Button>
-                </div>
-                
-                {pet.notes && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <p className="text-sm text-muted-foreground line-clamp-2">{pet.notes}</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           );

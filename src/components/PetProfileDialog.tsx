@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format, parseISO, isValid, startOfDay } from 'date-fns';
 import { Calendar, Cat, Dog, Scale, Syringe, Cake, X, ExternalLink, FileText, User, Mail, Phone } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { DetailModalActionBar } from '@/components/DetailModalActionBar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,9 +14,13 @@ import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 import { calculateVaccinationStatus } from '@/lib/petHelpers';
 import {
   profileDialogShellClassName,
+  profileDialogTabsChromeClassName,
+  profileDialogTabsListClassName,
+  profileDialogTabsTriggerClassName,
   profileTabPanelClassName,
   profileTabsBodyShellClassName,
 } from '@/lib/profileDialogLayout';
+import { ProfileDialogPrimaryHero } from '@/components/ProfileDialogPrimaryHero';
 import type { Client, Pet } from '@/types';
 import type { Transaction } from '@/types/transactions';
 
@@ -106,10 +110,12 @@ export function PetProfileDialog({
   const navigate = useNavigate();
   const { businessSlug } = useParams<{ businessSlug?: string }>();
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+  const [petProfileTab, setPetProfileTab] = useState<'overview' | 'appointments'>('overview');
   const today = startOfDay(new Date());
 
   useEffect(() => {
     setDismissedAlerts(new Set());
+    setPetProfileTab('overview');
   }, [pet?.id]);
 
   const owner = useMemo(
@@ -240,32 +246,67 @@ export function PetProfileDialog({
 
   const notesBlock = [pet.notes, pet.special_instructions].filter(Boolean).join('\n\n');
 
+  const speciesLabel = (pet.species || '').toLowerCase();
+  const breedLine = pet.breeds?.name ?? pet.breed ?? '—';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={profileDialogShellClassName}>
-        <div className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6">
+        <ProfileDialogPrimaryHero
+          avatar={
+            <Avatar className="h-14 w-14 shrink-0 border-2 border-primary-foreground/25">
+              {pet.photo_url ? <AvatarImage src={pet.photo_url} alt={pet.name} /> : null}
+              <AvatarFallback className="bg-primary-foreground/15 text-primary-foreground">
+                {pet.species === 'cat' ? <Cat className="h-7 w-7" /> : <Dog className="h-7 w-7" />}
+              </AvatarFallback>
+            </Avatar>
+          }
+          title={pet.name}
+          subtitle={
+            <span className="capitalize">
+              {(pet.species ? speciesLabel : null) || t('pets.species')} · {breedLine}
+            </span>
+          }
+          kpis={[
+            { label: t('pets.profile.heroKpiVisitsLabel'), value: visitKpis.total },
+            {
+              label: t('pets.profile.heroKpiVaccLabel'),
+              value: vaccinationStatusLabel(pet.vaccination_status ?? derivedVaccination),
+            },
+            { label: t('pets.profile.heroKpiRevenueLabel'), value: formatMoney(revenueTotals.charged) },
+          ]}
+          contactTel={owner?.phone ?? undefined}
+          contactEmail={owner?.email || undefined}
+          phoneAriaLabel={t('common.call')}
+          emailAriaLabel={t('common.sendEmail')}
+          onCalendar={() => {
+            const path = businessSlug ? `/${businessSlug}/appointments` : '/appointments';
+            navigate(path);
+            onOpenChange(false);
+          }}
+          calendarLabel={t('pets.profile.heroCalendarAria')}
+        >
           <DetailModalActionBar
+            tone="on-primary"
+            className="max-sm:pr-14 justify-end border-0 pb-0"
             editLabel={t('common.edit')}
             deleteLabel={t('common.delete')}
             onEdit={onEdit}
             onDelete={onDelete}
           />
-          <DialogHeader className="text-left space-y-0.5 pb-2 pr-10">
-            <DialogTitle className="text-xl font-semibold tracking-tight">{pet.name}</DialogTitle>
-            <p className="text-sm text-muted-foreground">{t('pets.profile.modalSubtitle')}</p>
-          </DialogHeader>
-        </div>
+        </ProfileDialogPrimaryHero>
 
         <Tabs
           key={pet.id}
-          defaultValue="overview"
-          className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-4 sm:px-6 sm:pb-6"
+          value={petProfileTab}
+          onValueChange={(v) => setPetProfileTab(v as 'overview' | 'appointments')}
+          className={profileDialogTabsChromeClassName}
         >
-          <TabsList className="mb-3 h-auto w-full shrink-0 flex-wrap justify-start gap-1 bg-muted/60 p-1">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm">
+          <TabsList className={profileDialogTabsListClassName}>
+            <TabsTrigger value="overview" className={profileDialogTabsTriggerClassName}>
               {t('pets.profile.tabOverview')}
             </TabsTrigger>
-            <TabsTrigger value="appointments" className="text-xs sm:text-sm">
+            <TabsTrigger value="appointments" className={profileDialogTabsTriggerClassName}>
               {t('pets.profile.tabAppointments')}
             </TabsTrigger>
           </TabsList>
@@ -274,17 +315,9 @@ export function PetProfileDialog({
           <TabsContent value="overview" className={profileTabPanelClassName}>
             <div className="grid gap-6 md:grid-cols-[minmax(0,17.5rem)_1fr] md:items-start">
               <div className="space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4 md:sticky md:top-0">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-16 w-16 border border-border/50">
-                    {pet.photo_url ? <AvatarImage src={pet.photo_url} alt={pet.name} /> : null}
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {pet.species === 'cat' ? <Cat className="h-6 w-6" /> : <Dog className="h-6 w-6" />}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground capitalize">{pet.species || t('pets.species')}</p>
-                    <p className="font-medium truncate">{pet.breeds?.name ?? pet.breed ?? '—'}</p>
-                  </div>
+                <div className="min-w-0">
+                  <p className="text-sm capitalize text-muted-foreground">{pet.species || t('pets.species')}</p>
+                  <p className="truncate font-medium">{pet.breeds?.name ?? pet.breed ?? '—'}</p>
                 </div>
 
                 <div className="rounded-lg border border-border/50 bg-background/80 p-3 space-y-2">

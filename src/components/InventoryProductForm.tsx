@@ -225,21 +225,21 @@ export function InventoryProductForm({
           <Popover open={registryOpen} onOpenChange={setRegistryOpen}>
             <PopoverTrigger asChild>
               <Button type="button" variant="outline" className="w-full justify-between" disabled={readOnly}>
-                <span className="truncate">Search or add new product...</span>
+                <span className="truncate">{t('inventoryForm.searchOrAdd')}</span>
                 <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
               <Command>
                 <CommandInput
-                  placeholder="Search products..."
+                  placeholder={t('inventoryForm.searchProducts')}
                   value={registryQuery}
                   onValueChange={setRegistryQuery}
                 />
                 <CommandList>
                   <CommandEmpty>
                     <div className="py-4 text-center text-sm">
-                      <p className="mb-2">No product found.</p>
+                      <p className="mb-2">{t('inventoryForm.noProductFound')}</p>
                       <Button
                         type="button"
                         variant="outline"
@@ -247,7 +247,7 @@ export function InventoryProductForm({
                         onClick={() => setRegistryOpen(false)}
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Add New Product
+                        {t('inventoryForm.addNewProduct')}
                       </Button>
                     </div>
                   </CommandEmpty>
@@ -298,7 +298,7 @@ export function InventoryProductForm({
             value={formData.name}
             onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setErrors((e2) => ({ ...e2, name: '' })); }}
             required
-            placeholder="e.g. Dog Shampoo"
+            placeholder={t('inventoryForm.nameExample')}
             className={errors.name ? 'border-destructive' : ''}
           />
           {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
@@ -309,7 +309,7 @@ export function InventoryProductForm({
             value={formData.sku}
             onChange={(e) => { setFormData({ ...formData, sku: e.target.value }); setErrors((e2) => ({ ...e2, sku: '' })); }}
             required
-            placeholder="e.g. DS-001"
+            placeholder={t('inventoryForm.skuExample')}
             className={errors.sku ? 'border-destructive' : ''}
           />
           <p className="text-xs text-muted-foreground">{t('inventory.skuHelp')}</p>
@@ -324,7 +324,7 @@ export function InventoryProductForm({
             <Input
               value={formData.barcode}
               onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              placeholder={t('inventory.manualEntryPlaceholder') ?? 'Barcode or SKU'}
+              placeholder={t('inventory.manualEntryPlaceholder')}
             />
             <Button
               type="button"
@@ -346,7 +346,7 @@ export function InventoryProductForm({
           <Input
             value={formData.category}
             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            placeholder="Shampoo, Food, Toys"
+            placeholder={t('inventoryForm.tagsExample')}
           />
         </div>
         <div className="space-y-2">
@@ -354,7 +354,7 @@ export function InventoryProductForm({
           <Input
             value={formData.supplier}
             onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-            placeholder="Supplier name"
+            placeholder={t('inventoryForm.supplierPlaceholder')}
           />
         </div>
         <div className="space-y-2">
@@ -376,7 +376,7 @@ export function InventoryProductForm({
             min={0}
             value={formData.reorder_level}
             onChange={(e) => setFormData({ ...formData, reorder_level: Number(e.target.value) })}
-            placeholder="Low stock threshold"
+            placeholder={t('inventoryForm.lowStockPlaceholder')}
           />
         </div>
         <div className="space-y-2">
@@ -387,7 +387,7 @@ export function InventoryProductForm({
             step={0.01}
             value={formData.cost || ''}
             onChange={(e) => { setFormData({ ...formData, cost: Number(e.target.value) || 0 }); setErrors((er) => ({ ...er, cost: '' })); }}
-            placeholder="0.00"
+            placeholder={t('inventoryForm.moneyZero')}
             className={errors.cost ? 'border-destructive' : ''}
           />
           {errors.cost && <p className="text-sm text-destructive">{errors.cost}</p>}
@@ -401,7 +401,7 @@ export function InventoryProductForm({
             value={formData.price || ''}
             onChange={(e) => { setFormData({ ...formData, price: Number(e.target.value) || 0 }); setErrors((er) => ({ ...er, price: '' })); }}
             required
-            placeholder="0.00"
+            placeholder={t('inventoryForm.moneyZero')}
             className={errors.price ? 'border-destructive' : ''}
           />
           {errors.price && <p className="text-sm text-destructive">{errors.price}</p>}
@@ -455,7 +455,7 @@ export function InventoryProductForm({
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           className="w-full min-h-[80px] px-3 py-2 text-sm border border-input rounded-md bg-background resize-y"
-          placeholder="Product description..."
+          placeholder={t('inventoryForm.productDescription')}
         />
       </div>
       <div className="space-y-2">
@@ -464,7 +464,7 @@ export function InventoryProductForm({
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           className="w-full min-h-[60px] px-3 py-2 text-sm border border-input rounded-md bg-background resize-y"
-          placeholder="Internal notes..."
+          placeholder={t('inventoryForm.internalNotes')}
         />
       </div>
       <div className="flex gap-3 pt-2">

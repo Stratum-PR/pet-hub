@@ -43,11 +43,14 @@ import { requestNotificationsRefetch } from '@/lib/notificationRefetch';
 import { dispatchStaffBirthdaysForBusiness } from '@/lib/staffBirthdayDispatch';
 import { consumeLastStaffWriteError, useServices } from '@/hooks/useSupabaseData';
 import { useStaffJobTitles } from '@/hooks/useStaffJobTitles';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
 import { employeeFullName } from '@/lib/employeeName';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { InviteEmployeeDialog } from '@/components/employee/InviteEmployeeDialog';
+import { ProfileDialogPrimaryHero } from '@/components/ProfileDialogPrimaryHero';
+import { profileDialogCloseOnPrimaryClassName } from '@/lib/profileDialogLayout';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SearchFilter } from '@/components/SearchFilter';
 import type { Service } from '@/types';
@@ -116,6 +119,10 @@ function formatJobTitleForBadge(role: string): string {
     .split(/[\s_-]+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(' ');
+}
+
+function staffHasRegisteredEmail(e: Pick<Employee, 'email'>): boolean {
+  return Boolean(e.email?.trim());
 }
 
 function resolveJobTitleIdFromEmployee(
@@ -536,6 +543,8 @@ export function EmployeeManagement({
     if (typeof window === 'undefined') return 'cards';
     return window.localStorage.getItem(STAFF_DIRECTORY_VIEW_KEY) === 'list' ? 'list' : 'cards';
   });
+  const isWide = useMinWidthSm();
+  const displayViewMode = isWide ? viewMode : 'cards';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -550,16 +559,21 @@ export function EmployeeManagement({
   const staffDirectoryList = useMemo(() => {
     if (isEmployeeSelfService) return [];
     const term = staffSearchTerm.trim().toLowerCase();
-    if (!term) return filteredEmployees;
-    return filteredEmployees.filter((e) => {
-      const name = employeeFullName(e).toLowerCase();
-      const email = (e.email ?? '').toLowerCase();
-      const phoneDigits = (e.phone ?? '').replace(/\D/g, '');
-      const termDigits = term.replace(/\D/g, '');
-      const role = (e.role ?? '').toLowerCase();
-      const phoneMatch = termDigits.length > 0 && phoneDigits.includes(termDigits);
-      return name.includes(term) || email.includes(term) || role.includes(term) || phoneMatch;
-    });
+    const matched =
+      term.length === 0
+        ? filteredEmployees
+        : filteredEmployees.filter((e) => {
+            const name = employeeFullName(e).toLowerCase();
+            const email = (e.email ?? '').toLowerCase();
+            const phoneDigits = (e.phone ?? '').replace(/\D/g, '');
+            const termDigits = term.replace(/\D/g, '');
+            const role = (e.role ?? '').toLowerCase();
+            const phoneMatch = termDigits.length > 0 && phoneDigits.includes(termDigits);
+            return name.includes(term) || email.includes(term) || role.includes(term) || phoneMatch;
+          });
+    return [...matched].sort((a, b) =>
+      employeeFullName(a).localeCompare(employeeFullName(b), undefined, { sensitivity: 'base' }),
+    );
   }, [isEmployeeSelfService, filteredEmployees, staffSearchTerm]);
 
   const listForGrid = useMemo(() => {
@@ -1138,6 +1152,29 @@ export function EmployeeManagement({
     ? employees.find((e) => e.id === editingEmployee.id) ?? editingEmployee
     : null;
 
+  const staffHeroAccessLabel = useMemo(() => {
+    switch (formData.access_role) {
+      case 'manager':
+        return t('employeeManagement.accessRoleManager');
+      case 'staff':
+        return t('employeeManagement.accessRoleStaff');
+      case 'contractor':
+        return t('employeeManagement.accessRoleContractor');
+      case 'admin':
+        return t('employeeManagement.accessRoleAdmin');
+      default:
+        return String(formData.access_role ?? '');
+    }
+  }, [formData.access_role, lang]);
+
+  const staffHeroPayDisplay = useMemo(() => {
+    if (formData.compensation_type === 'hourly') {
+      return `$${Number(formData.hourly_rate || 0).toFixed(2)}/h`;
+    }
+    if (formData.commission_rate === '' || formData.commission_rate == null) return '—';
+    return `${formData.commission_rate}%`;
+  }, [formData.compensation_type, formData.hourly_rate, formData.commission_rate]);
+
   const handlePinReset = async (employeeId: string) => {
     if (!businessId) return;
 
@@ -1186,11 +1223,11 @@ export function EmployeeManagement({
           role="alert"
           className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          <p className="font-medium">Could not load staff</p>
+          <p className="font-medium">{t('employeeMgmt.loadStaffError')}</p>
           <p className="mt-1 text-destructive/90">{loadError}</p>
           {onRetryLoad && (
             <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => onRetryLoad()}>
-              Try again
+              {t('common.tryAgain')}
             </Button>
           )}
         </div>
@@ -1266,7 +1303,9 @@ export function EmployeeManagement({
           <SearchFilter
             searchTerm={staffSearchTerm}
             onSearchChange={setStaffSearchTerm}
-            placeholder={t('employeeManagement.searchPlaceholder')}
+            placeholder={t(
+              isWide ? 'employeeManagement.searchPlaceholder' : 'employeeManagement.searchPlaceholderMobile',
+            )}
           />
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm text-muted-foreground whitespace-nowrap">
@@ -1285,7 +1324,7 @@ export function EmployeeManagement({
               </SelectContent>
             </Select>
           </div>
-          <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5 shrink-0">
+          <div className="hidden shrink-0 sm:inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5">
             <button
               type="button"
               className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
@@ -1327,14 +1366,67 @@ export function EmployeeManagement({
       ) : null}
 
       <Dialog open={staffModalOpen} onOpenChange={(open) => !open && handleCancel()}>
-        <DialogContent className="flex h-[min(92vh,900px)] w-[calc(100vw-1.5rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
-          <div className="shrink-0 space-y-3 border-b border-border px-4 py-4 sm:px-6">
+        <DialogContent
+          className={cn(
+            'flex h-[min(92vh,900px)] w-[calc(100vw-1.5rem)] max-w-4xl flex-col gap-0 overflow-hidden bg-background p-0 sm:max-w-4xl',
+            profileDialogCloseOnPrimaryClassName,
+          )}
+        >
+          <ProfileDialogPrimaryHero
+            avatar={
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-primary-foreground/25 bg-primary-foreground/10">
+                {formData.photo_url ? (
+                  <img src={formData.photo_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <UserRound className="h-7 w-7 text-primary-foreground/85" />
+                )}
+              </div>
+            }
+            title={
+              isEmployeeSelfService && editingEmployee
+                ? t('nav.myStaffProfile')
+                : editingEmployee
+                  ? [formData.first_name, formData.last_name].filter(Boolean).join(' ') || employeeFullName(editingEmployee)
+                  : t('employeeManagement.addNewEmployee')
+            }
+            subtitle={
+              editingEmployee
+                ? formatJobTitleForBadge(editingEmployee.role ?? '')
+                : t('employeeManagement.profileHeroSubtitleNew')
+            }
+            kpis={
+              editingEmployee && modalEmployeeLive
+                ? [
+                    {
+                      label: t('employeeManagement.heroKpiStatus'),
+                      value:
+                        modalEmployeeLive.status === 'active'
+                          ? t('employeeManagement.statusActiveShort')
+                          : t('employeeManagement.statusInactiveShort'),
+                    },
+                    { label: t('employeeManagement.heroKpiAccess'), value: staffHeroAccessLabel },
+                    { label: t('employeeManagement.heroKpiPay'), value: staffHeroPayDisplay },
+                  ]
+                : undefined
+            }
+            contactTel={formData.phone || undefined}
+            contactEmail={formData.email || undefined}
+            phoneAriaLabel={t('common.call')}
+            emailAriaLabel={t('common.sendEmail')}
+          >
             <div className="flex flex-wrap items-center justify-end gap-2 pr-8 sm:pr-10">
-              <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 border-primary-foreground/35 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+                onClick={handleCancel}
+              >
                 {t('common.cancel')}
               </Button>
               <DetailModalActionBar
-                className="border-0 pb-0"
+                tone="on-primary"
+                className="border-0 pb-0 pr-0"
                 variant="save-delete"
                 submitFormId="staff-editor-form"
                 saveLabel={t('common.save')}
@@ -1358,16 +1450,7 @@ export function EmployeeManagement({
                 auxIcon={<RotateCcw className="h-4 w-4 shrink-0" />}
               />
             </div>
-            <DialogHeader className="space-y-1 text-left">
-              <DialogTitle className="text-xl font-semibold">
-                {isEmployeeSelfService && editingEmployee
-                  ? t('nav.myStaffProfile')
-                  : editingEmployee
-                    ? t('employeeManagement.editEmployee')
-                    : t('employeeManagement.addNewEmployee')}
-              </DialogTitle>
-            </DialogHeader>
-          </div>
+          </ProfileDialogPrimaryHero>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
             <form id="staff-editor-form" onSubmit={handleSubmit} className="space-y-4">
@@ -1425,7 +1508,7 @@ export function EmployeeManagement({
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                       required
                       autoComplete="given-name"
-                      placeholder="Jane"
+                      placeholder={t('employeeMgmt.placeholderFirstName')}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1434,27 +1517,27 @@ export function EmployeeManagement({
                       value={formData.last_name}
                       onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                       autoComplete="family-name"
-                      placeholder="Smith"
+                      placeholder={t('employeeMgmt.placeholderLastName')}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label>{t('employeeMgmt.labelEmail')}</Label>
                   <Input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="jane@example.com"
+                    placeholder={t('employeeMgmt.placeholderEmail')}
                   />
                   <p className="text-xs text-muted-foreground">{t('employeeManagement.emailOptionalHint')}</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Phone</Label>
+                  <Label>{t('employeeMgmt.labelPhone')}</Label>
                   <Input
                     value={formData.phone}
                     onChange={handlePhoneChange}
                     required
-                    placeholder="(555) 123-4567"
+                    placeholder={t('employeeMgmt.placeholderPhone')}
                   />
                 </div>
                 <div className="space-y-2">
@@ -1489,7 +1572,7 @@ export function EmployeeManagement({
                             ? formData.pin
                             : '•'.repeat(EMPLOYEE_PIN_LENGTH)
                       }
-                      placeholder="…"
+                      placeholder={t('employeeMgmt.placeholderEllipsis')}
                       aria-label={t('employeeManagement.pinLabel')}
                     />
                     <Button
@@ -1540,7 +1623,7 @@ export function EmployeeManagement({
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Hourly Rate ($)</Label>
+                      <Label>{t('employeeMgmt.labelHourlyRate')}</Label>
                       <Input
                         type="number"
                         min="0"
@@ -1566,7 +1649,7 @@ export function EmployeeManagement({
                               commission_rate: e.target.value === '' ? '' : Number(e.target.value),
                             })
                           }
-                          placeholder="0"
+                          placeholder={t('employeeMgmt.placeholderZero')}
                         />
                       </div>
                     )}
@@ -1664,7 +1747,7 @@ export function EmployeeManagement({
                 </div>
                 {!isEmployeeSelfService ? (
                   <div className="space-y-2">
-                    <Label>Status</Label>
+                    <Label>{t('employeeMgmt.labelStatus')}</Label>
                     <Select
                       value={formData.status}
                       onValueChange={(value: 'active' | 'inactive') =>
@@ -1675,8 +1758,8 @@ export function EmployeeManagement({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
+                        <SelectItem value="active">{t('employeeMgmt.statusActive')}</SelectItem>
+                        <SelectItem value="inactive">{t('employeeMgmt.statusInactive')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1765,7 +1848,7 @@ export function EmployeeManagement({
                             setFormData((fd) => ({ ...fd, bank_name: match.name }));
                           }
                         }}
-                        placeholder="021502011"
+                        placeholder={t('employeeMgmt.placeholderRoutingDigits')}
                         maxLength={11}
                       />
                       {findPuertoRicoBankByRouting(normalizeRoutingDigits(formData.bank_routing_number)) ? (
@@ -1784,7 +1867,7 @@ export function EmployeeManagement({
                       <Input
                         value={formData.bank_name}
                         onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                        placeholder="Banco Popular"
+                        placeholder={t('employeeMgmt.placeholderBankName')}
                       />
                     </div>
                     <div className="space-y-2">
@@ -1793,7 +1876,7 @@ export function EmployeeManagement({
                         value={formData.bank_account_number}
                         onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
                         autoComplete="off"
-                        placeholder="••••••••"
+                        placeholder={t('employeeMgmt.placeholderMaskedAccount')}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-2">
@@ -1831,7 +1914,7 @@ export function EmployeeManagement({
                 {!isEmployeeSelfService ? (
                   <>
                     <div className="space-y-2">
-                      <Label>Hire Date</Label>
+                      <Label>{t('employeeMgmt.labelHireDate')}</Label>
                       <Input
                         type="date"
                         value={formData.hire_date}
@@ -1840,7 +1923,7 @@ export function EmployeeManagement({
                     </div>
                     {formData.status === 'inactive' && (
                       <div className="space-y-2">
-                        <Label>Last Date (Termination/End Date)</Label>
+                        <Label>{t('employeeMgmt.labelLastDate')}</Label>
                         <Input
                           type="date"
                           value={formData.last_date}
@@ -1900,7 +1983,7 @@ export function EmployeeManagement({
       </Dialog>
 
       {!isEmployeeSelfService && staffDirectoryList.length > 0 ? (
-        viewMode === 'cards' ? (
+        displayViewMode === 'cards' ? (
           <div
             className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
             data-page-content
@@ -1943,14 +2026,17 @@ export function EmployeeManagement({
                       <p className="text-sm text-muted-foreground">{formatPhoneNumber(employee.phone)}</p>
                     </div>
                   </button>
-                  {canSendPortalInvite && !isEmployeeSelfService && employee.status === 'active' ? (
+                  {canSendPortalInvite &&
+                  !isEmployeeSelfService &&
+                  employee.status === 'active' &&
+                  staffHasRegisteredEmail(employee) &&
+                  !employee.user_id ? (
                     <div
                       className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                       role="presentation"
                     >
-                    {!employee.user_id ? (
                       <Button
                         type="button"
                         variant="default"
@@ -1963,7 +2049,6 @@ export function EmployeeManagement({
                       >
                         {t('employeeManagement.sendPortalInvite')}
                       </Button>
-                    ) : null}
                     </div>
                   ) : null}
                 </CardContent>
@@ -2031,7 +2116,10 @@ export function EmployeeManagement({
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        {canSendPortalInvite && employee.status === 'active' && !employee.user_id ? (
+                        {canSendPortalInvite &&
+                        employee.status === 'active' &&
+                        !employee.user_id &&
+                        staffHasRegisteredEmail(employee) ? (
                           <Button
                             type="button"
                             variant="default"
@@ -2056,7 +2144,7 @@ export function EmployeeManagement({
       ) : !isEmployeeSelfService && !loading && !loadError && employees.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            <p>No staff members returned for this business.</p>
+            <p>{t('employeeMgmt.noStaffReturned')}</p>
             <p className="mt-3 text-left leading-relaxed">
               If people already exist in Supabase, check that each row&apos;s <code className="rounded bg-muted px-1">business_id</code>{' '}
               matches your account&apos;s business (same UUID as in <code className="rounded bg-muted px-1">profiles.business_id</code>
@@ -2065,9 +2153,7 @@ export function EmployeeManagement({
           </CardContent>
         </Card>
       ) : !loading && !loadError && !isEmployeeSelfService && filteredEmployees.length === 0 && employees.length > 0 ? (
-        <p className="text-center text-sm text-muted-foreground py-8">
-          No {statusFilter} staff match this filter.
-        </p>
+        <p className="text-center text-sm text-muted-foreground py-8">{t('employeeMgmt.noFilterResults')}</p>
       ) : !loading && !loadError && !isEmployeeSelfService && filteredEmployees.length > 0 && staffDirectoryList.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
