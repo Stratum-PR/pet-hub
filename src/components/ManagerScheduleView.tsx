@@ -14,12 +14,13 @@ import type { WeekTimeRange } from '@/lib/businessHours';
 import { getShiftColor } from '@/lib/scheduleColors';
 import { hasSameEmployeeOverlap } from '@/lib/scheduleUtils';
 import { formatHours1Decimal, scheduledHoursBetween } from '@/lib/scheduleHours';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useMinWidthSm } from '@/hooks/useMinWidthSm';
 import { employeeFullName } from '@/lib/employeeName';
 import { Link } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { Badge } from '@/components/ui/badge';
 import { usePendingShiftChangeRequestCount } from '@/hooks/useShiftChangeRequests';
+import { ScheduleWeekAgenda } from '@/components/ScheduleWeekAgenda';
 
 const DEFAULT_START_MINUTES = 7 * 60;
 const DEFAULT_END_MINUTES = 21 * 60;
@@ -99,7 +100,8 @@ export function ManagerScheduleView({
     ? `/${businessSlug}/employee-schedule/change-requests`
     : '/employee-schedule/change-requests';
   const { pendingCount } = usePendingShiftChangeRequestCount();
-  const isMobile = useIsMobile();
+  const isWide = useMinWidthSm();
+  const isCompactSchedule = !isWide;
   const rangeStartMinutes = timeRange?.startMinutes ?? DEFAULT_START_MINUTES;
   const rangeEndMinutes = timeRange?.endMinutes ?? DEFAULT_END_MINUTES;
   const timeSlots = useMemo(() => generateTimeSlots(rangeStartMinutes, rangeEndMinutes), [rangeStartMinutes, rangeEndMinutes]);
@@ -352,7 +354,7 @@ export function ManagerScheduleView({
 
   const laneLayoutByShiftId = useMemo(() => {
     const layout: Record<string, { laneIndex: number; laneCount: number }> = {};
-    if (isMobile) return layout;
+    if (isCompactSchedule) return layout;
 
     for (const day of weekDays) {
       const dayStr = format(day, 'yyyy-MM-dd');
@@ -383,7 +385,7 @@ export function ManagerScheduleView({
       }
     }
     return layout;
-  }, [shiftsByDay, weekDays, isMobile]);
+  }, [shiftsByDay, weekDays, isCompactSchedule]);
 
   const lastWeekStart = subWeeks(weekStart, 1);
   const lastWeekEnd = endOfWeek(lastWeekStart);
@@ -476,54 +478,71 @@ export function ManagerScheduleView({
 
       <div className="flex flex-col gap-4">
         <div className="min-w-0">
-          <ScheduleTable
-            shifts={weekShifts}
-            employees={employees}
-            weekDays={weekDays}
-            onEditShift={(shift) => {
-              setEditingShift(shift);
-              setAddShiftContext(null);
-              setEditOpen(true);
-            }}
-            onAddShift={(employeeId, date) => {
-              setEditingShift(null);
-              setAddShiftContext({ employeeId, date });
-              setEditOpen(true);
-            }}
-          />
+          {isCompactSchedule ? (
+            <ScheduleWeekAgenda
+              shifts={weekShifts}
+              employees={employees}
+              weekDays={weekDays}
+              onEditShift={(shift) => {
+                setEditingShift(shift);
+                setAddShiftContext(null);
+                setEditOpen(true);
+              }}
+              onAddShift={(employeeId, date) => {
+                setEditingShift(null);
+                setAddShiftContext({ employeeId, date });
+                setEditOpen(true);
+              }}
+            />
+          ) : (
+            <ScheduleTable
+              shifts={weekShifts}
+              employees={employees}
+              weekDays={weekDays}
+              onEditShift={(shift) => {
+                setEditingShift(shift);
+                setAddShiftContext(null);
+                setEditOpen(true);
+              }}
+              onAddShift={(employeeId, date) => {
+                setEditingShift(null);
+                setAddShiftContext({ employeeId, date });
+                setEditOpen(true);
+              }}
+            />
+          )}
         </div>
 
+        {!isCompactSchedule && (
         <div className="min-w-0">
         <Card>
           <CardContent className="p-4">
             <div className="flex gap-4">
-              {!isMobile && (
-                <div className="w-56 shrink-0">
-                  <div className="text-sm font-semibold mb-2">{t('schedule.dragEmployees')}</div>
-                  <div className="space-y-2">
-                    {activeEmployees.map((emp) => (
-                      <div
-                        key={emp.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('employeeId', emp.id);
-                          e.dataTransfer.effectAllowed = 'copy';
-                        }}
-                        className={cn(
-                          'px-3 py-2 rounded-md border bg-card text-sm font-medium cursor-grab active:cursor-grabbing',
-                          'hover:bg-muted/80 transition-colors'
-                        )}
-                      >
-                        <User className="w-4 h-4 inline-block mr-2 text-muted-foreground" />
-                        {employeeFullName(emp)}
-                      </div>
-                    ))}
-                    {activeEmployees.length === 0 && (
-                      <p className="text-sm text-muted-foreground">{t('schedule.noActiveEmployees')}</p>
-                    )}
-                  </div>
+              <div className="w-56 shrink-0">
+                <div className="text-sm font-semibold mb-2">{t('schedule.dragEmployees')}</div>
+                <div className="space-y-2">
+                  {activeEmployees.map((emp) => (
+                    <div
+                      key={emp.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('employeeId', emp.id);
+                        e.dataTransfer.effectAllowed = 'copy';
+                      }}
+                      className={cn(
+                        'px-3 py-2 rounded-md border bg-card text-sm font-medium cursor-grab active:cursor-grabbing',
+                        'hover:bg-muted/80 transition-colors'
+                      )}
+                    >
+                      <User className="w-4 h-4 inline-block mr-2 text-muted-foreground" />
+                      {employeeFullName(emp)}
+                    </div>
+                  ))}
+                  {activeEmployees.length === 0 && (
+                    <p className="text-sm text-muted-foreground">{t('schedule.noActiveEmployees')}</p>
+                  )}
                 </div>
-              )}
+              </div>
 
               <div className="flex-1 min-w-0">
                 <div className="overflow-x-auto lg:overflow-x-visible overflow-y-visible">
@@ -819,6 +838,7 @@ export function ManagerScheduleView({
           </CardContent>
         </Card>
         </div>
+        )}
       </div>
 
       <EditShiftDialog
