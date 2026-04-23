@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingUp, DollarSign, Clock, Users, Dog, Calendar } from 'lucide-react';
 import { Client, Pet, Employee, TimeEntry, Appointment } from '@/types';
-import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInMinutes, startOfDay } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, differenceInMinutes, startOfDay, isValid } from 'date-fns';
 import { t } from '@/lib/translations';
 import { useTransactions } from '@/hooks/useTransactions';
 import { timeEntryCountsTowardPayroll } from '@/lib/timeEntryStatus';
@@ -21,8 +21,21 @@ const COLORS = ['hsl(168, 60%, 45%)', 'hsl(200, 55%, 55%)', 'hsl(145, 50%, 45%)'
 
 const SALE_STATUSES = ['paid', 'partial'];
 const REVENUE_PERIOD_DAYS = 30;
+const DATE_KEY_FORMAT = 'yyyy-MM-dd';
 
 export function Reports({ clients, pets, employees, timeEntries, appointments }: ReportsProps) {
+  const safeClients = Array.isArray(clients) ? clients : [];
+  const safePets = Array.isArray(pets) ? pets : [];
+  const safeEmployees = Array.isArray(employees) ? employees : [];
+  const safeTimeEntries = Array.isArray(timeEntries) ? timeEntries : [];
+  const safeAppointments = Array.isArray(appointments) ? appointments : [];
+
+  const getDateKey = (value: string | null | undefined) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return isValid(parsed) ? format(parsed, DATE_KEY_FORMAT) : null;
+  };
+
   useLanguage(); // Ensure instant re-render on language toggle
   const { transactions } = useTransactions();
   const sales = useMemo(
@@ -57,28 +70,36 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
   // Species distribution
   const speciesData = useMemo(() => {
     const counts = { dog: 0, cat: 0, other: 0 };
-    pets.forEach(pet => counts[pet.species]++);
+    safePets.forEach(pet => counts[pet.species]++);
     return [
       { name: t('pets.dogs'), value: counts.dog },
       { name: t('pets.cats'), value: counts.cat },
       { name: t('pets.other'), value: counts.other },
     ].filter(d => d.value > 0);
-  }, [pets]);
+  }, [safePets]);
 
   // Weekly registrations
   const weeklyData = useMemo(() => {
     const start = startOfWeek(new Date());
     const end = endOfWeek(new Date());
     const days = eachDayOfInterval({ start, end });
+    const clientCountsByDay = safeClients.reduce<Record<string, number>>((acc, client) => {
+      const key = getDateKey(client?.created_at);
+      if (!key) return acc;
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const petCountsByDay = safePets.reduce<Record<string, number>>((acc, pet) => {
+      const key = getDateKey(pet?.created_at);
+      if (!key) return acc;
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
     
     return days.map(day => {
-      const dayStr = format(day, 'yyyy-MM-dd');
-      const clientCount = clients.filter(c => 
-        format(new Date(c.created_at), 'yyyy-MM-dd') === dayStr
-      ).length;
-      const petCount = pets.filter(p => 
-        format(new Date(p.created_at), 'yyyy-MM-dd') === dayStr
-      ).length;
+      const dayStr = format(day, DATE_KEY_FORMAT);
+      const clientCount = clientCountsByDay[dayStr] ?? 0;
+      const petCount = petCountsByDay[dayStr] ?? 0;
       
       return {
         day: format(day, 'EEE'),
@@ -86,14 +107,14 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
         pets: petCount,
       };
     });
-  }, [clients, pets]);
+  }, [safeClients, safePets]);
 
   // Employee hours this week
   const employeeHours = useMemo(() => {
     const weekStart = startOfWeek(new Date());
     const roundToQuarterHours = (hours: number) => Math.round(hours * 4) / 4;
-    return employees.filter(e => e.status === 'active').map(emp => {
-      const empEntries = timeEntries.filter(entry => {
+    return safeEmployees.filter(e => e.status === 'active').map(emp => {
+      const empEntries = safeTimeEntries.filter(entry => {
         const entryDate = new Date(entry.clock_in);
         return (
           entry.staff_id === emp.id &&
@@ -115,19 +136,19 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
         earnings: totalHours * emp.hourly_rate,
       };
     });
-  }, [employees, timeEntries]);
+  }, [safeEmployees, safeTimeEntries]);
 
   // Appointment status
   const appointmentStats = useMemo(() => {
     const stats = { scheduled: 0, completed: 0, cancelled: 0, 'in-progress': 0 };
-    appointments.forEach(apt => stats[apt.status]++);
+    safeAppointments.forEach(apt => stats[apt.status]++);
     return [
       { name: t('reports.scheduled'), value: stats.scheduled },
       { name: t('reports.completed'), value: stats.completed },
       { name: t('reports.inProgress'), value: stats['in-progress'] },
       { name: t('reports.cancelled'), value: stats.cancelled },
     ].filter(d => d.value > 0);
-  }, [appointments]);
+  }, [safeAppointments]);
 
   const totalHoursWorked = employeeHours.reduce((sum, e) => sum + e.hours, 0);
   const totalPayroll = employeeHours.reduce((sum, e) => sum + e.earnings, 0);
@@ -184,7 +205,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">{t('dashboard.appointments')}</p>
-                <p className="text-2xl font-bold">{appointments.length}</p>
+                <p className="text-2xl font-bold">{safeAppointments.length}</p>
               </div>
             </div>
           </CardContent>
