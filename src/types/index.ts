@@ -189,6 +189,7 @@ export interface Appointment {
   appointment_date?: string;
   service_type: string;
   status:
+    | 'pending'
     | 'scheduled'
     | 'confirmed'
     | 'in-progress'

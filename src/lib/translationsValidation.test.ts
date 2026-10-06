@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// translations → authRouting → supabase client touches localStorage at import time; not needed here.
+vi.mock('@/integrations/supabase/client', () => ({ supabase: {}, isSupabaseConfigured: false }));
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';

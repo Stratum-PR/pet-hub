@@ -27,6 +27,7 @@ import { AuthCallback } from "@/pages/AuthCallback";
 import { SignupSuccess } from "@/pages/SignupSuccess";
 import { WaitlistConfirmed } from "@/pages/WaitlistConfirmed";
 import Index from "@/pages/Index";
+import { PublicBookingPage } from "@/pages/PublicBookingPage";
 import { AdminDashboard } from "@/pages/AdminDashboard";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
@@ -126,6 +127,8 @@ const App = () => (
                 path="/:businessSlug/portal"
                 element={<ClientPortalPublicPage />}
               />
+              {/* Public booking page: clients request an appointment (arrives as pending). */}
+              <Route path="/:businessSlug/reservar" element={<PublicBookingPage />} />
               <Route
                 path="/directorio"
                 element={<ClientDirectoryPage />}

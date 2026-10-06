@@ -10,7 +10,7 @@ export async function ensureAppointmentServiceIds(
   businessId: string,
   selectedNamesInOrder: string[],
   catalog: CatalogServiceLite[]
-): Promise<{ ok: true; primaryServiceId: string; serviceType: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; primaryServiceId: string; serviceType: string; serviceIds: string[] } | { ok: false; error: string }> {
   const trimmed = selectedNamesInOrder.map((s) => s.trim()).filter(Boolean);
   if (trimmed.length === 0) {
     return { ok: false, error: 'At least one service is required.' };

@@ -46,6 +46,8 @@ export interface BusinessClient {
   state: string | null;
   zip_code: string | null;
   notes: string | null;
+  /** How the client wants appointment updates: email, sms or none. */
+  contact_preference?: 'email' | 'sms' | 'none' | null;
   created_at: string;
   updated_at: string;
 }
@@ -102,12 +104,28 @@ export interface Appointment {
   client_id: string;
   pet_id: string;
   service_id: string;
+  /** All services in the booking (service_id = the first one). */
+  service_ids?: string[] | null;
+  /** Assigned groomer; null = unassigned. */
+  staff_id?: string | null;
   appointment_date: string;
   start_time: string;
   end_time: string;
-  status: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'canceled' | 'no_show';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'canceled' | 'no_show';
   notes: string | null;
   total_price: number | null;
+  /** Legacy price column; total_price wins when both are set. */
+  price?: number | null;
+  /** Legacy timestamp; kept in sync with appointment_date + start_time on writes. */
+  scheduled_date?: string | null;
+  service_type?: string | null;
+  booking_source?: 'staff' | 'online' | 'portal' | null;
+  booked_by_staff_id?: string | null;
+  /** Internal audit only: who confirmed/declined an online request. Never shown to clients. */
+  decided_by_staff_id?: string | null;
+  decided_by_profile_id?: string | null;
+  decided_at?: string | null;
+  decision_note?: string | null;
   created_at: string;
   updated_at: string;
 }

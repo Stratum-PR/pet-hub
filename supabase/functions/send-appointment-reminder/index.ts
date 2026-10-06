@@ -31,6 +31,10 @@ function toDateTime(appointmentDate: string | null, startTime: string | null): D
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+function esc(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
@@ -74,6 +78,21 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Only signed-in members of the appointment's business may trigger a reminder.
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data: caller } = token ? await admin.auth.getUser(token) : { data: { user: null } };
+  if (!caller?.user) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json", ...corsHeaders(req) },
+    });
+  }
+  const { data: callerProfile } = await admin
+    .from("profiles")
+    .select("business_id, is_super_admin")
+    .eq("id", caller.user.id)
+    .maybeSingle();
+
   const { data: apt, error: aptErr } = await admin
     .from("appointments")
     .select("id, business_id, client_id, pet_id, service_type, appointment_date, start_time, reminder_sent_at")
@@ -82,6 +101,12 @@ Deno.serve(async (req) => {
   if (aptErr || !apt) {
     return new Response(JSON.stringify({ error: "Cita no encontrada" }), {
       status: 404,
+      headers: { "Content-Type": "application/json", ...corsHeaders(req) },
+    });
+  }
+  if (!callerProfile?.is_super_admin && callerProfile?.business_id !== apt.business_id) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
       headers: { "Content-Type": "application/json", ...corsHeaders(req) },
     });
   }
@@ -149,13 +174,13 @@ Deno.serve(async (req) => {
           <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Recordatorio de cita</p>
         </div>
         <div style="padding: 30px; background: white; border: 1px solid #e5e7eb; border-top: none;">
-          <h2 style="color: #1f2937; margin: 0 0 16px 0;">Hola ${client?.name ?? ""}</h2>
+          <h2 style="color: #1f2937; margin: 0 0 16px 0;">Hola ${esc(client?.name ?? "")}</h2>
           <p style="color: #4b5563; line-height: 1.7;">
-            <strong>Negocio:</strong> ${businessName}<br/>
-            <strong>Mascota:</strong> ${petName}<br/>
-            <strong>Servicio:</strong> ${serviceType}<br/>
+            <strong>Negocio:</strong> ${esc(businessName)}<br/>
+            <strong>Mascota:</strong> ${esc(petName)}<br/>
+            <strong>Servicio:</strong> ${esc(serviceType)}<br/>
             <strong>Fecha y hora:</strong> ${dtLabel}<br/>
-            <strong>Ubicación:</strong> ${location}
+            <strong>Ubicación:</strong> ${esc(location)}
           </p>
         </div>
       </div>
@@ -171,8 +196,8 @@ Deno.serve(async (req) => {
     body: resendPayload,
   });
   if (!sendRes.ok) {
-    const detail = await sendRes.text();
-    return new Response(JSON.stringify({ error: "Error enviando recordatorio", detail }), {
+    await sendRes.text();
+    return new Response(JSON.stringify({ error: "Error enviando recordatorio" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders(req) },
     });
