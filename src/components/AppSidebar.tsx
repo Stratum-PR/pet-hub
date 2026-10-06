@@ -67,8 +67,8 @@ const mainNavItems = [
   { path: 'dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { path: 'clients', labelKey: 'nav.clients', icon: Users },
   { path: 'pets', labelKey: 'nav.pets', icon: Dog },
-  { path: 'appointments', labelKey: 'nav.appointments', icon: CalendarDays },
-  { path: 'appt-book/calendar', labelKey: 'nav.apptBook', icon: Calendar },
+  // "Citas" = the appointment book (calendar, list & history, online requests, settings).
+  { path: 'appt-book/calendar', labelKey: 'nav.appointments', icon: CalendarDays },
   { path: 'inventory', labelKey: 'nav.inventory', icon: Package },
   { path: 'transactions', labelKey: 'nav.transactions', icon: DollarSign },
   { path: 'services', labelKey: 'nav.services', icon: Scissors },
@@ -115,7 +115,7 @@ export function AppSidebar({
   const location = useLocation();
   const { theme, setTheme } = useTheme();
   const { role, staffId, business } = useAuth();
-  const { employees: navEmployees, loading: navEmployeesLoading } = useEmployees();
+  const { employees: navEmployees, loading: navEmployeesLoading } = useEmployees({ includeSensitive: false });
   const { isFeatureVisible, viewerTier, isSuperAdmin } = useFeatureRollout();
   const showDevOnlyBusinessSettings = isSuperAdmin && viewerTier === 'development';
   const [employeesOpen, setEmployeesOpen] = useState(false);

@@ -106,7 +106,7 @@ function getPageTitle(
     reports: t('nav.reports'),
     analytics: t('nav.analytics'),
     payroll: t('nav.payroll'),
-    'appt-book': t('nav.apptBook'),
+    'appt-book': t('nav.appointments'),
     services: t('nav.services'),
     checkout: 'Checkout',
     payment: 'Payment',
