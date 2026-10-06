@@ -374,19 +374,20 @@ export function Layout({ children, settings }: LayoutProps) {
                       className={`absolute inset-0 m-0 flex items-center text-lg font-semibold ${prevTitle ? 'opacity-0 animate-fade-in-up' : ''}`}
                     >
                       <span className="min-w-0 truncate">{displayTitle}</span>
+                      {/* Beta tag sits right after the title, raised like a superscript. */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 hidden shrink-0 -translate-y-2 cursor-default rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-3 tracking-wide text-primary sm:inline-block">
+                            BETA
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          {t('layout.betaTooltip')}
+                        </TooltipContent>
+                      </Tooltip>
                     </h1>
                   </div>
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="hidden shrink-0 cursor-default rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary sm:inline">
-                      BETA
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    {t('layout.betaTooltip')}
-                  </TooltipContent>
-                </Tooltip>
               </div>
             </div>
 

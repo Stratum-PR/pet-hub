@@ -164,7 +164,9 @@ export function LoginForm({
   const credentialsLogin = async (loginEmail: string, loginSecret: string) => {
     try {
       if (!SUPABASE_URL || !SUPABASE_KEY) {
-        toast.error('Supabase environment variables are missing.');
+        // Setup problem (missing VITE_SUPABASE_* build settings): keep the detail out of the UI.
+        devConsole.error('[Login] Supabase environment variables are missing');
+        toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
         return false;
       }
       try {
@@ -191,14 +193,16 @@ export function LoginForm({
           errorBody?.error_description ||
           errorBody?.msg ||
           errorBody?.message ||
-          `Login failed with status ${response.status}`;
-        toast.error(message);
+          '';
+        if (!message) devConsole.warn('[Login] token endpoint failed with status', response.status);
+        toast.error(message || (t('login.errorGeneric') || 'Something went wrong. Please try again.'));
         return false;
       }
       const json = await response.json();
       const { access_token, refresh_token, user } = json;
       if (!access_token || !refresh_token || !user) {
-        toast.error('Supabase did not return a valid session.');
+        devConsole.error('[Login] token response had no session');
+        toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
         return false;
       }
       const setSessionPromise = supabase.auth.setSession({ access_token, refresh_token });
@@ -237,36 +241,23 @@ export function LoginForm({
     if (!forgotEmail.trim()) return;
     setForgotLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('rate-limited-reset-password', {
-        body: { email: forgotEmail.trim().toLowerCase() },
+      // Supabase Auth sends the email and applies its own rate limit. The link opens /reset-password.
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
-      const isTooMany =
-        (data as { error?: string })?.error === 'too_many_requests' ||
-        (data as { error?: string })?.error?.includes('Too many');
-      if (error && (error as { status?: number }).status === 429) {
-        setForgotMessage('too_many');
-        setForgotLoading(false);
-        return;
-      }
-      if (isTooMany) {
-        setForgotMessage('too_many');
-        setForgotLoading(false);
-        return;
-      }
-      if (error) throw error;
-      const err = (data as { error?: string })?.error;
-      const msg = (data as { message?: string })?.message;
-      if (err) {
-        toast.error(err);
-        setForgotLoading(false);
-        return;
+      if (error) {
+        const status = (error as { status?: number }).status;
+        if (status === 429 || /rate limit|too many|seconds/i.test(error.message)) {
+          setForgotMessage('too_many');
+          return;
+        }
+        // Don't reveal whether the email has an account; log the detail for developers only.
+        devConsole.error('[Login] resetPasswordForEmail failed', error);
       }
       setForgotMessage('success');
-      if (msg) toast.success(msg);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('429') || message.includes('too many')) setForgotMessage('too_many');
-      else toast.error(message || 'Failed to send reset email');
+      devConsole.error('[Login] resetPasswordForEmail threw', err);
+      toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
     } finally {
       setForgotLoading(false);
     }

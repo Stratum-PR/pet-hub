@@ -879,17 +879,32 @@ export const translations: Translations = {
     es: 'Restablecer contraseña'
   },
   'login.resetPasswordHint': {
-    en: 'Enter your email. We’ll send a link to reset your password. Limit: 3 requests per hour per email.',
-    es: 'Ingresa tu correo. Enviaremos un enlace para restablecer tu contraseña. Límite: 3 solicitudes por hora por correo.'
+    en: 'Enter your email. We’ll send a link to reset your password. Open it in this same browser.',
+    es: 'Ingresa tu correo. Enviaremos un enlace para restablecer tu contraseña. Ábrelo en este mismo navegador.'
   },
   'login.resetPasswordSuccess': {
     en: 'If an account exists for this email, you’ll receive a password reset link.',
     es: 'Si existe una cuenta con este correo, recibirás un enlace para restablecer tu contraseña.'
   },
   'login.resetPasswordTooMany': {
-    en: 'Too many reset requests for this email. Please try again in 1 hour.',
-    es: 'Demasiadas solicitudes para este correo. Intenta de nuevo en 1 hora.'
+    en: 'Too many reset requests. Please wait a few minutes and try again.',
+    es: 'Demasiadas solicitudes. Espera unos minutos e intenta de nuevo.'
   },
+  'resetPassword.title': { en: 'Choose a new password', es: 'Elige una contraseña nueva' },
+  'resetPassword.hint': { en: 'Enter your new password twice.', es: 'Escribe tu contraseña nueva dos veces.' },
+  'resetPassword.checking': { en: 'Checking your link…', es: 'Verificando tu enlace…' },
+  'resetPassword.invalidLink': {
+    en: 'This link is no longer valid. It may have expired, been used already, or been opened in a different browser. Request a new one from the login page.',
+    es: 'Este enlace ya no es válido. Puede haber expirado, ya se usó, o se abrió en otro navegador. Pide uno nuevo desde la página de inicio de sesión.'
+  },
+  'resetPassword.newPassword': { en: 'New password', es: 'Contraseña nueva' },
+  'resetPassword.confirmPassword': { en: 'Confirm new password', es: 'Confirma la contraseña nueva' },
+  'resetPassword.save': { en: 'Save new password', es: 'Guardar contraseña nueva' },
+  'resetPassword.saving': { en: 'Saving…', es: 'Guardando…' },
+  'resetPassword.tooShort': { en: 'Use at least 8 characters.', es: 'Usa al menos 8 caracteres.' },
+  'resetPassword.samePassword': { en: 'Choose a password different from your current one.', es: 'Elige una contraseña distinta a la actual.' },
+  'resetPassword.done': { en: 'Your password was updated. Log in with your new password.', es: 'Tu contraseña se actualizó. Inicia sesión con tu contraseña nueva.' },
+  'resetPassword.goToLogin': { en: 'Go to login', es: 'Ir a iniciar sesión' },
   'login.errorGeneric': {
     en: 'Something went wrong. Please try again.',
     es: 'Algo salió mal. Por favor intenta de nuevo.'
