@@ -810,7 +810,15 @@ function splitStaffNameParts(employeeData: Omit<Employee, 'id' | 'created_at' | 
   };
 }
 
-export function useEmployees() {
+/**
+ * Staff columns safe to load on pages that don't manage payroll (no SSN, bank details or PIN).
+ * Use `useEmployees({ includeSensitive: true })` only where those fields are edited.
+ */
+export const STAFF_PUBLIC_COLUMNS =
+  'id, business_id, name, first_name, last_name, job_title_id, email, phone, role, access_role, status, hire_date, last_date, birth_month, birth_day, photo_url, offered_service_ids, user_id, created_at, updated_at';
+
+export function useEmployees(options?: { includeSensitive?: boolean }) {
+  const staffColumns = options?.includeSensitive === false ? STAFF_PUBLIC_COLUMNS : '*';
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -825,7 +833,7 @@ export function useEmployees() {
     setError(null);
     let empQuery = supabase
       .from('staff')
-      .select('*')
+      .select(staffColumns)
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     if (isDemoRoute()) empQuery = empQuery.range(0, DEMO_CAP_EMPLOYEES - 1);
@@ -842,7 +850,7 @@ export function useEmployees() {
       if (isDemoRoute() && isDemoWorkspaceBusiness(businessId) && data.length === 0) {
         setEmployees(getDemoStaffSeed());
       } else {
-        setEmployees(data as Employee[]);
+        setEmployees(data as unknown as Employee[]);
       }
     }
     setLoading(false);
