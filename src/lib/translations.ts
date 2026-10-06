@@ -905,6 +905,9 @@ export const translations: Translations = {
   'resetPassword.samePassword': { en: 'Choose a password different from your current one.', es: 'Elige una contraseña distinta a la actual.' },
   'resetPassword.done': { en: 'Your password was updated. Log in with your new password.', es: 'Tu contraseña se actualizó. Inicia sesión con tu contraseña nueva.' },
   'resetPassword.goToLogin': { en: 'Go to login', es: 'Ir a iniciar sesión' },
+  'login.resetPasswordSend': { en: 'Send reset link', es: 'Enviar enlace' },
+  'login.backToLogin': { en: 'Back to login', es: 'Volver a iniciar sesión' },
+  'resetPassword.sending': { en: 'Sending…', es: 'Enviando…' },
   'login.errorGeneric': {
     en: 'Something went wrong. Please try again.',
     es: 'Algo salió mal. Por favor intenta de nuevo.'
