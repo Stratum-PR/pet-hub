@@ -184,7 +184,8 @@ Deno.serve(async (req) => {
 
   const email = client?.email?.trim() || null;
   const phone = toE164(client?.phone ?? null);
-  const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
+  // A dedicated key for appointment emails if set; otherwise the project's shared Resend key.
+  const resendKey = Deno.env.get("NOTIFY_RESEND_API_KEY") || Deno.env.get("RESEND_API_KEY") || "";
   const twSid = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
   const twToken = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
   const twFrom = Deno.env.get("TWILIO_FROM_NUMBER") ?? "";
