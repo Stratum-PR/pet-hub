@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { devConsole } from '@/lib/clientDebug';
 
 const SUPPORT_EMAIL = 'support@stratumpr.com';
-const TOPICS = ['question', 'problem', 'billing', 'suggestion'] as const;
+const TOPICS = ['question', 'problem', 'billing', 'suggestion', 'other'] as const;
+/** White fields on a transparent panel (same look as other forms). */
+const FIELD =
+  'bg-white [&.glass-control]:bg-white dark:bg-card dark:[&.glass-control]:bg-card border border-input [&.glass-control]:border-input shadow-none';
 type Topic = (typeof TOPICS)[number];
 
 export function Help() {
@@ -23,14 +26,9 @@ export function Help() {
   const { user } = useAuth();
   const demoBrowseOnly = useDemoBrowseOnly();
   const [topic, setTopic] = useState<Topic>('question');
-  const [replyTo, setReplyTo] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-
-  useEffect(() => {
-    if (user?.email && !replyTo) setReplyTo(user.email);
-  }, [user?.email, replyTo]);
 
   const copyEmail = () => {
     navigator.clipboard.writeText(SUPPORT_EMAIL).then(
@@ -51,7 +49,7 @@ export function Help() {
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke('support-contact', {
-        body: { topic, message: message.trim(), reply_to: replyTo.trim(), page: window.location.pathname },
+        body: { topic, message: message.trim(), page: window.location.pathname },
       });
       if (error || !(data as { sent?: boolean } | null)?.sent) {
         const status = (error as { context?: { status?: number } } | null)?.context?.status;
@@ -72,7 +70,7 @@ export function Help() {
 
   return (
     <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
-      <Card className="shadow-none">
+      <Card className="bg-transparent shadow-none backdrop-blur-none hover:shadow-none [&.card-glass]:bg-transparent [&.card-glass]:backdrop-blur-none">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <MessageSquare className="h-5 w-5 shrink-0" />
@@ -87,49 +85,35 @@ export function Help() {
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
                 {t('help.messageSent')}
               </p>
-              <p className="text-xs text-muted-foreground">{t('help.replyNote', { email: replyTo })}</p>
+              <p className="text-xs text-muted-foreground">{t('help.replyNote', { email: user?.email ?? '' })}</p>
               <Button variant="outline" size="sm" onClick={() => setSent(false)}>
                 {t('help.sendAnother')}
               </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="help-topic">{t('help.subject')}</Label>
-                  <Select value={topic} onValueChange={(v) => setTopic(v as Topic)} disabled={!canSend}>
-                    <SelectTrigger id="help-topic">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TOPICS.map((key) => (
-                        <SelectItem key={key} value={key}>
-                          {t(`help.topic.${key}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="help-reply">{t('help.replyTo')}</Label>
-                  <Input
-                    id="help-reply"
-                    type="email"
-                    value={replyTo}
-                    onChange={(e) => setReplyTo(e.target.value)}
-                    required
-                    disabled={!canSend}
-                    autoComplete="email"
-                  />
-                </div>
+              <div className="space-y-2 sm:max-w-xs">
+                <Label htmlFor="help-topic">{t('help.subject')}</Label>
+                <Select value={topic} onValueChange={(v) => setTopic(v as Topic)} disabled={!canSend}>
+                  <SelectTrigger id="help-topic" className={FIELD}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TOPICS.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {t(`help.topic.${key}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="help-message">{t('help.message')}</Label>
                 <Textarea
                   id="help-message"
+                  className={FIELD}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder={t('help.messagePlaceholder')}
                   rows={6}
                   maxLength={4000}
                   required
@@ -147,7 +131,7 @@ export function Help() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-none">
+      <Card className="bg-transparent shadow-none backdrop-blur-none hover:shadow-none [&.card-glass]:bg-transparent [&.card-glass]:backdrop-blur-none">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Mail className="h-5 w-5 shrink-0" />
@@ -156,11 +140,11 @@ export function Help() {
           <CardDescription className="text-xs">{t('help.emailDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 pt-0">
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="break-all text-sm font-medium text-primary hover:underline">
-            {SUPPORT_EMAIL}
-          </a>
-          <div>
-            <Button variant="outline" size="sm" onClick={copyEmail} className="gap-1">
+          <div className={`flex items-center justify-between gap-2 rounded-md px-3 py-2 ${FIELD}`}>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="min-w-0 break-all text-sm font-medium text-primary hover:underline">
+              {SUPPORT_EMAIL}
+            </a>
+            <Button variant="ghost" size="sm" onClick={copyEmail} className="shrink-0 gap-1">
               <Copy className="h-4 w-4" />
               {t('help.copy')}
             </Button>

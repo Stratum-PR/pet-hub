@@ -2313,6 +2313,7 @@ export const translations: Translations = {
   'help.topic.problem': { en: 'Technical problem', es: 'Problema técnico' },
   'help.topic.billing': { en: 'Billing', es: 'Facturación' },
   'help.topic.suggestion': { en: 'Suggestion', es: 'Sugerencia' },
+  'help.topic.other': { en: 'Other', es: 'Otro' },
   'help.replyTo': { en: 'Reply to', es: 'Responder a' },
   'help.messagePlaceholder': { en: 'Tell us what you need. If something isn’t working, include the steps to see it.', es: 'Cuéntanos qué necesitas. Si algo no funciona, incluye los pasos para verlo.' },
   'help.sending': { en: 'Sending…', es: 'Enviando…' },
