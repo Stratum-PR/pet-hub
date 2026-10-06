@@ -1,4 +1,5 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { t } from '@/lib/translations';
@@ -19,6 +20,7 @@ export function Login() {
   const [searchParams] = useSearchParams();
   const themedGrumiWordmarkSrc = useThemedGrumiWordmarkSrc();
   useLanguage(); // Force re-render on language change
+  useRedirectIfAuthenticated();
   const businessSlug = searchParams.get('business')?.trim() || undefined;
 
   const { data: business } = useQuery({

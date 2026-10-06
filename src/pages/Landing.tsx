@@ -1,4 +1,5 @@
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { Button } from '@/components/ui/button';
 import { Footer } from '@/components/Footer';
 import { Eye, ChevronDown } from 'lucide-react';
@@ -129,7 +130,8 @@ export function Landing() {
     acc += letterDurations[i] ?? 0.02;
   }
 
-  // Note: landing page stays public even when logged in; no auto-redirect.
+  // Signed-in users opening the landing page go straight to their dashboard.
+  useRedirectIfAuthenticated();
 
   const handleLogoClick = () => {
     navigate('/');

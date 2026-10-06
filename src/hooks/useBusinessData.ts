@@ -653,12 +653,30 @@ export function useAppointments() {
       return;
     }
     setError(null);
-    const { data, error: err } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('business_id', businessId)
-      .order('appointment_date', { ascending: true })
-      .order('start_time', { ascending: true });
+    // The API returns at most 1,000 rows per request, so page through all of them; otherwise a business
+    // with a long history only sees its oldest 1,000 appointments (nothing recent or upcoming).
+    const PAGE = 1000;
+    const MAX_ROWS = 50_000;
+    let data: Record<string, unknown>[] | null = [];
+    let err: { message?: string } | null = null;
+    for (let from = 0; from < MAX_ROWS; from += PAGE) {
+      const page = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('business_id', businessId)
+        .order('appointment_date', { ascending: true })
+        .order('start_time', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (page.error) {
+        err = page.error;
+        data = null;
+        break;
+      }
+      const rows = (page.data ?? []) as Record<string, unknown>[];
+      data.push(...rows);
+      if (rows.length < PAGE) break;
+    }
     if (err) {
       setError(err.message ?? 'Failed to load appointments');
     } else if (data) {

@@ -898,7 +898,7 @@ function mergeStaffPrivate<T extends object>(row: T, fields: StaffPrivateFields 
  * Use `useEmployees({ includeSensitive: true })` only where those fields are edited.
  */
 export const STAFF_PUBLIC_COLUMNS =
-  'id, business_id, name, first_name, last_name, job_title_id, email, phone, role, access_role, status, hire_date, last_date, birth_month, birth_day, photo_url, offered_service_ids, user_id, created_at, updated_at';
+  'id, business_id, name, first_name, last_name, job_title_id, email, phone, role, access_role, status, birth_month, birth_day, photo_url, offered_service_ids, user_id, created_at, updated_at';
 
 export function useEmployees(options?: { includeSensitive?: boolean }) {
   const staffColumns = options?.includeSensitive === false ? STAFF_PUBLIC_COLUMNS : '*';

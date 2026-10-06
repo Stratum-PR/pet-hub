@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
 import { useNavigate, Link } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
-import { Plus, CheckCircle, LayoutGrid, List, Loader2 } from 'lucide-react';
+import { Plus, CheckCircle, Loader2 } from 'lucide-react';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -88,17 +88,7 @@ export function Transactions() {
   const { settings } = useSettings();
   const { createNotification } = useNotifications(settings);
   const [searchTerm, setSearchTerm] = useState('');
-  const TRANSACTION_VIEW_KEY = 'pet-hub-transactions-view';
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
-    if (typeof window === 'undefined') return 'cards';
-    return window.localStorage.getItem(TRANSACTION_VIEW_KEY) === 'list' ? 'list' : 'cards';
-  });
   const pageLoadRef = usePageLoadRef();
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(TRANSACTION_VIEW_KEY, viewMode);
-  }, [viewMode]);
 
   const getCustomerName = useCallback((customerId: string | null) => {
     if (!customerId) return 'Walk-in';
@@ -208,28 +198,6 @@ export function Transactions() {
           onSearchChange={setSearchTerm}
           placeholder={t('transactions.searchPlaceholder')}
         />
-        <div className="inline-flex rounded-xl border border-input bg-background/80 backdrop-blur-sm p-0.5 shrink-0">
-          <button
-            type="button"
-            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
-              viewMode === 'cards' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-            onClick={() => setViewMode('cards')}
-            aria-label="Card view"
-          >
-            <LayoutGrid className="w-4 h-4 shrink-0" />
-          </button>
-          <button
-            type="button"
-            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg ${
-              viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-            onClick={() => setViewMode('list')}
-            aria-label="List view"
-          >
-            <List className="w-4 h-4 shrink-0" />
-          </button>
-        </div>
         {demoBrowseOnly ? (
           <Button type="button" className="gap-2 shadow-sm shrink-0" disabled title={t('demo.workspaceReadOnlyAction')}>
             <Plus className="w-4 h-4" />
@@ -255,8 +223,7 @@ export function Transactions() {
             </div>
           ) : fetchError ? (
             <div className="py-8 text-center space-y-2">
-              <p className="text-destructive font-medium">Failed to load transactions.</p>
-              <p className="text-muted-foreground text-sm">{fetchError}</p>
+              <p className="text-destructive font-medium">{t('transactions.loadError')}</p>
               <Button variant="outline" onClick={() => refetch()}>
                 Retry
               </Button>
@@ -267,80 +234,6 @@ export function Transactions() {
             <p className="text-muted-foreground py-8 text-center px-4">
               {t('transactions.emptyListHint')}
             </p>
-          ) : viewMode === 'cards' ? (
-            <div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4"
-              data-page-cards-grid
-            >
-              {filtered.map((txn) => {
-                const name = getCustomerName(txn.customer_id);
-                const displayId =
-                  txn.transaction_number != null
-                    ? `TXN-${String(txn.transaction_number).padStart(5, '0')}`
-                    : txn.id.slice(0, 8);
-                const go = () => goToTransaction(txn);
-                return (
-                  <Card
-                    key={txn.id}
-                    className="border hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={go}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-mono text-sm font-medium break-all">{displayId}</div>
-                          <p className="text-xs text-muted-foreground mt-0.5 break-words">
-                            {format(new Date(txn.created_at), 'PPp')}
-                          </p>
-                          <p className="mt-2 font-medium break-words">{name}</p>
-                        </div>
-                        {!isFullyPaid(txn) ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs shrink-0"
-                            disabled={demoBrowseOnly}
-                            title={demoBrowseOnly ? t('demo.workspaceReadOnlyAction') : undefined}
-                            onClick={(e) => handleMarkAsPaid(e, txn)}
-                          >
-                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                            {t('transactions.markAsPaid')}
-                          </Button>
-                        ) : null}
-                      </div>
-                      <div className="space-y-1 text-sm pt-3 border-t">
-                        <div className="flex justify-between gap-2">
-                          <span className="text-muted-foreground">{t('transactions.amountPaid')}</span>
-                          <span>${centsToDollars(txn.amount_tendered ?? 0)}</span>
-                        </div>
-                        <div className="flex justify-between gap-2">
-                          <span className="text-muted-foreground">{t('transactions.totalDue')}</span>
-                          <span className="font-semibold">${centsToDollars(txn.total)}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-3">
-                        <Badge
-                          variant={
-                            txn.status === 'refunded' || txn.status === 'partial_refund' || txn.status === 'void'
-                              ? 'destructive'
-                              : (txn.amount_tendered ?? 0) >= txn.total
-                                ? 'default'
-                                : 'secondary'
-                          }
-                        >
-                          {txn.status === 'void' || txn.status === 'refunded' || txn.status === 'partial_refund'
-                            ? (STATUS_LABELS[txn.status] || txn.status)
-                            : getPaymentStatusLabel(txn.amount_tendered ?? 0, txn.total)}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {PAYMENT_METHOD_LABELS[txn.payment_method] || txn.payment_method}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
           ) : (
             <>
               <ul className="space-y-3 p-4 lg:hidden" data-transactions-list-mobile>

@@ -705,7 +705,7 @@ export function AppointmentBook() {
               filters={{ service: 'All Services', staff: 'All Employees', view: 'day' }}
               onFilterChange={() => {}}
               onEdit={(apt) => setDetailsId(apt.id)}
-              initialScope={historyScope ? 'all' : 'day'}
+              initialScope="all"
               petFilterId={petFilterId}
               onClearPetFilter={() => {
                 const next = new URLSearchParams(searchParams);

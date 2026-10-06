@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
 import {
@@ -145,6 +145,9 @@ export function AppointmentBookListView({
   const [staffFilter, setStaffFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateSortDir, setDateSortDir] = useState<'asc' | 'desc'>('desc');
+  // History can hold thousands of rows; render in pages to keep the page fast.
+  const PAGE_SIZE = 100;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const formatDateHeader = (date: Date) =>
     format(date, 'EEEE, d MMMM yyyy', { locale: dateFnsLocale });
@@ -217,8 +220,12 @@ export function AppointmentBookListView({
     setDateSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
   };
 
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [search, dateScope, staffFilter, statusFilter, petFilterId, dateSortDir, selectedDate]);
+
   const listViewRows = useMemo(() => {
-    return displayRows.map((apt) => {
+    return displayRows.slice(0, visibleCount).map((apt) => {
       const aptAny = apt as unknown as Record<string, unknown>;
       const pet = pets.find((p) => p.id === apt.pet_id);
       const client = clients.find((c) => c.id === (apt.client_id || pet?.client_id));
@@ -263,7 +270,7 @@ export function AppointmentBookListView({
         statusClass: getStatusColor(apt.status ?? ''),
       };
     });
-  }, [displayRows, pets, clients, services, employees, dateFnsLocale]);
+  }, [displayRows, visibleCount, pets, clients, services, employees, dateFnsLocale]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background max-sm:h-auto max-sm:min-h-0">
@@ -521,6 +528,16 @@ export function AppointmentBookListView({
                 </Table>
               </div>
             </div>
+            {displayRows.length > visibleCount ? (
+              <div className="flex flex-col items-center gap-1 pt-3">
+                <Button variant="outline" size="sm" onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}>
+                  {t('apptBook.showMore')}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {t('apptBook.showingCount', { shown: String(Math.min(visibleCount, displayRows.length)), total: String(displayRows.length) })}
+                </span>
+              </div>
+            ) : null}
           </>
         )}
       </div>
