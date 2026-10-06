@@ -3,14 +3,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -365,6 +357,47 @@ export function LoginForm({
 
   return (
     <>
+      {forgotOpen ? (
+        // Reset form replaces the login form in place (a second popup would open behind the login popup).
+        <form onSubmit={handleForgotPassword} className="space-y-4">
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold">{t('login.resetPasswordTitle')}</h3>
+            <p className="text-sm text-muted-foreground">{t('login.resetPasswordHint')}</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="forgot-email">{t('login.email')}</Label>
+            <Input
+              id="forgot-email"
+              type="email"
+              placeholder="you@example.com"
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              required
+              autoComplete="email"
+              autoFocus
+            />
+          </div>
+          {forgotMessage === 'too_many' && (
+            <p className="text-sm text-destructive">{t('login.resetPasswordTooMany')}</p>
+          )}
+          {forgotMessage === 'success' && (
+            <p className="text-sm text-green-600 dark:text-green-400">{t('login.resetPasswordSuccess')}</p>
+          )}
+          <Button type="submit" disabled={forgotLoading} className="w-full">
+            {forgotLoading ? t('resetPassword.sending') : t('login.resetPasswordSend')}
+          </Button>
+          <button
+            type="button"
+            className="w-full text-center text-sm text-primary hover:underline"
+            onClick={() => {
+              setForgotOpen(false);
+              setForgotMessage(null);
+            }}
+          >
+            {t('login.backToLogin')}
+          </button>
+        </form>
+      ) : (
       <form onSubmit={handleLogin} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="login-email">{t('login.email')}</Label>
@@ -381,38 +414,17 @@ export function LoginForm({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="login-password">{t('login.password')}</Label>
-            <Dialog open={forgotOpen} onOpenChange={(open) => { setForgotOpen(open); setForgotMessage(null); setForgotEmail(''); }}>
-              <DialogTrigger asChild>
-                <button type="button" className="text-sm text-primary hover:underline">
-                  {t('login.forgotPassword')}
-                </button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{t('login.resetPasswordTitle')}</DialogTitle>
-                  <DialogDescription>{t('login.resetPasswordHint')}</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleForgotPassword} className="space-y-4 mt-2">
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                  />
-                  {forgotMessage === 'too_many' && (
-                    <p className="text-sm text-destructive">{t('login.resetPasswordTooMany')}</p>
-                  )}
-                  {forgotMessage === 'success' && (
-                    <p className="text-sm text-green-600 dark:text-green-400">{t('login.resetPasswordSuccess')}</p>
-                  )}
-                  <Button type="submit" disabled={forgotLoading} className="w-full">
-                    {forgotLoading ? t('login.signingIn') : t('login.resetPasswordTitle')}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <button
+              type="button"
+              className="text-sm text-primary hover:underline"
+              onClick={() => {
+                setForgotMessage(null);
+                setForgotEmail(email.trim());
+                setForgotOpen(true);
+              }}
+            >
+              {t('login.forgotPassword')}
+            </button>
           </div>
           <Input
             id="login-password"
@@ -428,8 +440,9 @@ export function LoginForm({
           {loading ? t('login.signingIn') : t('login.signIn')}
         </Button>
       </form>
+      )}
 
-      {showNotLinked && businessSlug && (
+      {!forgotOpen && showNotLinked && businessSlug && (
         <div className="mt-4 p-4 rounded-lg border border-muted bg-muted/30 space-y-3">
           <p className="text-sm text-muted-foreground">
             {t('login.notLinkedMessage', { businessName: business?.name ?? businessSlug })}
