@@ -6,6 +6,9 @@
 --   5. Notification log (what was sent, through which channel, success or failure).
 --   6. Public booking RPCs for the client-facing /{slug}/reservar page (SECURITY DEFINER, no direct table access).
 -- All changes are additive; existing columns and rows are untouched apart from the service_ids backfill.
+-- ID columns differ between environments (production stores appointments/pets/services ids as TEXT,
+-- older migrations create UUID), so new columns that reference them copy the referenced column's type,
+-- and the functions compare ids as text.
 
 BEGIN;
 
@@ -36,8 +39,16 @@ ALTER TABLE public.appointments
   ADD COLUMN IF NOT EXISTS decided_by_staff_id UUID REFERENCES public.staff(id) ON DELETE SET NULL,
   -- Fallback when the person deciding has no staff row (e.g. an owner or super admin).
   ADD COLUMN IF NOT EXISTS decided_by_profile_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS decision_note TEXT,
-  ADD COLUMN IF NOT EXISTS service_ids UUID[] NOT NULL DEFAULT '{}';
+  ADD COLUMN IF NOT EXISTS decision_note TEXT;
+
+-- service_ids has the same element type as service_id (TEXT in production, UUID elsewhere).
+DO $$
+DECLARE v_type TEXT;
+BEGIN
+  SELECT format_type(a.atttypid, a.atttypmod) INTO v_type
+  FROM pg_attribute a WHERE a.attrelid = 'public.appointments'::regclass AND a.attname = 'service_id';
+  EXECUTE format('ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS service_ids %s[] NOT NULL DEFAULT ''{}''', v_type);
+END $$;
 
 ALTER TABLE public.appointments DROP CONSTRAINT IF EXISTS appointments_booking_source_check;
 ALTER TABLE public.appointments
@@ -72,17 +83,24 @@ ALTER TABLE public.clients
 -- ---------------------------------------------------------------------------
 -- 3. Per-groomer price / duration overrides
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.staff_service_rates (
-  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
-  staff_id UUID NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
-  service_id UUID NOT NULL REFERENCES public.services(id) ON DELETE CASCADE,
-  price NUMERIC(10, 2) CHECK (price IS NULL OR price >= 0),
-  duration_minutes INTEGER CHECK (duration_minutes IS NULL OR (duration_minutes > 0 AND duration_minutes <= 720)),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (staff_id, service_id)
-);
+DO $$
+DECLARE v_type TEXT;
+BEGIN
+  SELECT format_type(a.atttypid, a.atttypmod) INTO v_type
+  FROM pg_attribute a WHERE a.attrelid = 'public.services'::regclass AND a.attname = 'id';
+  EXECUTE format($sql$
+    CREATE TABLE IF NOT EXISTS public.staff_service_rates (
+      id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+      business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+      staff_id UUID NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
+      service_id %s NOT NULL REFERENCES public.services(id) ON DELETE CASCADE,
+      price NUMERIC(10, 2) CHECK (price IS NULL OR price >= 0),
+      duration_minutes INTEGER CHECK (duration_minutes IS NULL OR (duration_minutes > 0 AND duration_minutes <= 720)),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (staff_id, service_id)
+    )$sql$, v_type);
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_staff_service_rates_business ON public.staff_service_rates (business_id);
 
@@ -132,16 +150,23 @@ CREATE POLICY "Managers manage staff service rates"
 -- ---------------------------------------------------------------------------
 -- 4. Notification log (written by the notify-appointment Edge Function with the service role)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.appointment_notifications (
-  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
-  appointment_id UUID NOT NULL REFERENCES public.appointments(id) ON DELETE CASCADE,
-  kind TEXT NOT NULL CHECK (kind IN ('request_received', 'confirmed', 'declined', 'proposed_time', 'rescheduled', 'canceled')),
-  channel TEXT NOT NULL CHECK (channel IN ('email', 'sms', 'none')),
-  status TEXT NOT NULL CHECK (status IN ('sent', 'skipped', 'failed')),
-  detail TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+DO $$
+DECLARE v_type TEXT;
+BEGIN
+  SELECT format_type(a.atttypid, a.atttypmod) INTO v_type
+  FROM pg_attribute a WHERE a.attrelid = 'public.appointments'::regclass AND a.attname = 'id';
+  EXECUTE format($sql$
+    CREATE TABLE IF NOT EXISTS public.appointment_notifications (
+      id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+      business_id UUID NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
+      appointment_id %s NOT NULL REFERENCES public.appointments(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('request_received', 'confirmed', 'declined', 'proposed_time', 'rescheduled', 'canceled')),
+      channel TEXT NOT NULL CHECK (channel IN ('email', 'sms', 'none')),
+      status TEXT NOT NULL CHECK (status IN ('sent', 'skipped', 'failed')),
+      detail TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )$sql$, v_type);
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_appointment_notifications_appointment
   ON public.appointment_notifications (appointment_id, created_at DESC);
@@ -356,7 +381,7 @@ DECLARE
   v_pref TEXT := COALESCE(NULLIF(p_contact_preference, ''), 'email');
   v_tz TEXT;
   v_client_id UUID;
-  v_pet_id UUID;
+  v_pet_id TEXT;
   v_appointment_id UUID := gen_random_uuid();
   v_start TIME;
   v_duration INT := 0;
@@ -430,14 +455,14 @@ BEGIN
   SELECT
     COALESCE(sum(COALESCE(r.duration_minutes, sv.duration_minutes, 60)), 0),
     COALESCE(sum(COALESCE(r.price, sv.price, 0)), 0),
-    string_agg(sv.name, ', ' ORDER BY array_position(p_service_ids, sv.id))
+    string_agg(sv.name, ', ' ORDER BY array_position(p_service_ids::text[], sv.id::text))
   INTO v_duration, v_price, v_names
   FROM public.services sv
   LEFT JOIN public.staff_service_rates r ON r.service_id = sv.id AND r.staff_id = p_staff_id
   WHERE sv.business_id = v_business_id
-    AND sv.id = ANY (p_service_ids)
+    AND sv.id::text = ANY (p_service_ids::text[])
     AND COALESCE(sv.is_active, true);
-  IF v_names IS NULL OR (SELECT count(*) FROM public.services sv WHERE sv.business_id = v_business_id AND sv.id = ANY (p_service_ids)) <> cardinality(p_service_ids) THEN
+  IF v_names IS NULL OR (SELECT count(*) FROM public.services sv WHERE sv.business_id = v_business_id AND sv.id::text = ANY (p_service_ids::text[])) <> cardinality(p_service_ids) THEN
     RAISE EXCEPTION 'invalid_services' USING ERRCODE = 'P0001';
   END IF;
   v_duration := GREATEST(v_duration, 15);
@@ -454,7 +479,7 @@ BEGIN
       SELECT 1 FROM public.appointments a
       WHERE a.business_id = v_business_id
         AND a.appointment_date = p_date
-        AND (a.staff_id = p_staff_id OR a.staff_id IS NULL)
+        AND (a.staff_id::text = p_staff_id::text OR a.staff_id IS NULL)
         AND lower(replace(a.status, '_', '-')) NOT IN ('canceled', 'cancelled', 'no-show', 'completed')
         AND a.start_time < v_end
         AND COALESCE(a.end_time, a.start_time + interval '60 minutes') > v_start
@@ -504,7 +529,7 @@ BEGIN
     appointment_date, start_time, end_time, scheduled_date,
     service_type, status, total_price, price, notes, booking_source
   ) VALUES (
-    v_appointment_id, v_business_id, v_client_id, v_pet_id, p_service_ids[1], p_service_ids, p_staff_id,
+    v_appointment_id, v_business_id, v_client_id, v_pet_id::uuid, p_service_ids[1], p_service_ids, p_staff_id,
     p_date, v_start, v_end, (p_date + v_start) AT TIME ZONE v_tz,
     v_names, 'pending', v_price, v_price, NULLIF(trim(COALESCE(p_notes, '')), ''), 'online'
   );
