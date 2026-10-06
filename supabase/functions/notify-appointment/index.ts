@@ -24,7 +24,8 @@ function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("Origin") ?? "";
   const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean);
   const isLocal = origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:");
-  const allow = isLocal || allowed.includes(origin) ? origin : allowed[0] ?? "";
+  // Without ALLOWED_ORIGINS, echo the caller's origin (like the other functions); access still requires a staff JWT.
+  const allow = isLocal || allowed.includes(origin) || allowed.length === 0 ? origin : allowed[0];
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -184,7 +185,8 @@ Deno.serve(async (req) => {
 
   const email = client?.email?.trim() || null;
   const phone = toE164(client?.phone ?? null);
-  const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
+  // A dedicated key for appointment emails if set; otherwise the project's shared Resend key.
+  const resendKey = Deno.env.get("NOTIFY_RESEND_API_KEY") || Deno.env.get("RESEND_API_KEY") || "";
   const twSid = Deno.env.get("TWILIO_ACCOUNT_SID") ?? "";
   const twToken = Deno.env.get("TWILIO_AUTH_TOKEN") ?? "";
   const twFrom = Deno.env.get("TWILIO_FROM_NUMBER") ?? "";

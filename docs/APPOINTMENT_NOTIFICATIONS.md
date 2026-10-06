@@ -25,7 +25,12 @@ supabase secrets set ALLOWED_ORIGINS="https://<your-app-domain>,http://localhost
 supabase secrets set NOTIFY_FROM_EMAIL="Grumi <citas@stratumpr.com>"
 ```
 
-`RESEND_API_KEY` is already a secret for the existing email functions; `notify-appointment` reuses it.
+`notify-appointment` uses `NOTIFY_RESEND_API_KEY` when it is set (a key just for appointment emails) and
+otherwise falls back to the shared `RESEND_API_KEY` used by the other email functions.
+
+```bash
+supabase secrets set NOTIFY_RESEND_API_KEY="re_…"   # paste the key here, never in chat or in git
+```
 
 Test: create a client with your own email and contact preference "Correo", open the booking link
 (`/<slug>/reservar`), send a request, then confirm it in **Citas → Solicitudes en línea**.
