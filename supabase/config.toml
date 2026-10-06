@@ -41,3 +41,6 @@ verify_jwt = false
 # Staff-only: platform verifies the JWT, and the handler checks the caller's business.
 [functions.notify-appointment]
 verify_jwt = true
+
+[functions.support-contact]
+verify_jwt = true
