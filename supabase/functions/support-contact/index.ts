@@ -5,7 +5,7 @@
 // Security: requires a signed-in user (JWT verified by the platform and here). Sender identity,
 // business and account come from the session, not from the form. Max 5 messages per user per hour.
 //
-// Secrets: RESEND_API_KEY (or NOTIFY_RESEND_API_KEY), SUPPORT_INBOX_EMAIL (default support@stratumpr.com),
+// Secrets: RESEND_API_KEY (or NOTIFY_RESEND_API_KEY), SUPPORT_INBOX_EMAIL (default support@grumi.pet),
 //          NOTIFY_FROM_EMAIL (default "Grumi <noreply@stratumpr.com>"), ALLOWED_ORIGINS (optional).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
 
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@stratumpr.com>",
-      to: [Deno.env.get("SUPPORT_INBOX_EMAIL") ?? "support@stratumpr.com"],
+      to: [Deno.env.get("SUPPORT_INBOX_EMAIL") ?? "support@grumi.pet"],
       reply_to: replyTo,
       subject,
       text: `${details.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\n${message}`,

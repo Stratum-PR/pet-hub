@@ -14,7 +14,7 @@ import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { supabase } from '@/integrations/supabase/client';
 import { devConsole } from '@/lib/clientDebug';
 
-const SUPPORT_EMAIL = 'support@stratumpr.com';
+const SUPPORT_EMAIL = 'support@grumi.pet';
 const TOPICS = ['question', 'problem', 'billing', 'suggestion', 'other'] as const;
 /** White fields on a transparent panel (same look as other forms). */
 const FIELD =
