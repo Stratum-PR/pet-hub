@@ -177,7 +177,7 @@ AS $$
   );
 $$;
 
-REVOKE ALL ON FUNCTION public.resolve_public_business_id(TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.resolve_public_business_id(TEXT) FROM PUBLIC, anon, authenticated;
 
 -- Same rule as the app (src/lib/groomerAvailability.ts → bookableStaff): active staff with an explicit
 -- service menu or a grooming job title; if nobody matches, every active staff member.
@@ -202,7 +202,7 @@ AS $$
   SELECT a.id FROM active a WHERE NOT EXISTS (SELECT 1 FROM matches);
 $$;
 
-REVOKE ALL ON FUNCTION public.bookable_staff_ids(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.bookable_staff_ids(UUID) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.get_public_booking_options(p_slug TEXT)
 RETURNS JSONB
