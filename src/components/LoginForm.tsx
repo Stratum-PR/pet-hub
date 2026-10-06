@@ -164,7 +164,9 @@ export function LoginForm({
   const credentialsLogin = async (loginEmail: string, loginSecret: string) => {
     try {
       if (!SUPABASE_URL || !SUPABASE_KEY) {
-        toast.error('Supabase environment variables are missing.');
+        // Setup problem (missing VITE_SUPABASE_* build settings): keep the detail out of the UI.
+        devConsole.error('[Login] Supabase environment variables are missing');
+        toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
         return false;
       }
       try {
@@ -191,14 +193,16 @@ export function LoginForm({
           errorBody?.error_description ||
           errorBody?.msg ||
           errorBody?.message ||
-          `Login failed with status ${response.status}`;
-        toast.error(message);
+          '';
+        if (!message) devConsole.warn('[Login] token endpoint failed with status', response.status);
+        toast.error(message || (t('login.errorGeneric') || 'Something went wrong. Please try again.'));
         return false;
       }
       const json = await response.json();
       const { access_token, refresh_token, user } = json;
       if (!access_token || !refresh_token || !user) {
-        toast.error('Supabase did not return a valid session.');
+        devConsole.error('[Login] token response had no session');
+        toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
         return false;
       }
       const setSessionPromise = supabase.auth.setSession({ access_token, refresh_token });
