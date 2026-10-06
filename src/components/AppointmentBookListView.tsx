@@ -38,9 +38,10 @@ import { CalendarFilters, CalendarStaff, CalendarView } from '@/types/calendar';
 import { parseAppointmentDate } from '@/lib/calendarHelpers';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import {
+  appointmentStatusLabelKey,
   normalizeAppointmentStatus,
 } from '@/lib/appointmentStatus';
-import { AppointmentNoShowControl } from '@/components/AppointmentNoShowControl';
+import { UNASSIGNED_STAFF_ID } from '@/lib/groomerAvailability';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 function formatTime12H(timeRaw: string | null | undefined): string {
@@ -66,6 +67,8 @@ function matchesStatusFilter(status: string | undefined, filter: string): boolea
 function getStatusColor(status: string) {
   const s = normalizeAppointmentStatus(status);
   switch (s) {
+    case 'pending':
+      return 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-200';
     case 'scheduled':
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
     case 'confirmed':
@@ -85,9 +88,7 @@ function getStatusColor(status: string) {
 }
 
 function formatStatusLabel(status: string | undefined) {
-  const s = normalizeAppointmentStatus(status);
-  if (s === 'no-show') return t('appointments.statusNoShow');
-  return status || 'scheduled';
+  return t(appointmentStatusLabelKey(status));
 }
 
 export interface AppointmentBookListViewProps {
@@ -108,6 +109,11 @@ export interface AppointmentBookListViewProps {
   onMarkNoShow?: (id: string) => void | Promise<void>;
   onEdit: (apt: Appointment) => void;
   onClearFilters?: () => void;
+  /** Start in "all dates" (history) mode. */
+  initialScope?: 'day' | 'all';
+  /** Only show this pet's appointments (from ?pet= deep links); clearable. */
+  petFilterId?: string | null;
+  onClearPetFilter?: () => void;
 }
 
 export function AppointmentBookListView({
@@ -128,11 +134,15 @@ export function AppointmentBookListView({
   onMarkNoShow,
   onEdit,
   onClearFilters,
+  initialScope = 'day',
+  petFilterId = null,
+  onClearPetFilter,
 }: AppointmentBookListViewProps) {
   const { language } = useLanguage();
   const dateFnsLocale = language === 'es' ? esLocale : enUS;
   const [search, setSearch] = useState('');
-  const [dateScope, setDateScope] = useState<'day' | 'all'>('day');
+  const [dateScope, setDateScope] = useState<'day' | 'all'>(petFilterId ? 'all' : initialScope);
+  const [staffFilter, setStaffFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateSortDir, setDateSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -141,35 +151,15 @@ export function AppointmentBookListView({
 
   const baseFiltered = useMemo(() => {
     let list = [...appointments];
-
-    if (filters.service !== 'All Services') {
+    if (petFilterId) list = list.filter((apt) => apt.pet_id === petFilterId);
+    if (staffFilter !== 'all') {
       list = list.filter((apt) => {
-        const svc = services.find((s) => s.id === apt.service_id);
-        const serviceName = (svc?.name ?? (apt as any).service_type ?? '').toLowerCase();
-        if (filters.service === 'Grooming') return !serviceName.includes('daycare');
-        if (filters.service === 'Daycare') return serviceName.includes('daycare');
-        return true;
+        const ref = staffRecordIdFromRow(apt) ?? apt.staff_id ?? null;
+        return staffFilter === UNASSIGNED_STAFF_ID ? !ref : ref === staffFilter;
       });
     }
-
-    if (filters.service === 'Daycare') {
-      if (filters.staff !== 'All Rooms') {
-        // Room filter not implemented yet — same as calendar.
-      }
-    } else {
-      if (filters.staff !== 'All Employees' && filters.staff !== 'All Rooms') {
-        const staffMember = calendarEmployees.find((e) => e.name === filters.staff);
-        if (staffMember) {
-          list = list.filter((apt) => {
-            const ref = staffRecordIdFromRow(apt) ?? (apt as any).staff_id;
-            return ref === staffMember.id;
-          });
-        }
-      }
-    }
-
     return list;
-  }, [appointments, filters, services, calendarEmployees]);
+  }, [appointments, petFilterId, staffFilter]);
 
   const displayRows = useMemo(() => {
     let list = baseFiltered;
@@ -189,11 +179,11 @@ export function AppointmentBookListView({
     if (q) {
       list = list.filter((apt) => {
         const pet = pets.find((p) => p.id === apt.pet_id);
-        const client = clients.find((c) => c.id === pet?.client_id);
+        const client = clients.find((c) => c.id === (apt.client_id || pet?.client_id));
         const clientName = `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim().toLowerCase();
         const petLine = `${pet?.name ?? ''} ${pet?.breed ?? ''}`.toLowerCase();
         const svc = services.find((s) => s.id === apt.service_id);
-        const svcName = (svc?.name ?? (apt as any).service_type ?? '').toLowerCase();
+        const svcName = (svc?.name ?? apt.service_type ?? '').toLowerCase();
         return (
           petLine.includes(q) ||
           clientName.includes(q) ||
@@ -229,9 +219,9 @@ export function AppointmentBookListView({
 
   const listViewRows = useMemo(() => {
     return displayRows.map((apt) => {
-      const aptAny = apt as Record<string, unknown>;
+      const aptAny = apt as unknown as Record<string, unknown>;
       const pet = pets.find((p) => p.id === apt.pet_id);
-      const client = clients.find((c) => c.id === pet?.client_id);
+      const client = clients.find((c) => c.id === (apt.client_id || pet?.client_id));
       const clientName =
         `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim() || t('appointments.unknownClient');
       const breed = pet?.breed ? ` (${pet.breed})` : '';
@@ -243,14 +233,10 @@ export function AppointmentBookListView({
         ? formatStaffNameAggregated(employee.name)
         : t('apptBook.unassigned');
       const aptDate = parseAppointmentDate(apt);
-      const dateStr = aptDate ? format(aptDate, 'MM/dd/yyyy') : '—';
+      const dateStr = aptDate ? format(aptDate, 'd MMM yyyy', { locale: dateFnsLocale }) : '—';
       const timeStr = formatTime12H(apt.start_time);
-      const total =
-        typeof aptAny.price === 'number'
-          ? aptAny.price
-          : typeof apt.total_price === 'number'
-            ? apt.total_price
-            : null;
+      const rawTotal = apt.total_price ?? (aptAny.price as number | null | undefined) ?? null;
+      const total = rawTotal == null ? null : Number(rawTotal);
       const totalStr =
         total != null && !Number.isNaN(total as number) ? `$${(total as number).toFixed(2)}` : '—';
       const hasPayment = Boolean(aptAny.transaction_id || aptAny.billed);
@@ -277,22 +263,24 @@ export function AppointmentBookListView({
         statusClass: getStatusColor(apt.status ?? ''),
       };
     });
-  }, [displayRows, pets, clients, services, employees, t]);
+  }, [displayRows, pets, clients, services, employees, dateFnsLocale]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background max-sm:h-auto max-sm:min-h-0">
       <div className="shrink-0 border-b border-border bg-muted/30 px-3 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+{dateScope === 'day' ? (
+              <>
             <Button variant="outline" size="sm" onClick={onToday} className="shrink-0 font-medium">
-              {t('appointments.today').toUpperCase()}
+              {t('appointments.today')}
             </Button>
             <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:flex-initial sm:justify-start">
               <button
                 type="button"
                 onClick={onPreviousDay}
                 className="rounded p-1 hover:bg-muted"
-                aria-label="Previous day"
+                aria-label={t('apptBook.navigatePrevious')}
               >
                 <ChevronLeft className="h-5 w-5 text-muted-foreground" />
               </button>
@@ -303,7 +291,7 @@ export function AppointmentBookListView({
                 type="button"
                 onClick={onNextDay}
                 className="rounded p-1 hover:bg-muted"
-                aria-label="Next day"
+                aria-label={t('apptBook.navigateNext')}
               >
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
               </button>
@@ -323,8 +311,10 @@ export function AppointmentBookListView({
                 />
               </PopoverContent>
             </Popover>
+              </>
+            ) : null}
             <Select value={dateScope} onValueChange={(v) => setDateScope(v as 'day' | 'all')}>
-              <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
+              <SelectTrigger className="w-full min-w-0 sm:w-[170px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -349,47 +339,25 @@ export function AppointmentBookListView({
                   size="icon"
                   className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
                   onClick={() => setSearch('')}
-                  aria-label="Clear search"
+                  aria-label={t('apptBook.clearFilters')}
                 >
                   <X className="h-3 w-3" />
                 </Button>
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={filters.service}
-                onValueChange={(value) => onFilterChange('service', value)}
-              >
-                <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
+              <Select value={staffFilter} onValueChange={setStaffFilter}>
+                <SelectTrigger className="w-full min-w-0 sm:w-[170px]" aria-label={t('apptBook.columnEmployee')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Grooming">{t('apptBook.filterGrooming')}</SelectItem>
-                  <SelectItem value="Daycare">{t('apptBook.filterDaycare')}</SelectItem>
-                  <SelectItem value="All Services">{t('apptBook.filterAllServices')}</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={filters.staff || (filters.service === 'Daycare' ? 'All Rooms' : 'All Employees')}
-                onValueChange={(value) => onFilterChange('staff', value)}
-              >
-                <SelectTrigger className="w-full min-w-0 sm:w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {filters.service === 'Daycare' ? (
-                    <SelectItem value="All Rooms">{t('apptBook.allRooms')}</SelectItem>
-                  ) : (
-                    <>
-                      <SelectItem value="All Employees">{t('apptBook.allEmployees')}</SelectItem>
-                      {calendarEmployees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.name}>
-                          {formatStaffNameAggregated(emp.name)}
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
+                  <SelectItem value="all">{t('apptBook.allEmployees')}</SelectItem>
+                  {calendarEmployees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {formatStaffNameAggregated(emp.name)}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={UNASSIGNED_STAFF_ID}>{t('apptBook.unassigned')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -399,16 +367,28 @@ export function AppointmentBookListView({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('apptBook.allStatuses')}</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="in_progress">In progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="canceled">Canceled</SelectItem>
-                  <SelectItem value="no_show">{t('appointments.statusNoShow')}</SelectItem>
+                  <SelectItem value="pending">{t('apptStatus.pending')}</SelectItem>
+                  <SelectItem value="scheduled">{t('apptStatus.scheduled')}</SelectItem>
+                  <SelectItem value="confirmed">{t('apptStatus.confirmed')}</SelectItem>
+                  <SelectItem value="in_progress">{t('apptStatus.inProgress')}</SelectItem>
+                  <SelectItem value="completed">{t('apptStatus.completed')}</SelectItem>
+                  <SelectItem value="canceled">{t('apptStatus.canceled')}</SelectItem>
+                  <SelectItem value="no_show">{t('apptStatus.noShow')}</SelectItem>
                 </SelectContent>
               </Select>
-              {onClearFilters ? (
-                <Button type="button" variant="outline" size="sm" className="h-9" onClick={onClearFilters}>
+              {staffFilter !== 'all' || statusFilter !== 'all' || search ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => {
+                    setStaffFilter('all');
+                    setStatusFilter('all');
+                    setSearch('');
+                    onClearFilters?.();
+                  }}
+                >
                   {t('apptBook.clearFilters')}
                 </Button>
               ) : null}
@@ -418,6 +398,18 @@ export function AppointmentBookListView({
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-auto px-3 py-3 max-sm:flex-none max-sm:overflow-visible sm:px-6 sm:py-4">
+        {petFilterId ? (
+          <div className="mb-3 flex items-center gap-2 text-sm">
+            <Badge variant="secondary" className="gap-1">
+              {t('apptBook.historyForPet', { name: pets.find((p) => p.id === petFilterId)?.name ?? '—' })}
+            </Badge>
+            {onClearPetFilter ? (
+              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={onClearPetFilter}>
+                <X className="mr-1 h-3 w-3" /> {t('apptBook.clearFilters')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {displayRows.length === 0 ? (
           <p className="py-12 text-center text-muted-foreground">{t('apptBook.noMatchingRows')}</p>
         ) : (
@@ -446,13 +438,6 @@ export function AppointmentBookListView({
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      {canMarkNoShow && onMarkNoShow ? (
-                        <AppointmentNoShowControl
-                          status={row.apt.status}
-                          compact
-                          onMarkNoShow={() => onMarkNoShow(row.apt.id)}
-                        />
-                      ) : null}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -473,7 +458,6 @@ export function AppointmentBookListView({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[88px] whitespace-nowrap">{t('apptBook.columnId')}</TableHead>
                       <TableHead className="whitespace-nowrap">{t('apptBook.columnStatus')}</TableHead>
                       <TableHead className="whitespace-nowrap">{t('apptBook.columnPet')}</TableHead>
                       <TableHead className="min-w-[120px]">{t('apptBook.columnClient')}</TableHead>
@@ -498,8 +482,7 @@ export function AppointmentBookListView({
                   </TableHeader>
                   <TableBody>
                     {listViewRows.map((row) => (
-                      <TableRow key={row.apt.id}>
-                        <TableCell className="font-mono text-xs text-muted-foreground">{row.idShort}</TableCell>
+                      <TableRow key={row.apt.id} className="cursor-pointer" onClick={() => onEdit(row.apt)}>
                         <TableCell>
                           <Badge className={row.statusClass}>{row.statusLabel}</Badge>
                         </TableCell>
@@ -521,13 +504,6 @@ export function AppointmentBookListView({
                         <TableCell className="text-right font-medium">{row.totalStr}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap items-center justify-end gap-1">
-                            {canMarkNoShow && onMarkNoShow ? (
-                              <AppointmentNoShowControl
-                                status={row.apt.status}
-                                compact
-                                onMarkNoShow={() => onMarkNoShow(row.apt.id)}
-                              />
-                            ) : null}
                             <Button
                               variant="ghost"
                               size="icon"

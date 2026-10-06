@@ -6,9 +6,7 @@ import { SettingsLayout } from '@/components/SettingsLayout';
 import { Dashboard } from '@/pages/Dashboard';
 import { Clients } from '@/pages/Clients';
 import { Pets } from '@/pages/Pets';
-import { Appointments } from '@/pages/Appointments';
 import { Inventory } from '@/pages/Inventory';
-import { BookAppointment } from '@/pages/BookAppointment';
 import { Employees } from '@/pages/Employees';
 import { EmployeeManagement } from '@/pages/EmployeeManagement';
 import { EmployeeSchedule } from '@/pages/EmployeeSchedule';
@@ -51,6 +49,28 @@ function RedirectLegacyEmployeeManagement() {
   const staff = searchParams.get('staff') ?? searchParams.get('employee');
   const qs = staff ? `?staff=${encodeURIComponent(staff)}` : '';
   return <Navigate to={`staff-management${qs}`} replace />;
+}
+
+/**
+ * The old Citas page (/:slug/appointments) was merged into the appointment book.
+ * Keeps deep links working: ?pet=<id> (pet history) and ?appointment=<id> (open one).
+ */
+function RedirectLegacyAppointments() {
+  const slug = useResolvedBusinessSlug();
+  const prefix = slug ? `/${slug}` : '';
+  const [searchParams] = useSearchParams();
+  const next = new URLSearchParams(searchParams);
+  // A pet link means "show this pet's history"; anything else lands on the calendar.
+  const tab = next.get('pet') ? 'appointments' : 'calendar';
+  if (next.get('pet')) next.set('scope', 'history');
+  const qs = next.toString();
+  return <Navigate to={`${prefix}/appt-book/${tab}${qs ? `?${qs}` : ''}`} replace />;
+}
+
+/** Old staff-side booking form → the public booking page for this business. */
+function RedirectToPublicBooking() {
+  const slug = useResolvedBusinessSlug();
+  return <Navigate to={slug ? `/${slug}/reservar` : '/'} replace />;
 }
 
 /** Short URL alias: /:slug/calendar → Appt Book calendar (feature-gated). */
@@ -370,23 +390,8 @@ const Index = () => {
             <Route
               path="appointments"
               element={
-                appointmentsVisible ? (
-                  <Appointments
-                    appointments={appointments}
-                    pets={pets}
-                    clients={clients}
-                    employees={employees}
-                    services={services}
-                    onAddAppointment={addAppointment}
-                    onUpdateAppointment={updateAppointmentWithNotification}
-                    onDeleteAppointment={deleteAppointment}
-                    onRefreshAppointments={refetchAppointments}
-                    canMarkNoShow={
-                      role === 'manager' ||
-                      role === 'super_admin' ||
-                      !!profile?.is_super_admin
-                    }
-                  />
+                appointmentBookVisible || appointmentsVisible ? (
+                  <RedirectLegacyAppointments />
                 ) : (
                   <Navigate to="dashboard" replace />
                 )
@@ -625,7 +630,7 @@ const Index = () => {
         </PageTransitionProvider>
       )} />
       {/* Public booking page - no layout, kept global (not tied to a business slug) */}
-      <Route path="/book-appointment" element={<BookAppointment />} />
+      <Route path="/book-appointment" element={<RedirectToPublicBooking />} />
     </Routes>
   );
 };

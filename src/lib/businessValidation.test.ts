@@ -151,7 +151,11 @@ describe('validateAppointmentPayload', () => {
   });
 
   it('returns error for invalid status', () => {
-    expect(validateAppointmentPayload({ ...valid, status: 'pending' as any }).valid).toBe(false);
+    expect(validateAppointmentPayload({ ...valid, status: 'bogus' as any }).valid).toBe(false);
+  });
+
+  it('accepts pending (online request awaiting confirmation)', () => {
+    expect(validateAppointmentPayload({ ...valid, status: 'pending' }).valid).toBe(true);
   });
 
   it('returns error for negative total_price', () => {

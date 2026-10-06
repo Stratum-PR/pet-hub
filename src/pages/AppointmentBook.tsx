@@ -1,118 +1,148 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  startOfDay,
   addDays,
-  subDays,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  format,
   addWeeks,
+  eachDayOfInterval,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfWeek,
+  subDays,
 } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
-import { CalendarDays, ChevronLeft, ChevronRight, Inbox, List, Loader2, Settings } from 'lucide-react';
-import { CalendarFilters, CalendarView } from '@/types/calendar';
-import { AppointmentBookSidebar } from '@/components/AppointmentBookSidebar';
-import { DaycareCalendarView } from '@/components/DaycareCalendarView';
-import { AppointmentBookDayGrid } from '@/components/AppointmentBookDayGrid';
-import { AppointmentBookWeekView } from '@/components/AppointmentBookWeekView';
+import {
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  Inbox,
+  Link2,
+  List,
+  Loader2,
+  Plus,
+  Settings,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { t } from '@/lib/translations';
+import type { CalendarStaff } from '@/types/calendar';
+import { AppointmentBookSidebar, type ApptBookWeekJumpOffset } from '@/components/AppointmentBookSidebar';
+import { AppointmentBookDayGrid } from '@/components/AppointmentBookDayGrid';
+import { AppointmentBookWeekView } from '@/components/AppointmentBookWeekView';
+import { AppointmentBookListView } from '@/components/AppointmentBookListView';
+import { AppointmentRequestsPanel, type RequestDecision } from '@/components/AppointmentRequestsPanel';
+import { AppointmentDetailsSheet } from '@/components/AppointmentDetailsSheet';
+import { GroomerServicesSettings } from '@/components/GroomerServicesSettings';
+import { BookingFormDialog } from '@/components/BookingFormDialog';
+import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { useAppointments, usePets, useServices, useClients, type Appointment } from '@/hooks/useBusinessData';
-import { useEmployees, useSettings } from '@/hooks/useSupabaseData';
+import { useEmployeeShifts, useEmployees, useSettings } from '@/hooks/useSupabaseData';
+import { useStaffServiceRates } from '@/hooks/useStaffServiceRates';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import {
   convertAppointmentsToCalendar,
   convertAppointmentsToCalendarInRange,
   convertEmployeesToCalendar,
+  appointmentStartHHmm,
+  parseAppointmentDate,
 } from '@/lib/calendarHelpers';
-import { BookingFormDialog } from '@/components/BookingFormDialog';
-import { devConsole } from '@/lib/clientDebug';
-import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
-import { AppointmentBookListView } from '@/components/AppointmentBookListView';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import {
-  getStoredApptBookServiceFilter,
-  setStoredApptBookServiceFilter,
   getStoredApptBookCalendarScope,
   setStoredApptBookCalendarScope,
-  getStoredSidebarFilterMode,
-  setStoredSidebarFilterMode,
   getStoredSelectedServiceIds,
   setStoredSelectedServiceIds,
   getStoredSelectedEmployeeIds,
   setStoredSelectedEmployeeIds,
   clearApptBookCategoryFilterStorage,
-  clearStoredSelectedServiceIds,
-  clearStoredSelectedEmployeeIds,
+  setStoredApptBookServiceFilter,
   type ApptBookCalendarScope,
-  type ApptBookSidebarFilterMode,
 } from '@/lib/apptBookCalendarPrefs';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
-import { firstOpenDayInWeek, isOpenBusinessDay, parseBusinessHours } from '@/lib/businessHours';
-import type { ApptBookWeekJumpOffset } from '@/components/AppointmentBookSidebar';
-import { useLanguage } from '@/contexts/LanguageContext';
+import {
+  dateToDayKey,
+  firstOpenDayInWeek,
+  isOpenBusinessDay,
+  minutesToHHmm,
+  parseBusinessHours,
+  timeToMinutes,
+} from '@/lib/businessHours';
+import {
+  bookableStaff,
+  businessUsesShifts,
+  normalizeHHmm,
+  UNASSIGNED_STAFF_ID,
+  workingWindows,
+  type Interval,
+} from '@/lib/groomerAvailability';
+import { isPendingStatus, isTerminalAppointmentStatus } from '@/lib/appointmentStatus';
+import { staffIdForBusinessOrNull } from '@/lib/staffFkGuard';
+import { notifyAppointmentClient, type AppointmentNotificationKind } from '@/lib/appointmentNotifications';
+import { devConsole } from '@/lib/clientDebug';
 
-function apptBookPathMode(pathname: string): 'calendar' | 'list' {
+type ApptBookTab = 'calendar' | 'list' | 'requests' | 'settings';
+
+const TAB_SEGMENTS: Record<ApptBookTab, string> = {
+  calendar: 'calendar',
+  list: 'appointments',
+  requests: 'requests',
+  settings: 'settings',
+};
+
+function tabFromPath(pathname: string): ApptBookTab {
   const parts = pathname.split('/').filter(Boolean);
-  const i = parts.indexOf('appt-book');
-  if (i < 0) return 'calendar';
-  return parts[i + 1] === 'appointments' ? 'list' : 'calendar';
+  const seg = parts[parts.indexOf('appt-book') + 1];
+  if (seg === 'appointments') return 'list';
+  if (seg === 'requests') return 'requests';
+  if (seg === 'settings') return 'settings';
+  return 'calendar';
 }
 
 export function AppointmentBook() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const businessSlug = useResolvedBusinessSlug();
+  const businessId = useBusinessId();
+  const demoBrowseOnly = useDemoBrowseOnly();
   const apptBookBase = `${businessSlug ? `/${businessSlug}` : ''}/appt-book`;
   const { language } = useLanguage();
   const dateFnsLocale = language === 'es' ? esLocale : enUS;
+  const { role, profile, staffId: myStaffId, user } = useAuth();
+  const isManager = role === 'manager' || role === 'super_admin' || !!profile?.is_super_admin;
 
-  const pathMode = apptBookPathMode(location.pathname);
+  const tab = tabFromPath(location.pathname);
+  const goTab = useCallback(
+    (next: ApptBookTab) => navigate(`${apptBookBase}/${TAB_SEGMENTS[next]}${next === 'list' ? location.search : ''}`),
+    [apptBookBase, navigate, location.search],
+  );
 
-  /** Canonical URL: /…/appt-book → /…/appt-book/calendar (replaces old nested index route). */
+  // Canonical URL: /…/appt-book → /…/appt-book/calendar
   useEffect(() => {
     const segs = location.pathname.split('/').filter(Boolean);
     const idx = segs.indexOf('appt-book');
-    if (idx < 0) return;
-    const rest = segs[idx + 1];
-    if (rest == null || rest === '') {
-      navigate(`${apptBookBase}/calendar`, { replace: true });
-    }
-  }, [location.pathname, apptBookBase, navigate]);
+    if (idx >= 0 && !segs[idx + 1]) navigate(`${apptBookBase}/calendar${location.search}`, { replace: true });
+  }, [location.pathname, location.search, apptBookBase, navigate]);
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [weekJumpOffset, setWeekJumpOffset] = useState<ApptBookWeekJumpOffset | null>(null);
-  const [weekJumpNoAvailability, setWeekJumpNoAvailability] = useState(false);
-  const [overlayTab, setOverlayTab] = useState<'requests' | 'settings' | null>(null);
+  // Daycare mode is hidden for now: drop any stored preference for it.
+  useEffect(() => {
+    setStoredApptBookServiceFilter('All Services');
+  }, []);
 
-  const [filters, setFilters] = useState<CalendarFilters>(() => {
-    const svc = getStoredApptBookServiceFilter();
-    return {
-      service: svc,
-      staff: svc === 'Daycare' ? 'All Rooms' : 'All Employees',
-      view: 'day',
-    };
-  });
-
-  const [calendarScope, setCalendarScope] = useState<ApptBookCalendarScope>(() =>
-    getStoredApptBookCalendarScope(),
-  );
-  const [sidebarFilterMode, setSidebarFilterMode] = useState<ApptBookSidebarFilterMode>(() =>
-    getStoredSidebarFilterMode(),
-  );
-  const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string> | null>(null);
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string> | null>(null);
-  const [categorySearch, setCategorySearch] = useState('');
-
-  const [waitlistCollapsed, setWaitlistCollapsed] = useState(false);
-
-  const { role, profile } = useAuth();
+  // ---------------- data ----------------
   const {
     appointments,
     loading: appointmentsLoading,
@@ -121,770 +151,645 @@ export function AppointmentBook() {
     updateAppointment,
     refetch: refetchAppointments,
   } = useAppointments();
-  const canMarkNoShow =
-    role === 'manager' || role === 'super_admin' || !!profile?.is_super_admin;
-
-  const handleMarkNoShow = async (id: string) => {
-    const r = await updateAppointment(id, { status: 'no_show' });
-    if (r) toast.success(t('appointments.markedNoShow'));
-    else toast.error(t('appointments.noShowFailed'));
-  };
-  const { pets, loading: petsLoading, error: petsError, refetch: refetchPets } = usePets();
-  const { employees, loading: employeesLoading, error: employeesError, refetch: refetchEmployees } =
-    useEmployees();
-  const { services, loading: servicesLoading, error: servicesError, refetch: refetchServices } =
-    useServices();
-  const { clients, error: clientsError, refetch: refetchClients } = useClients();
+  const { pets, loading: petsLoading, error: petsError, refetch: refetchPets, addPet } = usePets();
+  const { employees, loading: employeesLoading, error: employeesError, refetch: refetchEmployees, updateEmployee } =
+    useEmployees({ includeSensitive: false });
+  const { services, loading: servicesLoading, error: servicesError, refetch: refetchServices } = useServices();
+  const { clients, error: clientsError, refetch: refetchClients, addClient } = useClients();
   const { settings } = useSettings();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createPrefill, setCreatePrefill] = useState<{
-    staffId: string | null;
-    date: Date | null;
-  }>({ staffId: null, date: null });
+  const { rates, saveRate } = useStaffServiceRates();
+
+  const loading = appointmentsLoading || petsLoading || employeesLoading || servicesLoading;
+  const fetchError = appointmentsError ?? petsError ?? employeesError ?? servicesError ?? clientsError;
+  useEffect(() => {
+    if (fetchError) devConsole.warn('[AppointmentBook] load error', fetchError);
+  }, [fetchError]);
+  const refetchAll = () => {
+    void refetchAppointments();
+    void refetchPets();
+    void refetchEmployees();
+    void refetchServices();
+    void refetchClients();
+  };
+
+  const hoursPerDay = useMemo(() => parseBusinessHours(settings?.business_hours), [settings?.business_hours]);
+  const activeServices = useMemo(() => services.filter((s) => s.is_active !== false), [services]);
+
+  // ---------------- date & scope ----------------
+  const [selectedDate, setSelectedDate] = useState<Date>(() => startOfDay(new Date()));
+  const [calendarScope, setCalendarScope] = useState<ApptBookCalendarScope>(() => getStoredApptBookCalendarScope());
+  const [weekJumpOffset, setWeekJumpOffset] = useState<ApptBookWeekJumpOffset | null>(null);
+  const [weekJumpNoAvailability, setWeekJumpNoAvailability] = useState(false);
+  useEffect(() => setStoredApptBookCalendarScope(calendarScope), [calendarScope]);
+
+  const weekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 0 }), [selectedDate]);
+  const weekEnd = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 0 }), [selectedDate]);
+  const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
+  const shiftRange = useMemo(() => ({ start: weekStart, end: weekEnd }), [weekStart, weekEnd]);
+  const { shifts } = useEmployeeShifts({ dateRange: shiftRange });
+  const usesShifts = useMemo(() => businessUsesShifts(shifts, weekStart, weekEnd), [shifts, weekStart, weekEnd]);
 
   const clearWeekJump = useCallback(() => {
     setWeekJumpOffset(null);
     setWeekJumpNoAvailability(false);
   }, []);
-
-  const openCreate = useCallback(
-    (opts?: { staffId?: string | null; date?: Date | null }) => {
-      const day =
-        opts?.date != null ? startOfDay(opts.date) : startOfDay(selectedDate);
-      setCreatePrefill({
-        staffId: opts?.staffId ?? null,
-        date: day,
-      });
-      setCreateDialogOpen(true);
+  const goToDate = useCallback(
+    (d: Date) => {
+      clearWeekJump();
+      setSelectedDate(startOfDay(d));
     },
-    [selectedDate],
+    [clearWeekJump],
   );
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
-
-  const loading = appointmentsLoading || petsLoading || employeesLoading || servicesLoading;
-  const fetchError = appointmentsError ?? petsError ?? employeesError ?? servicesError ?? clientsError;
-  const refetchAll = () => {
-    refetchAppointments();
-    refetchPets();
-    refetchEmployees();
-    refetchServices();
-    refetchClients();
-  };
-
-  const calendarEmployees = useMemo(() => convertEmployeesToCalendar(employees), [employees]);
-  const hoursPerDay = useMemo(
-    () => parseBusinessHours(settings?.business_hours),
-    [settings?.business_hours],
-  );
-  const activeServices = useMemo(
-    () => services.filter((s) => s.is_active !== false),
-    [services],
-  );
-  const allServiceIds = useMemo(() => activeServices.map((s) => s.id), [activeServices]);
-  const allEmployeeIds = useMemo(() => calendarEmployees.map((e) => e.id), [calendarEmployees]);
-
-  const filterPrefHydrated = useRef(false);
-  useEffect(() => {
-    if (loading || filterPrefHydrated.current || allServiceIds.length === 0) return;
-    filterPrefHydrated.current = true;
-    const ss = getStoredSelectedServiceIds();
-    if (ss && ss.length > 0) {
-      const v = new Set(ss.filter((id) => allServiceIds.includes(id)));
-      if (v.size > 0 && v.size < allServiceIds.length) setSelectedServiceIds(v);
-    }
-    const se = getStoredSelectedEmployeeIds();
-    if (se && se.length > 0) {
-      const v = new Set(se.filter((id) => allEmployeeIds.includes(id)));
-      if (v.size > 0 && v.size < allEmployeeIds.length) setSelectedEmployeeIds(v);
-    }
-  }, [loading, allServiceIds, allEmployeeIds]);
-
-  useEffect(() => {
-    if (!filterPrefHydrated.current || allServiceIds.length === 0) return;
-    if (!selectedServiceIds || selectedServiceIds.size === allServiceIds.length) {
-      clearStoredSelectedServiceIds();
-    } else {
-      setStoredSelectedServiceIds([...selectedServiceIds]);
-    }
-  }, [selectedServiceIds, allServiceIds.length]);
-
-  useEffect(() => {
-    if (!filterPrefHydrated.current || allEmployeeIds.length === 0) return;
-    if (!selectedEmployeeIds || selectedEmployeeIds.size === allEmployeeIds.length) {
-      clearStoredSelectedEmployeeIds();
-    } else {
-      setStoredSelectedEmployeeIds([...selectedEmployeeIds]);
-    }
-  }, [selectedEmployeeIds, allEmployeeIds.length]);
-
-  useEffect(() => {
-    setStoredApptBookServiceFilter(filters.service);
-  }, [filters.service]);
-
-  useEffect(() => {
-    setStoredApptBookCalendarScope(calendarScope);
-  }, [calendarScope]);
-
-  useEffect(() => {
-    setStoredSidebarFilterMode(sidebarFilterMode);
-  }, [sidebarFilterMode]);
-
-  useEffect(() => {
-    setOverlayTab(null);
-  }, [pathMode]);
-
-  useEffect(() => {
-    if (filters.service === 'Daycare') clearWeekJump();
-  }, [filters.service, clearWeekJump]);
-
-  const weekAnchor = useMemo(
-    () => startOfWeek(selectedDate, { weekStartsOn: 0 }),
-    [selectedDate],
-  );
-  const weekEndDate = useMemo(() => endOfWeek(selectedDate, { weekStartsOn: 0 }), [selectedDate]);
-  const weekDays = useMemo(
-    () => eachDayOfInterval({ start: weekAnchor, end: weekEndDate }),
-    [weekAnchor, weekEndDate],
-  );
-
-  const baseCalendarAppointments = useMemo(() => {
-    if (loading) return [];
-    const weekGrooming = calendarScope === 'by-week' && filters.service !== 'Daycare';
-    if (weekGrooming) {
-      return convertAppointmentsToCalendarInRange(
-        appointments,
-        pets,
-        employees,
-        services,
-        weekAnchor,
-        weekEndDate,
-      );
-    }
-    return convertAppointmentsToCalendar(
-      appointments,
-      pets,
-      employees,
-      services,
-      selectedDate,
-    );
-  }, [
-    loading,
-    calendarScope,
-    filters.service,
-    appointments,
-    pets,
-    employees,
-    services,
-    selectedDate,
-    weekAnchor,
-    weekEndDate,
-  ]);
-
-  const serviceStaffFiltered = useMemo(() => {
-    let filtered = baseCalendarAppointments;
-
-    if (filters.service !== 'All Services') {
-      filtered = filtered.filter((apt) => {
-        const serviceName = apt.service.toLowerCase();
-        if (filters.service === 'Grooming') {
-          return !serviceName.includes('daycare');
-        }
-        if (filters.service === 'Daycare') {
-          return serviceName.includes('daycare');
-        }
-        return true;
-      });
-    }
-
-    if (filters.service === 'Daycare') {
-      if (filters.staff !== 'All Rooms') {
-        /* room filter placeholder */
-      }
-    } else {
-      if (filters.staff !== 'All Employees' && filters.staff !== 'All Rooms') {
-        const staffMember = calendarEmployees.find((e) => e.name === filters.staff);
-        if (staffMember) {
-          filtered = filtered.filter((apt) => apt.staffId === staffMember.id);
-        }
-      }
-    }
-
-    return filtered;
-  }, [baseCalendarAppointments, calendarEmployees, filters]);
-
-  const displayCalendarAppointments = useMemo(() => {
-    let rows = serviceStaffFiltered;
-    if (sidebarFilterMode === 'specialist') {
-      if (
-        selectedEmployeeIds &&
-        selectedEmployeeIds.size > 0 &&
-        selectedEmployeeIds.size < calendarEmployees.length
-      ) {
-        rows = rows.filter((a) => a.staffId && selectedEmployeeIds.has(a.staffId));
-      }
-    } else {
-      if (
-        selectedServiceIds &&
-        selectedServiceIds.size > 0 &&
-        selectedServiceIds.size < allServiceIds.length
-      ) {
-        rows = rows.filter((a) => {
-          const sid = a.serviceId ?? appointments.find((x) => x.id === a.id)?.service_id;
-          return sid && selectedServiceIds.has(sid);
-        });
-      }
-      if (categorySearch.trim()) {
-        const q = categorySearch.trim().toLowerCase();
-        rows = rows.filter((a) => (a.service || '').toLowerCase().includes(q));
-      }
-    }
-    return rows;
-  }, [
-    serviceStaffFiltered,
-    sidebarFilterMode,
-    selectedEmployeeIds,
-    selectedServiceIds,
-    calendarEmployees.length,
-    allServiceIds.length,
-    categorySearch,
-    appointments,
-  ]);
-
-  const handleDateChange = (date: Date | undefined) => {
-    if (!date) return;
-    const d = startOfDay(date);
-    if (!isOpenBusinessDay(d, hoursPerDay)) return;
-    clearWeekJump();
-    setSelectedDate(d);
-  };
-
-  const stepDays = calendarScope === 'by-week' ? 7 : 1;
-
-  const handlePreviousPeriod = () => {
-    clearWeekJump();
-    setSelectedDate((prev) => subDays(prev, stepDays));
-  };
-
-  const handleNextPeriod = () => {
-    clearWeekJump();
-    setSelectedDate((prev) => addDays(prev, stepDays));
-  };
-
-  const handleToolbarToday = () => {
-    clearWeekJump();
-    const n = new Date();
-    setSelectedDate(startOfDay(n));
-  };
-
-  const isBookableCalendarDate = useCallback(
-    (d: Date) => isOpenBusinessDay(startOfDay(d), hoursPerDay),
-    [hoursPerDay],
-  );
+  const step = calendarScope === 'by-week' ? 7 : 1;
 
   const applyWeekJump = useCallback(
     (offset: ApptBookWeekJumpOffset) => {
-      const today = startOfDay(new Date());
-      const thisWeekSunday = startOfWeek(today, { weekStartsOn: 0 });
-      const targetWeekSunday = addWeeks(thisWeekSunday, offset);
-      const firstOpen = firstOpenDayInWeek(targetWeekSunday, hoursPerDay);
+      const target = addWeeks(startOfWeek(startOfDay(new Date()), { weekStartsOn: 0 }), offset);
+      const firstOpen = firstOpenDayInWeek(target, hoursPerDay);
       setWeekJumpOffset(offset);
-      if (firstOpen) {
-        setSelectedDate(startOfDay(firstOpen));
-        setWeekJumpNoAvailability(false);
-      } else {
-        setWeekJumpNoAvailability(true);
-        setSelectedDate(startOfDay(targetWeekSunday));
-      }
+      setWeekJumpNoAvailability(!firstOpen);
+      setSelectedDate(startOfDay(firstOpen ?? target));
     },
     [hoursPerDay],
   );
 
-  const handleWeekCellClick = useCallback(
-    (employeeId: string, day: Date) => {
-      clearWeekJump();
-      openCreate({ staffId: employeeId, date: day });
-    },
-    [clearWeekJump, openCreate],
-  );
-
-  const handleFilterChange = (key: keyof CalendarFilters, value: string | CalendarView) => {
-    setFilters((prev) => {
-      const next = { ...prev, [key]: value };
-      if (key === 'service') {
-        const v = value as string;
-        if (v === 'Daycare') next.staff = 'All Rooms';
-        else next.staff = 'All Employees';
-        setStoredApptBookServiceFilter(v);
-      }
-      return next;
-    });
-  };
-
-  const toolbarDateLabel = useMemo(() => {
-    const opts = { locale: dateFnsLocale };
-    if (calendarScope === 'by-week' && filters.service !== 'Daycare') {
-      return `${format(weekAnchor, 'd MMM yyyy', opts)} – ${format(weekEndDate, 'd MMM yyyy', opts)}`;
-    }
-    return format(selectedDate, 'EEEE, d MMMM yyyy', opts);
-  }, [calendarScope, filters.service, weekAnchor, weekEndDate, selectedDate, dateFnsLocale]);
-
-  const toggleServiceId = useCallback(
-    (id: string) => {
-      setSelectedServiceIds((prev) => {
-        const all = !prev || prev.size === allServiceIds.length;
-        if (all) {
-          const next = new Set(allServiceIds);
-          next.delete(id);
-          return next;
-        }
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        if (next.size === 0 || next.size === allServiceIds.length) return null;
-        return next;
-      });
-    },
-    [allServiceIds],
-  );
-
-  const selectAllServices = useCallback(() => setSelectedServiceIds(null), []);
-
-  const toggleEmployeeId = useCallback(
-    (id: string) => {
-      setSelectedEmployeeIds((prev) => {
-        const all = !prev || prev.size === calendarEmployees.length;
-        if (all) {
-          const next = new Set(calendarEmployees.map((e) => e.id));
-          next.delete(id);
-          return next;
-        }
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        if (next.size === 0 || next.size === calendarEmployees.length) return null;
-        return next;
-      });
-    },
-    [calendarEmployees],
-  );
-
-  const selectAllEmployees = useCallback(() => setSelectedEmployeeIds(null), []);
-
-  const clearFilters = useCallback(() => {
-    setSelectedServiceIds(null);
-    setSelectedEmployeeIds(null);
-    setCategorySearch('');
-    setFilters((prev) => ({
-      ...prev,
-      service: 'All Services',
-      staff: 'All Employees',
-    }));
-    setStoredApptBookServiceFilter('All Services');
+  // ---------------- filters ----------------
+  const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string> | null>(null);
+  const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string> | null>(null);
+  const [showAllStaff, setShowAllStaff] = useState(false);
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (loading || hydrated.current) return;
+    hydrated.current = true;
+    const ss = getStoredSelectedServiceIds();
+    const validSs = (ss ?? []).filter((id) => activeServices.some((s) => s.id === id));
+    if (validSs.length) setSelectedServiceIds(new Set(validSs));
+    const se = getStoredSelectedEmployeeIds();
+    const validSe = (se ?? []).filter((id) => employees.some((e) => e.id === id));
+    if (validSe.length) setSelectedStaffIds(new Set(validSe));
+  }, [loading, activeServices, employees]);
+  useEffect(() => {
+    if (!hydrated.current) return;
     clearApptBookCategoryFilterStorage();
-  }, []);
-
-  const openEditFromCalendarCard = useCallback(
-    (aptId: string) => {
-      const row = appointments.find((a) => a.id === aptId) ?? null;
-      if (!row) {
-        toast.error(t('apptBook.openAppointmentFailed'));
-        return;
-      }
-      setEditingAppointment(row);
-      setEditDialogOpen(true);
-    },
-    [appointments],
-  );
-
-  const tabsValue: 'calendar' | 'list' | 'requests' | 'settings' =
-    overlayTab ?? (pathMode === 'list' ? 'list' : 'calendar');
-
-  const onTabChange = (v: string) => {
-    if (v === 'calendar') {
-      navigate(`${apptBookBase}/calendar`);
-      setOverlayTab(null);
-      return;
-    }
-    if (v === 'list') {
-      navigate(`${apptBookBase}/appointments`);
-      setOverlayTab(null);
-      return;
-    }
-    if (v === 'requests') setOverlayTab('requests');
-    if (v === 'settings') setOverlayTab('settings');
+    if (selectedServiceIds?.size) setStoredSelectedServiceIds([...selectedServiceIds]);
+    if (selectedStaffIds?.size) setStoredSelectedEmployeeIds([...selectedStaffIds]);
+  }, [selectedServiceIds, selectedStaffIds]);
+  const activeFilterCount = (selectedServiceIds?.size ? 1 : 0) + (selectedStaffIds?.size ? 1 : 0);
+  const clearFilters = () => {
+    setSelectedServiceIds(null);
+    setSelectedStaffIds(null);
+  };
+  const toggleIn = (set: Set<string>, id: string): Set<string> | null => {
+    const next = new Set(set);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next.size ? next : null;
   };
 
-  const showCalendarChrome = tabsValue === 'calendar';
-  const showWeekJumpControls = showCalendarChrome && filters.service !== 'Daycare' && !loading;
+  // ---------------- columns ----------------
+  const groomers = useMemo(() => {
+    const base = showAllStaff ? employees.filter((e) => e.status === 'active') : bookableStaff(employees);
+    return convertEmployeesToCalendar(base);
+  }, [employees, showAllStaff]);
 
+  const windowsByStaff = useMemo(() => {
+    const out: Record<string, Interval[]> = {};
+    const dayHours = hoursPerDay[dateToDayKey(selectedDate)];
+    for (const e of employees) {
+      if (e.status !== 'active') continue;
+      out[e.id] = workingWindows({ staffId: e.id, day: selectedDate, dayHours, shifts, usesShifts });
+    }
+    return out;
+  }, [employees, hoursPerDay, selectedDate, shifts, usesShifts]);
+
+  // ---------------- calendar rows ----------------
+  const calendarRows = useMemo(() => {
+    if (loading) return [];
+    const rows =
+      calendarScope === 'by-week'
+        ? convertAppointmentsToCalendarInRange(appointments, pets, employees, services, weekStart, weekEnd)
+        : convertAppointmentsToCalendar(appointments, pets, employees, services, selectedDate);
+    return rows.filter((r) => {
+      if (selectedServiceIds?.size && !(r.serviceIds ?? []).some((id) => selectedServiceIds.has(id))) return false;
+      if (selectedStaffIds?.size && r.staffId !== UNASSIGNED_STAFF_ID && !selectedStaffIds.has(r.staffId)) return false;
+      return true;
+    });
+  }, [loading, calendarScope, appointments, pets, employees, services, weekStart, weekEnd, selectedDate, selectedServiceIds, selectedStaffIds]);
+
+  const columns = useMemo((): CalendarStaff[] => {
+    let cols = groomers;
+    // Staff outside the groomer list who still have bookings in view stay visible.
+    const extra = employees.filter(
+      (e) => !cols.some((c) => c.id === e.id) && calendarRows.some((r) => r.staffId === e.id),
+    );
+    if (extra.length) cols = [...cols, ...convertEmployeesToCalendar(extra)];
+    if (selectedStaffIds?.size) cols = cols.filter((c) => selectedStaffIds.has(c.id));
+    if (calendarRows.some((r) => r.staffId === UNASSIGNED_STAFF_ID)) {
+      cols = [{ id: UNASSIGNED_STAFF_ID, name: t('apptBook.unassigned') }, ...cols];
+    }
+    return cols;
+  }, [groomers, employees, calendarRows, selectedStaffIds]);
+
+  // ---------------- summaries ----------------
+  const todayKey = format(startOfDay(new Date()), 'yyyy-MM-dd');
+  const pendingCount = useMemo(
+    () =>
+      appointments.filter((a) => isPendingStatus(a.status) && String(a.appointment_date ?? '').slice(0, 10) >= todayKey)
+        .length,
+    [appointments, todayKey],
+  );
+  const busyDayKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of appointments) {
+      if (isTerminalAppointmentStatus(a.status)) continue;
+      const k = String(a.appointment_date ?? '').slice(0, 10);
+      if (k) set.add(k);
+    }
+    return set;
+  }, [appointments]);
+  const daySummary = useMemo(() => {
+    const key = format(selectedDate, 'yyyy-MM-dd');
+    const list = appointments.filter((a) => String(a.appointment_date ?? '').slice(0, 10) === key);
+    const booked = list.filter(
+      (a) => !isPendingStatus(a.status) && (!isTerminalAppointmentStatus(a.status) || a.status === 'completed'),
+    );
+    return {
+      appointments: booked.length,
+      pending: list.filter((a) => isPendingStatus(a.status)).length,
+      revenue: booked.reduce((s, a) => s + Number(a.total_price ?? a.price ?? 0), 0),
+    };
+  }, [appointments, selectedDate]);
+
+  // ---------------- dialogs ----------------
+  const [createOpen, setCreateOpen] = useState(false);
+  const [prefill, setPrefill] = useState<{ staffId: string | null; date: Date | null; time: string | null }>({
+    staffId: null,
+    date: null,
+    time: null,
+  });
+  const openCreate = useCallback(
+    (opts?: { staffId?: string | null; date?: Date | null; time?: string | null }) => {
+      setPrefill({
+        staffId: opts?.staffId && opts.staffId !== UNASSIGNED_STAFF_ID ? opts.staffId : null,
+        date: startOfDay(opts?.date ?? selectedDate),
+        time: opts?.time ?? null,
+      });
+      setCreateOpen(true);
+    },
+    [selectedDate],
+  );
+
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const detailsApt = appointments.find((a) => a.id === detailsId) ?? null;
+  const [editing, setEditing] = useState<Appointment | null>(null);
+
+  // Deep links: ?appointment=<id> opens it; ?pet=<id> shows that pet's history (from profiles, dashboard, notifications).
+  useEffect(() => {
+    const id = searchParams.get('appointment');
+    if (!id || loading) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('appointment');
+    setSearchParams(next, { replace: true });
+    const apt = appointments.find((a) => a.id === id);
+    if (!apt) {
+      toast.error(t('apptBook.openAppointmentFailed'));
+      return;
+    }
+    const d = parseAppointmentDate(apt);
+    if (d) setSelectedDate(startOfDay(d));
+    setDetailsId(apt.id);
+  }, [searchParams, setSearchParams, appointments, loading]);
+  const petFilterId = searchParams.get('pet');
+  const historyScope = searchParams.get('scope') === 'history' || !!petFilterId;
+
+  // ---------------- actions ----------------
+  const notifyAndToast = useCallback(
+    async (aptId: string, kind: AppointmentNotificationKind, successKey: string) => {
+      const r = await notifyAppointmentClient(aptId, kind, { demo: demoBrowseOnly });
+      if (r.sent) toast.success(`${t(successKey)} · ${t(r.channel === 'sms' ? 'notify.sentSms' : 'notify.sentEmail')}`);
+      else if (r.skipped === 'demo') toast.success(`${t(successKey)} · ${t('notify.demoSkipped')}`);
+      else if (r.skipped === 'client_opted_out' || r.skipped === 'no_contact')
+        toast.success(`${t(successKey)} · ${t('notify.notNotified')}`);
+      else toast.warning(`${t(successKey)} · ${t('notify.failed')}`);
+    },
+    [demoBrowseOnly],
+  );
+
+  const decide = useCallback(
+    async (apt: Appointment, d: RequestDecision): Promise<boolean> => {
+      // Who decided is stored for internal audit only; it is never sent to the client.
+      const decidedBy = await staffIdForBusinessOrNull(myStaffId, businessId);
+      const audit = {
+        decided_at: new Date().toISOString(),
+        decided_by_staff_id: decidedBy,
+        decided_by_profile_id: decidedBy ? null : user?.id ?? null,
+      };
+      let patch: Partial<Appointment>;
+      let kind: AppointmentNotificationKind;
+      let successKey: string;
+      if (d.kind === 'confirm') {
+        patch = { status: 'confirmed', staff_id: d.staffId, decision_note: null, ...audit };
+        kind = 'confirmed';
+        successKey = 'requests.confirmedToast';
+      } else if (d.kind === 'decline') {
+        patch = { status: 'canceled', decision_note: d.note.trim() || null, ...audit };
+        kind = 'declined';
+        successKey = 'requests.declinedToast';
+      } else {
+        const start = appointmentStartHHmm(apt);
+        const end = normalizeHHmm(apt.end_time);
+        const dur = end ? timeToMinutes(end) - timeToMinutes(start) : 60;
+        const [y, m, dd] = d.date.split('-').map(Number);
+        const [hh, mm] = d.time.split(':').map(Number);
+        const local = new Date(y, m - 1, dd, hh, mm, 0, 0);
+        patch = {
+          appointment_date: d.date,
+          start_time: d.time,
+          end_time: minutesToHHmm(Math.min(timeToMinutes(d.time) + Math.max(dur, 15), 24 * 60 - 1)),
+          scheduled_date: local.toISOString(),
+          decision_note: d.note.trim() || null,
+          ...audit,
+        };
+        kind = 'proposed_time';
+        successKey = 'requests.proposedToast';
+      }
+      const saved = await updateAppointment(apt.id, patch);
+      if (!saved) {
+        toast.error(t('bookingDialog.errSave'));
+        return false;
+      }
+      await notifyAndToast(apt.id, kind, successKey);
+      return true;
+    },
+    [myStaffId, businessId, user?.id, updateAppointment, notifyAndToast],
+  );
+
+  const setStatus = async (
+    apt: Appointment,
+    status: 'confirmed' | 'in_progress' | 'completed' | 'canceled' | 'no_show',
+  ): Promise<boolean> => {
+    const saved = await updateAppointment(apt.id, { status });
+    if (!saved) {
+      toast.error(t('bookingDialog.errSave'));
+      return false;
+    }
+    if (status === 'canceled') await notifyAndToast(apt.id, 'canceled', 'details.canceledToast');
+    else toast.success(t('details.statusUpdated'));
+    return true;
+  };
+
+  const updateOffered = async (staffId: string, ids: string[]) =>
+    !!(await updateEmployee(staffId, { offered_service_ids: ids }));
+
+  // ---------------- booking link ----------------
+  const bookingLink = businessSlug ? `${window.location.origin}/${businessSlug}/reservar` : '';
+  const [copied, setCopied] = useState(false);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(bookingLink);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error(t('apptBook.copyFailed'));
+    }
+  };
+
+  const isBookableDate = useCallback((d: Date) => isOpenBusinessDay(startOfDay(d), hoursPerDay), [hoursPerDay]);
+  const toolbarDateLabel =
+    calendarScope === 'by-week'
+      ? `${format(weekStart, 'd MMM', { locale: dateFnsLocale })} – ${format(weekEnd, 'd MMM yyyy', { locale: dateFnsLocale })}`
+      : format(selectedDate, 'EEEE, d MMMM yyyy', { locale: dateFnsLocale });
+
+  // ---------------- render ----------------
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 max-sm:pb-2 sm:-mx-6 sm:flex-row sm:items-stretch sm:overflow-hidden">
-      <AppointmentBookSidebar
-        className="max-sm:order-2 max-sm:border-t max-sm:border-border"
-        selectedDate={selectedDate}
-        onDateChange={handleDateChange}
-        onToday={handleToolbarToday}
-        dateLocale={dateFnsLocale}
-        showWeekJumpControls={showWeekJumpControls}
-        weekJumpOffset={weekJumpOffset}
-        onWeekJump={applyWeekJump}
-        weekJumpNoAvailability={weekJumpNoAvailability}
-        isBookableDate={isBookableCalendarDate}
-        waitlist={[]}
-        waitlistCollapsed={waitlistCollapsed}
-        onWaitlistToggle={() => setWaitlistCollapsed(!waitlistCollapsed)}
-        onCreateClick={() => openCreate()}
-        showCalendarFilters={showCalendarChrome && !loading}
-        sidebarFilterMode={sidebarFilterMode}
-        onSidebarFilterModeChange={setSidebarFilterMode}
-        activeServices={activeServices}
-        selectedServiceIds={selectedServiceIds}
-        onToggleServiceId={toggleServiceId}
-        onSelectAllServices={selectAllServices}
-        categorySearch={categorySearch}
-        onCategorySearchChange={setCategorySearch}
-        calendarEmployees={calendarEmployees}
-        selectedEmployeeIds={selectedEmployeeIds}
-        onToggleEmployeeId={toggleEmployeeId}
-        onSelectAllEmployees={selectAllEmployees}
-        onClearFilters={clearFilters}
-      />
+      {tab === 'calendar' ? (
+        <AppointmentBookSidebar
+          className="max-sm:order-2 max-sm:border-r-0 max-sm:border-t"
+          selectedDate={selectedDate}
+          onDateChange={goToDate}
+          busyDayKeys={busyDayKeys}
+          daySummary={loading ? null : daySummary}
+          onOpenRequests={() => goTab('requests')}
+          dateLocale={dateFnsLocale}
+          showWeekJumpControls={!loading}
+          weekJumpOffset={weekJumpOffset}
+          onWeekJump={applyWeekJump}
+          weekJumpNoAvailability={weekJumpNoAvailability}
+          isBookableDate={isBookableDate}
+        />
+      ) : null}
 
-      <div className="flex min-h-0 min-w-0 max-w-full flex-col overflow-visible max-sm:order-1 max-sm:min-h-0 sm:flex-1 sm:overflow-hidden">
-        {fetchError && (
-          <div className="mx-4 mt-2 flex flex-col items-start justify-between gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 sm:flex-row sm:items-center">
-            <p className="text-sm font-medium text-destructive">
-              {t('apptBook.loadError')} {fetchError}
-            </p>
-            <Button variant="outline" size="sm" onClick={() => refetchAll()}>
-              {t('apptBook.retry')}
-            </Button>
-          </div>
-        )}
-
-        <div className="page-toolbar-strip -mx-px flex w-full min-w-0 justify-start overflow-x-auto overflow-y-hidden overscroll-x-contain px-3 py-3 touch-pan-x [-webkit-overflow-scrolling:touch] sm:mx-0 sm:justify-end sm:px-6">
-          <Tabs value={tabsValue} onValueChange={onTabChange} className="w-max min-w-0 shrink-0 sm:w-auto">
-            <TabsList className="inline-flex h-auto w-max shrink-0 flex-nowrap items-center justify-start gap-1 rounded-lg border border-border/60 bg-muted/40 p-1 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0">
-              <TabsTrigger
-                value="calendar"
-                className="shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
-                aria-label={t('appointments.calendar')}
-                title={t('appointments.calendar')}
-              >
-                <CalendarDays className="h-4 w-4 shrink-0 sm:hidden" aria-hidden />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col max-sm:order-1 sm:overflow-hidden">
+        {/* Tabs + primary actions */}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-6">
+          <Tabs value={tab} onValueChange={(v) => goTab(v as ApptBookTab)}>
+            <TabsList className="h-9">
+              <TabsTrigger value="calendar" className="gap-1.5 px-2.5 text-xs sm:text-sm" title={t('appointments.calendar')}>
+                <CalendarDays className="h-4 w-4 sm:hidden" />
                 <span className="hidden sm:inline">{t('appointments.calendar')}</span>
               </TabsTrigger>
-              <TabsTrigger
-                value="list"
-                className="shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
-                aria-label={t('apptBook.appointmentList')}
-                title={t('apptBook.appointmentList')}
-              >
-                <List className="h-4 w-4 shrink-0 sm:hidden" aria-hidden />
-                <span className="hidden sm:inline">{t('apptBook.appointmentList')}</span>
+              <TabsTrigger value="list" className="gap-1.5 px-2.5 text-xs sm:text-sm" title={t('apptBook.listAndHistory')}>
+                <List className="h-4 w-4 sm:hidden" />
+                <span className="hidden sm:inline">{t('apptBook.listAndHistory')}</span>
               </TabsTrigger>
-              <TabsTrigger
-                value="requests"
-                className="relative shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
-                aria-label={t('apptBook.onlineRequests')}
-                title={t('apptBook.onlineRequests')}
-              >
-                <span className="relative inline-flex sm:hidden">
-                  <Inbox className="h-4 w-4 shrink-0" aria-hidden />
-                  <Badge className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center border-2 border-background bg-destructive px-0.5 text-[9px] text-destructive-foreground sm:hidden">
-                    13
-                  </Badge>
-                </span>
+              <TabsTrigger value="requests" className="gap-1.5 px-2.5 text-xs sm:text-sm" title={t('apptBook.onlineRequests')}>
+                <Inbox className="h-4 w-4 sm:hidden" />
                 <span className="hidden sm:inline">{t('apptBook.onlineRequests')}</span>
-                <Badge className="ml-2 hidden bg-destructive text-xs text-destructive-foreground sm:inline-flex">13</Badge>
+                {pendingCount > 0 ? (
+                  <Badge className="ml-1 h-5 min-w-5 justify-center bg-amber-500 px-1.5 text-[11px] text-white hover:bg-amber-500">
+                    {pendingCount}
+                  </Badge>
+                ) : null}
               </TabsTrigger>
-              <TabsTrigger
-                value="settings"
-                className="shrink-0 gap-1.5 px-2.5 py-2 text-xs sm:px-3 sm:text-sm"
-                aria-label={t('apptBook.settings')}
-                title={t('apptBook.settings')}
-              >
-                <Settings className="h-4 w-4 shrink-0 sm:hidden" aria-hidden />
+              <TabsTrigger value="settings" className="gap-1.5 px-2.5 text-xs sm:text-sm" title={t('apptBook.settings')}>
+                <Settings className="h-4 w-4 sm:hidden" />
                 <span className="hidden sm:inline">{t('apptBook.settings')}</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          <div className="flex items-center gap-2">
+            {bookingLink ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5" aria-label={t('apptBook.bookingLink')}>
+                    <Link2 className="h-4 w-4" />
+                    <span className="hidden md:inline">{t('apptBook.bookingLink')}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 space-y-2">
+                  <p className="text-sm font-medium">{t('apptBook.bookingLinkTitle')}</p>
+                  <p className="text-xs text-muted-foreground">{t('apptBook.bookingLinkHint')}</p>
+                  <Input readOnly value={bookingLink} className="h-8 text-xs" onFocus={(e) => e.currentTarget.select()} />
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1" onClick={() => void copyLink()}>
+                      {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
+                      {copied ? t('apptBook.copied') : t('apptBook.copy')}
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={bookingLink} target="_blank" rel="noreferrer" aria-label={t('apptBook.openLink')}>
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : null}
+            <Button size="sm" onClick={() => openCreate()} className="gap-1.5">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('apptBook.newAppointment')}</span>
+            </Button>
+          </div>
         </div>
 
-        {showCalendarChrome && (
-          <div className="shrink-0 border-b border-border bg-muted/30 px-3 py-3 sm:px-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-                <Button variant="outline" size="sm" onClick={handleToolbarToday} className="shrink-0">
-                  {t('appointments.today')}
-                </Button>
-                <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:flex-initial sm:justify-start">
-                  <button
-                    type="button"
-                    onClick={handlePreviousPeriod}
-                    className="rounded p-1 hover:bg-muted"
-                    aria-label={t('apptBook.navigatePrevious')}
-                  >
-                    <ChevronLeft className="h-5 w-5 text-muted-foreground" />
-                  </button>
-                  <span className="min-w-0 flex-1 px-1 text-center text-xs font-medium capitalize text-foreground sm:flex-initial sm:text-sm md:text-base">
-                    {toolbarDateLabel}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleNextPeriod}
-                    className="rounded p-1 hover:bg-muted"
-                    aria-label={t('apptBook.navigateNext')}
-                  >
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </button>
-                </div>
-                {filters.service !== 'Daycare' ? (
-                  <>
-                    <div className="hidden sm:block">
-                      <Tabs
-                        value={calendarScope}
-                        onValueChange={(v) => setCalendarScope(v as ApptBookCalendarScope)}
-                      >
-                        <TabsList className="h-9">
-                          <TabsTrigger value="by-day" className="px-3 text-xs sm:text-sm">
-                            {t('apptBook.byDay')}
-                          </TabsTrigger>
-                          <TabsTrigger value="by-week" className="px-3 text-xs sm:text-sm">
-                            {t('apptBook.byWeek')}
-                          </TabsTrigger>
-                        </TabsList>
-                      </Tabs>
-                    </div>
-                    <div className="w-full min-w-0 sm:hidden">
-                      <Select
-                        value={calendarScope}
-                        onValueChange={(v) => setCalendarScope(v as ApptBookCalendarScope)}
-                      >
-                        <SelectTrigger className="h-9 w-full" aria-label={t('apptBook.calendarViewScope')}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="by-day">{t('apptBook.byDay')}</SelectItem>
-                          <SelectItem value="by-week">{t('apptBook.byWeek')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                ) : null}
-              </div>
+        {fetchError ? (
+          <div className="mx-4 mt-2 flex items-center justify-between gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+            <p className="text-sm font-medium text-destructive">{t('apptBook.loadError')}</p>
+            <Button variant="outline" size="sm" onClick={refetchAll}>
+              {t('apptBook.retry')}
+            </Button>
+          </div>
+        ) : null}
 
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <Select
-                  value={filters.service}
-                  onValueChange={(value) => handleFilterChange('service', value)}
-                >
-                  <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Grooming">{t('apptBook.filterGrooming')}</SelectItem>
-                    <SelectItem value="Daycare">{t('apptBook.filterDaycare')}</SelectItem>
-                    <SelectItem value="All Services">{t('apptBook.filterAllServices')}</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {filters.service === 'Daycare' ? (
-                  <Select
-                    value={filters.staff || 'All Rooms'}
-                    onValueChange={(value) => handleFilterChange('staff', value)}
-                  >
-                    <SelectTrigger className="w-full min-w-0 sm:w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All Rooms">{t('apptBook.allRooms')}</SelectItem>
-                      <SelectItem value="HighEnergy">HighEnergy</SelectItem>
-                      <SelectItem value="Senior">Senior</SelectItem>
-                      <SelectItem value="Puppy">Puppy</SelectItem>
-                      <SelectItem value="Small Dogs">Small Dogs</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Select
-                    value={filters.staff || 'All Employees'}
-                    onValueChange={(value) => handleFilterChange('staff', value)}
-                  >
-                    <SelectTrigger className="w-full min-w-0 sm:w-[160px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All Employees">{t('apptBook.allEmployees')}</SelectItem>
-                      {calendarEmployees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.name}>
-                          {formatStaffNameAggregated(emp.name)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-
-                <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
-                  {t('apptBook.clearFilters')}
-                </Button>
-              </div>
+        {/* Calendar toolbar: one row */}
+        {tab === 'calendar' ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:px-6">
+            <Button variant="outline" size="sm" onClick={() => goToDate(new Date())}>
+              {t('appointments.today')}
+            </Button>
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => goToDate(subDays(selectedDate, step))}
+                aria-label={t('apptBook.navigatePrevious')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => goToDate(addDays(selectedDate, step))}
+                aria-label={t('apptBook.navigateNext')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
+            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold capitalize sm:text-base">{toolbarDateLabel}</h2>
+            <Tabs value={calendarScope} onValueChange={(v) => setCalendarScope(v as ApptBookCalendarScope)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="by-day" className="px-3 text-xs">
+                  {t('apptBook.byDay')}
+                </TabsTrigger>
+                <TabsTrigger value="by-week" className="px-3 text-xs">
+                  {t('apptBook.byWeek')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={activeFilterCount ? 'secondary' : 'outline'} size="sm" className="gap-1.5">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  {t('apptBook.filters')}
+                  {activeFilterCount ? (
+                    <Badge variant="default" className="h-5 min-w-5 justify-center px-1 text-[11px]">
+                      {activeFilterCount}
+                    </Badge>
+                  ) : null}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-0">
+                <div className="max-h-[60vh] overflow-y-auto p-3">
+                  <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('apptBook.specialist')}
+                  </div>
+                  <div className="space-y-1.5">
+                    {groomers.map((g) => (
+                      <label key={g.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={!selectedStaffIds || selectedStaffIds.has(g.id)}
+                          onCheckedChange={() =>
+                            setSelectedStaffIds((prev) =>
+                              prev ? toggleIn(prev, g.id) : new Set(groomers.filter((x) => x.id !== g.id).map((x) => x.id)),
+                            )
+                          }
+                        />
+                        {formatStaffNameAggregated(g.name)}
+                      </label>
+                    ))}
+                  </div>
+                  <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 text-sm text-muted-foreground">
+                    {t('apptBook.showAllStaff')}
+                    <Switch checked={showAllStaff} onCheckedChange={setShowAllStaff} />
+                  </label>
+                  <div className="mb-1.5 mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('apptBook.bookingCategory')}
+                  </div>
+                  <div className="space-y-1.5">
+                    {activeServices.map((s) => (
+                      <label key={s.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={!selectedServiceIds || selectedServiceIds.has(s.id)}
+                          onCheckedChange={() =>
+                            setSelectedServiceIds((prev) =>
+                              prev
+                                ? toggleIn(prev, s.id)
+                                : new Set(activeServices.filter((x) => x.id !== s.id).map((x) => x.id)),
+                            )
+                          }
+                        />
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color ?? '#7DD3FC' }} />
+                        <span className="truncate">{s.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {activeFilterCount ? (
+                  <div className="border-t p-2">
+                    <Button variant="ghost" size="sm" className="w-full" onClick={clearFilters}>
+                      {t('apptBook.clearFilters')}
+                    </Button>
+                  </div>
+                ) : null}
+              </PopoverContent>
+            </Popover>
           </div>
-        )}
+        ) : null}
 
-        {(tabsValue === 'calendar' || tabsValue === 'list') && (
-          <div className="relative flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden max-sm:flex-none max-sm:overflow-visible sm:flex-1 sm:overflow-hidden">
-            {loading ? (
-              <div className="relative flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 text-muted-foreground max-sm:min-h-[240px]">
-                <Loader2 className="h-8 w-8 animate-spin shrink-0" aria-hidden />
-                <span className="text-sm">{t('common.loading')}</span>
-              </div>
+        {/* Body */}
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-sm:flex-none max-sm:overflow-visible">
+          {loading && (tab === 'calendar' || tab === 'list') ? (
+            <div className="flex min-h-[320px] flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin" aria-hidden />
+              <span className="text-sm">{t('common.loading')}</span>
+            </div>
+          ) : tab === 'calendar' ? (
+            calendarScope === 'by-week' ? (
+              <AppointmentBookWeekView
+                weekDays={weekDays}
+                employees={columns}
+                appointments={calendarRows}
+                selectedDate={selectedDate}
+                dateLocale={dateFnsLocale}
+                onAppointmentClick={(apt) => setDetailsId(apt.id)}
+                onCellClick={(staffId, day) => openCreate({ staffId, date: day })}
+              />
             ) : (
-              <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden max-sm:flex-none max-sm:overflow-visible sm:flex-1 sm:overflow-hidden">
-                {tabsValue === 'calendar' ? (
-                  <>
-                    {weekJumpNoAvailability && filters.service !== 'Daycare' ? (
-                      <div
-                        className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-900 sm:px-6 dark:text-amber-100"
-                        role="status"
-                      >
-                        {t('apptBook.noAvailabilityInWeek')}
-                      </div>
-                    ) : null}
-                    {filters.service === 'Daycare' ? (
-                      <DaycareCalendarView
-                        selectedDate={selectedDate}
-                        appointments={displayCalendarAppointments}
-                        pets={pets}
-                        filters={filters}
-                        onFilterChange={handleFilterChange}
-                        onPreviousDay={handlePreviousPeriod}
-                        onNextDay={handleNextPeriod}
-                        onToday={handleToolbarToday}
-                        onCheckIn={(appointmentId) => {
-                          devConsole.log('Check in:', appointmentId);
-                        }}
-                        onCreateClick={() => openCreate()}
-                        canMarkNoShow={canMarkNoShow}
-                        onMarkNoShow={handleMarkNoShow}
-                        suppressHeader
-                      />
-                    ) : calendarScope === 'by-week' ? (
-                      <AppointmentBookWeekView
-                        weekDays={weekDays}
-                        employees={calendarEmployees}
-                        appointments={displayCalendarAppointments}
-                        selectedDate={selectedDate}
-                        dateLocale={dateFnsLocale}
-                        onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
-                        onCellClick={handleWeekCellClick}
-                      />
-                    ) : (
-                      <AppointmentBookDayGrid
-                        appointments={displayCalendarAppointments}
-                        employees={calendarEmployees}
-                        hoursPerDay={hoursPerDay}
-                        selectedDate={selectedDate}
-                        onAppointmentClick={(apt) => openEditFromCalendarCard(apt.id)}
-                        canMarkNoShow={canMarkNoShow}
-                        onMarkNoShow={handleMarkNoShow}
-                        onStaffQuickBook={(employeeId) => openCreate({ staffId: employeeId })}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <AppointmentBookListView
-                    appointments={appointments}
-                    pets={pets}
-                    clients={clients}
-                    services={services}
-                    employees={employees}
-                    calendarEmployees={calendarEmployees}
-                    selectedDate={selectedDate}
-                    onSelectDate={(d) => {
-                      clearWeekJump();
-                      setSelectedDate(startOfDay(d));
-                    }}
-                    onPreviousDay={() => {
-                      clearWeekJump();
-                      setSelectedDate((p) => subDays(p, 1));
-                    }}
-                    onNextDay={() => {
-                      clearWeekJump();
-                      setSelectedDate((p) => addDays(p, 1));
-                    }}
-                    onToday={() => {
-                      clearWeekJump();
-                      setSelectedDate(startOfDay(new Date()));
-                    }}
-                    filters={filters}
-                    onFilterChange={handleFilterChange}
-                    canMarkNoShow={canMarkNoShow}
-                    onMarkNoShow={handleMarkNoShow}
-                    onEdit={(apt) => {
-                      setEditingAppointment(apt);
-                      setEditDialogOpen(true);
-                    }}
-                    onClearFilters={clearFilters}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {tabsValue === 'requests' && (
-          <div className="flex-1 p-4 sm:p-6 max-sm:flex-none">
-            <p className="text-gray-500">{t('apptBook.onlineRequestsComingSoon')}</p>
-          </div>
-        )}
-
-        {tabsValue === 'settings' && (
-          <div className="flex-1 p-4 sm:p-6 max-sm:flex-none">
-            <p className="text-gray-500">{t('apptBook.settingsViewComingSoon')}</p>
-          </div>
-        )}
+              <AppointmentBookDayGrid
+                appointments={calendarRows}
+                employees={columns}
+                hoursPerDay={hoursPerDay}
+                selectedDate={selectedDate}
+                windowsByStaff={windowsByStaff}
+                onAppointmentClick={(apt) => setDetailsId(apt.id)}
+                onSlotClick={(staffId, time) => openCreate({ staffId, date: selectedDate, time })}
+                onStaffQuickBook={(staffId) => openCreate({ staffId })}
+              />
+            )
+          ) : tab === 'list' ? (
+            <AppointmentBookListView
+              key={`${petFilterId ?? ''}-${historyScope}`}
+              appointments={appointments}
+              pets={pets}
+              clients={clients}
+              services={services}
+              employees={employees}
+              calendarEmployees={groomers}
+              selectedDate={selectedDate}
+              onSelectDate={goToDate}
+              onPreviousDay={() => goToDate(subDays(selectedDate, 1))}
+              onNextDay={() => goToDate(addDays(selectedDate, 1))}
+              onToday={() => goToDate(new Date())}
+              filters={{ service: 'All Services', staff: 'All Employees', view: 'day' }}
+              onFilterChange={() => {}}
+              onEdit={(apt) => setDetailsId(apt.id)}
+              initialScope={historyScope ? 'all' : 'day'}
+              petFilterId={petFilterId}
+              onClearPetFilter={() => {
+                const next = new URLSearchParams(searchParams);
+                next.delete('pet');
+                setSearchParams(next, { replace: true });
+              }}
+            />
+          ) : tab === 'requests' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <AppointmentRequestsPanel
+                appointments={appointments}
+                pets={pets}
+                clients={clients}
+                services={services}
+                employees={bookableStaff(employees)}
+                onDecide={decide}
+              />
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <GroomerServicesSettings
+                employees={bookableStaff(employees)}
+                services={services}
+                rates={rates}
+                canEdit={isManager}
+                onUpdateOffered={updateOffered}
+                onSaveRate={saveRate}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <BookingFormDialog
-        open={createDialogOpen}
-        onOpenChange={(open) => {
-          setCreateDialogOpen(open);
-          if (!open) setCreatePrefill({ staffId: null, date: null });
-        }}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
         clients={clients}
         pets={pets}
         services={services}
         appointments={appointments}
-        preselectedStaffId={createPrefill.staffId}
-        preselectedDate={createPrefill.date}
-        onSuccess={() => {
-          refetchAppointments();
-          setCreateDialogOpen(false);
-          setCreatePrefill({ staffId: null, date: null });
+        preselectedStaffId={prefill.staffId}
+        preselectedDate={prefill.date}
+        preselectedTime={prefill.time}
+        onAddAppointment={(payload) => addAppointment(payload as never)}
+        onAddClient={(c) => addClient(c)}
+        onAddPet={(p) => addPet(p) as never}
+        onSuccess={(row) => {
+          const d = row ? parseAppointmentDate(row as Appointment) : null;
+          if (d) setSelectedDate(startOfDay(d));
         }}
-        onAddAppointment={addAppointment}
+      />
+
+      <AppointmentDetailsSheet
+        appointment={detailsApt}
+        open={!!detailsApt}
+        onOpenChange={(o) => !o && setDetailsId(null)}
+        pets={pets}
+        clients={clients}
+        services={services}
+        employees={employees}
+        canMarkNoShow={isManager}
+        businessSlug={businessSlug}
+        onSetStatus={setStatus}
+        onEdit={(apt) => {
+          setDetailsId(null);
+          setEditing(apt);
+        }}
+        onOpenRequests={() => {
+          setDetailsId(null);
+          goTab('requests');
+        }}
       />
 
       <EditAppointmentDialog
-        open={editDialogOpen}
-        onOpenChange={(open) => {
-          setEditDialogOpen(open);
-          if (!open) setEditingAppointment(null);
-        }}
-        appointment={editingAppointment}
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        appointment={editing}
         clients={clients}
         pets={pets}
         services={services}
         employees={employees}
         appointments={appointments}
         onUpdate={updateAppointment}
-        onSuccess={() => {
-          void refetchAppointments();
-          setEditDialogOpen(false);
-          setEditingAppointment(null);
-        }}
+        onSuccess={() => setEditing(null)}
       />
     </div>
   );

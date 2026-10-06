@@ -5,6 +5,8 @@ import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
 import { cn } from '@/lib/utils';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import { t } from '@/lib/translations';
+import { formatTime12h, UNASSIGNED_STAFF_ID } from '@/lib/groomerAvailability';
+import { appointmentStatusDotClass } from '@/lib/appointmentStatus';
 
 export interface AppointmentBookWeekViewProps {
   weekDays: Date[];
@@ -20,6 +22,11 @@ export interface AppointmentBookWeekViewProps {
 
 function dayKey(d: Date) {
   return format(d, 'yyyy-MM-dd');
+}
+
+/** Column/row label: the unassigned pseudo-column keeps its full name. */
+function staffLabel(emp: CalendarStaff): string {
+  return emp.id === UNASSIGNED_STAFF_ID ? emp.name : formatStaffNameAggregated(emp.name);
 }
 
 export function AppointmentBookWeekView({
@@ -56,28 +63,29 @@ export function AppointmentBookWeekView({
 
   const dayColPct = weekDays.length > 0 ? `${(100 - 17) / weekDays.length}%` : '11.9%';
 
-  const renderAppointmentButton = (apt: CalendarAppointment) => {
-    const detail = [apt.startTime, apt.petName].filter(Boolean).join(' · ');
-    return (
-      <button
-        key={apt.id}
-        type="button"
-        className="w-full min-w-0 rounded-md border border-border bg-card p-2.5 text-left text-sm shadow-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        style={{ borderLeftWidth: 3, borderLeftColor: apt.color }}
-        title={[apt.service, apt.ownerName, detail].filter(Boolean).join(' — ')}
-        onClick={(e) => {
-          e.stopPropagation();
-          onAppointmentClick?.(apt);
-        }}
-      >
-        <div className="font-semibold leading-snug text-foreground">{apt.service}</div>
-        {apt.ownerName ? (
-          <div className="mt-1 text-xs text-muted-foreground">{apt.ownerName}</div>
-        ) : null}
-        {detail ? <div className="mt-1 text-xs tabular-nums text-muted-foreground">{detail}</div> : null}
-      </button>
-    );
-  };
+  const renderAppointmentButton = (apt: CalendarAppointment) => (
+    <button
+      key={apt.id}
+      type="button"
+      className={cn(
+        'w-full min-w-0 rounded-md border bg-card px-2 py-1.5 text-left text-xs shadow-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        apt.isPending ? 'border-dashed border-amber-500' : 'border-border',
+      )}
+      style={{ borderLeftWidth: 3, borderLeftColor: apt.color }}
+      title={[formatTime12h(apt.startTime), apt.petName, apt.service, apt.ownerName].filter(Boolean).join(' · ')}
+      onClick={(e) => {
+        e.stopPropagation();
+        onAppointmentClick?.(apt);
+      }}
+    >
+      <div className="flex items-center gap-1">
+        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', appointmentStatusDotClass(apt.dbStatus))} />
+        <span className="font-semibold tabular-nums text-foreground">{formatTime12h(apt.startTime)}</span>
+        <span className="truncate font-medium text-foreground">{apt.petName}</span>
+      </div>
+      <div className="truncate text-muted-foreground">{apt.service}</div>
+    </button>
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background max-sm:h-auto max-sm:min-h-0 max-sm:overflow-visible">
@@ -109,7 +117,7 @@ export function AppointmentBookWeekView({
                       return (
                         <div key={emp.id}>
                           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            {formatStaffNameAggregated(emp.name)}
+                            {staffLabel(emp)}
                           </p>
                           <div className="mt-2 flex flex-col gap-2">{list.map((apt) => renderAppointmentButton(apt))}</div>
                         </div>
@@ -163,9 +171,9 @@ export function AppointmentBookWeekView({
               <tr key={emp.id} className="align-top">
                 <td
                   className="sticky left-0 z-10 border border-border bg-card px-2 py-2 text-sm font-medium text-foreground"
-                  title={formatStaffNameAggregated(emp.name)}
+                  title={staffLabel(emp)}
                 >
-                  {formatStaffNameAggregated(emp.name)}
+                  {staffLabel(emp)}
                 </td>
                 {weekDays.map((d) => {
                   const key = dayKey(d);
