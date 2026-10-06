@@ -19,15 +19,17 @@ const TOPICS: Record<string, string> = {
 const recentByUser = new Map<string, number[]>();
 
 function corsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("Origin") ?? "";
-  const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((o) => o.trim()).filter(Boolean);
-  const isLocal = origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:");
-  const allow = isLocal || allowed.includes(origin) || allowed.length === 0 ? origin : allowed[0];
+  // Access is controlled by the signed-in user's JWT, so the caller's origin and requested headers are echoed
+  // (a fixed allow-list broke calls from dev.grumi.pet and from newer SDK headers).
+  const origin = req.headers.get("Origin") ?? "*";
+  const requested = req.headers.get("Access-Control-Request-Headers");
   return {
-    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    Vary: "Origin",
+    "Access-Control-Allow-Headers":
+      requested ?? "authorization, x-client-info, apikey, content-type, x-retry-count, traceparent, tracestate, baggage",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin, Access-Control-Request-Headers",
   };
 }
 
