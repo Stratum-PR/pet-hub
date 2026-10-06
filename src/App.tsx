@@ -24,6 +24,7 @@ import { CookieNotice } from "@/pages/legal/CookieNotice";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { AuthCallback } from "@/pages/AuthCallback";
+import { ResetPassword } from "@/pages/ResetPassword";
 import { SignupSuccess } from "@/pages/SignupSuccess";
 import { WaitlistConfirmed } from "@/pages/WaitlistConfirmed";
 import Index from "@/pages/Index";
@@ -103,6 +104,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/registrarse" element={isLocalHostSignupEnabled ? <Register /> : <Navigate to="/" replace />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/portal" element={<ClientPortalPublicPage />} />
               <Route path="/cliente" element={<Navigate to="/portal" replace />} />
               <Route path="/signup/success" element={<SignupSuccess />} />
