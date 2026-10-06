@@ -23,7 +23,7 @@ import { t } from '@/lib/translations';
 
 const PRICING_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/pricing')!;
 const COMPARISON_TABLE_ID = 'comparison-table';
-const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'sales@example.com';
+const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'support@grumi.pet';
 
 /** Subtle column tints over banded rows. */
 const COMPARISON_PLAN_HEADER_BG: readonly [string, string, string] = [

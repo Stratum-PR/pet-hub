@@ -11,8 +11,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { DISCOVERABLE_ROUTES } from '@/config/discoverable-routes';
 import { t } from '@/lib/translations';
 
-/** Prefer VITE_CONTACT_EMAIL; Stratum support when unset. */
-const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'support@stratumpr.com';
+/** Prefer VITE_CONTACT_EMAIL; Grumi support when unset. */
+const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL || 'support@grumi.pet';
 
 const CONTACT_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/contact')!;
 
