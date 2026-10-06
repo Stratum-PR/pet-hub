@@ -14,6 +14,7 @@ const TOPICS: Record<string, string> = {
   problem: "Problema técnico",
   billing: "Facturación",
   suggestion: "Sugerencia",
+  other: "Otro",
 };
 const recentByUser = new Map<string, number[]>();
 
@@ -63,7 +64,7 @@ Deno.serve(async (req) => {
   const recent = (recentByUser.get(user.id) ?? []).filter((t) => now - t < 3_600_000);
   if (recent.length >= 5) return json(req, 429, { error: "too_many_requests" });
 
-  let body: { topic?: string; message?: string; reply_to?: string; page?: string };
+  let body: { topic?: string; message?: string; page?: string };
   try {
     body = await req.json();
   } catch {
@@ -71,7 +72,8 @@ Deno.serve(async (req) => {
   }
   const topic = TOPICS[String(body.topic ?? "")] ? String(body.topic) : "question";
   const message = String(body.message ?? "").trim();
-  const replyTo = String(body.reply_to ?? user.email ?? "").trim().toLowerCase();
+  // Replies always go to the signed-in account's email.
+  const replyTo = String(user.email ?? "").trim().toLowerCase();
   const page = String(body.page ?? "").slice(0, 300);
   if (message.length < 5 || message.length > 4000) return json(req, 400, { error: "invalid_message" });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) return json(req, 400, { error: "invalid_email" });
