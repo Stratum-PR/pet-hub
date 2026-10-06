@@ -810,7 +810,98 @@ function splitStaffNameParts(employeeData: Omit<Employee, 'id' | 'created_at' | 
   };
 }
 
-export function useEmployees() {
+/**
+ * Payroll / personal fields kept in `staff_private` (managers only, enforced by RLS) instead of `staff`,
+ * which every member of the business can read.
+ */
+export const STAFF_PRIVATE_KEYS = [
+  'staff_address',
+  'ssn',
+  'bank_routing_number',
+  'bank_account_type',
+  'bank_account_number',
+  'bank_name',
+  'payment_notes',
+] as const;
+
+type StaffPrivateFields = Partial<Record<(typeof STAFF_PRIVATE_KEYS)[number], string | null>>;
+
+/** staff_private is newer than the generated types; query it without the typed schema. */
+const untypedSupabase = supabase as unknown as SupabaseClient;
+
+/** Removes the private keys from a staff payload and returns the ones that were present. */
+function takeStaffPrivateFields(payload: Record<string, unknown>): StaffPrivateFields {
+  const out: StaffPrivateFields = {};
+  for (const key of STAFF_PRIVATE_KEYS) {
+    if (key in payload) {
+      const raw = payload[key];
+      out[key] = typeof raw === 'string' && raw.trim() !== '' ? raw : null;
+      delete payload[key];
+    }
+  }
+  return out;
+}
+
+function isMissingTableError(err: { code?: string; message?: string } | null | undefined): boolean {
+  return !!err && (err.code === 'PGRST205' || err.code === '42P01' || /staff_private/.test(err.message ?? '') && /not find|does not exist/i.test(err.message ?? ''));
+}
+
+/**
+ * Saves private fields for one staff member. Falls back to the legacy columns on `staff` if the
+ * staff_private table doesn't exist yet (database not migrated).
+ */
+async function saveStaffPrivateFields(
+  staffId: string,
+  businessId: string,
+  fields: StaffPrivateFields
+): Promise<{ code?: string; message: string } | null> {
+  if (Object.keys(fields).length === 0) return null;
+  const { error } = await untypedSupabase
+    .from('staff_private')
+    .upsert({ staff_id: staffId, business_id: businessId, ...fields, updated_at: new Date().toISOString() }, { onConflict: 'staff_id' });
+  if (!error) return null;
+  if (isMissingTableError(error)) {
+    const legacy = await untypedSupabase.from('staff').update(fields).eq('id', staffId);
+    return legacy.error ? { code: legacy.error.code, message: legacy.error.message } : null;
+  }
+  return { code: error.code, message: error.message };
+}
+
+/** Loads private fields for a business (RLS returns nothing for non-managers). Keyed by staff id. */
+async function fetchStaffPrivateFields(businessId: string): Promise<Map<string, StaffPrivateFields>> {
+  const map = new Map<string, StaffPrivateFields>();
+  const { data, error } = await untypedSupabase
+    .from('staff_private')
+    .select(`staff_id, ${STAFF_PRIVATE_KEYS.join(', ')}`)
+    .eq('business_id', businessId);
+  if (error || !Array.isArray(data)) return map;
+  for (const row of data as unknown as Array<Record<string, unknown>>) {
+    const fields: StaffPrivateFields = {};
+    for (const key of STAFF_PRIVATE_KEYS) fields[key] = typeof row[key] === 'string' ? (row[key] as string) : null;
+    map.set(String(row.staff_id), fields);
+  }
+  return map;
+}
+
+/** Overlays private fields on staff rows; keeps legacy values on `staff` when no private row exists. */
+function mergeStaffPrivate<T extends object>(row: T, fields: StaffPrivateFields | undefined): T {
+  if (!fields) return row;
+  const merged: Record<string, unknown> = { ...(row as Record<string, unknown>) };
+  for (const key of STAFF_PRIVATE_KEYS) {
+    if (key in fields) merged[key] = fields[key] ?? null;
+  }
+  return merged as T;
+}
+
+/**
+ * Staff columns safe to load on pages that don't manage payroll (no SSN, bank details or PIN).
+ * Use `useEmployees({ includeSensitive: true })` only where those fields are edited.
+ */
+export const STAFF_PUBLIC_COLUMNS =
+  'id, business_id, name, first_name, last_name, job_title_id, email, phone, role, access_role, status, hire_date, last_date, birth_month, birth_day, photo_url, offered_service_ids, user_id, created_at, updated_at';
+
+export function useEmployees(options?: { includeSensitive?: boolean }) {
+  const staffColumns = options?.includeSensitive === false ? STAFF_PUBLIC_COLUMNS : '*';
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -825,7 +916,7 @@ export function useEmployees() {
     setError(null);
     let empQuery = supabase
       .from('staff')
-      .select('*')
+      .select(staffColumns)
       .eq('business_id', businessId)
       .order('created_at', { ascending: false });
     if (isDemoRoute()) empQuery = empQuery.range(0, DEMO_CAP_EMPLOYEES - 1);
@@ -841,8 +932,13 @@ export function useEmployees() {
       setError(null);
       if (isDemoRoute() && isDemoWorkspaceBusiness(businessId) && data.length === 0) {
         setEmployees(getDemoStaffSeed());
+      } else if (staffColumns === '*' && !demoBrowseOnly) {
+        const privateById = await fetchStaffPrivateFields(businessId);
+        setEmployees(
+          (data as unknown as Employee[]).map((e) => mergeStaffPrivate(e, privateById.get(e.id)))
+        );
       } else {
-        setEmployees(data as Employee[]);
+        setEmployees(data as unknown as Employee[]);
       }
     }
     setLoading(false);
@@ -934,6 +1030,7 @@ export function useEmployees() {
       offered_service_ids: (employeeData as any).offered_service_ids ?? [],
     };
 
+    const privateFieldsInsert = takeStaffPrivateFields(payload);
     const stripFollowUpInsert = snapshotStripFollowUp(payload);
     const hadStripFollowUpInsert = Object.keys(stripFollowUpInsert).length > 0;
 
@@ -960,8 +1057,15 @@ export function useEmployees() {
     }
 
     if (!error && data) {
-      setEmployees([data as Employee, ...employees]);
-      return data;
+      const newId = (data as { id: string }).id;
+      const privErr = await saveStaffPrivateFields(newId, businessId, privateFieldsInsert);
+      if (privErr) {
+        devConsole.error('[useEmployees] addEmployee private fields error:', privErr.message, privErr.code);
+        setLastStaffWriteError(privErr);
+      }
+      const row = mergeStaffPrivate(data as unknown as Employee, privErr ? undefined : privateFieldsInsert);
+      setEmployees([row, ...employees]);
+      return row;
     }
     if (error) {
       devConsole.error('[useEmployees] addEmployee error:', error.message, error.code, error.details);
@@ -1055,10 +1159,14 @@ export function useEmployees() {
       if (key in employeeData) payload[key] = (employeeData as any)[key];
     }
 
+    const privateFieldsUpdate = takeStaffPrivateFields(payload);
     const stripFollowUpUpdate = snapshotStripFollowUp(payload);
     const hadStripFollowUpUpdate = Object.keys(stripFollowUpUpdate).length > 0;
 
-    let { data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single();
+    let { data, error } =
+      Object.keys(payload).length > 0
+        ? await supabase.from('staff').update(payload as any).eq('id', id).select().single()
+        : await supabase.from('staff').select().eq('id', id).single();
     let didStripUpdateForPgrst204 = false;
     if (error?.code === 'PGRST204') {
       didStripUpdateForPgrst204 = true;
@@ -1085,8 +1193,22 @@ export function useEmployees() {
     }
 
     if (!error && data) {
-      setEmployees(employees.map(e => e.id === id ? data as Employee : e));
-      return data;
+      const rowBusinessId = String((data as { business_id?: string | null }).business_id ?? businessId ?? '');
+      const privErr = rowBusinessId ? await saveStaffPrivateFields(id, rowBusinessId, privateFieldsUpdate) : null;
+      if (privErr) {
+        devConsole.error('[useEmployees] updateEmployee private fields error:', privErr.message, privErr.code);
+        setLastStaffWriteError(privErr);
+        return null;
+      }
+      const prev = employees.find((e) => e.id === id);
+      const prevPrivate: StaffPrivateFields = {};
+      if (prev) {
+        const prevRecord = prev as unknown as Record<string, unknown>;
+        for (const key of STAFF_PRIVATE_KEYS) prevPrivate[key] = typeof prevRecord[key] === 'string' ? (prevRecord[key] as string) : null;
+      }
+      const row = mergeStaffPrivate(data as unknown as Employee, { ...prevPrivate, ...privateFieldsUpdate });
+      setEmployees(employees.map((e) => (e.id === id ? row : e)));
+      return row;
     }
     if (error) {
       devConsole.error('[useEmployees] updateEmployee error:', error.message, error.code, error.details);

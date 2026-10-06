@@ -24,12 +24,17 @@ import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import { useAuth } from '@/contexts/AuthContext';
 import { isPastCalendarDay, isSlotStartInPast } from '@/lib/bookingPastSlots';
 import { devConsole } from '@/lib/clientDebug';
+import { toast } from 'sonner';
+import { appointmentStartHHmm, parseAppointmentDate } from '@/lib/calendarHelpers';
+import { isTerminalAppointmentStatus } from '@/lib/appointmentStatus';
 import {
   parseBusinessHours,
   dateToDayKey,
   appointmentTimeSlotsForDay,
   findFirstOpenDayWithSlotsFrom,
   isBusinessClosedOnDate,
+  minutesToHHmm,
+  timeToMinutes,
 } from '@/lib/businessHours';
 import { PastBookingConfirmDialog } from '@/components/PastBookingConfirmDialog';
 
@@ -59,7 +64,7 @@ interface EditAppointmentDialogProps {
   services: Service[];
   employees: Employee[];
   appointments: Appointment[];
-  onUpdate: (id: string, appointment: Partial<Appointment>) => void | Promise<void>;
+  onUpdate: (id: string, appointment: Partial<Appointment>) => unknown | Promise<unknown>;
   onSuccess: () => void;
 }
 
@@ -148,27 +153,21 @@ export function EditAppointmentDialog({
         const pet = pets.find(p => p.id === appointment.pet_id);
         const matchedClient = pet ? normalizedClients.find(c => c.id === pet.client_id) : null;
         
-        // Safely parse date
-        let appointmentDate: Date;
-        let timeStr = '';
-        try {
-          appointmentDate = appointment.scheduled_date ? new Date(appointment.scheduled_date) : new Date();
-          if (isNaN(appointmentDate.getTime())) {
-            appointmentDate = new Date();
-          }
-          timeStr = format(appointmentDate, 'HH:mm');
-        } catch (e) {
-          appointmentDate = new Date();
-          timeStr = '09:00';
-        }
-        
+        // Date/time from the real columns (appointment_date + start_time); legacy timestamp as fallback.
+        const appointmentDate: Date = parseAppointmentDate(appointment) ?? new Date();
+        const timeStr = appointmentStartHHmm(appointment);
+
         // Parse services: prefer catalog id, then service_type labels
         const serviceNames: string[] = [];
         try {
-          const sid = (appointment as { service_id?: string | null }).service_id;
-          if (sid) {
+          const ids = Array.isArray(appointment.service_ids) && appointment.service_ids.length
+            ? appointment.service_ids
+            : appointment.service_id
+              ? [appointment.service_id]
+              : [];
+          for (const sid of ids) {
             const svc = services.find((s) => s.id === sid);
-            if (svc) serviceNames.push(svc.name);
+            if (svc && !serviceNames.includes(svc.name)) serviceNames.push(svc.name);
           }
           if (appointment.service_type) {
             for (const part of appointment.service_type.split(',').map((s) => s.trim()).filter(Boolean)) {
@@ -199,7 +198,7 @@ export function EditAppointmentDialog({
             if (n === 'cancelled') return 'cancelled' as const;
             return 'scheduled' as const;
           })(),
-          price: appointment.price || 0,
+          price: Number(appointment.total_price ?? appointment.price ?? 0) || 0,
           notes: appointment.notes || '',
         });
         setSelectedDate(appointmentDate);
@@ -227,38 +226,24 @@ export function EditAppointmentDialog({
     }
   }, [appointment, open, pets, clients, services]);
 
-  // Fetch existing appointments for the selected date (excluding current appointment)
+  // Other appointments that day for the same groomer (or all, when unassigned) block their start times.
   useEffect(() => {
-    if (selectedDate && open) {
-      const fetchAppointments = async () => {
-        const dateStr = format(selectedDate, 'yyyy-MM-dd');
-        const { data } = await supabase
-          .from('appointments')
-          .select('scheduled_date')
-          .gte('scheduled_date', `${dateStr}T00:00:00`)
-          .lt('scheduled_date', `${dateStr}T23:59:59`);
-        
-        if (data) {
-          // Exclude current appointment from booked times
-          const filtered = data.filter(apt => {
-            if (!appointment) return true;
-            const aptDate = new Date(apt.scheduled_date);
-            const currentDate = new Date(appointment.scheduled_date);
-            return aptDate.getTime() !== currentDate.getTime();
-          });
-          setExistingAppointments(filtered);
-        }
-      };
-      fetchAppointments();
-    }
-  }, [selectedDate, open, appointment]);
+    if (!selectedDate || !open) return;
+    const key = format(selectedDate, 'yyyy-MM-dd');
+    const staff = formData.staffId && formData.staffId !== '__unassigned__' ? formData.staffId : null;
+    setExistingAppointments(
+      (appointments ?? []).filter((apt) => {
+        if (!apt || apt.id === appointment?.id) return false;
+        if (isTerminalAppointmentStatus(apt.status)) return false;
+        if (String(apt.appointment_date ?? '').slice(0, 10) !== key) return false;
+        return staff ? apt.staff_id === staff : true;
+      }),
+    );
+  }, [selectedDate, open, appointment, appointments, formData.staffId]);
 
   const getBookedTimes = useMemo(() => {
     if (!selectedDate || existingAppointments.length === 0) return [];
-    return existingAppointments.map(apt => {
-      const date = new Date(apt.scheduled_date);
-      return format(date, 'HH:mm');
-    });
+    return existingAppointments.map((apt) => appointmentStartHHmm(apt));
   }, [selectedDate, existingAppointments]);
 
   useEffect(() => {
@@ -420,7 +405,7 @@ export function EditAppointmentDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appointment || !selectedDate || !selectedTime || !formData.clientName || !formData.petId || formData.services.length === 0) {
-      alert('Please fill in all required fields');
+      toast.error(t('bookingDialog.errRequiredFields'));
       return;
     }
 
@@ -467,7 +452,7 @@ export function EditAppointmentDialog({
 
       // Update appointment
       if (!selectedDate) {
-        alert('Please select a date');
+        toast.error(t('bookingDialog.errTime'));
         return;
       }
       const [hours, minutes] = selectedTime.split(':');
@@ -475,7 +460,7 @@ export function EditAppointmentDialog({
       
       const biz = businessId ?? (appointment as { business_id?: string }).business_id;
       if (!biz) {
-        alert('Business not loaded. Please refresh and try again.');
+        toast.error(t('bookingDialog.errBusiness'));
         setLoading(false);
         return;
       }
@@ -486,7 +471,7 @@ export function EditAppointmentDialog({
         services.map((s) => ({ id: s.id, name: s.name, price: s.price }))
       );
       if (!svcRes.ok) {
-        alert(svcRes.error);
+        toast.error(t('bookingDialog.errServices'));
         setLoading(false);
         return;
       }
@@ -494,22 +479,33 @@ export function EditAppointmentDialog({
       const statusForDb =
         formData.status === 'in-progress' ? 'in_progress' : formData.status;
 
-      await onUpdate(appointment.id, {
+      const endMinutes = Math.min(timeToMinutes(selectedTime) + resolvedDurationMin, 24 * 60 - 1);
+      const updated = await onUpdate(appointment.id, {
         pet_id: formData.petId,
         staff_id: formData.staffId && formData.staffId !== '__unassigned__' ? formData.staffId : null,
+        // The calendar reads appointment_date/start_time/end_time; scheduled_date is kept in sync for legacy reads.
+        appointment_date: format(selectedDate, 'yyyy-MM-dd'),
+        start_time: selectedTime,
+        end_time: minutesToHHmm(endMinutes),
         scheduled_date: appointmentDate.toISOString(),
         service_id: svcRes.primaryServiceId,
+        service_ids: svcRes.serviceIds,
         service_type: svcRes.serviceType,
         status: statusForDb as any,
         price: formData.price,
+        total_price: formData.price,
         notes: formData.notes,
       });
-
+      if (!updated) {
+        toast.error(t('bookingDialog.errSave'));
+        return;
+      }
+      toast.success(t('apptBook.appointmentUpdated'));
       onSuccess();
       onOpenChange(false);
     } catch (error) {
       devConsole.error('Error:', error);
-      alert('Error updating appointment. Please try again.');
+      toast.error(t('bookingDialog.errSave'));
     } finally {
       setLoading(false);
     }

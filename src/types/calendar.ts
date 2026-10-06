@@ -6,6 +6,11 @@ export interface CalendarAppointment {
   calendarDayKey?: string;
   /** Source service row id when available (for sidebar category filters). */
   serviceId?: string;
+  /** Every service in the booking (first = serviceId). */
+  serviceIds?: string[];
+  /** Online request waiting for a staff decision. */
+  isPending?: boolean;
+  bookingSource?: 'staff' | 'online' | 'portal';
   /** Raw DB/UI status for actions (e.g. mark no-show). */
   dbStatus?: string;
   petId?: string; // Pet ID for lookup
@@ -31,6 +36,8 @@ export interface CalendarStaff {
   name: string;
   initials?: string;
   color?: string;
+  /** Services this groomer offers (empty = all). */
+  offeredServiceIds?: string[];
 }
 
 /** @deprecated use CalendarStaff */

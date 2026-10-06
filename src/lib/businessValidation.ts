@@ -111,12 +111,12 @@ export interface AppointmentInput {
   appointment_date: string;
   start_time: string;
   end_time: string;
-  status?: 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'canceled' | 'no_show';
+  status?: 'pending' | 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'canceled' | 'no_show';
   notes?: string | null;
   total_price?: number | null;
 }
 
-const APPOINTMENT_STATUS = new Set(['scheduled', 'confirmed', 'in_progress', 'completed', 'canceled', 'no_show']);
+const APPOINTMENT_STATUS = new Set(['pending', 'scheduled', 'confirmed', 'in_progress', 'completed', 'canceled', 'no_show']);
 const TIME_REGEX = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
