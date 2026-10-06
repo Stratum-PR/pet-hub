@@ -28,6 +28,15 @@ function corsHeaders(req: Request): Record<string, string> {
   };
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function resolveAppBase(req: Request): string {
   const env = (Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL") ?? "").replace(/\/$/, "");
   if (env) return env;
@@ -69,20 +78,34 @@ Deno.serve(async (req) => {
 
   const email = body.email?.trim().toLowerCase() ?? "";
   const businessSlug = body.business_slug?.trim() ?? "";
-  const businessName = body.business_name?.trim() || "Grumi";
-  if (!email || !businessSlug) {
+  if (!email || !businessSlug || email.length > 254 || businessSlug.length > 120) {
     return new Response(JSON.stringify({ error: "email y business_slug son requeridos" }), {
       status: 400,
       headers: { "Content-Type": "application/json", ...corsHeaders(req) },
     });
   }
 
-  const appBase = resolveAppBase(req);
-  const redirectTo = `${appBase}/portal?business=${encodeURIComponent(businessSlug)}`;
   const adminClient = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Only email addresses that just signed up and haven't confirmed, at most 3 times an hour, for a real
+  // business. The business name comes from the database, never from the request.
+  const { data: claim, error: claimError } = await adminClient.rpc("claim_client_confirmation_send", {
+    p_email: email,
+    p_business_slug: businessSlug,
+  });
+  if (claimError || !claim?.allowed) {
+    // Same response either way, so the endpoint can't be used to check which emails have accounts.
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders(req) },
+    });
+  }
+  const businessName = escapeHtml(String(claim.business_name ?? "Grumi"));
+
+  const appBase = resolveAppBase(req);
+  const redirectTo = `${appBase}/portal?business=${encodeURIComponent(businessSlug)}`;
   const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
     type: "signup",
     email,
@@ -96,7 +119,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const actionLink = linkData.properties.action_link;
+  const actionLink = escapeHtml(linkData.properties.action_link);
   const resendPayload = JSON.stringify({
     from: "Grumi <noreply@stratumpr.com>",
     to: [email],
@@ -136,8 +159,8 @@ Deno.serve(async (req) => {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    return new Response(JSON.stringify({ error: "Error enviando correo", detail }), {
+    await response.text();
+    return new Response(JSON.stringify({ error: "Error enviando correo" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders(req) },
     });
