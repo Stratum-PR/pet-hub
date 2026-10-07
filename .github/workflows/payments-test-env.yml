@@ -33,6 +33,11 @@ jobs:
         run: |
           set -o pipefail
           npm run test:payments 2>&1 | tee test-payments.log
+      - name: Show the test results as an annotation (readable without opening the log)
+        if: success()
+        run: |
+          msg=$(grep -E "✓|✗|passed|FAILED" test-payments.log | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::notice title=Payments checks::$msg"
       - name: Show the failure as an annotation (readable without opening the log)
         if: failure()
         run: |
