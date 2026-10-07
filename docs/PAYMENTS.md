@@ -44,6 +44,8 @@ npm run test:env:up      # first run downloads Docker images (several minutes)
 npm run test:payments    # real Postgres + RLS + triggers + Edge Functions, test and "real" ATH modes
 npm run test:env:down
 ```
+The test database starts from `test-env/supabase/prod-schema-snapshot.sql` (production's structure, no data),
+because the repo's migration history can't be replayed from scratch; newer repo migrations apply on top.
 Also runnable on GitHub: Actions → "Payments test environment" → Run workflow. In "real" mode the
 `payments` function talks to the simulator container through `ATH_API_BASE_URL`, which it honors only when
 `PAYMENTS_ENV=local` and the host is local (set in `test-env/supabase/config.toml`, never in production).
