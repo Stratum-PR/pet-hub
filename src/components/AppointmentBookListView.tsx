@@ -144,7 +144,9 @@ export function AppointmentBookListView({
   const [dateScope, setDateScope] = useState<'day' | 'all'>(petFilterId ? 'all' : initialScope);
   const [staffFilter, setStaffFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateSortDir, setDateSortDir] = useState<'asc' | 'desc'>('desc');
+  // History opens on "recently booked" so a just-created appointment is at the top,
+  // even when the business already has many future-dated bookings.
+  const [sortMode, setSortMode] = useState<'recent' | 'dateDesc' | 'dateAsc'>(initialScope === 'all' ? 'recent' : 'dateAsc');
   // History can hold thousands of rows; render in pages to keep the page fast.
   const PAGE_SIZE = 100;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -196,11 +198,17 @@ export function AppointmentBookListView({
       });
     }
 
-    list.sort((a, b) => {
-      const da = parseAppointmentDate(a)?.getTime() ?? 0;
-      const db = parseAppointmentDate(b)?.getTime() ?? 0;
-      const cmp = da - db;
-      return dateSortDir === 'asc' ? cmp : -cmp;
+    const dateKey = (apt: Appointment) =>
+      `${String(apt.appointment_date ?? '').slice(0, 10)} ${String(apt.start_time ?? '').slice(0, 5)}`;
+    list = [...list].sort((a, b) => {
+      if (sortMode === 'recent') {
+        const ca = a.created_at ? Date.parse(a.created_at) : 0;
+        const cb = b.created_at ? Date.parse(b.created_at) : 0;
+        if (ca !== cb) return cb - ca;
+        return dateKey(b).localeCompare(dateKey(a));
+      }
+      const cmp = dateKey(a).localeCompare(dateKey(b));
+      return sortMode === 'dateAsc' ? cmp : -cmp;
     });
 
     return list;
@@ -213,16 +221,16 @@ export function AppointmentBookListView({
     pets,
     clients,
     services,
-    dateSortDir,
+    sortMode,
   ]);
 
   const toggleDateSort = () => {
-    setDateSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    setSortMode((m) => (m === 'dateAsc' ? 'dateDesc' : 'dateAsc'));
   };
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, dateScope, staffFilter, statusFilter, petFilterId, dateSortDir, selectedDate]);
+  }, [search, dateScope, staffFilter, statusFilter, petFilterId, sortMode, selectedDate]);
 
   const listViewRows = useMemo(() => {
     return displayRows.slice(0, visibleCount).map((apt) => {
@@ -368,6 +376,17 @@ export function AppointmentBookListView({
                 </SelectContent>
               </Select>
 
+              <Select value={sortMode} onValueChange={(v) => setSortMode(v as typeof sortMode)}>
+                <SelectTrigger className="w-full min-w-0 sm:w-[180px]" aria-label={t('apptBook.sortBy')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">{t('apptBook.sortRecent')}</SelectItem>
+                  <SelectItem value="dateDesc">{t('apptBook.sortDateDesc')}</SelectItem>
+                  <SelectItem value="dateAsc">{t('apptBook.sortDateAsc')}</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full min-w-0 sm:w-[168px]">
                   <SelectValue />
@@ -475,7 +494,7 @@ export function AppointmentBookListView({
                         <div className="flex items-center gap-2">
                           {t('apptBook.columnDate')}
                           <ArrowUpDown
-                            className={cn('h-4 w-4', dateSortDir === 'asc' && 'text-primary')}
+                            className={cn('h-4 w-4', sortMode !== 'recent' && 'text-primary')}
                           />
                         </div>
                       </TableHead>

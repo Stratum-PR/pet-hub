@@ -111,6 +111,63 @@ function tabFromPath(pathname: string): ApptBookTab {
   return 'calendar';
 }
 
+function FilterHeader({
+  title,
+  onAll,
+  onNone,
+  className,
+}: {
+  title: string;
+  onAll: () => void;
+  onNone: () => void;
+  className?: string;
+}) {
+  return (
+    <div className={`mb-1 flex items-center justify-between gap-2 ${className ?? ''}`}>
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</span>
+      <span className="flex items-center gap-1 text-xs">
+        <button type="button" className="rounded px-1.5 py-0.5 font-medium text-primary hover:bg-primary/10" onClick={onAll}>
+          {t('apptBook.filterAll')}
+        </button>
+        <button type="button" className="rounded px-1.5 py-0.5 font-medium text-primary hover:bg-primary/10" onClick={onNone}>
+          {t('apptBook.filterNone')}
+        </button>
+      </span>
+    </div>
+  );
+}
+
+function FilterRow({
+  label,
+  checked,
+  onToggle,
+  onOnly,
+  color,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+  onOnly: () => void;
+  color?: string;
+}) {
+  return (
+    <div className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/60">
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm">
+        <Checkbox checked={checked} onCheckedChange={onToggle} />
+        {color ? <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} /> : null}
+        <span className="truncate">{label}</span>
+      </label>
+      <button
+        type="button"
+        onClick={onOnly}
+        className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-primary opacity-0 hover:bg-primary/10 focus:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+      >
+        {t('apptBook.filterOnly')}
+      </button>
+    </div>
+  );
+}
+
 export function AppointmentBook() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -156,10 +213,12 @@ export function AppointmentBook() {
     useEmployees({ includeSensitive: false });
   const { services, loading: servicesLoading, error: servicesError, refetch: refetchServices } = useServices();
   const { clients, error: clientsError, refetch: refetchClients, addClient } = useClients();
-  const { settings } = useSettings();
+  const { settings, updateSetting } = useSettings();
   const { rates, saveRate } = useStaffServiceRates();
 
-  const loading = appointmentsLoading || petsLoading || employeesLoading || servicesLoading;
+  // Until the business is known the hooks report "not loading" with empty lists; keep the spinner up
+  // so History doesn't flash "No appointments match your filters".
+  const loading = !businessId || appointmentsLoading || petsLoading || employeesLoading || servicesLoading;
   const fetchError = appointmentsError ?? petsError ?? employeesError ?? servicesError ?? clientsError;
   useEffect(() => {
     if (fetchError) devConsole.warn('[AppointmentBook] load error', fetchError);
@@ -234,16 +293,17 @@ export function AppointmentBook() {
     if (selectedServiceIds?.size) setStoredSelectedServiceIds([...selectedServiceIds]);
     if (selectedStaffIds?.size) setStoredSelectedEmployeeIds([...selectedStaffIds]);
   }, [selectedServiceIds, selectedStaffIds]);
-  const activeFilterCount = (selectedServiceIds?.size ? 1 : 0) + (selectedStaffIds?.size ? 1 : 0);
+  // null = everything shown; a Set (even empty) = only those. An empty Set lets people clear all and pick one.
+  const activeFilterCount = (selectedServiceIds ? 1 : 0) + (selectedStaffIds ? 1 : 0);
   const clearFilters = () => {
     setSelectedServiceIds(null);
     setSelectedStaffIds(null);
   };
-  const toggleIn = (set: Set<string>, id: string): Set<string> | null => {
-    const next = new Set(set);
+  const toggleIn = (set: Set<string> | null, id: string, all: string[]): Set<string> | null => {
+    const next = new Set(set ?? all);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    return next.size ? next : null;
+    return all.every((x) => next.has(x)) ? null : next;
   };
 
   // ---------------- columns ----------------
@@ -270,8 +330,8 @@ export function AppointmentBook() {
         ? convertAppointmentsToCalendarInRange(appointments, pets, employees, services, weekStart, weekEnd)
         : convertAppointmentsToCalendar(appointments, pets, employees, services, selectedDate);
     return rows.filter((r) => {
-      if (selectedServiceIds?.size && !(r.serviceIds ?? []).some((id) => selectedServiceIds.has(id))) return false;
-      if (selectedStaffIds?.size && r.staffId !== UNASSIGNED_STAFF_ID && !selectedStaffIds.has(r.staffId)) return false;
+      if (selectedServiceIds && !(r.serviceIds ?? []).some((id) => selectedServiceIds.has(id))) return false;
+      if (selectedStaffIds && r.staffId !== UNASSIGNED_STAFF_ID && !selectedStaffIds.has(r.staffId)) return false;
       return true;
     });
   }, [loading, calendarScope, appointments, pets, employees, services, weekStart, weekEnd, selectedDate, selectedServiceIds, selectedStaffIds]);
@@ -283,7 +343,7 @@ export function AppointmentBook() {
       (e) => !cols.some((c) => c.id === e.id) && calendarRows.some((r) => r.staffId === e.id),
     );
     if (extra.length) cols = [...cols, ...convertEmployeesToCalendar(extra)];
-    if (selectedStaffIds?.size) cols = cols.filter((c) => selectedStaffIds.has(c.id));
+    if (selectedStaffIds) cols = cols.filter((c) => selectedStaffIds.has(c.id));
     if (calendarRows.some((r) => r.staffId === UNASSIGNED_STAFF_ID)) {
       cols = [{ id: UNASSIGNED_STAFF_ID, name: t('apptBook.unassigned') }, ...cols];
     }
@@ -462,7 +522,7 @@ export function AppointmentBook() {
 
   // ---------------- render ----------------
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 max-sm:pb-2 sm:-mx-6 sm:flex-row sm:items-stretch sm:overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 max-sm:pb-2 sm:-mx-6 sm:flex-row sm:items-stretch sm:overflow-hidden">
       {tab === 'calendar' ? (
         <AppointmentBookSidebar
           className="max-sm:order-2 max-sm:border-r-0 max-sm:border-t"
@@ -602,47 +662,44 @@ export function AppointmentBook() {
               </PopoverTrigger>
               <PopoverContent align="end" className="w-72 p-0">
                 <div className="max-h-[60vh] overflow-y-auto p-3">
-                  <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {t('apptBook.specialist')}
-                  </div>
-                  <div className="space-y-1.5">
+                  <FilterHeader
+                    title={t('apptBook.specialist')}
+                    onAll={() => setSelectedStaffIds(null)}
+                    onNone={() => setSelectedStaffIds(new Set())}
+                  />
+                  <div className="space-y-0.5">
                     {groomers.map((g) => (
-                      <label key={g.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={!selectedStaffIds || selectedStaffIds.has(g.id)}
-                          onCheckedChange={() =>
-                            setSelectedStaffIds((prev) =>
-                              prev ? toggleIn(prev, g.id) : new Set(groomers.filter((x) => x.id !== g.id).map((x) => x.id)),
-                            )
-                          }
-                        />
-                        {formatStaffNameAggregated(g.name)}
-                      </label>
+                      <FilterRow
+                        key={g.id}
+                        label={formatStaffNameAggregated(g.name)}
+                        checked={!selectedStaffIds || selectedStaffIds.has(g.id)}
+                        onToggle={() => setSelectedStaffIds((prev) => toggleIn(prev, g.id, groomers.map((x) => x.id)))}
+                        onOnly={() => setSelectedStaffIds(new Set([g.id]))}
+                      />
                     ))}
                   </div>
                   <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 text-sm text-muted-foreground">
                     {t('apptBook.showAllStaff')}
                     <Switch checked={showAllStaff} onCheckedChange={setShowAllStaff} />
                   </label>
-                  <div className="mb-1.5 mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {t('apptBook.bookingCategory')}
-                  </div>
-                  <div className="space-y-1.5">
-                    {activeServices.map((s) => (
-                      <label key={s.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={!selectedServiceIds || selectedServiceIds.has(s.id)}
-                          onCheckedChange={() =>
-                            setSelectedServiceIds((prev) =>
-                              prev
-                                ? toggleIn(prev, s.id)
-                                : new Set(activeServices.filter((x) => x.id !== s.id).map((x) => x.id)),
-                            )
-                          }
-                        />
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color ?? '#7DD3FC' }} />
-                        <span className="truncate">{s.name}</span>
-                      </label>
+                  <FilterHeader
+                    className="mt-4"
+                    title={t('apptBook.bookingCategory')}
+                    onAll={() => setSelectedServiceIds(null)}
+                    onNone={() => setSelectedServiceIds(new Set())}
+                  />
+                  <div className="space-y-0.5">
+                    {activeServices.map((sv) => (
+                      <FilterRow
+                        key={sv.id}
+                        label={sv.name}
+                        color={sv.color ?? '#7DD3FC'}
+                        checked={!selectedServiceIds || selectedServiceIds.has(sv.id)}
+                        onToggle={() =>
+                          setSelectedServiceIds((prev) => toggleIn(prev, sv.id, activeServices.map((x) => x.id)))
+                        }
+                        onOnly={() => setSelectedServiceIds(new Set([sv.id]))}
+                      />
                     ))}
                   </div>
                 </div>
@@ -726,6 +783,26 @@ export function AppointmentBook() {
             </div>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="mx-auto w-full max-w-5xl px-4 pt-4 sm:px-6 sm:pt-6">
+                <h2 className="text-lg font-semibold">{t('apptBook.bookingDisplay')}</h2>
+                <label className="mt-3 flex cursor-pointer items-start justify-between gap-4 rounded-lg border p-4">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">{t('apptBook.showStaffPhotos')}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{t('apptBook.showStaffPhotosHint')}</span>
+                  </span>
+                  <Switch
+                    checked={settings.booking_show_staff_photos !== 'false'}
+                    disabled={!isManager}
+                    onCheckedChange={async (on) => {
+                      const res = await updateSetting('booking_show_staff_photos', on ? 'true' : 'false');
+                      if (!res.ok) {
+                        devConsole.warn('[AppointmentBook] booking_show_staff_photos', res.error);
+                        toast.error(t('common.genericError'));
+                      }
+                    }}
+                  />
+                </label>
+              </div>
               <GroomerServicesSettings
                 employees={bookableStaff(employees)}
                 services={services}

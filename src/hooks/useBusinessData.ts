@@ -644,8 +644,12 @@ export function useAppointments() {
   const businessId = useBusinessId();
   const demoBrowseOnly = useDemoBrowseOnly();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingState, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Which business the current list belongs to; until the first fetch for it finishes we report loading,
+  // so screens never show an "empty" state for data that simply hasn't arrived yet.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const loading = loadingState || (!!businessId && loadedFor !== businessId);
 
   const fetchAppointments = useCallback(async () => {
     if (!businessId) {
@@ -707,6 +711,7 @@ export function useAppointments() {
             staffIds,
           });
           setAppointments([...withStaff, ...seeds] as any);
+          setLoadedFor(businessId);
           setLoading(false);
           return;
         }
@@ -717,6 +722,7 @@ export function useAppointments() {
 
       setAppointments(withStaff as any);
     }
+    setLoadedFor(businessId);
     setLoading(false);
   }, [businessId, demoBrowseOnly]);
 

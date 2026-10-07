@@ -4,6 +4,8 @@ import {
   endOfWeek,
   format,
   isSameDay,
+  isSameWeek,
+  max as maxDate,
   startOfDay,
   startOfWeek,
 } from 'date-fns';
@@ -12,11 +14,12 @@ import {
   Calendar as CalendarIcon,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   Plus,
   Search,
   Sparkles,
-  UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -130,6 +133,31 @@ interface BookingFormDialogProps {
   preselectedDate?: Date | null;
   /** "HH:mm" */
   preselectedTime?: string | null;
+}
+
+function staffInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
+}
+
+/** Round photo when on file (and allowed), otherwise initials. */
+function StaffAvatar({ name, photoUrl }: { name: string; photoUrl?: string | null }) {
+  const [broken, setBroken] = useState(false);
+  if (photoUrl && !broken) {
+    return (
+      <img
+        src={photoUrl}
+        alt=""
+        className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-border"
+        onError={() => setBroken(true)}
+      />
+    );
+  }
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+      {staffInitials(name)}
+    </span>
+  );
 }
 
 function SectionTitle({ n, children }: { n: number; children: React.ReactNode }) {
@@ -273,17 +301,17 @@ export function BookingFormDialog({
   const needsNewPet = clientMode === 'new' || creatingPet || (!!clientId && clientPets.length === 0);
 
   // ---------------- derived: groomers, shifts, availability ----------------
-  const weekRange = useMemo(() => {
-    const start = startOfWeek(date, { weekStartsOn: 0 });
-    const end = endOfWeek(date, { weekStartsOn: 0 });
-    return { start, end };
-  }, [date]);
-  const { shifts } = useEmployeeShifts({ dateRange: weekRange });
-  const usesShifts = useMemo(
-    () => businessUsesShifts(shifts, weekRange.start, weekRange.end),
-    [shifts, weekRange],
+  const weekStart = useMemo(() => startOfWeek(date, { weekStartsOn: 0 }), [date]);
+  const weekEnd = useMemo(() => endOfWeek(date, { weekStartsOn: 0 }), [date]);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  // Shifts for the selected week and the next 9, so week browsing and "next available" use real schedules.
+  const shiftRange = useMemo(
+    () => ({ start: weekStart, end: endOfWeek(addDays(weekStart, 7 * 9), { weekStartsOn: 0 }) }),
+    [weekStart],
   );
+  const { shifts } = useEmployeeShifts({ dateRange: shiftRange });
 
+  const showPhotos = settings.booking_show_staff_photos !== 'false';
   const activeStaff = useMemo(() => bookableStaff(employees), [employees]);
   const eligibleStaff = useMemo(
     () => activeStaff.filter((e) => staffOffersAll(e, serviceIds)),
@@ -291,7 +319,7 @@ export function BookingFormDialog({
   );
   const eligibleIds = useMemo(() => eligibleStaff.map((e) => e.id), [eligibleStaff]);
 
-  // A preselected groomer who doesn't offer the chosen services falls back to "Cualquiera".
+  // A preselected groomer who doesn't offer the chosen services falls back to "Next available groomer".
   useEffect(() => {
     if (groomer !== ANYONE && serviceIds.length > 0 && !eligibleIds.includes(groomer)) {
       setGroomer(ANYONE);
@@ -299,30 +327,41 @@ export function BookingFormDialog({
     }
   }, [groomer, eligibleIds, serviceIds.length]);
 
-  const dayHours = hoursPerDay[dateToDayKey(date)];
-  const windowsByStaff = useMemo(() => {
-    const out: Record<string, Interval[]> = {};
-    for (const e of activeStaff) {
-      out[e.id] = workingWindows({ staffId: e.id, day: date, dayHours, shifts, usesShifts });
-    }
-    return out;
-  }, [activeStaff, date, dayHours, shifts, usesShifts]);
-
-  const blocks: BusyBlock[] = useMemo(() => {
-    const key = format(date, 'yyyy-MM-dd');
-    const out: BusyBlock[] = [];
+  /** Busy blocks per day (yyyy-MM-dd), ignoring canceled/no-show/etc. */
+  const blocksByDay = useMemo(() => {
+    const map = new Map<string, BusyBlock[]>();
     for (const a of appointments ?? []) {
-      const d = String(a.appointment_date ?? '').slice(0, 10);
-      if (d !== key || isTerminalAppointmentStatus(a.status)) continue;
+      if (isTerminalAppointmentStatus(a.status)) continue;
+      const key = String(a.appointment_date ?? '').slice(0, 10);
       const s = normalizeHHmm(a.start_time);
-      if (!s) continue;
+      if (!key || !s) continue;
       const start = timeToMinutes(s);
       const e = normalizeHHmm(a.end_time);
       const end = e && timeToMinutes(e) > start ? timeToMinutes(e) : start + 60;
-      out.push({ staffId: a.staff_id ?? null, start, end, appointmentId: a.id });
+      const list = map.get(key) ?? [];
+      list.push({ staffId: a.staff_id ?? null, start, end, appointmentId: a.id });
+      map.set(key, list);
     }
-    return out;
-  }, [appointments, date]);
+    return map;
+  }, [appointments]);
+
+  const windowsFor = useCallback(
+    (d: Date): Record<string, Interval[]> => {
+      const usesShifts = businessUsesShifts(
+        shifts,
+        startOfWeek(d, { weekStartsOn: 0 }),
+        endOfWeek(d, { weekStartsOn: 0 }),
+      );
+      const dh = hoursPerDay[dateToDayKey(d)];
+      const out: Record<string, Interval[]> = {};
+      for (const e of activeStaff) out[e.id] = workingWindows({ staffId: e.id, day: d, dayHours: dh, shifts, usesShifts });
+      return out;
+    },
+    [shifts, hoursPerDay, activeStaff],
+  );
+
+  const windowsByStaff = useMemo(() => windowsFor(date), [windowsFor, date]);
+  const blocks: BusyBlock[] = useMemo(() => blocksByDay.get(format(date, 'yyyy-MM-dd')) ?? [], [blocksByDay, date]);
 
   const quote = useMemo(
     () => quoteForStaff(serviceIds, activeServices, rates, groomer === ANYONE ? null : groomer),
@@ -330,55 +369,63 @@ export function BookingFormDialog({
   );
   const duration = Math.max(quote.duration, serviceIds.length ? 15 : 0);
 
-  // For "Cualquiera", each groomer's own duration may differ; use the default duration (no override) for the grid.
-  const slotList = useMemo(() => {
-    if (serviceIds.length === 0 || duration <= 0) return [];
-    if (groomer === ANYONE) {
-      return freeStartsForAnyone({ staffIds: eligibleIds, duration, windowsByStaff, blocks });
-    }
-    return freeStartsForStaff({ staffId: groomer, duration, windowsByStaff, blocks });
-  }, [serviceIds.length, duration, groomer, eligibleIds, windowsByStaff, blocks]);
-
-  const visibleSlots = useMemo(
-    () => slotList.filter((s) => staffMayBookPast || !isSlotStartInPast(date, s)),
-    [slotList, staffMayBookPast, date],
+  /** Free start times on a day for the current selection (groomer or anyone eligible). */
+  const slotsOn = useCallback(
+    (d: Date, allowPast = false): string[] => {
+      if (serviceIds.length === 0 || duration <= 0) return [];
+      if (isBusinessClosedOnDate(d, hoursPerDay)) return [];
+      const win = isSameDay(d, date) ? windowsByStaff : windowsFor(d);
+      const dayBlocks = blocksByDay.get(format(d, 'yyyy-MM-dd')) ?? [];
+      const list =
+        groomer === ANYONE
+          ? freeStartsForAnyone({ staffIds: eligibleIds, duration, windowsByStaff: win, blocks: dayBlocks })
+          : freeStartsForStaff({ staffId: groomer, duration, windowsByStaff: win, blocks: dayBlocks });
+      return allowPast ? list : list.filter((s) => !isSlotStartInPast(d, s));
+    },
+    [serviceIds.length, duration, hoursPerDay, date, windowsByStaff, windowsFor, blocksByDay, groomer, eligibleIds],
   );
+
+  const visibleSlots = useMemo(() => slotsOn(date, staffMayBookPast), [slotsOn, date, staffMayBookPast]);
 
   // Drop a chosen time that is no longer available (unless it was a prefill still being validated).
   useEffect(() => {
     if (time && serviceIds.length > 0 && !visibleSlots.includes(time)) setTime('');
   }, [time, visibleSlots, serviceIds.length]);
 
-  const nextAvailableDay = useCallback((): Date | null => {
-    for (let i = 1; i <= 60; i++) {
-      const d = addDays(date, i);
-      if (isBusinessClosedOnDate(d, hoursPerDay)) continue;
-      // Without that week's shifts loaded we can only check business hours + current week's shifts rule.
-      const dh = hoursPerDay[dateToDayKey(d)];
-      const sameWeek = d <= weekRange.end;
-      const win: Record<string, Interval[]> = {};
-      for (const e of eligibleStaff) {
-        win[e.id] = workingWindows({ staffId: e.id, day: d, dayHours: dh, shifts, usesShifts: sameWeek && usesShifts });
-      }
-      const key = format(d, 'yyyy-MM-dd');
-      const dayBlocks: BusyBlock[] = (appointments ?? [])
-        .filter((a) => String(a.appointment_date ?? '').slice(0, 10) === key && !isTerminalAppointmentStatus(a.status))
-        .map((a) => {
-          const s = timeToMinutes(normalizeHHmm(a.start_time) || '00:00');
-          const e = normalizeHHmm(a.end_time);
-          return { staffId: a.staff_id ?? null, start: s, end: e ? timeToMinutes(e) : s + 60 };
-        });
-      const ids = groomer === ANYONE ? eligibleStaff.map((e) => e.id) : [groomer];
-      if (freeStartsForAnyone({ staffIds: ids, duration, windowsByStaff: win, blocks: dayBlocks }).length > 0) return d;
+  /** Which days of the shown week still have room (dot under the day). */
+  const dayHasRoom = useMemo(() => {
+    const out: Record<string, boolean> = {};
+    for (const d of weekDays) out[format(d, 'yyyy-MM-dd')] = slotsOn(d).length > 0;
+    return out;
+  }, [weekDays, slotsOn]);
+
+  /** When the chosen day is full (or the groomer is off), the next day with room. */
+  const nextAvailable = useMemo((): Date | null => {
+    if (serviceIds.length === 0 || visibleSlots.length > 0) return null;
+    const from = maxDate([addDays(date, 1), startOfDay(new Date())]);
+    for (let i = 0; i < 63; i++) {
+      const d = addDays(from, i);
+      if (slotsOn(d).length > 0) return d;
     }
     return null;
-  }, [date, hoursPerDay, weekRange.end, eligibleStaff, shifts, usesShifts, appointments, groomer, duration]);
+  }, [serviceIds.length, visibleSlots.length, date, slotsOn]);
 
-  const groomerShiftLabel = (staffId: string) => {
-    const w = windowsByStaff[staffId] ?? [];
-    if (w.length === 0) return t('apptBook.dayOff');
-    return w.map((i) => `${formatTime12h(minutesToHHmm(i.start))}–${formatTime12h(minutesToHHmm(i.end))}`).join(', ');
+  const isDayDisabled = (d: Date) =>
+    isBusinessClosedOnDate(d, hoursPerDay) || (!staffMayBookPast && isPastCalendarDay(d));
+
+  const pickDate = (d: Date) => {
+    setDate(startOfDay(d));
+    setTime('');
+    setErrors((e) => ({ ...e, time: '' }));
   };
+
+  /** Move a week; land on the first day there with room (else the first open day). */
+  const goWeek = (delta: number) => {
+    const ws = addDays(weekStart, 7 * delta);
+    const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i)).filter((d) => !isDayDisabled(d));
+    pickDate(days.find((d) => slotsOn(d).length > 0) ?? days[0] ?? ws);
+  };
+  const canGoBackWeek = staffMayBookPast || !isSameWeek(weekStart, new Date(), { weekStartsOn: 0 });
 
   const slotGroups = useMemo(() => {
     const groups: { key: string; label: string; items: string[] }[] = [
@@ -900,47 +947,36 @@ export function BookingFormDialog({
                 {serviceIds.length > 0 && eligibleStaff.length === 0 ? (
                   <p className="text-sm text-amber-700 dark:text-amber-400">{t('bookingDialog.noGroomerOffers')}</p>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     <button
                       type="button"
                       onClick={() => setGroomer(ANYONE)}
+                      aria-pressed={groomer === ANYONE}
                       className={cn(
-                        'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left',
+                        'flex min-h-[3.25rem] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
                         groomer === ANYONE ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/60',
                       )}
                     >
-                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      <span>
-                        <span className="block text-sm font-medium">{t('bookingDialog.anyone')}</span>
-                        <span className="block text-xs text-muted-foreground">{t('bookingDialog.anyoneHint')}</span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Sparkles className="h-4 w-4 text-primary" />
                       </span>
+                      <span className="min-w-0 text-sm font-medium leading-tight">{t('bookingDialog.anyone')}</span>
                     </button>
                     {(serviceIds.length ? eligibleStaff : activeStaff).map((e) => {
-                      const q = quoteForStaff(serviceIds, activeServices, rates, e.id);
-                      const off = (windowsByStaff[e.id] ?? []).length === 0;
+                      const name = formatStaffNameAggregated(e.name);
                       return (
                         <button
                           key={e.id}
                           type="button"
                           onClick={() => setGroomer(e.id)}
+                          aria-pressed={groomer === e.id}
                           className={cn(
-                            'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left',
+                            'flex min-h-[3.25rem] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
                             groomer === e.id ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/60',
-                            off && groomer !== e.id && 'opacity-60',
                           )}
                         >
-                          <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center justify-between gap-2">
-                              <span className="truncate text-sm font-medium">{formatStaffNameAggregated(e.name)}</span>
-                              {serviceIds.length ? (
-                                <span className="shrink-0 text-sm font-semibold tabular-nums">${q.price.toFixed(2)}</span>
-                              ) : null}
-                            </span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {format(date, 'EEE d', { locale: dateLocale })}: {groomerShiftLabel(e.id)}
-                            </span>
-                          </span>
+                          <StaffAvatar name={e.name} photoUrl={showPhotos ? e.photo_url : null} />
+                          <span className="min-w-0 truncate text-sm font-medium">{name}</span>
                         </button>
                       );
                     })}
@@ -951,36 +987,90 @@ export function BookingFormDialog({
               {/* 4. Date & time */}
               <section>
                 <SectionTitle n={4}>{t('bookingDialog.stepTime')}</SectionTitle>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => goWeek(-1)}
+                    disabled={!canGoBackWeek}
+                    aria-label={t('bookingDialog.prevWeek')}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-0 flex-1 text-center text-sm font-medium capitalize">
+                    {format(weekStart, 'd MMM', { locale: dateLocale })} – {format(weekEnd, 'd MMM yyyy', { locale: dateLocale })}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => goWeek(1)}
+                    aria-label={t('bookingDialog.nextWeek')}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button type="button" variant="outline" className={cn('h-10 justify-start font-normal capitalize', field)}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(date, 'EEEE d MMMM yyyy', { locale: dateLocale })}
+                      <Button type="button" variant="outline" size="icon" className="h-8 w-8" aria-label={t('bookingDialog.pickDate')}>
+                        <CalendarIcon className="h-4 w-4" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0" align="end">
                       <Calendar
                         mode="single"
                         selected={date}
+                        defaultMonth={date}
                         locale={dateLocale}
-                        onSelect={(d) => {
-                          if (!d) return;
-                          setDate(startOfDay(d));
-                          setTime('');
-                        }}
-                        disabled={(d) =>
-                          isBusinessClosedOnDate(d, hoursPerDay) || (!staffMayBookPast && isPastCalendarDay(d))
-                        }
+                        onSelect={(d) => d && pickDate(d)}
+                        disabled={isDayDisabled}
                         initialFocus
                       />
                     </PopoverContent>
                   </Popover>
                   {isSameDay(date, new Date()) ? null : (
-                    <Button type="button" variant="ghost" size="sm" onClick={() => { setDate(startOfDay(new Date())); setTime(''); }}>
+                    <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => pickDate(new Date())}>
                       {t('appointments.today')}
                     </Button>
                   )}
+                </div>
+
+                <div className="mt-2 grid grid-cols-7 gap-1.5">
+                  {weekDays.map((d) => {
+                    const key = format(d, 'yyyy-MM-dd');
+                    const disabled = isDayDisabled(d);
+                    const selected = isSameDay(d, date);
+                    const room = !disabled && serviceIds.length > 0 && dayHasRoom[key];
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => pickDate(d)}
+                        aria-pressed={selected}
+                        className={cn(
+                          'flex flex-col items-center gap-0.5 rounded-lg border py-1.5 transition-colors',
+                          selected
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border hover:border-primary/50 hover:bg-primary/5',
+                          disabled && 'cursor-not-allowed border-dashed opacity-40 hover:border-border hover:bg-transparent',
+                        )}
+                      >
+                        <span className={cn('text-[11px] uppercase', selected ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                          {format(d, 'EEE', { locale: dateLocale })}
+                        </span>
+                        <span className="text-base font-semibold leading-none tabular-nums">{format(d, 'd')}</span>
+                        <span
+                          className={cn(
+                            'mt-0.5 h-1.5 w-1.5 rounded-full',
+                            room ? (selected ? 'bg-primary-foreground' : 'bg-emerald-500') : 'bg-transparent',
+                          )}
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-3">
@@ -988,28 +1078,27 @@ export function BookingFormDialog({
                     <p className="text-sm text-muted-foreground">{t('bookingDialog.pickServicesFirst')}</p>
                   ) : slotGroups.length === 0 ? (
                     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-                      {t('bookingDialog.noSlots')}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const d = nextAvailableDay();
-                          if (d) {
-                            setDate(startOfDay(d));
-                            setTime('');
-                          } else toast.message(t('bookingDialog.noSlotsSoon'));
-                        }}
-                      >
-                        {t('bookingDialog.nextAvailable')}
-                      </Button>
+                      <span>
+                        {groomer === ANYONE
+                          ? t('bookingDialog.noSlots')
+                          : t('bookingDialog.groomerNotAvailable', { name: groomerLabel })}
+                      </span>
+                      {nextAvailable ? (
+                        <Button type="button" size="sm" variant="outline" onClick={() => pickDate(nextAvailable)}>
+                          {t('bookingDialog.nextAvailableOn', {
+                            date: format(nextAvailable, 'EEEE d MMM', { locale: dateLocale }).replace(/^./, (c) => c.toUpperCase()),
+                          })}
+                        </Button>
+                      ) : (
+                        <span>{t('bookingDialog.noSlotsSoon')}</span>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {slotGroups.map((g) => (
                         <div key={g.key}>
                           <div className="mb-1.5 text-xs font-medium text-muted-foreground">{g.label}</div>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
                             {g.items.map((s) => {
                               const past = isSlotStartInPast(date, s);
                               return (
@@ -1022,7 +1111,7 @@ export function BookingFormDialog({
                                   }}
                                   title={past ? t('booking.pastTimeHoverHint') : undefined}
                                   className={cn(
-                                    'rounded-md border px-2.5 py-1.5 text-sm tabular-nums transition-colors',
+                                    'rounded-md border px-2 py-1.5 text-sm tabular-nums transition-colors',
                                     time === s
                                       ? 'border-primary bg-primary text-primary-foreground'
                                       : 'border-border hover:border-primary/50 hover:bg-primary/5',

@@ -2023,6 +2023,8 @@ export interface Settings {
   kiosk_warn_off_schedule: string;
   /** When 'true', employees see Punch clock in the sidebar and may open time kiosk from their own phones. */
   allow_employee_mobile_punch: string;
+  /** 'true' | 'false': show groomer photos while booking (staff dialog and public page). */
+  booking_show_staff_photos: string;
 }
 
 function isUnauthenticatedDemoPath(pathname: string): boolean {
@@ -2074,6 +2076,7 @@ export function useSettings() {
     payroll_pdf_include_logo: 'true',
     kiosk_warn_off_schedule: 'true',
     allow_employee_mobile_punch: 'false',
+    booking_show_staff_photos: 'true',
   });
   const [loading, setLoading] = useState(true);
   const businessId = useBusinessId();
@@ -2143,6 +2146,7 @@ export function useSettings() {
       payroll_pdf_include_logo: 'true',
       kiosk_warn_off_schedule: 'true',
       allow_employee_mobile_punch: 'false',
+    booking_show_staff_photos: 'true',
     };
 
     let baseFromDb = !error && row
@@ -2173,6 +2177,7 @@ export function useSettings() {
           kiosk_warn_off_schedule: row.kiosk_warn_off_schedule ?? defaults.kiosk_warn_off_schedule,
           allow_employee_mobile_punch:
             row.allow_employee_mobile_punch ?? defaults.allow_employee_mobile_punch,
+          booking_show_staff_photos: row.booking_show_staff_photos ?? defaults.booking_show_staff_photos,
         }
       : { ...defaults };
 
@@ -2214,6 +2219,7 @@ export function useSettings() {
         'payroll_pdf_include_logo',
         'kiosk_warn_off_schedule',
         'allow_employee_mobile_punch',
+        'booking_show_staff_photos',
       ] as const;
       const merged = { ...baseFromDb } as Settings;
       for (const k of keys) {
@@ -2295,6 +2301,7 @@ export function useSettings() {
     payroll_pdf_include_logo: 'payroll_pdf_include_logo',
     kiosk_warn_off_schedule: 'kiosk_warn_off_schedule',
     allow_employee_mobile_punch: 'allow_employee_mobile_punch',
+    booking_show_staff_photos: 'booking_show_staff_photos',
   };
 
   const updateSetting = async (
@@ -2398,6 +2405,7 @@ export function useSettings() {
       'payroll_pdf_include_logo',
       'kiosk_warn_off_schedule',
       'allow_employee_mobile_punch',
+      'booking_show_staff_photos',
     ] as const;
     for (const k of keys) {
       const v = newSettings[k];

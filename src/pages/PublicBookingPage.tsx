@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { addDays, format, isSameDay, startOfDay } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
-import { CalendarCheck, Check, Loader2, MapPin, Phone, Sparkles, UserRound } from 'lucide-react';
+import { CalendarCheck, Check, Loader2, MapPin, Phone, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,7 @@ interface Options {
   groomers: {
     id: string;
     display_name: string;
+    photo_url?: string | null;
     offered_service_ids: string[];
     rates: { service_id: string; price: number | null; duration_minutes: number | null }[];
   }[];
@@ -345,7 +346,9 @@ export function PublicBookingPage() {
               onClick={() => setGroomer(ANYONE)}
               className={cn('flex items-center gap-3 rounded-lg border p-3 text-left', groomer === ANYONE ? 'border-primary bg-primary/10' : 'hover:bg-muted/60')}
             >
-              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </span>
               <span className="font-medium">{t('publicBooking.anyGroomer')}</span>
             </button>
             {eligible.map((g) => (
@@ -353,17 +356,16 @@ export function PublicBookingPage() {
                 key={g.id}
                 type="button"
                 onClick={() => setGroomer(g.id)}
-                className={cn('flex items-center justify-between gap-3 rounded-lg border p-3 text-left', groomer === g.id ? 'border-primary bg-primary/10' : 'hover:bg-muted/60')}
+                className={cn('flex items-center gap-3 rounded-lg border p-3 text-left', groomer === g.id ? 'border-primary bg-primary/10' : 'hover:bg-muted/60')}
               >
-                <span className="flex items-center gap-3">
-                  <UserRound className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{g.display_name}</span>
-                </span>
-                {serviceIds.length ? (
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    ${quoteForStaff(serviceIds, options.services, rates, g.id).price.toFixed(2)}
+                {g.photo_url ? (
+                  <img src={g.photo_url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-border" />
+                ) : (
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                    {g.display_name.split(/\s+/).map((p) => p[0] ?? '').join('').slice(0, 2).toUpperCase()}
                   </span>
-                ) : null}
+                )}
+                <span className="font-medium">{g.display_name}</span>
               </button>
             ))}
           </div>

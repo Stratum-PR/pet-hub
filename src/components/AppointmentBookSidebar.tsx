@@ -77,7 +77,7 @@ export function AppointmentBookSidebar({
   return (
     <aside
       className={cn(
-        'flex w-full shrink-0 flex-col gap-4 border-r border-border bg-card p-4 sm:h-full sm:w-72 sm:overflow-y-auto',
+        'flex w-full shrink-0 flex-col gap-5 border-r border-border bg-card px-4 py-4 sm:h-full sm:w-64 sm:overflow-y-auto',
         className,
       )}
     >
@@ -102,50 +102,54 @@ export function AppointmentBookSidebar({
           </button>
         </div>
 
-        <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-medium uppercase text-muted-foreground">
+        <div className="grid grid-cols-7 text-center text-[11px] font-medium uppercase text-muted-foreground">
           {dayAbbreviations.map((d, i) => (
-            <div key={i} className="py-1">
+            <div key={i} className="flex h-7 items-center justify-center">
               {d}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-y-0.5">
+        <div className="grid grid-cols-7">
           {days.map((day) => {
             const inMonth = isSameMonth(day, currentMonth);
             const selected = isSameDay(day, selectedDate);
             const today = isSameDay(day, new Date());
             const bookable = isBookableDate ? isBookableDate(day) : true;
             const busy = busyDayKeys?.has(format(day, 'yyyy-MM-dd'));
+            if (!inMonth) return <div key={day.toISOString()} className="h-8" aria-hidden />;
             return (
-              <button
-                key={day.toISOString()}
-                type="button"
-                disabled={!bookable}
-                title={!bookable ? t('apptBook.noBusinessHoursThisDay') : undefined}
-                onClick={() => bookable && onDateChange(day)}
-                className={cn(
-                  'relative mx-auto flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors',
-                  !inMonth && 'text-muted-foreground/40',
-                  !bookable && 'cursor-not-allowed text-muted-foreground/40',
-                  bookable && inMonth && !selected && 'text-foreground hover:bg-muted',
-                  today && !selected && 'font-semibold text-primary ring-1 ring-primary/40',
-                  selected && 'bg-primary font-semibold text-primary-foreground',
-                )}
-              >
-                {format(day, 'd')}
-                {busy && !selected ? (
-                  <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-primary/70" aria-hidden />
-                ) : null}
-              </button>
+              <div key={day.toISOString()} className="flex h-8 items-center justify-center">
+                <button
+                  type="button"
+                  disabled={!bookable}
+                  title={!bookable ? t('apptBook.noBusinessHoursThisDay') : undefined}
+                  onClick={() => bookable && onDateChange(day)}
+                  className={cn(
+                    'relative flex h-7 w-7 items-center justify-center rounded-full text-[13px] tabular-nums transition-colors',
+                    !bookable && 'cursor-not-allowed text-muted-foreground/45',
+                    bookable && !selected && 'text-foreground hover:bg-muted',
+                    today && !selected && 'font-semibold text-primary',
+                    selected && 'bg-primary font-semibold text-primary-foreground',
+                  )}
+                >
+                  {format(day, 'd')}
+                  {busy && bookable && !selected ? (
+                    <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary/60" aria-hidden />
+                  ) : null}
+                </button>
+              </div>
             );
           })}
         </div>
       </div>
 
       {showWeekJumpControls && onWeekJump ? (
-        <div className="border-t border-border pt-3">
-          <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('apptBook.jumpAhead')}</div>
-          <div className="flex flex-wrap gap-1">
+        <div className="border-t border-border pt-4">
+          <div className="mb-2 flex items-baseline justify-between">
+            <span className="text-xs font-medium text-muted-foreground">{t('apptBook.jumpAhead')}</span>
+            <span className="text-[11px] text-muted-foreground">{t('apptBook.weekJumpWeeksSuffix')}</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
             {WEEK_JUMP_OFFSETS.map((n) => (
               <button
                 key={n}
@@ -154,15 +158,16 @@ export function AppointmentBookSidebar({
                 aria-pressed={weekJumpOffset === n}
                 onClick={() => onWeekJump(n)}
                 className={cn(
-                  'h-7 min-w-7 rounded-md px-1.5 text-xs font-semibold transition-colors',
-                  weekJumpOffset === n ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-foreground hover:bg-muted',
+                  'h-7 rounded-md border text-xs font-medium tabular-nums transition-colors',
+                  weekJumpOffset === n
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-background text-foreground hover:bg-muted',
                 )}
               >
                 +{n}
               </button>
             ))}
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">{t('apptBook.weekJumpWeeksSuffix')}</div>
           {weekJumpNoAvailability ? (
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-400" role="status">
               {t('apptBook.noAvailabilityInWeek')}
@@ -172,7 +177,7 @@ export function AppointmentBookSidebar({
       ) : null}
 
       {daySummary ? (
-        <div className="border-t border-border pt-3">
+        <div className="border-t border-border pt-4">
           <div className="mb-2 text-xs font-medium capitalize text-muted-foreground">
             {format(selectedDate, 'EEEE d MMM', fmtOpts)}
           </div>
