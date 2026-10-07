@@ -91,6 +91,7 @@ function getPageTitle(
     if (sub === 'business') return t('nav.businessSettings');
     if (sub === 'booking') return t('nav.bookingSettings');
     if (sub === 'billing') return t('nav.subscription');
+    if (sub === 'payments') return t('nav.paymentSettings');
     return t('nav.settings');
   }
   const titles: Record<string, string> = {
@@ -112,6 +113,7 @@ function getPageTitle(
     payment: 'Payment',
     help: t('nav.help'),
     transactions: t('nav.transactions'),
+    'ath-simulador': t('payments.sim.title'),
     notifications: t('notifications.pageTitle'),
   };
   return titles[segment] || segment;
@@ -620,6 +622,11 @@ export function Layout({ children, settings }: LayoutProps) {
                           </Link>
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem asChild>
+                        <Link to={`${settingsBase}/payments`}>
+                          {t('nav.paymentSettings')}
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link to={`${settingsBase}/billing`}>
                           {t('nav.subscription')}

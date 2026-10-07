@@ -44,3 +44,11 @@ verify_jwt = true
 
 [functions.support-contact]
 verify_jwt = true
+
+[functions.payments]
+# Staff actions verify the user's JWT in code; ATH Móvil notifications arrive without one (?webhook=<key>).
+verify_jwt = false
+
+[functions.athm-simulator]
+# Test-mode ATH Móvil API (public like the real one, simulator tokens only); controls check the JWT in code.
+verify_jwt = false
