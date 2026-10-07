@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isSameDay } from 'date-fns';
 import { Globe, Plus } from 'lucide-react';
 import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
@@ -110,6 +110,19 @@ export function AppointmentBookDayGrid({
   }, [appointments, employees]);
 
   const totalHeight = slots.length * PX_PER_SLOT;
+
+  // On today, open scrolled near the current time; other days start at the top of the workday.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dayKey = selectedDate.toDateString();
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !range) return;
+    const n = new Date();
+    const now = n.getHours() * 60 + n.getMinutes();
+    const target = isSameDay(selectedDate, n) && now > range.start ? (now - 60 - range.start) * pxPerMinute : 0;
+    el.scrollTop = Math.max(0, target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayKey, range?.start]);
   const showNow = !!range && isSameDay(selectedDate, new Date()) && nowMin >= range.start && nowMin <= range.end;
 
   if (!range || employees.length === 0) {
@@ -122,7 +135,7 @@ export function AppointmentBookDayGrid({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background max-sm:h-auto">
-      <div className="min-h-0 min-w-0 flex-1 overflow-auto max-sm:flex-none max-sm:overflow-x-auto max-sm:overflow-y-visible">
+      <div ref={scrollRef} className="min-h-0 min-w-0 flex-1 overflow-auto max-sm:flex-none max-sm:overflow-x-auto max-sm:overflow-y-visible">
         <div className="min-w-full" style={{ minWidth: `${4 + employees.length * 9}rem` }}>
           {/* Column headers */}
           <div className="sticky top-0 z-30 flex border-b border-border bg-card">
