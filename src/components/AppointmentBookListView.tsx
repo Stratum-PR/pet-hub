@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { format, isSameDay } from 'date-fns';
+import {
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import { enUS, es as esLocale } from 'date-fns/locale';
 import {
   ArrowUpDown,
   Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
   Search,
   X,
 } from 'lucide-react';
@@ -55,12 +64,23 @@ function formatTime12H(timeRaw: string | null | undefined): string {
   return `${hour12}:${minutes} ${ampm}`;
 }
 
-function matchesStatusFilter(status: string | undefined, filter: string): boolean {
-  if (filter === 'all') return true;
-  const s = normalizeAppointmentStatus(status);
-  const f = normalizeAppointmentStatus(filter);
-  if (f === 'canceled') return s === 'canceled' || s === 'cancelled';
-  return s === f;
+const DATE_PRESETS = ['today', 'thisWeek', 'thisMonth', 'last30', 'next30'] as const;
+type DatePreset = (typeof DATE_PRESETS)[number];
+
+function presetRange(p: DatePreset): DateRange {
+  const now = new Date();
+  switch (p) {
+    case 'today':
+      return { from: startOfDay(now), to: startOfDay(now) };
+    case 'thisWeek':
+      return { from: startOfWeek(now, { weekStartsOn: 0 }), to: endOfWeek(now, { weekStartsOn: 0 }) };
+    case 'thisMonth':
+      return { from: startOfMonth(now), to: endOfMonth(now) };
+    case 'last30':
+      return { from: subDays(startOfDay(now), 29), to: startOfDay(now) };
+    case 'next30':
+      return { from: startOfDay(now), to: subDays(startOfDay(now), -29) };
+  }
 }
 
 function getStatusColor(status: string) {
@@ -97,19 +117,11 @@ export interface AppointmentBookListViewProps {
   services: Service[];
   employees: Employee[];
   calendarEmployees: CalendarStaff[];
-  selectedDate: Date;
-  onSelectDate: (d: Date) => void;
-  onPreviousDay: () => void;
-  onNextDay: () => void;
-  onToday: () => void;
   filters: CalendarFilters;
   onFilterChange: (key: keyof CalendarFilters, value: string | CalendarView) => void;
   canMarkNoShow?: boolean;
   onMarkNoShow?: (id: string) => void | Promise<void>;
   onEdit: (apt: Appointment) => void;
-  onClearFilters?: () => void;
-  /** Start in "all dates" (history) mode. */
-  initialScope?: 'day' | 'all';
   /** Only show this pet's appointments (from ?pet= deep links); clearable. */
   petFilterId?: string | null;
   onClearPetFilter?: () => void;
@@ -122,36 +134,34 @@ export function AppointmentBookListView({
   services,
   employees,
   calendarEmployees,
-  selectedDate,
-  onSelectDate,
-  onPreviousDay,
-  onNextDay,
-  onToday,
   filters,
   onFilterChange,
   canMarkNoShow = false,
   onMarkNoShow,
   onEdit,
-  onClearFilters,
-  initialScope = 'day',
   petFilterId = null,
   onClearPetFilter,
 }: AppointmentBookListViewProps) {
   const { language } = useLanguage();
   const dateFnsLocale = language === 'es' ? esLocale : enUS;
   const [search, setSearch] = useState('');
-  const [dateScope, setDateScope] = useState<'day' | 'all'>(petFilterId ? 'all' : initialScope);
+  // undefined = all dates; otherwise one day (from only) or a range.
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateOpen, setDateOpen] = useState(false);
   const [staffFilter, setStaffFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   // History opens on "recently booked" so a just-created appointment is at the top,
   // even when the business already has many future-dated bookings.
-  const [sortMode, setSortMode] = useState<'recent' | 'dateDesc' | 'dateAsc'>(initialScope === 'all' ? 'recent' : 'dateAsc');
+  const [sortMode, setSortMode] = useState<'recent' | 'dateDesc' | 'dateAsc'>('recent');
+
+  const dateRangeLabel = useMemo(() => {
+    if (!dateRange?.from) return t('apptBook.dateScopeAll');
+    const f = (d: Date, withYear: boolean) => format(d, withYear ? 'd MMM yyyy' : 'd MMM', { locale: dateFnsLocale });
+    if (!dateRange.to || isSameDay(dateRange.from, dateRange.to)) return f(dateRange.from, true);
+    return `${f(dateRange.from, false)} – ${f(dateRange.to, true)}`;
+  }, [dateRange, dateFnsLocale]);
   // History can hold thousands of rows; render in pages to keep the page fast.
   const PAGE_SIZE = 100;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-
-  const formatDateHeader = (date: Date) =>
-    format(date, 'EEEE, d MMMM yyyy', { locale: dateFnsLocale });
 
   const baseFiltered = useMemo(() => {
     let list = [...appointments];
@@ -168,15 +178,13 @@ export function AppointmentBookListView({
   const displayRows = useMemo(() => {
     let list = baseFiltered;
 
-    if (dateScope === 'day') {
+    if (dateRange?.from) {
+      const from = startOfDay(dateRange.from).getTime();
+      const to = endOfDay(dateRange.to ?? dateRange.from).getTime();
       list = list.filter((apt) => {
-        const d = parseAppointmentDate(apt);
-        return d != null && isSameDay(d, selectedDate);
+        const d = parseAppointmentDate(apt)?.getTime();
+        return d != null && d >= from && d <= to;
       });
-    }
-
-    if (statusFilter !== 'all') {
-      list = list.filter((apt) => matchesStatusFilter(apt.status, statusFilter));
     }
 
     const q = search.trim().toLowerCase();
@@ -213,9 +221,7 @@ export function AppointmentBookListView({
     return list;
   }, [
     baseFiltered,
-    dateScope,
-    selectedDate,
-    statusFilter,
+    dateRange,
     search,
     pets,
     clients,
@@ -229,7 +235,7 @@ export function AppointmentBookListView({
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, dateScope, staffFilter, statusFilter, petFilterId, sortMode, selectedDate]);
+  }, [search, dateRange, staffFilter, petFilterId, sortMode]);
 
   const listViewRows = useMemo(() => {
     return displayRows.slice(0, visibleCount).map((apt) => {
@@ -280,142 +286,123 @@ export function AppointmentBookListView({
   return (
     <div className="flex h-full min-h-0 flex-col bg-background max-sm:h-auto max-sm:min-h-0">
       <div className="shrink-0 border-b border-border bg-muted/30 px-3 py-3 sm:px-6 sm:py-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2 empty:hidden sm:gap-3">
-            {dateScope === 'day' ? (
-              <>
-            <Button variant="outline" size="sm" onClick={onToday} className="shrink-0 font-medium">
-              {t('appointments.today')}
-            </Button>
-            <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:flex-initial sm:justify-start">
-              <button
-                type="button"
-                onClick={onPreviousDay}
-                className="rounded p-1 hover:bg-muted"
-                aria-label={t('apptBook.navigatePrevious')}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1 sm:max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('apptBook.listSearchPlaceholder')}
+              className="h-9 rounded-lg border-border/50 bg-white/70 pl-10 pr-10 backdrop-blur-sm dark:bg-background/50"
+            />
+            {search ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                onClick={() => setSearch('')}
+                aria-label={t('apptBook.clearFilters')}
               >
-                <ChevronLeft className="h-5 w-5 text-muted-foreground" />
-              </button>
-              <span className="min-w-0 flex-1 px-1 text-center text-xs font-medium text-foreground sm:flex-initial sm:text-sm md:text-base">
-                {formatDateHeader(selectedDate)}
-              </span>
-              <button
-                type="button"
-                onClick={onNextDay}
-                className="rounded p-1 hover:bg-muted"
-                aria-label={t('apptBook.navigateNext')}
-              >
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </button>
-            </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label={t('appointments.selectDate')}>
-                  <CalendarIcon className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(d) => d && onSelectDate(d)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-              </>
+                <X className="h-3 w-3" />
+              </Button>
             ) : null}
           </div>
-
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <div className="relative min-w-0 flex-1 sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('apptBook.listSearchPlaceholder')}
-                className="h-9 rounded-lg border-border/50 bg-white/70 pl-10 pr-10 backdrop-blur-sm dark:bg-background/50"
-              />
-              {search ? (
+          <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:flex sm:flex-wrap sm:items-center">
+            {/* Dates: all, a quick period, one day or a custom range */}
+            <Popover open={dateOpen} onOpenChange={setDateOpen}>
+              <PopoverTrigger asChild>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                  onClick={() => setSearch('')}
-                  aria-label={t('apptBook.clearFilters')}
+                  variant="outline"
+                  className={cn('h-10 justify-start gap-2 font-normal', dateRange && 'border-primary/50 text-foreground')}
                 >
-                  <X className="h-3 w-3" />
+                  <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{dateRangeLabel}</span>
+                  {dateRange ? (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={t('apptBook.clearFilters')}
+                      className="-mr-1 ml-auto rounded p-0.5 hover:bg-muted"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDateRange(undefined);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.stopPropagation();
+                          setDateRange(undefined);
+                        }
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </span>
+                  ) : null}
                 </Button>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              <Select value={dateScope} onValueChange={(v) => setDateScope(v as 'day' | 'all')}>
-                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day">{t('apptBook.dateScopeDay')}</SelectItem>
-                  <SelectItem value="all">{t('apptBook.dateScopeAll')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={staffFilter} onValueChange={setStaffFilter}>
-                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto" aria-label={t('apptBook.columnEmployee')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('apptBook.allEmployees')}</SelectItem>
-                  {calendarEmployees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {formatStaffNameAggregated(emp.name)}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={UNASSIGNED_STAFF_ID}>{t('apptBook.unassigned')}</SelectItem>
-                </SelectContent>
-              </Select>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="flex flex-col sm:flex-row">
+                  <div className="flex flex-row flex-wrap gap-1 border-b p-2 sm:w-36 sm:flex-col sm:border-b-0 sm:border-r">
+                    {DATE_PRESETS.map((p) => (
+                      <Button
+                        key={p}
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => {
+                          setDateRange(presetRange(p));
+                          setDateOpen(false);
+                        }}
+                      >
+                        {t(`apptBook.datePreset.${p}`)}
+                      </Button>
+                    ))}
+                  </div>
+                  <div>
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={(r) => setDateRange(r?.from ? r : undefined)}
+                      defaultMonth={dateRange?.from}
+                      locale={dateFnsLocale}
+                      initialFocus
+                    />
+                    <p className="px-3 pb-3 text-xs text-muted-foreground">{t('apptBook.dateRangeHint')}</p>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-              <Select value={sortMode} onValueChange={(v) => setSortMode(v as typeof sortMode)}>
-                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto" aria-label={t('apptBook.sortBy')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">{t('apptBook.sortRecent')}</SelectItem>
-                  <SelectItem value="dateDesc">{t('apptBook.sortDateDesc')}</SelectItem>
-                  <SelectItem value="dateAsc">{t('apptBook.sortDateAsc')}</SelectItem>
-                </SelectContent>
-              </Select>
+            <Select value={staffFilter} onValueChange={setStaffFilter}>
+              <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto" aria-label={t('apptBook.columnEmployee')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('apptBook.allEmployees')}</SelectItem>
+                {calendarEmployees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {formatStaffNameAggregated(emp.name)}
+                  </SelectItem>
+                ))}
+                <SelectItem value={UNASSIGNED_STAFF_ID}>{t('apptBook.unassigned')}</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('apptBook.allStatuses')}</SelectItem>
-                  <SelectItem value="pending">{t('apptStatus.pending')}</SelectItem>
-                  <SelectItem value="scheduled">{t('apptStatus.scheduled')}</SelectItem>
-                  <SelectItem value="confirmed">{t('apptStatus.confirmed')}</SelectItem>
-                  <SelectItem value="in_progress">{t('apptStatus.inProgress')}</SelectItem>
-                  <SelectItem value="completed">{t('apptStatus.completed')}</SelectItem>
-                  <SelectItem value="canceled">{t('apptStatus.canceled')}</SelectItem>
-                  <SelectItem value="no_show">{t('apptStatus.noShow')}</SelectItem>
-                </SelectContent>
-              </Select>
-              {staffFilter !== 'all' || statusFilter !== 'all' || search ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-9"
-                  onClick={() => {
-                    setStaffFilter('all');
-                    setStatusFilter('all');
-                    setSearch('');
-                    onClearFilters?.();
-                  }}
-                >
-                  {t('apptBook.clearFilters')}
-                </Button>
-              ) : null}
-            </div>
+            <Select value={sortMode} onValueChange={(v) => setSortMode(v as typeof sortMode)}>
+              <SelectTrigger className="col-span-2 w-full min-w-0 gap-2 sm:col-span-1 sm:w-auto" aria-label={t('apptBook.sortBy')}>
+                <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+                  <ArrowUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="shrink-0 text-muted-foreground">{t('apptBook.sortBy')}:</div>
+                  <div className="min-w-0 truncate font-medium">
+                    <SelectValue />
+                  </div>
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">{t('apptBook.sortRecent')}</SelectItem>
+                <SelectItem value="dateDesc">{t('apptBook.sortDateDesc')}</SelectItem>
+                <SelectItem value="dateAsc">{t('apptBook.sortDateAsc')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
