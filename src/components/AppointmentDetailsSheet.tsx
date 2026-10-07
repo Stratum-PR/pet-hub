@@ -15,6 +15,7 @@ import {
   Mail,
   Phone,
   Play,
+  ReceiptText,
   UserX,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -31,6 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { openQuickCharge } from '@/components/QuickChargeDialog';
 import { t } from '@/lib/translations';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { Appointment, BusinessClient, Pet, Service } from '@/hooks/useBusinessData';
@@ -57,6 +59,8 @@ interface Props {
   employees: Employee[];
   canMarkNoShow: boolean;
   businessSlug: string | null;
+  /** Show the "Cobrar" button (managers with checkout access). */
+  canCharge?: boolean;
   /** Returns true on success. */
   onSetStatus: (apt: Appointment, status: 'confirmed' | 'in_progress' | 'completed' | 'canceled' | 'no_show') => Promise<boolean>;
   onEdit: (apt: Appointment) => void;
@@ -73,6 +77,7 @@ export function AppointmentDetailsSheet({
   employees,
   canMarkNoShow,
   businessSlug,
+  canCharge = false,
   onSetStatus,
   onEdit,
   onOpenRequests,
@@ -96,11 +101,24 @@ export function AppointmentDetailsSheet({
   const end = normalizeHHmm(apt.end_time);
   const status = normalizeAppointmentStatus(apt.status);
   const terminal = isTerminalAppointmentStatus(apt.status);
+  const paidTxnId = apt.transaction_id ?? null;
+  const openChargePanel = () =>
+    openQuickCharge({
+      appointmentId: apt.id,
+      clientId: apt.client_id ?? null,
+      serviceIds: ids,
+      fallbackPrice: apt.total_price ?? apt.price ?? null,
+      label: [pet?.name, svc.map((s) => s.name).join(', ')].filter(Boolean).join(' · ') || null,
+    });
+  // Services' list prices (before tax and tip); the charge panel shows the full total.
+  const chargeDollars = svc.length ? svc.reduce((s, x) => s + Number(x.price || 0), 0) : Number(apt.total_price ?? apt.price ?? 0);
 
   const act = async (key: string, s: Parameters<Props['onSetStatus']>[1]) => {
     setBusy(key);
     const ok = await onSetStatus(apt, s);
     setBusy(null);
+    // Finishing an appointment that hasn't been charged goes straight to the charge panel.
+    if (ok && s === 'completed' && canCharge && !apt.transaction_id) openChargePanel();
     if (ok && (s === 'canceled' || s === 'no_show')) onOpenChange(false);
   };
 
@@ -189,6 +207,23 @@ export function AppointmentDetailsSheet({
                 <Inbox className="mr-2 h-4 w-4" /> {t('details.reviewRequest')}
               </Button>
             ) : null}
+            {paidTxnId ? (
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => navigate(`${prefix}/transactions/${encodeURIComponent(paidTxnId)}`)}
+              >
+                <ReceiptText className="mr-2 h-4 w-4" /> {t('details.viewSale')}
+              </Button>
+            ) : canCharge && !['canceled', 'cancelled', 'no-show', 'pending'].includes(status) ? (
+              <Button
+                className="h-11 w-full text-base"
+                onClick={openChargePanel}
+              >
+                <CreditCard className="mr-2 h-5 w-5" /> {t('details.charge')}
+                {chargeDollars > 0 ? ` $${chargeDollars.toFixed(2)}` : ''}
+              </Button>
+            ) : null}
             {status === 'scheduled' ? (
               <Button className="w-full" variant="outline" disabled={!!busy} onClick={() => void act('confirm', 'confirmed')}>
                 {busy === 'confirm' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
@@ -196,24 +231,15 @@ export function AppointmentDetailsSheet({
               </Button>
             ) : null}
             {status === 'scheduled' || status === 'confirmed' ? (
-              <Button className="w-full" disabled={!!busy} onClick={() => void act('start', 'in_progress')}>
+              <Button className="w-full" variant="outline" disabled={!!busy} onClick={() => void act('start', 'in_progress')}>
                 {busy === 'start' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                 {t('details.start')}
               </Button>
             ) : null}
             {status === 'in-progress' ? (
-              <Button className="w-full" disabled={!!busy} onClick={() => void act('complete', 'completed')}>
+              <Button className="w-full" variant="outline" disabled={!!busy} onClick={() => void act('complete', 'completed')}>
                 {busy === 'complete' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCheck className="mr-2 h-4 w-4" />}
                 {t('details.complete')}
-              </Button>
-            ) : null}
-            {status === 'in-progress' || status === 'completed' ? (
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => navigate(`${prefix}/transactions/new?appointmentId=${encodeURIComponent(apt.id)}`)}
-              >
-                <CreditCard className="mr-2 h-4 w-4" /> {t('details.checkout')}
               </Button>
             ) : null}
             {!terminal ? (

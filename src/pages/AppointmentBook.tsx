@@ -44,6 +44,8 @@ import { GroomerServicesSettings } from '@/components/GroomerServicesSettings';
 import { BookingFormDialog } from '@/components/BookingFormDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { useAppointments, usePets, useServices, useClients, type Appointment } from '@/hooks/useBusinessData';
+import { useFeatureRollout } from '@/hooks/useFeatureRollout';
+import { QUICK_CHARGE_DONE_EVENT } from '@/components/QuickChargeDialog';
 import { useEmployeeShifts, useEmployees, useSettings } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -174,6 +176,8 @@ export function AppointmentBook() {
   const dateFnsLocale = language === 'es' ? esLocale : enUS;
   const { role, profile, staffId: myStaffId, user } = useAuth();
   const isManager = role === 'manager' || role === 'super_admin' || !!profile?.is_super_admin;
+  const { isFeatureVisible } = useFeatureRollout();
+  const canCharge = isManager && isFeatureVisible('transaction_create');
 
   const tab = tabFromPath(location.pathname);
   const goTab = useCallback(
@@ -216,6 +220,14 @@ export function AppointmentBook() {
   useEffect(() => {
     if (fetchError) devConsole.warn('[AppointmentBook] load error', fetchError);
   }, [fetchError]);
+  // A sale saved from the charge panel marks its appointment billed: refresh so the panel shows "Ver venta".
+  useEffect(() => {
+    const h = () => void refetchAppointments();
+    window.addEventListener(QUICK_CHARGE_DONE_EVENT, h);
+    return () => window.removeEventListener(QUICK_CHARGE_DONE_EVENT, h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const refetchAll = () => {
     void refetchAppointments();
     void refetchPets();
@@ -777,6 +789,7 @@ export function AppointmentBook() {
         employees={employees}
         canMarkNoShow={isManager}
         businessSlug={businessSlug}
+        canCharge={canCharge}
         onSetStatus={setStatus}
         onEdit={(apt) => {
           setDetailsId(null);
