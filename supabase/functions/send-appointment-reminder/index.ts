@@ -35,9 +35,10 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@grumi.pet>";
+const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>";
+const FALLBACK_FROM = "Grumi <no-reply@grumi.pet>";
 
-/** Sends via Resend from noreply@grumi.pet. */
+/** Sends via Resend from NOTIFY_FROM_EMAIL (default no-reply@grumi.pet); if a custom sender's domain isn't verified, retries from no-reply@grumi.pet. */
 async function sendResend(resendKey: string, payload: Record<string, unknown>): Promise<Response> {
   const post = (sender: string) =>
     fetch("https://api.resend.com/emails", {
@@ -46,7 +47,13 @@ async function sendResend(resendKey: string, payload: Record<string, unknown>): 
       body: JSON.stringify({ ...payload, from: sender }),
     });
   const from = NO_REPLY_FROM();
-  return post(from);
+  const res = await post(from);
+  if (res.ok || from === FALLBACK_FROM) return res;
+  const body = await res.text();
+  if ((res.status === 403 || res.status === 422) && /domain/i.test(body) && /verif/i.test(body)) {
+    return post(FALLBACK_FROM);
+  }
+  return new Response(body, { status: res.status });
 }
 
 Deno.serve(async (req) => {
@@ -168,10 +175,10 @@ Deno.serve(async (req) => {
     }
   }
 
-  const dtLabel = appointmentAt.toLocaleString("es-PR", {
-    dateStyle: "full",
-    timeStyle: "short",
-  });
+  // Date in Spanish, time as the app's simplified clock ("1 PM", "1:30 PM").
+  const [th, tm] = String(apt.start_time ?? "00:00").split(":").map(Number);
+  const timeLabel = `${th % 12 || 12}${tm ? `:${String(tm).padStart(2, "0")}` : ""} ${th >= 12 ? "PM" : "AM"}`;
+  const dtLabel = `${appointmentAt.toLocaleDateString("es-PR", { dateStyle: "full" })}, ${timeLabel}`;
   const businessName = business?.name ?? "Grumi";
   const petName = pet?.name ?? "Mascota";
   const serviceType = apt.service_type ?? "Servicio";

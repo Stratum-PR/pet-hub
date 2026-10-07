@@ -1,14 +1,15 @@
 import { format } from 'date-fns';
+import { formatT } from '@/lib/timeFormat';
 import * as XLSX from 'xlsx';
 import type { Employee, TimeEntry } from '@/types';
 
 export function formatClockInsForExport(entries: TimeEntry[]): string {
-  const lines = entries.filter((e) => e.clock_out).map((e) => format(new Date(e.clock_in), 'h:mm a'));
+  const lines = entries.filter((e) => e.clock_out).map((e) => formatT(new Date(e.clock_in), 'h:mm a'));
   return lines.length ? lines.join('\n') : '—';
 }
 
 export function formatClockOutsForExport(entries: TimeEntry[]): string {
-  const lines = entries.filter((e) => e.clock_out).map((e) => format(new Date(e.clock_out!), 'h:mm a'));
+  const lines = entries.filter((e) => e.clock_out).map((e) => formatT(new Date(e.clock_out!), 'h:mm a'));
   return lines.length ? lines.join('\n') : '—';
 }
 

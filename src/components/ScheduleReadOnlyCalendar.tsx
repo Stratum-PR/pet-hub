@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { clock12, formatT } from '@/lib/timeFormat';
 import { Card, CardContent } from '@/components/ui/card';
 import { format, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -19,12 +20,7 @@ function generateTimeSlots(startMinutes: number, endMinutes: number) {
   for (let m = startMinutes; m < endMinutes; m += MINUTES_PER_SLOT) {
     const h = Math.floor(m / 60);
     const min = m % 60;
-    const label =
-      h === 12 && min === 0
-        ? '12:00 PM'
-        : h < 12
-          ? `${h}:${min.toString().padStart(2, '0')} AM`
-          : `${h === 12 ? 12 : h - 12}:${min.toString().padStart(2, '0')} PM`;
+    const label = clock12(h, min);
     slots.push({ hour: h, minute: min, label });
   }
   return slots;
@@ -41,8 +37,8 @@ function shiftPositionFromTimes(startTime: string, endTime: string, rangeStartMi
 }
 
 function getShiftLabel(startIso: string, endIso: string): string {
-  const start = format(new Date(startIso), 'h:mm');
-  const end = format(new Date(endIso), 'h:mm a');
+  const start = formatT(new Date(startIso), 'h:mm');
+  const end = formatT(new Date(endIso), 'h:mm a');
   const hours = scheduledHoursBetween(startIso, endIso);
   return `${start} – ${end} (${formatHours1Decimal(hours)})`;
 }

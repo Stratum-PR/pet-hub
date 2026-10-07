@@ -1,5 +1,6 @@
 /** Renders receipt content for printing (80mm thermal). Use in a window opened for print. */
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
+import { clock12 } from '@/lib/timeFormat';
 import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
 
 function fromCents(c: number): number {
@@ -10,7 +11,7 @@ function fromCents(c: number): number {
 function formatReceiptDate(iso: string): string {
   const d = new Date(iso);
   const date = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+  const time = clock12(d.getHours(), d.getMinutes());
   return `${date} ${time}`;
 }
 

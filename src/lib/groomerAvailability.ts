@@ -13,6 +13,7 @@
  *   block a specific groomer, but it consumes one groomer of capacity for that time.
  */
 import { format } from 'date-fns';
+import { clock12 } from '@/lib/timeFormat';
 import {
   coerceDayClosedFlag,
   DEFAULT_DAY_HOURS,
@@ -73,13 +74,12 @@ export function normalizeHHmm(raw: string | null | undefined): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/** "14:30" → "2:30 PM" */
+/** "14:30" → "2:30 PM", "14:00" → "2 PM" */
 export function formatTime12h(hhmm: string): string {
   const n = normalizeHHmm(hhmm);
   if (!n) return hhmm;
   const [h, m] = n.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  return clock12(h, m);
 }
 
 export function intersect(a: Interval, b: Interval): Interval | null {

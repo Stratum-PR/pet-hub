@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { CheckCircle, XCircle, Clock, User, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -130,12 +131,12 @@ export function TimeEditApproval() {
                           <div>
                             <span className="text-muted-foreground">Clock In: </span>
                             {timeEntry.clock_in &&
-                              format(new Date(timeEntry.clock_in), 'MMM d, h:mm a')}
+                              formatT(new Date(timeEntry.clock_in), 'MMM d, h:mm a')}
                           </div>
                           {timeEntry.clock_out && (
                             <div>
                               <span className="text-muted-foreground">Clock Out: </span>
-                              {format(new Date(timeEntry.clock_out), 'MMM d, h:mm a')}
+                              {formatT(new Date(timeEntry.clock_out), 'MMM d, h:mm a')}
                             </div>
                           )}
                           {timeEntry.notes && (
@@ -156,13 +157,13 @@ export function TimeEditApproval() {
                       {changes.clock_in && (
                         <div>
                           <span className="text-muted-foreground">Clock In: </span>
-                          {format(new Date(changes.clock_in), 'MMM d, h:mm a')}
+                          {formatT(new Date(changes.clock_in), 'MMM d, h:mm a')}
                         </div>
                       )}
                       {changes.clock_out && (
                         <div>
                           <span className="text-muted-foreground">Clock Out: </span>
-                          {format(new Date(changes.clock_out), 'MMM d, h:mm a')}
+                          {formatT(new Date(changes.clock_out), 'MMM d, h:mm a')}
                         </div>
                       )}
                       {changes.notes !== undefined && (

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { clock12FromHHmm } from '@/lib/timeFormat';
 import { Calendar as CalendarIcon, Clock, User, Dog, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,13 +48,7 @@ const TIME_SLOTS_24H = [
 ];
 
 // Convert 24-hour time to 12-hour AM/PM format
-const formatTime12H = (time24: string): string => {
-  const [hours, minutes] = time24.split(':');
-  const hour = parseInt(hours);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${minutes} ${ampm}`;
-};
+const formatTime12H = (time24: string): string => clock12FromHHmm(time24);
 
 interface EditAppointmentDialogProps {
   open: boolean;

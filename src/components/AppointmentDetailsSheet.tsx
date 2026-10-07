@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { format } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -175,7 +176,7 @@ export function AppointmentDetailsSheet({
               <p className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
                 {t('requests.decidedBy', {
                   name: decider ? formatStaffNameAggregated(decider.name) : t('requests.deciderUnknown'),
-                  when: format(new Date(apt.decided_at), 'd MMM, h:mm a', { locale }),
+                  when: formatT(new Date(apt.decided_at), 'd MMM, h:mm a', { locale }),
                 })}{' '}
                 · {t('requests.internalOnly')}
               </p>

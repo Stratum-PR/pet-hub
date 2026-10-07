@@ -10,7 +10,7 @@
 //
 // Secrets (supabase secrets set …)
 //   RESEND_API_KEY            required for email
-//   NOTIFY_FROM_EMAIL         optional, default "Grumi <noreply@grumi.pet>"
+//   NOTIFY_FROM_EMAIL         optional, default "Grumi <no-reply@grumi.pet>"
 //   TWILIO_ACCOUNT_SID        optional, enables SMS
 //   TWILIO_AUTH_TOKEN         optional, enables SMS
 //   TWILIO_FROM_NUMBER        optional, enables SMS (E.164, e.g. +17875550100)
@@ -20,9 +20,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
 type Kind = "confirmed" | "declined" | "proposed_time" | "rescheduled" | "canceled";
 const KINDS: Kind[] = ["confirmed", "declined", "proposed_time", "rescheduled", "canceled"];
 
-const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@grumi.pet>";
+const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>";
+const FALLBACK_FROM = "Grumi <no-reply@grumi.pet>";
 
-/** Sends via Resend from noreply@grumi.pet. */
+/** Sends via Resend from NOTIFY_FROM_EMAIL (default no-reply@grumi.pet); if a custom sender's domain isn't verified, retries from no-reply@grumi.pet. */
 async function sendResend(resendKey: string, payload: Record<string, unknown>): Promise<Response> {
   const post = (sender: string) =>
     fetch("https://api.resend.com/emails", {
@@ -31,7 +32,13 @@ async function sendResend(resendKey: string, payload: Record<string, unknown>): 
       body: JSON.stringify({ ...payload, from: sender }),
     });
   const from = NO_REPLY_FROM();
-  return post(from);
+  const res = await post(from);
+  if (res.ok || from === FALLBACK_FROM) return res;
+  const body = await res.text();
+  if ((res.status === 403 || res.status === 422) && /domain/i.test(body) && /verif/i.test(body)) {
+    return post(FALLBACK_FROM);
+  }
+  return new Response(body, { status: res.status });
 }
 
 function corsHeaders(req: Request): Record<string, string> {
@@ -63,7 +70,8 @@ function esc(s: string): string {
 function time12(hhmm: string | null): string {
   if (!hhmm) return "";
   const [h, m] = hhmm.split(":").map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+  // Simplified clock: "1 PM", "1:30 PM".
+  return `${h % 12 || 12}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h >= 12 ? "PM" : "AM"}`;
 }
 
 function dateLabel(ymd: string | null): string {

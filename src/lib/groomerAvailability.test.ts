@@ -31,7 +31,9 @@ describe('time helpers', () => {
   });
   it('formats 12h', () => {
     expect(formatTime12h('00:15')).toBe('12:15 AM');
-    expect(formatTime12h('13:00:00')).toBe('1:00 PM');
+    expect(formatTime12h('13:00:00')).toBe('1 PM');
+    expect(formatTime12h('13:30')).toBe('1:30 PM');
+    expect(formatTime12h('00:00')).toBe('12 AM');
   });
 });
 

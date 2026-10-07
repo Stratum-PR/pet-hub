@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { formatT } from '@/lib/timeFormat';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
@@ -193,7 +194,7 @@ export async function downloadEmployeeTimesheetPdf(opts: {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(72, 72, 72);
-  doc.text(`Generated: ${format(new Date(), 'MMM d, yyyy h:mm a')}`, margin, yPos);
+  doc.text(`Generated: ${formatT(new Date(), 'MMM d, yyyy h:mm a')}`, margin, yPos);
   doc.setTextColor(0, 0, 0);
   yPos += 12;
 

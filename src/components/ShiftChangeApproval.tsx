@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -158,8 +159,8 @@ export function ShiftChangeApproval() {
                 {prev && (
                   <div className="p-3 bg-muted rounded-lg text-sm">
                     <span className="font-medium">{t('schedule.shiftApproval.previousShift')}: </span>
-                    {format(new Date(prev.start_time), 'MMM d, h:mm a')} –{' '}
-                    {format(new Date(prev.end_time), 'h:mm a')}
+                    {formatT(new Date(prev.start_time), 'MMM d, h:mm a')} –{' '}
+                    {formatT(new Date(prev.end_time), 'h:mm a')}
                   </div>
                 )}
 
@@ -168,8 +169,8 @@ export function ShiftChangeApproval() {
                   request.proposed_end_time && (
                     <div className="p-3 bg-primary/10 rounded-lg text-sm">
                       <span className="font-medium">{t('schedule.shiftApproval.proposed')}: </span>
-                      {format(new Date(request.proposed_start_time), 'MMM d, h:mm a')} –{' '}
-                      {format(new Date(request.proposed_end_time), 'h:mm a')}
+                      {formatT(new Date(request.proposed_start_time), 'MMM d, h:mm a')} –{' '}
+                      {formatT(new Date(request.proposed_end_time), 'h:mm a')}
                     </div>
                   )}
 
