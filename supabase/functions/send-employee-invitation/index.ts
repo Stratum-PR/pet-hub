@@ -1,6 +1,6 @@
 // Sends staff portal invitation email via Resend. verify_jwt = false; validates JWT in-handler.
 // Secrets: RESEND_API_KEY, APP_URL or SITE_URL (public site origin; optional if invite is sent from the live app),
-// SUPABASE_* (auto), optional ALLOWED_ORIGINS, optional NOTIFY_FROM_EMAIL (default "Grumi <no-reply@grumi.pet>")
+// SUPABASE_* (auto), optional ALLOWED_ORIGINS, optional NOTIFY_FROM_EMAIL (default "Grumi <noreply@grumi.pet>")
 // Invite link base: APP_URL/SITE_URL if set; else request Origin (https://yourapp.com from browser); else http://localhost:8080.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
   const bizName = body.business_name?.trim() || "Tu negocio";
 
   const resendPayload = JSON.stringify({
-    from: Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>",
+    from: Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@grumi.pet>",
     to: [email],
     subject: `${bizName} te invita a unirte a Grumi`,
     html: `
@@ -318,19 +318,6 @@ Deno.serve(async (req) => {
     );
   }
   clearTimeout(resendTimeout);
-
-  // If grumi.pet isn't verified in Resend yet, resend from the previous sender instead of failing.
-  if (!resendResponse.ok && (resendResponse.status === 403 || resendResponse.status === 422)) {
-    const firstTxt = await resendResponse.clone().text();
-    if (/domain/i.test(firstTxt) && /verif/i.test(firstTxt)) {
-      const fallbackPayload = JSON.stringify({ ...JSON.parse(resendPayload), from: "Grumi <noreply@stratumpr.com>" });
-      resendResponse = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: fallbackPayload,
-      });
-    }
-  }
 
   if (!resendResponse.ok) {
     const txt = await resendResponse.text();

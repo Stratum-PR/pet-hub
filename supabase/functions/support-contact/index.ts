@@ -6,8 +6,7 @@
 // business and account come from the session, not from the form. Max 5 messages per user per hour.
 //
 // Emails: (1) to the support inbox, Reply-To = the customer; (2) a copy to the customer's account email,
-// both sent FROM support@grumi.pet so replies land in the Support inbox. If grumi.pet isn't verified in
-// Resend yet, the sender falls back to FALLBACK_FROM so nothing is lost.
+// both sent FROM support@grumi.pet so replies land in the Support inbox.
 //
 // Secrets: RESEND_API_KEY (or NOTIFY_RESEND_API_KEY), SUPPORT_INBOX_EMAIL (default support@grumi.pet),
 //          SUPPORT_FROM_EMAIL (default "Grumi Soporte <support@grumi.pet>").
@@ -23,9 +22,8 @@ const TOPICS: Record<string, string> = {
 const recentByUser = new Map<string, number[]>();
 const SUPPORT_INBOX = () => Deno.env.get("SUPPORT_INBOX_EMAIL") ?? "support@grumi.pet";
 const SUPPORT_FROM = () => Deno.env.get("SUPPORT_FROM_EMAIL") ?? "Grumi Soporte <support@grumi.pet>";
-const FALLBACK_FROM = "Grumi <noreply@stratumpr.com>";
 
-/** Sends via Resend from `from`; if that sender's domain isn't verified yet, retries from FALLBACK_FROM. */
+/** Sends via Resend from the given sender. */
 async function sendEmail(resendKey: string, from: string, payload: Record<string, unknown>): Promise<Response> {
   const post = (sender: string) =>
     fetch("https://api.resend.com/emails", {
@@ -33,14 +31,7 @@ async function sendEmail(resendKey: string, from: string, payload: Record<string
       headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, from: sender }),
     });
-  const res = await post(from);
-  if (res.ok || from === FALLBACK_FROM) return res;
-  const body = await res.text();
-  if ((res.status === 403 || res.status === 422) && /domain/i.test(body) && /verif/i.test(body)) {
-    console.warn("support-contact: sender domain not verified yet, using fallback sender");
-    return post(FALLBACK_FROM);
-  }
-  return new Response(body, { status: res.status });
+  return post(from);
 }
 
 function corsHeaders(req: Request): Record<string, string> {

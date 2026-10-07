@@ -13,8 +13,8 @@ Code: `supabase/functions/notify-appointment/index.ts` (called from `src/lib/app
 
 ## 1. Email first (free, already set up)
 
-The project already sends email through [Resend](https://resend.com) (`RESEND_API_KEY`, sender
-`noreply@stratumpr.com`). Resend's free plan allows 100 emails/day and 3,000/month, which is plenty for testing.
+The project sends email through [Resend](https://resend.com) (`RESEND_API_KEY`, sender
+`no-reply@grumi.pet`; the Help form sends from `support@grumi.pet`). Resend's free plan allows 100 emails/day and 3,000/month, which is plenty for testing.
 
 ```bash
 # from the repo root, logged in to the Supabase CLI and linked to the project
@@ -22,7 +22,7 @@ supabase db push                                   # applies 20261005120000_sche
 supabase functions deploy notify-appointment       # JWT is verified (see supabase/config.toml)
 supabase secrets set ALLOWED_ORIGINS="https://<your-app-domain>,http://localhost:8080"
 # Optional: a different sender (must be on a domain verified in Resend)
-supabase secrets set NOTIFY_FROM_EMAIL="Grumi <citas@stratumpr.com>"
+supabase secrets set NOTIFY_FROM_EMAIL="Grumi <citas@grumi.pet>"
 ```
 
 `notify-appointment` uses `NOTIFY_RESEND_API_KEY` when it is set (a key just for appointment emails) and
