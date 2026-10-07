@@ -1,0 +1,24 @@
+# Grumi's ATH Móvil simulator for the local test stack (security review G-12).
+# Started by `npm run test:env:up` AFTER the local Supabase stack, because it joins that stack's network.
+#   Host:    http://localhost:55430  (customer "phone" page + /simulator/* controls used by the tests)
+#   Network: http://ath-simulator:4010 (what the payments Edge Function calls in "real" mode)
+name: grumi-test-ath
+services:
+  ath-simulator:
+    build: ./ath-simulator
+    container_name: grumi-test-ath-simulator
+    ports:
+      - "127.0.0.1:55430:4010"
+    environment:
+      # publicToken:privateToken:Business name. Fake tokens only; never real ATH Business keys.
+      SIM_BUSINESSES: "grumi_test_public_token:grumi_test_private_token:Grumi Test Groomers"
+      SIM_TIME_SCALE: "1"
+      SIM_AUTO_APPROVE_MS: "1500"
+    networks:
+      supabase:
+        aliases:
+          - ath-simulator
+networks:
+  supabase:
+    name: supabase_network_grumi-test
+    external: true

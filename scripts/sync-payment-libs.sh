@@ -13,4 +13,6 @@ for fn in payments; do
 done
 mkdir -p supabase/functions/athm-simulator/lib
 cp "$SRC"/simulator/athmovil/core.mjs supabase/functions/athm-simulator/lib/core.mjs
+# Local Docker test stack (test-env/): the package's Node simulator server, same core.
+cp "$SRC"/simulator/athmovil/core.mjs "$SRC"/simulator/athmovil/server.mjs test-env/ath-simulator/
 echo "payments libs synced from $SRC ($(git -C "$SRC" rev-parse --short HEAD))"

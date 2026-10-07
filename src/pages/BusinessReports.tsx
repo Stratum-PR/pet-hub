@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { isRevenueSale } from '@/types/transactions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -9,7 +10,6 @@ import { t } from '@/lib/translations';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { devConsole } from '@/lib/clientDebug';
 
-const SALE_STATUSES = ['paid', 'partial'];
 const REVENUE_PERIOD_DAYS = 30;
 
 export function BusinessReports() {
@@ -25,7 +25,7 @@ export function BusinessReports() {
   const [weeklyRegistrations, setWeeklyRegistrations] = useState<any[]>([]);
 
   const sales = useMemo(
-    () => transactions.filter((t) => SALE_STATUSES.includes(t.status)),
+    () => transactions.filter(isRevenueSale),
     [transactions]
   );
 

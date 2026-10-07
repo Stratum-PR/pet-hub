@@ -31,6 +31,13 @@ export interface Transaction {
   change_given: number | null;
   notes: string | null;
   transaction_number: number | null;
+  /** Charged in test mode (ATH Móvil simulator). Set only by the server; never counts as revenue. */
+  is_test?: boolean;
+}
+
+/** Paid/partial sales that count as revenue (test-mode sales excluded, security review G-1). */
+export function isRevenueSale(t: Pick<Transaction, 'status' | 'is_test'>): boolean {
+  return (t.status === 'paid' || t.status === 'partial') && !t.is_test;
 }
 
 export interface TaxSnapshotItem {

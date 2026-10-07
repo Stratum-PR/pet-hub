@@ -6,6 +6,7 @@ import { CheckCircle, Loader2 } from 'lucide-react';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { TestSaleBadge } from '@/components/TestSaleBadge';
 import { Badge } from '@/components/ui/badge';
 import { SearchFilter } from '@/components/SearchFilter';
 import { useBusinessId } from '@/hooks/useBusinessId';
@@ -273,6 +274,7 @@ export function Transactions() {
                           >
                             {statusLabel}
                           </Badge>
+                          {txn.is_test ? <TestSaleBadge /> : null}
                           <span className="text-xs text-muted-foreground break-words">
                             {PAYMENT_METHOD_LABELS[txn.payment_method] || txn.payment_method}
                           </span>
@@ -376,6 +378,7 @@ export function Transactions() {
                                 ? (STATUS_LABELS[txn.status] || txn.status)
                                 : getPaymentStatusLabel(txn.amount_tendered ?? 0, txn.total)}
                             </Badge>
+                            {txn.is_test ? <TestSaleBadge className="mt-1" /> : null}
                           </td>
                           <td className="px-2 py-3 align-top break-words text-xs sm:text-sm">
                             {PAYMENT_METHOD_LABELS[txn.payment_method] || txn.payment_method}

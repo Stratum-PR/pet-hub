@@ -2243,6 +2243,7 @@ export type Database = {
           discount_amount: number
           discount_label: string | null
           id: string
+          is_test: boolean
           notes: string | null
           payment_method: string
           payment_method_secondary: string | null
@@ -2265,6 +2266,7 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           id?: string
+          is_test?: boolean
           notes?: string | null
           payment_method: string
           payment_method_secondary?: string | null
@@ -2287,6 +2289,7 @@ export type Database = {
           discount_amount?: number
           discount_label?: string | null
           id?: string
+          is_test?: boolean
           notes?: string | null
           payment_method?: string
           payment_method_secondary?: string | null

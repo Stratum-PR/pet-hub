@@ -1,4 +1,5 @@
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { isRevenueSale } from '@/types/transactions';
 import { formatT } from '@/lib/timeFormat';
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react';
 import {
@@ -319,7 +320,7 @@ export function Dashboard({
   }, [dashboardPeriod, customRangeStart, customRangeEnd, today]);
 
   const { growthPct, periodRevenueDollars } = useMemo(() => {
-    const sales = transactions.filter((t) => SALE_STATUSES.includes(t.status as any));
+    const sales = transactions.filter(isRevenueSale);
     const len = differenceInCalendarDays(periodEnd, periodStart) + 1;
     const prevEnd = subDays(periodStart, 1);
     const prevStart = subDays(prevEnd, len - 1);
@@ -350,7 +351,7 @@ export function Dashboard({
 
   /** Paid/partial totals per bucket; window matches dashboard period filter. */
   const periodRevenueChartData = useMemo((): DashboardRevenueChartPoint[] => {
-    const sales = transactions.filter((t) => SALE_STATUSES.includes(t.status as any));
+    const sales = transactions.filter(isRevenueSale);
     const locale = language === 'es' ? dateFnsEs : undefined;
     const spanDays = differenceInCalendarDays(periodEnd, periodStart) + 1;
 
@@ -522,6 +523,7 @@ export function Dashboard({
         .select('appointment_id, transaction_line_items(name, line_total, type)')
         .eq('business_id', businessId)
         .in('status', ['paid', 'partial'])
+        .eq('is_test', false)
         .gte('created_at', startIso)
         .lt('created_at', endExclusive);
 

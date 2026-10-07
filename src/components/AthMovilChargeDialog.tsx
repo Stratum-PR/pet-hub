@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { t } from '@/lib/translations';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   ATH_MAX_CENTS,
   ATH_MIN_CENTS,
@@ -51,6 +52,8 @@ export function AthMovilChargeDialog({
   onPaid,
 }: Props) {
   const slug = useResolvedBusinessSlug();
+  const { role } = useAuth();
+  const canPlayCustomer = role === 'manager' || role === 'super_admin';
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
@@ -208,12 +211,14 @@ export function AthMovilChargeDialog({
                 {t('payments.charge.sentTo', { last4: payment?.phoneLast4 ?? '' })} · {mmss}
               </p>
             </div>
-            {mode === 'simulator' && slug ? (
+            {mode === 'simulator' && slug && canPlayCustomer ? (
               <Button variant="outline" size="sm" className="gap-1.5" asChild>
                 <a href={`/${slug}/ath-simulador`} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4" /> {t('payments.sim.openPhone')}
                 </a>
               </Button>
+            ) : mode === 'simulator' ? (
+              <p className="text-xs text-muted-foreground">{t('payments.sim.managerApproves')}</p>
             ) : null}
             <div>
               <Button variant="ghost" onClick={() => void cancelCharge()} disabled={busy || approving}>

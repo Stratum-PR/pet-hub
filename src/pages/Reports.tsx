@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { isRevenueSale } from '@/types/transactions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingUp, DollarSign, Clock, Users, Dog, Calendar } from 'lucide-react';
@@ -19,7 +20,6 @@ interface ReportsProps {
 
 const COLORS = ['hsl(168, 60%, 45%)', 'hsl(200, 55%, 55%)', 'hsl(145, 50%, 45%)', 'hsl(180, 45%, 50%)'];
 
-const SALE_STATUSES = ['paid', 'partial'];
 const REVENUE_PERIOD_DAYS = 30;
 const DATE_KEY_FORMAT = 'yyyy-MM-dd';
 
@@ -39,7 +39,7 @@ export function Reports({ clients, pets, employees, timeEntries, appointments }:
   useLanguage(); // Ensure instant re-render on language toggle
   const { transactions } = useTransactions();
   const sales = useMemo(
-    () => transactions.filter((t) => SALE_STATUSES.includes(t.status)),
+    () => transactions.filter(isRevenueSale),
     [transactions]
   );
 

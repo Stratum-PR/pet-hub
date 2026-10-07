@@ -342,6 +342,7 @@ export function ClientPortalPublicPage() {
         `,
         )
         .eq('customer_id', client!.id)
+        .eq('is_test', false)
         .order('created_at', { ascending: false })
         .limit(50);
       if (txFilterBusinessId) q = q.eq('business_id', txFilterBusinessId);

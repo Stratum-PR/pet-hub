@@ -115,7 +115,7 @@ export function PaymentsSettingsPage() {
                 type="button"
                 role="radio"
                 aria-checked={mode === m}
-                disabled={!canEdit}
+                disabled={!canEdit || (m === 'simulator' && settings.simulatorAllowed === false && current !== 'simulator')}
                 onClick={() => setMode(m)}
                 className={cn(
                   'rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
@@ -134,6 +134,7 @@ export function PaymentsSettingsPage() {
           {mode === 'simulator' ? (
             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
               <p>{t('payments.settings.simulatorExplain')}</p>
+              <p className="mt-1.5 text-xs">{t('payments.settings.simulatorNotRevenue')}</p>
               {current === 'simulator' && slug ? (
                 <Button variant="outline" size="sm" className="mt-2 gap-1.5" asChild>
                   <Link to={`/${slug}/ath-simulador`} target="_blank">

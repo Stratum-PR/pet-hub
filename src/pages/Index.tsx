@@ -560,7 +560,10 @@ const Index = () => {
               path="payment"
               element={paymentsVisible ? <Payment /> : <Navigate to="dashboard" replace />}
             />
-            <Route path="ath-simulador" element={<AthSimulatorPhone />} />
+            <Route
+              path="ath-simulador"
+              element={role === 'manager' || role === 'super_admin' ? <AthSimulatorPhone /> : <Navigate to="dashboard" replace />}
+            />
             <Route
               path="transactions"
               element={transactionsListVisible ? <Transactions /> : <Navigate to="dashboard" replace />}
