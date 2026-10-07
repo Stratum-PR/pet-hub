@@ -1442,12 +1442,12 @@ export const translations: Translations = {
     es: 'Sin asignar'
   },
   'apptBook.byDay': {
-    en: 'By Day',
-    es: 'Por día'
+    en: 'Day',
+    es: 'Día'
   },
   'apptBook.byWeek': {
-    en: 'By Week',
-    es: 'Por semana'
+    en: 'Week',
+    es: 'Semana'
   },
   'apptBook.calendarViewScope': {
     en: 'Switch between day and week calendar',
@@ -6745,6 +6745,8 @@ export const translations: Translations = {
   'bookingDialog.prevWeek': { en: "Previous week", es: "Semana anterior" },
   'bookingDialog.nextWeek': { en: "Next week", es: "Semana siguiente" },
   'bookingDialog.pickDate': { en: "Pick a date", es: "Elegir fecha" },
+  'apptBook.summaryCount': { en: "{count} appointments", es: "{count} citas" },
+  'apptBook.summaryCountOne': { en: "1 appointment", es: "1 cita" },
   'apptBook.filterAll': { en: "All", es: "Todos" },
   'apptBook.filterNone': { en: "None", es: "Ninguno" },
   'apptBook.filterOnly': { en: "Only", es: "Solo" },
@@ -6798,7 +6800,7 @@ export const translations: Translations = {
   'details.statusUpdated': { en: "Status updated", es: "Estado actualizado" },
   'details.canceledToast': { en: "Appointment canceled", es: "Cita cancelada" },
   'requests.title': { en: "Online requests", es: "Solicitudes en línea" },
-  'requests.subtitle': { en: "Requests from your booking link. Confirm, propose another time or decline. Anyone on the team can decide; your name is saved internally and never shown to the client.", es: "Solicitudes que llegan por tu enlace de reservas. Confirma, propone otra hora o rechaza. Cualquiera del equipo puede decidir; tu nombre se guarda internamente y nunca se le muestra al cliente." },
+  'requests.subtitle': { en: "Requests from your booking link, waiting for a decision.", es: "Solicitudes de tu enlace de reservas, esperando respuesta." },
   'requests.empty': { en: "No requests waiting. New ones appear here automatically.", es: "No hay solicitudes pendientes. Las nuevas aparecen aquí automáticamente." },
   'requests.received': { en: "Received {ago}", es: "Recibida {ago}" },
   'requests.services': { en: "Services", es: "Servicios" },
@@ -6835,8 +6837,8 @@ export const translations: Translations = {
   'notify.demoSkipped': { en: "demo: no message sent", es: "demo: no se envió mensaje" },
   'notify.notNotified': { en: "client not notified (no contact or opted out)", es: "no se avisó al cliente (sin contacto o no desea avisos)" },
   'notify.failed': { en: "couldn't notify the client; please contact them", es: "no se pudo avisar al cliente; comunícate con él" },
-  'groomerSettings.title': { en: "Groomer services and prices", es: "Servicios y precios por groomer" },
-  'groomerSettings.subtitle': { en: "Choose which services each groomer does. Set a price or duration only if it differs from the service default.", es: "Elige qué servicios hace cada groomer. Pon precio o duración solo si es distinto al del servicio." },
+  'groomerSettings.title': { en: "Services by groomer", es: "Servicios por groomer" },
+  'groomerSettings.subtitle': { en: "Check the services each groomer does. Price and duration come from each service.", es: "Marca los servicios que hace cada groomer. El precio y la duración son los de cada servicio." },
   'groomerSettings.readOnly': { en: "Only managers can change these.", es: "Solo gerentes pueden cambiar esto." },
   'groomerSettings.groomers': { en: "Groomers", es: "Groomers" },
   'groomerSettings.service': { en: "Service", es: "Servicio" },

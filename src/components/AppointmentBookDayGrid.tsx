@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isSameDay } from 'date-fns';
-import { Globe, Plus } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { CalendarAppointment, CalendarStaff } from '@/types/calendar';
 import { cn } from '@/lib/utils';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
@@ -17,7 +17,6 @@ import {
   businessWindowForDay,
   formatTime12h,
   layoutLanes,
-  totalMinutes,
   UNASSIGNED_STAFF_ID,
   type Interval,
 } from '@/lib/groomerAvailability';
@@ -38,18 +37,6 @@ export interface AppointmentBookDayGridProps {
   onAppointmentClick?: (apt: CalendarAppointment) => void;
   /** Click on an empty, bookable slot. */
   onSlotClick?: (employeeId: string, hhmm: string) => void;
-  /** Header + button: quick-create with this groomer pre-selected */
-  onStaffQuickBook?: (employeeId: string) => void;
-}
-
-function shiftLabel(windows: Interval[]): string {
-  if (windows.length === 0) return t('apptBook.dayOff');
-  return windows.map((w) => `${formatTime12h(minutesToHHmm(w.start))} – ${formatTime12h(minutesToHHmm(w.end))}`).join(', ');
-}
-
-function hoursLabel(minutes: number): string {
-  const h = minutes / 60;
-  return Number.isInteger(h) ? String(h) : h.toFixed(1);
 }
 
 export function AppointmentBookDayGrid({
@@ -60,7 +47,6 @@ export function AppointmentBookDayGrid({
   windowsByStaff,
   onAppointmentClick,
   onSlotClick,
-  onStaffQuickBook,
 }: AppointmentBookDayGridProps) {
   const [nowMin, setNowMin] = useState(() => {
     const n = new Date();
@@ -144,13 +130,11 @@ export function AppointmentBookDayGrid({
               const isUnassigned = emp.id === UNASSIGNED_STAFF_ID;
               const windows = windowsByStaff[emp.id] ?? [];
               const list = byColumn[emp.id] ?? [];
-              const booked = list.reduce((s, a) => s + a.duration, 0);
-              const available = totalMinutes(windows);
               return (
                 <div
                   key={emp.id}
                   className={cn(
-                    'group flex min-w-0 items-start gap-1 border-r border-border px-2 py-2',
+                    'flex min-w-0 items-center gap-1 border-r border-border px-3 py-2',
                     isUnassigned ? 'w-28 flex-none sm:w-44' : 'flex-1',
                   )}
                 >
@@ -160,36 +144,16 @@ export function AppointmentBookDayGrid({
                         'truncate text-sm font-semibold',
                         isUnassigned ? 'text-amber-700 dark:text-amber-400' : 'text-foreground',
                       )}
-                      title={emp.name}
+                      title={isUnassigned ? t('apptBook.unassignedHint') : emp.name}
                     >
                       {isUnassigned ? t('apptBook.unassigned') : formatStaffNameAggregated(emp.name)}
                     </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {isUnassigned
-                        ? t('apptBook.unassignedHint')
-                        : `${shiftLabel(windows)}`}
+                    <div className="truncate text-xs text-muted-foreground">
+                      {!isUnassigned && windows.length === 0
+                        ? t('apptBook.dayOff')
+                        : t(list.length === 1 ? 'apptBook.summaryCountOne' : 'apptBook.summaryCount', { count: list.length })}
                     </div>
-                    {!isUnassigned && available > 0 ? (
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {t(list.length === 1 ? 'apptBook.columnLoadOne' : 'apptBook.columnLoad', {
-                          count: list.length,
-                          booked: hoursLabel(booked),
-                          total: hoursLabel(available),
-                        })}
-                      </div>
-                    ) : null}
                   </div>
-                  {!isUnassigned && onStaffQuickBook ? (
-                    <button
-                      type="button"
-                      className="rounded-md p-1 text-muted-foreground opacity-70 hover:bg-muted hover:text-foreground group-hover:opacity-100"
-                      aria-label={t('apptBook.bookWith', { name: formatStaffNameAggregated(emp.name) })}
-                      title={t('apptBook.bookWith', { name: formatStaffNameAggregated(emp.name) })}
-                      onClick={() => onStaffQuickBook(emp.id)}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  ) : null}
                 </div>
               );
             })}
@@ -207,7 +171,7 @@ export function AppointmentBookDayGrid({
                   )}
                   style={{ height: PX_PER_SLOT }}
                 >
-                  {m % 60 === 0 ? formatTime12h(minutesToHHmm(m)) : ':30'}
+                  {m % 60 === 0 ? formatTime12h(minutesToHHmm(m)) : null}
                 </div>
               ))}
             </div>

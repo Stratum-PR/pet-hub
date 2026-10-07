@@ -56,6 +56,7 @@ interface DayAvailability {
 }
 
 const ANYONE = 'anyone';
+const NO_RATES: StaffServiceRate[] = [];
 const field = 'h-11 rounded-lg border border-foreground/15 bg-background shadow-none';
 
 /** Public page where clients request an appointment. Requests arrive as "pending" for staff to confirm. */
@@ -131,10 +132,8 @@ export function PublicBookingPage() {
   }, [businessSlug, dateKey, loadState]);
 
   const hoursPerDay = useMemo(() => parseBusinessHours(options?.business_hours ?? undefined), [options]);
-  const rates: StaffServiceRate[] = useMemo(
-    () => (options?.groomers ?? []).flatMap((g) => g.rates.map((r) => ({ ...r, staff_id: g.id }))),
-    [options],
-  );
+  // Price and duration are set per service by the business; per-groomer overrides are not used.
+  const rates: StaffServiceRate[] = NO_RATES;
   const eligible = useMemo(
     () => (options?.groomers ?? []).filter((g) => staffOffersAll({ id: g.id, offered_service_ids: g.offered_service_ids }, serviceIds)),
     [options, serviceIds],

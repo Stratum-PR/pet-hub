@@ -6,7 +6,6 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
-  Edit,
   Search,
   X,
 } from 'lucide-react';
@@ -261,11 +260,9 @@ export function AppointmentBookListView({
           ? t('apptBook.paymentUnpaid')
           : t('apptBook.paymentDash');
       const petLabel = pet ? `${pet.name}${breed}` : t('appointments.unknownPet');
-      const idShort = apt.id.replace(/-/g, '').slice(0, 8).toUpperCase();
 
       return {
         apt,
-        idShort,
         petLabel,
         clientName,
         dateStr,
@@ -284,8 +281,8 @@ export function AppointmentBookListView({
     <div className="flex h-full min-h-0 flex-col bg-background max-sm:h-auto max-sm:min-h-0">
       <div className="shrink-0 border-b border-border bg-muted/30 px-3 py-3 sm:px-6 sm:py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-{dateScope === 'day' ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-2 empty:hidden sm:gap-3">
+            {dateScope === 'day' ? (
               <>
             <Button variant="outline" size="sm" onClick={onToday} className="shrink-0 font-medium">
               {t('appointments.today')}
@@ -328,15 +325,6 @@ export function AppointmentBookListView({
             </Popover>
               </>
             ) : null}
-            <Select value={dateScope} onValueChange={(v) => setDateScope(v as 'day' | 'all')}>
-              <SelectTrigger className="w-full min-w-0 sm:w-[170px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">{t('apptBook.dateScopeDay')}</SelectItem>
-                <SelectItem value="all">{t('apptBook.dateScopeAll')}</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -360,9 +348,18 @@ export function AppointmentBookListView({
                 </Button>
               ) : null}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <Select value={dateScope} onValueChange={(v) => setDateScope(v as 'day' | 'all')}>
+                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">{t('apptBook.dateScopeDay')}</SelectItem>
+                  <SelectItem value="all">{t('apptBook.dateScopeAll')}</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={staffFilter} onValueChange={setStaffFilter}>
-                <SelectTrigger className="w-full min-w-0 sm:w-[170px]" aria-label={t('apptBook.columnEmployee')}>
+                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto" aria-label={t('apptBook.columnEmployee')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -377,7 +374,7 @@ export function AppointmentBookListView({
               </Select>
 
               <Select value={sortMode} onValueChange={(v) => setSortMode(v as typeof sortMode)}>
-                <SelectTrigger className="w-full min-w-0 sm:w-[180px]" aria-label={t('apptBook.sortBy')}>
+                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto" aria-label={t('apptBook.sortBy')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -388,7 +385,7 @@ export function AppointmentBookListView({
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full min-w-0 sm:w-[168px]">
+                <SelectTrigger className="w-full min-w-0 gap-2 sm:w-auto">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -440,42 +437,29 @@ export function AppointmentBookListView({
           <p className="py-12 text-center text-muted-foreground">{t('apptBook.noMatchingRows')}</p>
         ) : (
           <>
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-2 md:hidden">
               {listViewRows.map((row) => (
-                <Card key={row.apt.id} className="border border-border p-4 shadow-sm">
+                <button
+                  key={row.apt.id}
+                  type="button"
+                  onClick={() => onEdit(row.apt)}
+                  className="w-full rounded-lg border border-border bg-card p-3 text-left shadow-sm transition-colors hover:bg-muted/40"
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={row.statusClass}>{row.statusLabel}</Badge>
-                        <span className="font-mono text-[10px] text-muted-foreground">{row.idShort}</span>
-                      </div>
-                      <p className="text-sm font-semibold text-foreground">{row.petLabel}</p>
-                      <p className="text-xs text-muted-foreground">{row.clientName}</p>
-                      <p className="text-xs text-foreground">
-                        {row.dateStr} · {row.timeStr || '—'}
-                      </p>
-                      <p className="text-xs text-foreground">{row.serviceLabel}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t('apptBook.columnEmployee')}: {row.staffName}
-                      </p>
-                      <div className="flex items-center justify-between gap-2 pt-1 text-sm">
-                        <span className="text-muted-foreground">{row.paymentLabel}</span>
-                        <span className="font-semibold">{row.totalStr}</span>
-                      </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">{row.petLabel}</p>
+                      <p className="truncate text-xs text-muted-foreground">{row.clientName}</p>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => onEdit(row.apt)}
-                        aria-label={t('common.edit')}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Badge className={cn('shrink-0', row.statusClass)}>{row.statusLabel}</Badge>
                   </div>
-                </Card>
+                  <p className="mt-2 text-xs text-foreground">
+                    {row.dateStr} · {row.timeStr || '—'} · {row.staffName}
+                  </p>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-xs">
+                    <span className="truncate text-muted-foreground">{row.serviceLabel}</span>
+                    <span className="shrink-0 text-sm font-semibold">{row.totalStr}</span>
+                  </div>
+                </button>
               ))}
             </div>
 
@@ -498,12 +482,10 @@ export function AppointmentBookListView({
                           />
                         </div>
                       </TableHead>
-                      <TableHead className="whitespace-nowrap">{t('apptBook.columnTime')}</TableHead>
                       <TableHead className="min-w-[140px]">{t('apptBook.columnServices')}</TableHead>
                       <TableHead className="whitespace-nowrap">{t('apptBook.columnEmployee')}</TableHead>
                       <TableHead className="whitespace-nowrap">{t('apptBook.columnPayment')}</TableHead>
                       <TableHead className="whitespace-nowrap text-right">{t('apptBook.columnTotal')}</TableHead>
-                      <TableHead className="whitespace-nowrap text-right">{t('apptBook.columnActions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -518,8 +500,10 @@ export function AppointmentBookListView({
                         <TableCell className="max-w-[160px] break-words [overflow-wrap:anywhere]">
                           {row.clientName}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap">{row.dateStr}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.timeStr || '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {row.dateStr}
+                          <span className="text-muted-foreground"> · {row.timeStr || '—'}</span>
+                        </TableCell>
                         <TableCell className="max-w-[200px] break-words text-sm [overflow-wrap:anywhere]">
                           {row.serviceLabel}
                         </TableCell>
@@ -528,19 +512,6 @@ export function AppointmentBookListView({
                         </TableCell>
                         <TableCell className="text-muted-foreground">{row.paymentLabel}</TableCell>
                         <TableCell className="text-right font-medium">{row.totalStr}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-wrap items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => onEdit(row.apt)}
-                              aria-label={t('common.edit')}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   addDays,
-  addWeeks,
   eachDayOfInterval,
   endOfWeek,
   format,
@@ -19,7 +18,6 @@ import {
   Copy,
   ExternalLink,
   Inbox,
-  Link2,
   List,
   Loader2,
   Plus,
@@ -36,7 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { t } from '@/lib/translations';
 import type { CalendarStaff } from '@/types/calendar';
-import { AppointmentBookSidebar, type ApptBookWeekJumpOffset } from '@/components/AppointmentBookSidebar';
+import { AppointmentBookSidebar } from '@/components/AppointmentBookSidebar';
 import { AppointmentBookDayGrid } from '@/components/AppointmentBookDayGrid';
 import { AppointmentBookWeekView } from '@/components/AppointmentBookWeekView';
 import { AppointmentBookListView } from '@/components/AppointmentBookListView';
@@ -47,7 +45,6 @@ import { BookingFormDialog } from '@/components/BookingFormDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { useAppointments, usePets, useServices, useClients, type Appointment } from '@/hooks/useBusinessData';
 import { useEmployeeShifts, useEmployees, useSettings } from '@/hooks/useSupabaseData';
-import { useStaffServiceRates } from '@/hooks/useStaffServiceRates';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
@@ -74,7 +71,6 @@ import {
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 import {
   dateToDayKey,
-  firstOpenDayInWeek,
   isOpenBusinessDay,
   minutesToHHmm,
   parseBusinessHours,
@@ -214,7 +210,6 @@ export function AppointmentBook() {
   const { services, loading: servicesLoading, error: servicesError, refetch: refetchServices } = useServices();
   const { clients, error: clientsError, refetch: refetchClients, addClient } = useClients();
   const { settings, updateSetting } = useSettings();
-  const { rates, saveRate } = useStaffServiceRates();
 
   // Until the business is known the hooks report "not loading" with empty lists; keep the spinner up
   // so History doesn't flash "No appointments match your filters".
@@ -237,8 +232,6 @@ export function AppointmentBook() {
   // ---------------- date & scope ----------------
   const [selectedDate, setSelectedDate] = useState<Date>(() => startOfDay(new Date()));
   const [calendarScope, setCalendarScope] = useState<ApptBookCalendarScope>(() => getStoredApptBookCalendarScope());
-  const [weekJumpOffset, setWeekJumpOffset] = useState<ApptBookWeekJumpOffset | null>(null);
-  const [weekJumpNoAvailability, setWeekJumpNoAvailability] = useState(false);
   useEffect(() => setStoredApptBookCalendarScope(calendarScope), [calendarScope]);
 
   const weekStart = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 0 }), [selectedDate]);
@@ -248,29 +241,10 @@ export function AppointmentBook() {
   const { shifts } = useEmployeeShifts({ dateRange: shiftRange });
   const usesShifts = useMemo(() => businessUsesShifts(shifts, weekStart, weekEnd), [shifts, weekStart, weekEnd]);
 
-  const clearWeekJump = useCallback(() => {
-    setWeekJumpOffset(null);
-    setWeekJumpNoAvailability(false);
-  }, []);
-  const goToDate = useCallback(
-    (d: Date) => {
-      clearWeekJump();
-      setSelectedDate(startOfDay(d));
-    },
-    [clearWeekJump],
-  );
+  const goToDate = useCallback((d: Date) => setSelectedDate(startOfDay(d)), []);
   const step = calendarScope === 'by-week' ? 7 : 1;
 
-  const applyWeekJump = useCallback(
-    (offset: ApptBookWeekJumpOffset) => {
-      const target = addWeeks(startOfWeek(startOfDay(new Date()), { weekStartsOn: 0 }), offset);
-      const firstOpen = firstOpenDayInWeek(target, hoursPerDay);
-      setWeekJumpOffset(offset);
-      setWeekJumpNoAvailability(!firstOpen);
-      setSelectedDate(startOfDay(firstOpen ?? target));
-    },
-    [hoursPerDay],
-  );
+
 
   // ---------------- filters ----------------
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string> | null>(null);
@@ -519,6 +493,10 @@ export function AppointmentBook() {
     calendarScope === 'by-week'
       ? `${format(weekStart, 'd MMM', { locale: dateFnsLocale })} – ${format(weekEnd, 'd MMM yyyy', { locale: dateFnsLocale })}`
       : format(selectedDate, 'EEEE, d MMMM yyyy', { locale: dateFnsLocale });
+  const toolbarDateLabelShort =
+    calendarScope === 'by-week'
+      ? `${format(weekStart, 'd MMM', { locale: dateFnsLocale })} – ${format(weekEnd, 'd MMM', { locale: dateFnsLocale })}`
+      : format(selectedDate, 'EEE d MMM', { locale: dateFnsLocale });
 
   // ---------------- render ----------------
   return (
@@ -530,12 +508,7 @@ export function AppointmentBook() {
           onDateChange={goToDate}
           busyDayKeys={busyDayKeys}
           daySummary={loading ? null : daySummary}
-          onOpenRequests={() => goTab('requests')}
           dateLocale={dateFnsLocale}
-          showWeekJumpControls={!loading}
-          weekJumpOffset={weekJumpOffset}
-          onWeekJump={applyWeekJump}
-          weekJumpNoAvailability={weekJumpNoAvailability}
           isBookableDate={isBookableDate}
         />
       ) : null}
@@ -569,32 +542,6 @@ export function AppointmentBook() {
             </TabsList>
           </Tabs>
           <div className="flex items-center gap-2">
-            {bookingLink ? (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5" aria-label={t('apptBook.bookingLink')}>
-                    <Link2 className="h-4 w-4" />
-                    <span className="hidden md:inline">{t('apptBook.bookingLink')}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 space-y-2">
-                  <p className="text-sm font-medium">{t('apptBook.bookingLinkTitle')}</p>
-                  <p className="text-xs text-muted-foreground">{t('apptBook.bookingLinkHint')}</p>
-                  <Input readOnly value={bookingLink} className="h-8 text-xs" onFocus={(e) => e.currentTarget.select()} />
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" onClick={() => void copyLink()}>
-                      {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
-                      {copied ? t('apptBook.copied') : t('apptBook.copy')}
-                    </Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <a href={bookingLink} target="_blank" rel="noreferrer" aria-label={t('apptBook.openLink')}>
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : null}
             <Button size="sm" onClick={() => openCreate()} className="gap-1.5">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">{t('apptBook.newAppointment')}</span>
@@ -637,22 +584,25 @@ export function AppointmentBook() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold capitalize sm:text-base">{toolbarDateLabel}</h2>
+            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold capitalize sm:text-base">
+              <span className="sm:hidden">{toolbarDateLabelShort}</span>
+              <span className="hidden sm:inline">{toolbarDateLabel}</span>
+            </h2>
             <Tabs value={calendarScope} onValueChange={(v) => setCalendarScope(v as ApptBookCalendarScope)}>
               <TabsList className="h-8">
-                <TabsTrigger value="by-day" className="px-3 text-xs">
+                <TabsTrigger value="by-day" className="px-2 text-xs sm:px-3">
                   {t('apptBook.byDay')}
                 </TabsTrigger>
-                <TabsTrigger value="by-week" className="px-3 text-xs">
+                <TabsTrigger value="by-week" className="px-2 text-xs sm:px-3">
                   {t('apptBook.byWeek')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant={activeFilterCount ? 'secondary' : 'outline'} size="sm" className="gap-1.5">
+                <Button variant={activeFilterCount ? 'secondary' : 'outline'} size="sm" className="gap-1.5" aria-label={t('apptBook.filters')}>
                   <SlidersHorizontal className="h-4 w-4" />
-                  {t('apptBook.filters')}
+                  <span className="hidden sm:inline">{t('apptBook.filters')}</span>
                   {activeFilterCount ? (
                     <Badge variant="default" className="h-5 min-w-5 justify-center px-1 text-[11px]">
                       {activeFilterCount}
@@ -742,7 +692,6 @@ export function AppointmentBook() {
                 windowsByStaff={windowsByStaff}
                 onAppointmentClick={(apt) => setDetailsId(apt.id)}
                 onSlotClick={(staffId, time) => openCreate({ staffId, date: selectedDate, time })}
-                onStaffQuickBook={(staffId) => openCreate({ staffId })}
               />
             )
           ) : tab === 'list' ? (
@@ -783,34 +732,51 @@ export function AppointmentBook() {
             </div>
           ) : (
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="mx-auto w-full max-w-5xl px-4 pt-4 sm:px-6 sm:pt-6">
-                <h2 className="text-lg font-semibold">{t('apptBook.bookingDisplay')}</h2>
-                <label className="mt-3 flex cursor-pointer items-start justify-between gap-4 rounded-lg border p-4">
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium">{t('apptBook.showStaffPhotos')}</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">{t('apptBook.showStaffPhotosHint')}</span>
-                  </span>
-                  <Switch
-                    checked={settings.booking_show_staff_photos !== 'false'}
-                    disabled={!isManager}
-                    onCheckedChange={async (on) => {
-                      const res = await updateSetting('booking_show_staff_photos', on ? 'true' : 'false');
-                      if (!res.ok) {
-                        devConsole.warn('[AppointmentBook] booking_show_staff_photos', res.error);
-                        toast.error(t('common.genericError'));
-                      }
-                    }}
+              <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-4 sm:p-6">
+                {bookingLink ? (
+                  <section>
+                    <h2 className="text-base font-semibold">{t('apptBook.bookingLinkTitle')}</h2>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{t('apptBook.bookingLinkHint')}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Input readOnly value={bookingLink} className="h-9 min-w-0 basis-full text-sm sm:flex-1 sm:basis-auto" onFocus={(e) => e.currentTarget.select()} />
+                      <Button size="sm" className="h-9 flex-1 sm:flex-none" onClick={() => void copyLink()}>
+                        {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
+                        {copied ? t('apptBook.copied') : t('apptBook.copy')}
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-9 shrink-0" asChild>
+                        <a href={bookingLink} target="_blank" rel="noreferrer" aria-label={t('apptBook.openLink')}>
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </div>
+                    <label className="mt-4 flex cursor-pointer items-center justify-between gap-4">
+                      <span className="text-sm">{t('apptBook.showStaffPhotos')}</span>
+                      <Switch
+                        checked={settings.booking_show_staff_photos !== 'false'}
+                        disabled={!isManager}
+                        onCheckedChange={async (on) => {
+                          const res = await updateSetting('booking_show_staff_photos', on ? 'true' : 'false');
+                          if (!res.ok) {
+                            devConsole.warn('[AppointmentBook] booking_show_staff_photos', res.error);
+                            toast.error(t('common.genericError'));
+                          }
+                        }}
+                      />
+                    </label>
+                  </section>
+                ) : null}
+
+                <section>
+                  <h2 className="text-base font-semibold">{t('groomerSettings.title')}</h2>
+                  <p className="mb-3 mt-0.5 text-sm text-muted-foreground">{t('groomerSettings.subtitle')}</p>
+                  <GroomerServicesSettings
+                    employees={bookableStaff(employees)}
+                    services={services}
+                    canEdit={isManager}
+                    onUpdateOffered={updateOffered}
                   />
-                </label>
+                </section>
               </div>
-              <GroomerServicesSettings
-                employees={bookableStaff(employees)}
-                services={services}
-                rates={rates}
-                canEdit={isManager}
-                onUpdateOffered={updateOffered}
-                onSaveRate={saveRate}
-              />
             </div>
           )}
         </div>
