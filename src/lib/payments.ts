@@ -6,6 +6,8 @@ export type AthMode = 'off' | 'simulator' | 'live';
 
 export interface PaymentSettings {
   canEdit: boolean;
+  /** False when the project turns test mode off (PAYMENTS_SIMULATOR_ENABLED=false). */
+  simulatorAllowed?: boolean;
   athmovil: { mode: AthMode; last4: string | null; webhookSubscribed: boolean };
   stripe: { connected: boolean; chargesEnabled: boolean };
 }

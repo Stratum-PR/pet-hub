@@ -49,3 +49,6 @@ reports/
 
 # Supabase CLI generated
 supabase/.temp
+
+# Local payments test stack workdir (scripts/test-env.mjs)
+.test-env/

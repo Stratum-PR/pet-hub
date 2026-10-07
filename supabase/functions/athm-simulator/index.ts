@@ -6,7 +6,7 @@
 // - ATH API routes (/api/business-transaction/ecommerce/…, /transactions/webhook/post) are public like the
 //   real API and authenticated by the business's *simulator* tokens (never real ATH tokens, never real money).
 // - Customer-side controls (/simulator/state, /simulator/payments/:id/approve|decline|expire) require a signed-in
-//   staff member of the business that owns the simulated account. Used by the "teléfono simulado" page in Grumi.
+//   manager of the business that owns the simulated account (security review G-1). Used by the "teléfono simulado" page in Grumi.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
 import { createSimulator } from "./lib/core.mjs";
 
@@ -94,6 +94,11 @@ Deno.serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const sim = createSimulator({ store: dbStore(admin), timeScale: 1, autoMs: 3000 });
 
+  // G-1: PAYMENTS_SIMULATOR_ENABLED=false turns test mode off for the whole project.
+  if ((Deno.env.get("PAYMENTS_SIMULATOR_ENABLED") ?? "true").toLowerCase() === "false") {
+    return reply(req, 403, { status: "error", message: "simulator_disabled" });
+  }
+
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/(functions\/v1\/)?athm-simulator/, "") || "/";
 
@@ -103,8 +108,15 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
     const { data: u } = token ? await userClient.auth.getUser(token) : { data: { user: null } };
     if (!u?.user) return reply(req, 401, { ok: false, error: "unauthorized" });
-    const { data: profile } = await admin.from("profiles").select("business_id").eq("id", u.user.id).maybeSingle();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("business_id, role, is_super_admin")
+      .eq("id", u.user.id)
+      .maybeSingle();
     if (!profile?.business_id) return reply(req, 403, { ok: false, error: "forbidden" });
+    // Security review G-1: only managers can play the customer, so staff can't approve their own test charges.
+    const isManager = profile.role === "manager" || profile.role === "super_admin" || !!profile.is_super_admin;
+    if (!isManager) return reply(req, 403, { ok: false, error: "forbidden" });
     const { data: simBiz } = await admin
       .from("athm_sim_businesses")
       .select("public_token")

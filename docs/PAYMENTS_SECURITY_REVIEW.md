@@ -50,7 +50,7 @@
 
 | ID | Severity | Where | Problem | Status |
 |---|---|---|---|---|
-| G-1 | High | Grumi | Test mode records real "paid by ATH Móvil" sales with no money | Open (Genesis) |
+| G-1 | High | Grumi | Test mode records real "paid by ATH Móvil" sales with no money | Interim fix on `dev` (2026-10-07): server-set `is_test` excluded from reports, simulator managers-only, audit log, `PAYMENTS_SIMULATOR_ENABLED` kill switch. Env-based gate waits for dev to get its own project |
 | G-2 | High | Grumi | One ATH payment can back several sales, or a sale of another amount | Open (Genesis) |
 | G-3 | High | Grumi | Amount and "paid" status come from the browser; any member writes transactions | Open (Genesis) |
 | G-4 | High | Grumi | ATH keys and auth tokens stored as plain text | Open (Genesis) |
@@ -67,7 +67,7 @@
 | G-7 | Medium | Grumi | Support "log in as staff" sessions can change payment keys and mode | Open (Genesis) |
 | G-14 (new) | Medium | Grumi | The payments function ignores staff access tiers (contractors can charge) | Open (Genesis) |
 | G-15 (new) | Medium | Grumi | Raw card-number/CVV inputs still in `Payment.tsx` | Open (Genesis) |
-| G-19 (new) | Medium | Grumi | Unverified: whether dev.grumi.pet and grumi.pet share one Supabase project and its secrets | Check (Genesis/user) |
+| G-19 (new) | Medium | Grumi | Unverified: whether dev.grumi.pet and grumi.pet share one Supabase project and its secrets | Confirmed: they share the production project. Interim: G-1 flags; a separate dev project is the full fix |
 | G-20 (new) | Medium | Grumi | The Stripe plan's per-business "Test mode" repeats G-1 | Listed in the shared Stripe plan's Grumi section |
 | M-2 | Medium | Mezza | The guest's status-check route needs scoping and rate limits | Planned (ATH phase 3) |
 | M-3 | Medium | Mezza | The simulator must be impossible to use in production | Planned (ATH phase 3) |
@@ -89,7 +89,7 @@
 | G-9 | Low | Grumi | Mode or key changes strand in-flight payments | Open (Genesis) |
 | G-10 | Low | Grumi | `verify_jwt = false` on both functions | Open (Genesis) |
 | G-11 | Low | Grumi | Staff can read `payments.last_error` | Open (Genesis) |
-| G-12 | Low (required) | Grumi | No separate Docker test environment | Open (Genesis) |
+| G-12 | Low (required) | Grumi | No separate Docker test environment | Built on `dev` (2026-10-07): `test-env/`, `npm run test:env:up` + `npm run test:payments`, Actions workflow. First run pending |
 | G-16 (new) | Low | Grumi | No rate limit on `ath_create` | Open (Genesis) |
 | G-17 (new) | Low | Grumi | Edge Functions echo back any Origin in CORS | Open (Genesis) |
 | G-18 (new) | Low | Grumi | `appointment_id`/`customer_id` on payments aren't checked against the business | Open (Genesis) |

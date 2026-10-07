@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { TestSaleBadge } from '@/components/TestSaleBadge';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -234,6 +235,10 @@ export function TransactionDetail() {
   };
 
   const openEmailDialog = (type: 'receipt' | 'invoice') => {
+    if (transaction?.is_test) {
+      toast.info(t('transactions.testSaleNoEmail'));
+      return;
+    }
     setEmailDialogType(type);
     setEmailTo(customerEmail || walkInEmail || '');
     setEmailDialogOpen(true);
@@ -262,6 +267,10 @@ export function TransactionDetail() {
   };
 
   const openEmailReceipt = () => {
+    if (transaction?.is_test) {
+      toast.info(t('transactions.testSaleNoEmail'));
+      return;
+    }
     if (isWalkIn) {
       setWalkInEmail('');
       setEmailReceiptOpen(true);
@@ -497,6 +506,7 @@ export function TransactionDetail() {
               ? (STATUS_LABELS[transaction.status] ?? transaction.status)
               : getPaymentStatusLabel(transaction.amount_tendered ?? 0, transaction.total)}
           </Badge>
+          {transaction.is_test ? <TestSaleBadge /> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

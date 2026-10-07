@@ -26,7 +26,12 @@
     "backfill:business-qr": "tsx scripts/backfill-business-qr.ts",
     "optimize:waitlist-mascots": "node scripts/optimize-waitlist-mascots.mjs",
     "optimize:feature-screenshots": "node scripts/normalize-feature-screenshots.mjs",
-    "export:ath-highlight": "node scripts/export-ath-movil-highlight.mjs"
+    "export:ath-highlight": "node scripts/export-ath-movil-highlight.mjs",
+    "test:env:up": "node scripts/test-env.mjs up",
+    "test:env:down": "node scripts/test-env.mjs down",
+    "test:env:reset": "node scripts/test-env.mjs reset",
+    "test:env:status": "node scripts/test-env.mjs status",
+    "test:payments": "node scripts/test-env.mjs test"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -97,6 +97,19 @@ function errorCode(e: unknown): string {
   return "provider_error";
 }
 
+/** A URL from env, accepted only on the local Docker test stack (PAYMENTS_ENV=local) and only for local hosts. */
+function localOnlyUrl(raw: string | undefined): string | undefined {
+  if (!raw || Deno.env.get("PAYMENTS_ENV") !== "local") return undefined;
+  try {
+    const u = new URL(raw);
+    const localHosts = ["localhost", "127.0.0.1", "host.docker.internal", "kong", "ath-simulator"];
+    if (u.protocol !== "http:" || !localHosts.includes(u.hostname)) return undefined;
+    return raw.replace(/\/+$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
 function describe(e: unknown): string {
   if (e instanceof PaymentProviderError) return `${e.code ?? ""} ${e.status ?? ""} ${e.message}`.trim().slice(0, 500);
   return String(e).slice(0, 500);
@@ -112,7 +125,18 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !anonKey || !serviceKey) return reply(req, 500, { error: "server_misconfigured" });
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const simBase = `${supabaseUrl}/functions/v1/athm-simulator`;
-  const webhookUrl = (key: string) => `${supabaseUrl}/functions/v1/payments?webhook=${key}`;
+  // Security review G-1: test mode can be switched off for the whole project with the function secret
+  // PAYMENTS_SIMULATOR_ENABLED=false (set it on any project that serves only production).
+  const simulatorAllowed = (Deno.env.get("PAYMENTS_SIMULATOR_ENABLED") ?? "true").toLowerCase() !== "false";
+  // Security review G-12: Grumi's local Docker test stack points "real" ATH Móvil at the package simulator
+  // (port 55430). Honored ONLY when PAYMENTS_ENV=local and the URL is a local host, so a production secret
+  // can never redirect payments or keys anywhere else.
+  const localAthBase = localOnlyUrl(Deno.env.get("ATH_API_BASE_URL"));
+  const liveAthOptions = localAthBase
+    ? { baseUrl: `${localAthBase}/api/business-transaction/ecommerce`, webhookSubscribeUrl: `${localAthBase}/transactions/webhook/post` }
+    : {};
+  const publicFunctionsBase = localOnlyUrl(Deno.env.get("PAYMENTS_PUBLIC_URL")) ?? supabaseUrl;
+  const webhookUrl = (key: string) => `${publicFunctionsBase}/functions/v1/payments?webhook=${key}`;
 
   /** ATH Móvil client for a business in its current mode, or null when off/not configured. */
   async function athFor(businessId: string): Promise<{ client: AthMovilClient; mode: "live" | "simulator" } | null> {
@@ -133,7 +157,10 @@ Deno.serve(async (req) => {
     if (settings.athmovil_mode === "live" && secrets.athmovil_public_token) {
       return {
         mode: "live",
-        client: new AthMovilClient({ publicToken: secrets.athmovil_public_token, privateToken: secrets.athmovil_private_token ?? undefined }),
+        client: new AthMovilClient(
+          { publicToken: secrets.athmovil_public_token, privateToken: secrets.athmovil_private_token ?? undefined },
+          liveAthOptions,
+        ),
       };
     }
     return null;
@@ -252,6 +279,12 @@ Deno.serve(async (req) => {
   }
   const action = String(body.action ?? "");
 
+  /** Audit log for payment settings (who changed what). Never stores keys, only their last 4. */
+  async function audit(actionName: string, details: Json): Promise<void> {
+    const { error } = await admin.from("payment_audit_log").insert({ business_id: businessId, actor_user_id: user!.id, action: actionName, details });
+    if (error) console.error("payment audit log", error.message);
+  }
+
   async function ownRow(id: unknown): Promise<PaymentRow | null> {
     if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return null;
     const row = await loadRow(id);
@@ -263,6 +296,7 @@ Deno.serve(async (req) => {
       const { data: s } = await admin.from("business_payment_settings").select("*").eq("business_id", businessId).maybeSingle();
       return reply(req, 200, {
         canEdit: isManager,
+        simulatorAllowed,
         athmovil: {
           mode: s?.athmovil_mode ?? "off",
           last4: s?.athmovil_public_token_last4 ?? null,
@@ -276,13 +310,21 @@ Deno.serve(async (req) => {
       if (!isManager) return reply(req, 403, { error: "forbidden" });
       const mode = String(body.mode ?? "");
       if (!["off", "simulator", "live"].includes(mode)) return reply(req, 400, { error: "invalid_input" });
+      if (mode === "simulator" && !simulatorAllowed) return reply(req, 200, { ok: false, error: "simulator_disabled" });
       const now = new Date().toISOString();
+      const { data: before } = await admin
+        .from("business_payment_settings")
+        .select("athmovil_mode, athmovil_public_token_last4")
+        .eq("business_id", businessId)
+        .maybeSingle();
+      const fromMode = before?.athmovil_mode ?? "off";
       // Secrets row (holds the webhook key) always exists once a business touches payments.
       await admin.from("business_payment_secrets").upsert({ business_id: businessId }, { onConflict: "business_id", ignoreDuplicates: true });
       const { data: secrets } = await admin.from("business_payment_secrets").select("*").eq("business_id", businessId).single();
 
       if (mode === "off") {
         await admin.from("business_payment_settings").upsert({ business_id: businessId, athmovil_mode: "off", updated_at: now });
+        if (fromMode !== "off") await audit("athmovil_mode_changed", { from: fromMode, to: "off" });
         return reply(req, 200, { ok: true });
       }
 
@@ -319,6 +361,7 @@ Deno.serve(async (req) => {
           athmovil_webhook_subscribed: subscribed,
           updated_at: now,
         });
+        if (fromMode !== "simulator") await audit("athmovil_mode_changed", { from: fromMode, to: "simulator" });
         return reply(req, 200, { ok: true });
       }
 
@@ -328,7 +371,7 @@ Deno.serve(async (req) => {
       if (!/^\S{8,200}$/.test(pub) || !/^\S{8,200}$/.test(priv)) return reply(req, 400, { error: "invalid_input" });
       // Subscribing the webhook needs both keys, so it doubles as a credentials check.
       try {
-        await new AthMovilClient({ publicToken: pub, privateToken: priv }).subscribeWebhooks(webhookUrl(secrets.webhook_key));
+        await new AthMovilClient({ publicToken: pub, privateToken: priv }, liveAthOptions).subscribeWebhooks(webhookUrl(secrets.webhook_key));
       } catch (e) {
         console.error("live webhook subscribe", describe(e));
         return reply(req, 200, { ok: false, error: "invalid_credentials" });
@@ -341,6 +384,12 @@ Deno.serve(async (req) => {
         athmovil_webhook_subscribed: true,
         updated_at: now,
       });
+      await audit(fromMode === "live" ? "athmovil_keys_changed" : "athmovil_mode_changed", {
+        from: fromMode,
+        to: "live",
+        previousKeyLast4: fromMode === "live" ? before?.athmovil_public_token_last4 ?? null : null,
+        keyLast4: pub.slice(-4),
+      });
       return reply(req, 200, { ok: true });
     }
 
@@ -351,6 +400,7 @@ Deno.serve(async (req) => {
       if (phone.length !== 10) return reply(req, 200, { error: "invalid_phone" });
       const ath = await athFor(businessId);
       if (!ath) return reply(req, 200, { error: "not_configured" });
+      if (ath.mode === "simulator" && !simulatorAllowed) return reply(req, 200, { error: "simulator_disabled" });
 
       const appointmentId = typeof body.appointmentId === "string" && body.appointmentId ? body.appointmentId : null;
       const customerId = typeof body.customerId === "string" && /^[0-9a-f-]{36}$/i.test(body.customerId) ? body.customerId : null;
@@ -441,7 +491,15 @@ Deno.serve(async (req) => {
       const { data: txn } = await admin.from("transactions").select("id, business_id").eq("id", txnId).maybeSingle();
       if (!txn || txn.business_id !== businessId) return reply(req, 404, { error: "not_found" });
       await admin.from("payments").update({ transaction_id: txnId, updated_at: new Date().toISOString() }).eq("id", row.id);
-      return reply(req, 200, { ok: true });
+      // G-1: a sale paid on the simulator is not revenue. Only the service role can set this flag.
+      if (row.mode === "simulator") {
+        const { error: flagErr } = await admin.from("transactions").update({ is_test: true }).eq("id", txnId).eq("business_id", businessId);
+        if (flagErr) {
+          console.error("flag test transaction", flagErr.message);
+          return reply(req, 200, { error: "provider_error" });
+        }
+      }
+      return reply(req, 200, { ok: true, isTest: row.mode === "simulator" });
     }
 
     case "unlinked_for_appointment": {

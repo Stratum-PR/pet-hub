@@ -42,6 +42,11 @@ export function ReceiptPrint({ businessName, headerText, footerText, receiptPhon
         <div style={{ marginTop: '4px', fontSize: '11px' }}>{phone}</div>
         <div style={{ marginTop: '2px', fontSize: '11px' }}>{location}</div>
       </div>
+      {transaction.is_test ? (
+        <div style={{ textAlign: 'center', fontWeight: 'bold', border: '1px dashed #000', padding: '4px', marginBottom: '8px' }}>
+          PRUEBA / TEST — NO ES UN PAGO REAL
+        </div>
+      ) : null}
       <div style={{ marginBottom: '8px' }}>
         <div>{displayId}</div>
         <div>{formatReceiptDate(transaction.created_at)}</div>

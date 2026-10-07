@@ -11,8 +11,16 @@ Edge Functions by `scripts/sync-payment-libs.sh` (re-run it after changing the p
   the button becomes "Cobrar con ATH Móvil". Staff enters the client's ATH phone; the client approves in
   the app; Grumi finalizes and saves the transaction as paid (inventory and appointment billing as before).
   If the page closes after the money arrives, reopening checkout for that appointment offers to save it.
-- **Test mode**: the same flow against `athm-simulator` (Evertec has no sandbox). The "client" approves at
-  `/:slug/ath-simulador` (Abrir teléfono simulado). No real money.
+- **Test mode**: the same flow against `athm-simulator` (Evertec has no sandbox). No real money.
+  Interim fix for security review G-1, while dev.grumi.pet shares the production project:
+  - Only managers can open the simulated phone (`/:slug/ath-simulador`) and approve, so staff can't approve
+    their own test charges. Staff see "a manager approves this charge".
+  - A sale paid on the simulator is flagged `transactions.is_test` by the server. Test sales show a "Prueba"
+    badge, print "PRUEBA / TEST" on the receipt, don't email receipts, and are left out of the dashboard,
+    reports and the client portal. A database trigger lets only server code set or clear the flag.
+  - Mode and key changes go to `payment_audit_log` (managers can read it).
+  - Function secret `PAYMENTS_SIMULATOR_ENABLED=false` turns test mode off for the whole project (use it on a
+    production-only project once dev has its own).
 
 ## Functions
 - `payments` (verify_jwt off, JWT checked in code): settings, `ath_create`, `ath_status` (finalizes approved
@@ -23,7 +31,22 @@ Edge Functions by `scripts/sync-payment-libs.sh` (re-run it after changing the p
 
 ## Tables
 `business_payment_settings` (readable by staff), `business_payment_secrets`, `payment_secrets`,
-`athm_sim_businesses`, `athm_sim_payments` (service role only), `payments` (staff read; writes in functions).
+`athm_sim_businesses`, `athm_sim_payments` (service role only), `payments` (staff read; writes in functions),
+`payment_audit_log` (managers read; written by `payments`), `transactions.is_test` (server-only flag).
+
+## Local test stack (security review G-12)
+Separate from the hosted project: its own local Supabase (`project_id = "grumi-test"`, ports 55420–55429) and
+the package's ATH Móvil simulator in Docker (55430). It runs from `.test-env/`, so `supabase link`,
+`supabase/config.toml` and the default local ports stay untouched.
+
+```
+npm run test:env:up      # first run downloads Docker images (several minutes)
+npm run test:payments    # real Postgres + RLS + triggers + Edge Functions, test and "real" ATH modes
+npm run test:env:down
+```
+Also runnable on GitHub: Actions → "Payments test environment" → Run workflow. In "real" mode the
+`payments` function talks to the simulator container through `ATH_API_BASE_URL`, which it honors only when
+`PAYMENTS_ENV=local` and the host is local (set in `test-env/supabase/config.toml`, never in production).
 
 ## Going live with ATH Móvil
 1. Test mode end to end on dev.grumi.pet.
