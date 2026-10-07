@@ -126,6 +126,9 @@ export interface Appointment {
   decided_by_profile_id?: string | null;
   decided_at?: string | null;
   decision_note?: string | null;
+  /** Set when the appointment was charged (the sale it belongs to). */
+  transaction_id?: string | null;
+  billed?: boolean | null;
   created_at: string;
   updated_at: string;
 }

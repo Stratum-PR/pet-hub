@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
-import { Menu, LogOut, Bell, LayoutDashboard, User } from 'lucide-react';
+import { Menu, LogOut, Bell, LayoutDashboard, User, Banknote } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,7 @@ import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { clearStaffSummaryFilterIfOutsidePayroll } from '@/lib/timesheetsStaffSummaryFilterStorage';
 import { devConsole } from '@/lib/clientDebug';
+import { QuickChargeHost, openQuickCharge } from '@/components/QuickChargeDialog';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -155,6 +156,8 @@ export function Layout({ children, settings }: LayoutProps) {
   const onDemoWorkspace = isDemoBrowseOnlyPath(location.pathname);
   const accountSettingsVisibleByFeatureGate = isFeatureVisible('account_settings');
   const bookingSettingsVisibleByFeatureGate = isFeatureVisible('booking_settings');
+  /** Fast checkout for any service (header button and appointment panel). */
+  const canQuickCharge = isFeatureVisible('transaction_create') && role !== 'employee' && role !== 'client';
 
   const setCollapsed = (value: boolean) => {
     setSidebarCollapsedState(value);
@@ -412,6 +415,12 @@ export function Layout({ children, settings }: LayoutProps) {
                 demoLocalOnly && 'md:col-start-3 md:row-start-1 md:justify-self-end'
               )}
             >
+              {canQuickCharge ? (
+                <Button size="sm" className="h-9 shrink-0 gap-1.5 rounded-full px-3" onClick={() => openQuickCharge()}>
+                  <Banknote className="h-4 w-4" />
+                  <span className="max-sm:sr-only">{t('quickCharge.button')}</span>
+                </Button>
+              ) : null}
               <LanguageSwitcher
                 variant="ghost"
                 size="sm"
@@ -759,6 +768,7 @@ export function Layout({ children, settings }: LayoutProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {canQuickCharge ? <QuickChargeHost /> : null}
     </div>
     {/* Outside overflow-hidden root so fixed paw overlays aren’t clipped mid-viewport */}
     {!suppressPetDecor ? <PetAnimations /> : null}

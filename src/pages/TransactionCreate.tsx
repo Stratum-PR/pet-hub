@@ -103,6 +103,17 @@ export function TransactionCreate() {
     let refId: string;
     let up: number;
 
+    // Multi-service bookings: one line per service at its list price.
+    const allIds = ((apt as { service_ids?: string[] | null }).service_ids ?? []).filter(Boolean);
+    const allSvcs = allIds.map((id) => services.find((s: { id: string }) => s.id === id)).filter(Boolean) as { id: string; name: string; price: number }[];
+    if (allSvcs.length > 1) {
+      setLineItems(allSvcs.map((s) => {
+        const c = Math.round(Number(s.price) * 100);
+        return { type: 'service' as const, reference_id: s.id, name: s.name, quantity: 1, unit_price: c, line_total: c };
+      }));
+      return;
+    }
+
     if (serviceId) {
       const svc = services.find((s: { id: string }) => s.id === serviceId);
       if (svc) {

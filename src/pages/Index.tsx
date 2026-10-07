@@ -33,6 +33,7 @@ import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { AccountSettings } from '@/pages/AccountSettings';
 import { BusinessSettingsPage } from '@/pages/BusinessSettingsPage';
 import { PaymentsSettingsPage } from '@/pages/PaymentsSettingsPage';
+import { openQuickCharge } from '@/components/QuickChargeDialog';
 import { AthSimulatorPhone } from '@/pages/AthSimulatorPhone';
 import { BookingSettings } from '@/pages/BookingSettings';
 import { Billing } from '@/pages/Billing';
@@ -237,14 +238,22 @@ const Index = () => {
         transaction_id?: string | null;
         billed?: boolean;
         service_id?: string | null;
+        service_ids?: string[] | null;
         service_type?: string | null;
+        client_id?: string | null;
+        total_price?: number | null;
+        price?: number | null;
       };
       if (!updated.transaction_id && !updated.billed && businessSlug) {
-        const createTxn = window.confirm(
-          'Appointment completed. Create a transaction for this appointment?'
-        );
-        if (createTxn) {
-          navigate(`/${businessSlug}/transactions/new?appointmentId=${id}`);
+        // Completed and not charged yet: open the charge panel right away.
+        if (transactionCreateVisible && role !== 'employee') {
+          openQuickCharge({
+            appointmentId: id,
+            clientId: updated.client_id ?? null,
+            serviceIds: updated.service_ids?.length ? updated.service_ids : updated.service_id ? [updated.service_id] : [],
+            fallbackPrice: updated.total_price ?? updated.price ?? null,
+            label: updated.service_type ?? null,
+          });
           return result;
         }
         await createNotification(
