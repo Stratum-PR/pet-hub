@@ -34,7 +34,7 @@ Each repo tests in its own Docker environment, so the package, Mezza and Grumi n
 
 | Repo | Docker environment | Ports |
 |---|---|---|
-| `athmovil` (package) | `docker compose` with Node 20, Node 22 and Deno services running the tests and a smoke test against the build; no database | none published |
+| `athmovil` (package) | `docker compose` with Node 20, Node 22 and Deno services running the tests and a smoke test against the build, plus a Supabase edge-runtime service running a sample Edge Function against the fake ATH over HTTP; no database | none published |
 | Mezza | Supabase stack `project_id = "mezza"` | 55320–55329; fake ATH on 55330 |
 | **Grumi** | **Its own local Supabase stack**, separate from the hosted project and from Mezza | **proposed 55420–55429; fake ATH on 55430** |
 
@@ -60,6 +60,7 @@ Plain ESM, `fetch` only, no runtime dependencies; runs on Node and Deno. Import 
 - `createPayment`, `findPayment`, `authorize`, `cancel`, `updatePhoneNumber`, `refund`, `registerWebhook`, `checkCredentials`, `settle`, `parseWebhook`.
 - Typed errors: `invalid_token`, `expired`, `not_found`, `limit`, `invalid_phone`, `network`, `unknown` (raw Evertec code kept). Grumi translates them in `src/lib/translations.ts`.
 - `createFakeAth()` in memory and over HTTP, with test controls: approve, decline, expire, fail the next call, deliver or replay webhooks.
+- Before every release the package's own CI runs a sample Edge Function inside Supabase's edge runtime (the version the Supabase CLI uses) that imports the build and runs create → approve → settle → refund against the fake, so a package update can't break Grumi without failing there first. Grumi's G6 tests still run in Grumi's own environment.
 
 ## Grumi phases (after the package's 0.1.0 and Mezza's adapter)
 
