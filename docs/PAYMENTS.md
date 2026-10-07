@@ -30,3 +30,7 @@ Edge Functions by `scripts/sync-payment-libs.sh` (re-run it after changing the p
 2. Settings → Pagos → Real, paste the ATH Business keys.
 3. Charge $1 to a personal ATH Móvil account (different card than the business), then refund it from the
    ATH Business app.
+
+## Security review (2026-10-07)
+
+Open security issues and fixes for Grumi payments, the shared package and Mezza: [PAYMENTS_SECURITY_REVIEW.md](PAYMENTS_SECURITY_REVIEW.md). Fix G-1 (test mode records real paid sales) and the other High/Medium items before turning on real ATH Móvil for businesses.
