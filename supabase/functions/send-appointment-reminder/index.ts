@@ -35,10 +35,9 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>";
-const FALLBACK_FROM = "Grumi <noreply@stratumpr.com>";
+const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@grumi.pet>";
 
-/** Sends via Resend from no-reply@grumi.pet; if that domain isn't verified in Resend yet, retries from FALLBACK_FROM. */
+/** Sends via Resend from noreply@grumi.pet. */
 async function sendResend(resendKey: string, payload: Record<string, unknown>): Promise<Response> {
   const post = (sender: string) =>
     fetch("https://api.resend.com/emails", {
@@ -47,13 +46,7 @@ async function sendResend(resendKey: string, payload: Record<string, unknown>): 
       body: JSON.stringify({ ...payload, from: sender }),
     });
   const from = NO_REPLY_FROM();
-  const res = await post(from);
-  if (res.ok || from === FALLBACK_FROM) return res;
-  const body = await res.text();
-  if ((res.status === 403 || res.status === 422) && /domain/i.test(body) && /verif/i.test(body)) {
-    return post(FALLBACK_FROM);
-  }
-  return new Response(body, { status: res.status });
+  return post(from);
 }
 
 Deno.serve(async (req) => {
