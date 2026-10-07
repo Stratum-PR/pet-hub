@@ -1,6 +1,6 @@
 // Sends staff portal invitation email via Resend. verify_jwt = false; validates JWT in-handler.
 // Secrets: RESEND_API_KEY, APP_URL or SITE_URL (public site origin; optional if invite is sent from the live app),
-// SUPABASE_* (auto), optional ALLOWED_ORIGINS, optional NOTIFY_FROM_EMAIL (default "Grumi <noreply@grumi.pet>")
+// SUPABASE_* (auto), optional ALLOWED_ORIGINS, optional NOTIFY_FROM_EMAIL (default "Grumi <no-reply@grumi.pet>")
 // Invite link base: APP_URL/SITE_URL if set; else request Origin (https://yourapp.com from browser); else http://localhost:8080.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
   const bizName = body.business_name?.trim() || "Tu negocio";
 
   const resendPayload = JSON.stringify({
-    from: Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@grumi.pet>",
+    from: Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>",
     to: [email],
     subject: `${bizName} te invita a unirte a Grumi`,
     html: `

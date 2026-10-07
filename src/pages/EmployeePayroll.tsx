@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -206,10 +207,10 @@ export function EmployeePayroll({ employees, timeEntries }: EmployeePayrollProps
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        {format(new Date(entry.clock_in), 'h:mm a')}
+                        {formatT(new Date(entry.clock_in), 'h:mm a')}
                       </td>
                       <td className="py-3 px-4">
-                        {entry.clock_out ? format(new Date(entry.clock_out), 'h:mm a') : '-'}
+                        {entry.clock_out ? formatT(new Date(entry.clock_out), 'h:mm a') : '-'}
                       </td>
                       <td className="py-3 px-4 text-right font-semibold">
                         {entry.hours.toFixed(1)}h

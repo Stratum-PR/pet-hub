@@ -1,4 +1,5 @@
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { formatT } from '@/lib/timeFormat';
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react';
 import {
   Calendar,
@@ -1195,7 +1196,7 @@ export function Dashboard({
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{pet?.name || t('appointments.unknownPet')}</p>
                             <p className="text-xs text-muted-foreground truncate">
-                              {format(new Date(appointment.scheduled_date), 'h:mm a', { locale: dateLocale })} •{' '}
+                              {formatT(new Date(appointment.scheduled_date), 'h:mm a', { locale: dateLocale })} •{' '}
                               {client ? `${client.first_name} ${client.last_name}`.trim() : '—'}
                               {employee && ` • ${formatStaffNameAggregated(employee.name)}`}
                             </p>

@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Clock, LogIn, LogOut, User, AlertTriangle, X, Lock, Settings, Info } from 'lucide-react';
@@ -879,7 +880,7 @@ export function TimeKiosk() {
                     <div className="bg-primary/10 border-2 border-primary rounded-lg p-6 mb-4">
                       <p className="text-sm text-muted-foreground mb-2">{t('timeKiosk.currentlyClockedInSince')}</p>
                       <p className="text-lg font-semibold mb-4">
-                        {format(new Date(activeTimeEntry.clock_in), 'h:mm a')}
+                        {formatT(new Date(activeTimeEntry.clock_in), 'h:mm a')}
                       </p>
                       <div className="flex items-center justify-center gap-2">
                         <Clock className="w-6 h-6 text-primary" />
@@ -950,7 +951,7 @@ export function TimeKiosk() {
                     {clockResult.action === 'clock_in' ? t('timeKiosk.clockedInTitle') : t('timeKiosk.clockedOutTitle')}
                   </h2>
                   <p className="text-xl text-muted-foreground">
-                    {format(new Date(clockResult.clock_in || clockResult.clock_out), 'h:mm a')}
+                    {formatT(new Date(clockResult.clock_in || clockResult.clock_out), 'h:mm a')}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {t('timeKiosk.returningToPin')}

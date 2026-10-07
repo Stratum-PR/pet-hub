@@ -3,6 +3,7 @@
  */
 
 import { Info, Calendar, Clock } from 'lucide-react';
+import { formatT } from '@/lib/timeFormat';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -43,9 +44,9 @@ export function ScheduleCheckWarning({ scheduleInfo, onContinue, onCancel }: Sch
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {scheduleInfo.shift_start && format(new Date(scheduleInfo.shift_start), 'h:mm a')}
+                  {scheduleInfo.shift_start && formatT(new Date(scheduleInfo.shift_start), 'h:mm a')}
                   {' – '}
-                  {scheduleInfo.shift_end && format(new Date(scheduleInfo.shift_end), 'h:mm a')}
+                  {scheduleInfo.shift_end && formatT(new Date(scheduleInfo.shift_end), 'h:mm a')}
                 </span>
               </div>
               <div className="text-sm text-muted-foreground">

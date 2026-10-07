@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { Clock, CheckCircle, LogIn, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,7 +118,7 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
                         <div className="p-4 bg-primary/10 rounded-lg">
                           <p className="text-sm text-muted-foreground">Currently clocked in since</p>
                           <p className="text-lg font-semibold">
-                            {format(new Date(getActiveEntry(verifiedEmployee.id)!.clock_in), 'h:mm a')}
+                            {formatT(new Date(getActiveEntry(verifiedEmployee.id)!.clock_in), 'h:mm a')}
                           </p>
                         </div>
                         <Button 
@@ -176,8 +177,8 @@ export function Employees({ employees, timeEntries, onClockIn, onClockOut, getAc
                       <div>
                         <p className="font-medium">{employee?.name || 'Unknown'}</p>
                         <p className="text-sm text-muted-foreground">
-                          In: {format(new Date(entry.clock_in), 'h:mm a')}
-                          {entry.clock_out && ` • Out: ${format(new Date(entry.clock_out), 'h:mm a')}`}
+                          In: {formatT(new Date(entry.clock_in), 'h:mm a')}
+                          {entry.clock_out && ` • Out: ${formatT(new Date(entry.clock_out), 'h:mm a')}`}
                         </p>
                       </div>
                       <span className={`px-2 py-1 text-xs rounded ${

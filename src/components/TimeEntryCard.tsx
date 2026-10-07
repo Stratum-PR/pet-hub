@@ -4,6 +4,7 @@
  */
 
 import { MapPin, AlertTriangle, Clock, Edit } from 'lucide-react';
+import { formatT } from '@/lib/timeFormat';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,11 +74,11 @@ export function TimeEntryCard({
             <div>
               <div className="text-sm text-muted-foreground">Clock In</div>
               <div className="font-semibold">
-                {format(displayClockIn, 'MMM d, yyyy h:mm a')}
+                {formatT(displayClockIn, 'MMM d, yyyy h:mm a')}
               </div>
               {timeEntry.rounded_clock_in && (
                 <div className="text-xs text-muted-foreground">
-                  (Rounded from {format(new Date(timeEntry.clock_in), 'h:mm a')})
+                  (Rounded from {formatT(new Date(timeEntry.clock_in), 'h:mm a')})
                 </div>
               )}
             </div>
@@ -85,11 +86,11 @@ export function TimeEntryCard({
               <div>
                 <div className="text-sm text-muted-foreground">Clock Out</div>
                 <div className="font-semibold">
-                  {format(displayClockOut, 'MMM d, yyyy h:mm a')}
+                  {formatT(displayClockOut, 'MMM d, yyyy h:mm a')}
                 </div>
                 {timeEntry.rounded_clock_out && (
                   <div className="text-xs text-muted-foreground">
-                    (Rounded from {format(new Date(timeEntry.clock_out!), 'h:mm a')})
+                    (Rounded from {formatT(new Date(timeEntry.clock_out!), 'h:mm a')})
                   </div>
                 )}
               </div>

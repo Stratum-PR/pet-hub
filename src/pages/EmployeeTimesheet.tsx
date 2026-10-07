@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,12 +37,12 @@ interface EmployeeTimesheetProps {
 }
 
 function formatClockInsCell(entries: TimeEntry[]): string {
-  const lines = entries.filter((e) => e.clock_out).map((e) => format(new Date(e.clock_in), 'h:mm a'));
+  const lines = entries.filter((e) => e.clock_out).map((e) => formatT(new Date(e.clock_in), 'h:mm a'));
   return lines.length ? lines.join('\n') : '—';
 }
 
 function formatClockOutsCell(entries: TimeEntry[]): string {
-  const lines = entries.filter((e) => e.clock_out).map((e) => format(new Date(e.clock_out!), 'h:mm a'));
+  const lines = entries.filter((e) => e.clock_out).map((e) => formatT(new Date(e.clock_out!), 'h:mm a'));
   return lines.length ? lines.join('\n') : '—';
 }
 

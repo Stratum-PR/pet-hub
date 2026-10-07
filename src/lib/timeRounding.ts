@@ -2,6 +2,7 @@
  * Time Rounding Utilities
  * Rounds timestamps to nearest interval (default 15 minutes)
  */
+import { clock12 } from '@/lib/timeFormat';
 
 /**
  * Rounds a timestamp to the nearest interval
@@ -45,10 +46,6 @@ export function formatRoundedTime(
   intervalMinutes: number = 15
 ): string {
   const rounded = roundToNearestInterval(timestamp, intervalMinutes);
-  return rounded.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  return clock12(rounded.getHours(), rounded.getMinutes());
 }
 

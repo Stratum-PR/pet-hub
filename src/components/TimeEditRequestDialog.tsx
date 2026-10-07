@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,12 +107,12 @@ export function TimeEditRequestDialog({
               <div>
                 <span className="text-muted-foreground">Clock In: </span>
                 {timeEntry.clock_in &&
-                  format(new Date(timeEntry.clock_in), 'MMM d, yyyy h:mm a')}
+                  formatT(new Date(timeEntry.clock_in), 'MMM d, yyyy h:mm a')}
               </div>
               {timeEntry.clock_out && (
                 <div>
                   <span className="text-muted-foreground">Clock Out: </span>
-                  {format(new Date(timeEntry.clock_out), 'MMM d, yyyy h:mm a')}
+                  {formatT(new Date(timeEntry.clock_out), 'MMM d, yyyy h:mm a')}
                 </div>
               )}
               {timeEntry.notes && (

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1177,11 +1178,11 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
                                     </span>
                                   </td>
                                   <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
-                                    {format(new Date(entry.clock_in), 'h:mm a')}
+                                    {formatT(new Date(entry.clock_in), 'h:mm a')}
                                   </td>
                                   <td className="whitespace-nowrap px-2 py-2.5 sm:py-3">
                                     {entry.clock_out
-                                      ? format(new Date(entry.clock_out), 'h:mm a')
+                                      ? formatT(new Date(entry.clock_out), 'h:mm a')
                                       : t('timeClock.clockedIn')}
                                   </td>
                                   <td className="whitespace-nowrap px-2 py-2.5 text-right text-muted-foreground sm:py-3 sm:pr-2">
@@ -1358,12 +1359,12 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
               <div className="space-y-3 py-2 text-sm">
                 <p>
                   <span className="font-medium text-foreground">{t('payroll.clockIn')}: </span>
-                  {format(new Date(editingEntry.clock_in), 'MMM d, yyyy h:mm a')}
+                  {formatT(new Date(editingEntry.clock_in), 'MMM d, yyyy h:mm a')}
                 </p>
                 <p>
                   <span className="font-medium text-foreground">{t('payroll.clockOut')}: </span>
                   {editingEntry.clock_out
-                    ? format(new Date(editingEntry.clock_out), 'MMM d, yyyy h:mm a')
+                    ? formatT(new Date(editingEntry.clock_out), 'MMM d, yyyy h:mm a')
                     : t('timeClock.clockedIn')}
                 </p>
               </div>
@@ -1470,9 +1471,9 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
             <div className="text-sm text-foreground">
               <p>
                 {format(new Date(voidConfirmEntry.clock_in), 'EEEE, MMM d')} · {t('payroll.clockIn')}{' '}
-                {format(new Date(voidConfirmEntry.clock_in), 'h:mm a')}
+                {formatT(new Date(voidConfirmEntry.clock_in), 'h:mm a')}
                 {voidConfirmEntry.clock_out
-                  ? ` → ${format(new Date(voidConfirmEntry.clock_out), 'h:mm a')}`
+                  ? ` → ${formatT(new Date(voidConfirmEntry.clock_out), 'h:mm a')}`
                   : ''}
               </p>
             </div>

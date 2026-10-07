@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useState, useCallback } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { ChevronLeft, ChevronRight, Clock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -71,17 +72,17 @@ function ShiftRequestRow({
           </span>
         </div>
         <p className="text-xs text-muted-foreground">
-          {t('schedule.shiftRequest.submittedAt')}: {format(new Date(r.created_at), 'MMM d, yyyy h:mm a')}
+          {t('schedule.shiftRequest.submittedAt')}: {formatT(new Date(r.created_at), 'MMM d, yyyy h:mm a')}
         </p>
         {r.status !== 'pending' && r.reviewed_at && (
           <p className="text-xs text-muted-foreground">
-            {t('schedule.shiftRequest.reviewedAt')}: {format(new Date(r.reviewed_at), 'MMM d, yyyy h:mm a')}
+            {t('schedule.shiftRequest.reviewedAt')}: {formatT(new Date(r.reviewed_at), 'MMM d, yyyy h:mm a')}
           </p>
         )}
         {r.proposed_start_time && r.proposed_end_time && (
           <p>
-            {format(new Date(r.proposed_start_time), 'MMM d, h:mm a')} –{' '}
-            {format(new Date(r.proposed_end_time), 'h:mm a')}
+            {formatT(new Date(r.proposed_start_time), 'MMM d, h:mm a')} –{' '}
+            {formatT(new Date(r.proposed_end_time), 'h:mm a')}
           </p>
         )}
         {r.review_notes && <p className="text-muted-foreground text-xs">{r.review_notes}</p>}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { clock12FromHHmm } from '@/lib/timeFormat';
 import {
   endOfDay,
   endOfMonth,
@@ -53,15 +54,7 @@ import { UNASSIGNED_STAFF_ID } from '@/lib/groomerAvailability';
 import { formatStaffNameAggregated } from '@/lib/staffDisplayName';
 
 function formatTime12H(timeRaw: string | null | undefined): string {
-  if (!timeRaw) return '';
-  const s = String(timeRaw).split(':').slice(0, 2).join(':');
-  const [hStr, mStr] = s.split(':');
-  const hour = parseInt(hStr, 10);
-  const minutes = mStr ?? '00';
-  if (Number.isNaN(hour)) return s;
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${minutes} ${ampm}`;
+  return clock12FromHHmm(timeRaw);
 }
 
 const DATE_PRESETS = ['today', 'thisWeek', 'thisMonth', 'last30', 'next30'] as const;

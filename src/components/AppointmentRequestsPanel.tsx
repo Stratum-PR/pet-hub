@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import { format, formatDistanceToNow } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
 import { Check, Clock, Inbox, Loader2, Mail, MessageSquare, Phone, X } from 'lucide-react';
@@ -302,7 +303,7 @@ export function AppointmentRequestsPanel(props: Props) {
                     </Badge>
                     {t('requests.decidedBy', {
                       name: deciderName(a),
-                      when: format(new Date(a.decided_at as string), 'd MMM, h:mm a', { locale }),
+                      when: formatT(new Date(a.decided_at as string), 'd MMM, h:mm a', { locale }),
                     })}
                   </span>
                 </div>

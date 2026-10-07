@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { formatT } from '@/lib/timeFormat';
 import {
   Dialog,
   DialogContent,
@@ -153,8 +154,8 @@ export function ShiftRequestDialog({
                 <SelectContent>
                   {shifts.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {format(new Date(s.start_time), 'MMM d, h:mm a')} –{' '}
-                      {format(new Date(s.end_time), 'h:mm a')}
+                      {formatT(new Date(s.start_time), 'MMM d, h:mm a')} –{' '}
+                      {formatT(new Date(s.end_time), 'h:mm a')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -188,8 +189,8 @@ export function ShiftRequestDialog({
           {kind === 'change' && selectedShift && (
             <p className="text-xs text-muted-foreground">
               {t('schedule.shiftRequest.was')}{' '}
-              {format(new Date(selectedShift.start_time), 'MMM d, h:mm a')} –{' '}
-              {format(new Date(selectedShift.end_time), 'h:mm a')}
+              {formatT(new Date(selectedShift.start_time), 'MMM d, h:mm a')} –{' '}
+              {formatT(new Date(selectedShift.end_time), 'h:mm a')}
             </p>
           )}
 
