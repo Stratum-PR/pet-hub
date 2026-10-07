@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { enUS, es as esLocale } from 'date-fns/locale';
-import { Check, Clock, Globe, Inbox, Loader2, Mail, MessageSquare, Phone, X } from 'lucide-react';
+import { Check, Clock, Inbox, Loader2, Mail, MessageSquare, Phone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -100,11 +100,6 @@ function RequestCard({
           <div className="flex items-center gap-2">
             <span className="text-base font-semibold">{pet?.name ?? t('apptBook.unknownPet')}</span>
             {pet?.breed ? <span className="text-sm text-muted-foreground">· {pet.breed}</span> : null}
-            {apt.booking_source === 'online' ? (
-              <Badge variant="secondary" className="gap-1 text-[11px]">
-                <Globe className="h-3 w-3" /> {t('apptBook.onlineBadge')}
-              </Badge>
-            ) : null}
           </div>
           <div className="mt-0.5 text-sm text-muted-foreground">
             {client ? `${client.first_name} ${client.last_name}` : t('apptBook.unknownOwner')}

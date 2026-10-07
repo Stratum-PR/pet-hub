@@ -67,7 +67,6 @@ import {
   type Interval,
 } from '@/lib/groomerAvailability';
 import { useEmployeeShifts, useEmployees, useSettings } from '@/hooks/useSupabaseData';
-import { useStaffServiceRates } from '@/hooks/useStaffServiceRates';
 import { PastBookingConfirmDialog } from '@/components/PastBookingConfirmDialog';
 
 const CAT_BREEDS = [
@@ -86,6 +85,8 @@ const CAT_BREEDS = [
 ];
 
 const ANYONE = 'anyone';
+/** Price and duration are set per service by the business; no per-groomer overrides. */
+const NO_RATES: never[] = [];
 
 const field = 'rounded-lg border border-foreground/15 bg-background shadow-none';
 
@@ -194,7 +195,6 @@ export function BookingFormDialog({
 
   const { settings } = useSettings();
   const { employees } = useEmployees({ includeSensitive: false });
-  const { rates } = useStaffServiceRates();
   const hoursPerDay = useMemo(() => parseBusinessHours(settings.business_hours), [settings.business_hours]);
 
   const activeServices = useMemo(
@@ -364,8 +364,8 @@ export function BookingFormDialog({
   const blocks: BusyBlock[] = useMemo(() => blocksByDay.get(format(date, 'yyyy-MM-dd')) ?? [], [blocksByDay, date]);
 
   const quote = useMemo(
-    () => quoteForStaff(serviceIds, activeServices, rates, groomer === ANYONE ? null : groomer),
-    [serviceIds, activeServices, rates, groomer],
+    () => quoteForStaff(serviceIds, activeServices, NO_RATES, groomer === ANYONE ? null : groomer),
+    [serviceIds, activeServices, groomer],
   );
   const duration = Math.max(quote.duration, serviceIds.length ? 15 : 0);
 
@@ -555,7 +555,7 @@ export function BookingFormDialog({
       if (!staffId) {
         staffId = pickLeastBusyStaff({ staffIds: eligibleIds, start: startMin, duration, windowsByStaff, blocks });
       }
-      const finalQuote = quoteForStaff(serviceIds, activeServices, rates, staffId);
+      const finalQuote = quoteForStaff(serviceIds, activeServices, NO_RATES, staffId);
       const endMin = Math.min(startMin + Math.max(finalQuote.duration, 15), 24 * 60 - 1);
 
       const cid = await resolveClient();

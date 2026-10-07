@@ -13,13 +13,9 @@ import {
   startOfWeek,
   subMonths,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { t } from '@/lib/translations';
-
-export type ApptBookWeekJumpOffset = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-
-const WEEK_JUMP_OFFSETS: ApptBookWeekJumpOffset[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export interface ApptBookDaySummary {
   appointments: number;
@@ -33,11 +29,6 @@ interface AppointmentBookSidebarProps {
   /** yyyy-MM-dd keys of days that have at least one appointment (dot under the day). */
   busyDayKeys?: Set<string>;
   daySummary?: ApptBookDaySummary | null;
-  onOpenRequests?: () => void;
-  showWeekJumpControls?: boolean;
-  weekJumpOffset?: ApptBookWeekJumpOffset | null;
-  onWeekJump?: (offset: ApptBookWeekJumpOffset) => void;
-  weekJumpNoAvailability?: boolean;
   isBookableDate?: (date: Date) => boolean;
   dateLocale?: Locale;
   className?: string;
@@ -48,11 +39,6 @@ export function AppointmentBookSidebar({
   onDateChange,
   busyDayKeys,
   daySummary,
-  onOpenRequests,
-  showWeekJumpControls = false,
-  weekJumpOffset = null,
-  onWeekJump,
-  weekJumpNoAvailability = false,
   isBookableDate,
   dateLocale,
   className,
@@ -143,66 +129,17 @@ export function AppointmentBookSidebar({
         </div>
       </div>
 
-      {showWeekJumpControls && onWeekJump ? (
-        <div className="border-t border-border pt-4">
-          <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-xs font-medium text-muted-foreground">{t('apptBook.jumpAhead')}</span>
-            <span className="text-[11px] text-muted-foreground">{t('apptBook.weekJumpWeeksSuffix')}</span>
-          </div>
-          <div className="grid grid-cols-4 gap-1">
-            {WEEK_JUMP_OFFSETS.map((n) => (
-              <button
-                key={n}
-                type="button"
-                aria-label={t('apptBook.weekJumpAria', { count: n })}
-                aria-pressed={weekJumpOffset === n}
-                onClick={() => onWeekJump(n)}
-                className={cn(
-                  'h-7 rounded-md border text-xs font-medium tabular-nums transition-colors',
-                  weekJumpOffset === n
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted',
-                )}
-              >
-                +{n}
-              </button>
-            ))}
-          </div>
-          {weekJumpNoAvailability ? (
-            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400" role="status">
-              {t('apptBook.noAvailabilityInWeek')}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       {daySummary ? (
         <div className="border-t border-border pt-4">
-          <div className="mb-2 text-xs font-medium capitalize text-muted-foreground">
-            {format(selectedDate, 'EEEE d MMM', fmtOpts)}
+          <div className="text-xs font-medium capitalize text-muted-foreground">{format(selectedDate, 'EEEE d MMM', fmtOpts)}</div>
+          <div className="mt-1 flex items-baseline justify-between gap-2">
+            <span className="text-sm text-foreground">
+              {t(daySummary.appointments === 1 ? 'apptBook.summaryCountOne' : 'apptBook.summaryCount', {
+                count: daySummary.appointments,
+              })}
+            </span>
+            <span className="text-sm font-semibold tabular-nums">${daySummary.revenue.toFixed(0)}</span>
           </div>
-          <dl className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-muted/50 p-2">
-              <dt className="text-[11px] text-muted-foreground">{t('apptBook.summaryAppointments')}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{daySummary.appointments}</dd>
-            </div>
-            <div className="rounded-lg bg-muted/50 p-2">
-              <dt className="text-[11px] text-muted-foreground">{t('apptBook.summaryRevenue')}</dt>
-              <dd className="text-lg font-semibold tabular-nums">${daySummary.revenue.toFixed(0)}</dd>
-            </div>
-          </dl>
-          {daySummary.pending > 0 && onOpenRequests ? (
-            <button
-              type="button"
-              onClick={onOpenRequests}
-              className="mt-2 flex w-full items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-left text-sm text-amber-900 hover:bg-amber-500/15 dark:text-amber-100"
-            >
-              <Inbox className="h-4 w-4 shrink-0" />
-              {daySummary.pending === 1
-                ? t('apptBook.summaryPendingOne')
-                : t('apptBook.summaryPending', { count: daySummary.pending })}
-            </button>
-          ) : null}
         </div>
       ) : null}
     </aside>
