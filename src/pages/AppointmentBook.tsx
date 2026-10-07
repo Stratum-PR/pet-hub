@@ -60,8 +60,6 @@ import {
 import {
   getStoredApptBookCalendarScope,
   setStoredApptBookCalendarScope,
-  getStoredSelectedServiceIds,
-  setStoredSelectedServiceIds,
   getStoredSelectedEmployeeIds,
   setStoredSelectedEmployeeIds,
   clearApptBookCategoryFilterStorage,
@@ -227,7 +225,6 @@ export function AppointmentBook() {
   };
 
   const hoursPerDay = useMemo(() => parseBusinessHours(settings?.business_hours), [settings?.business_hours]);
-  const activeServices = useMemo(() => services.filter((s) => s.is_active !== false), [services]);
 
   // ---------------- date & scope ----------------
   const [selectedDate, setSelectedDate] = useState<Date>(() => startOfDay(new Date()));
@@ -247,30 +244,24 @@ export function AppointmentBook() {
 
 
   // ---------------- filters ----------------
-  const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string> | null>(null);
   const [selectedStaffIds, setSelectedStaffIds] = useState<Set<string> | null>(null);
   const [showAllStaff, setShowAllStaff] = useState(false);
   const hydrated = useRef(false);
   useEffect(() => {
     if (loading || hydrated.current) return;
     hydrated.current = true;
-    const ss = getStoredSelectedServiceIds();
-    const validSs = (ss ?? []).filter((id) => activeServices.some((s) => s.id === id));
-    if (validSs.length) setSelectedServiceIds(new Set(validSs));
     const se = getStoredSelectedEmployeeIds();
     const validSe = (se ?? []).filter((id) => employees.some((e) => e.id === id));
     if (validSe.length) setSelectedStaffIds(new Set(validSe));
-  }, [loading, activeServices, employees]);
+  }, [loading, employees]);
   useEffect(() => {
     if (!hydrated.current) return;
     clearApptBookCategoryFilterStorage();
-    if (selectedServiceIds?.size) setStoredSelectedServiceIds([...selectedServiceIds]);
     if (selectedStaffIds?.size) setStoredSelectedEmployeeIds([...selectedStaffIds]);
-  }, [selectedServiceIds, selectedStaffIds]);
+  }, [selectedStaffIds]);
   // null = everything shown; a Set (even empty) = only those. An empty Set lets people clear all and pick one.
-  const activeFilterCount = (selectedServiceIds ? 1 : 0) + (selectedStaffIds ? 1 : 0);
+  const activeFilterCount = selectedStaffIds ? 1 : 0;
   const clearFilters = () => {
-    setSelectedServiceIds(null);
     setSelectedStaffIds(null);
   };
   const toggleIn = (set: Set<string> | null, id: string, all: string[]): Set<string> | null => {
@@ -304,11 +295,10 @@ export function AppointmentBook() {
         ? convertAppointmentsToCalendarInRange(appointments, pets, employees, services, weekStart, weekEnd)
         : convertAppointmentsToCalendar(appointments, pets, employees, services, selectedDate);
     return rows.filter((r) => {
-      if (selectedServiceIds && !(r.serviceIds ?? []).some((id) => selectedServiceIds.has(id))) return false;
       if (selectedStaffIds && r.staffId !== UNASSIGNED_STAFF_ID && !selectedStaffIds.has(r.staffId)) return false;
       return true;
     });
-  }, [loading, calendarScope, appointments, pets, employees, services, weekStart, weekEnd, selectedDate, selectedServiceIds, selectedStaffIds]);
+  }, [loading, calendarScope, appointments, pets, employees, services, weekStart, weekEnd, selectedDate, selectedStaffIds]);
 
   const columns = useMemo((): CalendarStaff[] => {
     let cols = groomers;
@@ -500,20 +490,8 @@ export function AppointmentBook() {
 
   // ---------------- render ----------------
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 max-sm:pb-2 sm:-mx-6 sm:flex-row sm:items-stretch sm:overflow-hidden">
-      {tab === 'calendar' ? (
-        <AppointmentBookSidebar
-          className="max-sm:order-2 max-sm:border-r-0 max-sm:border-t"
-          selectedDate={selectedDate}
-          onDateChange={goToDate}
-          busyDayKeys={busyDayKeys}
-          daySummary={loading ? null : daySummary}
-          dateLocale={dateFnsLocale}
-          isBookableDate={isBookableDate}
-        />
-      ) : null}
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col max-sm:order-1 sm:overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden bg-background -mx-4 max-sm:pb-2 sm:-mx-6 sm:overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col sm:overflow-hidden">
         {/* Tabs + primary actions */}
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 sm:px-6">
           <Tabs value={tab} onValueChange={(v) => goTab(v as ApptBookTab)}>
@@ -632,26 +610,6 @@ export function AppointmentBook() {
                     {t('apptBook.showAllStaff')}
                     <Switch checked={showAllStaff} onCheckedChange={setShowAllStaff} />
                   </label>
-                  <FilterHeader
-                    className="mt-4"
-                    title={t('apptBook.bookingCategory')}
-                    onAll={() => setSelectedServiceIds(null)}
-                    onNone={() => setSelectedServiceIds(new Set())}
-                  />
-                  <div className="space-y-0.5">
-                    {activeServices.map((sv) => (
-                      <FilterRow
-                        key={sv.id}
-                        label={sv.name}
-                        color={sv.color ?? '#7DD3FC'}
-                        checked={!selectedServiceIds || selectedServiceIds.has(sv.id)}
-                        onToggle={() =>
-                          setSelectedServiceIds((prev) => toggleIn(prev, sv.id, activeServices.map((x) => x.id)))
-                        }
-                        onOnly={() => setSelectedServiceIds(new Set([sv.id]))}
-                      />
-                    ))}
-                  </div>
                 </div>
                 {activeFilterCount ? (
                   <div className="border-t p-2">
@@ -673,7 +631,19 @@ export function AppointmentBook() {
               <span className="text-sm">{t('common.loading')}</span>
             </div>
           ) : tab === 'calendar' ? (
-            calendarScope === 'by-week' ? (
+            // Mini month and the grid share one row, so both white panels start and end at the same height.
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col max-sm:flex-none sm:flex-row">
+              <AppointmentBookSidebar
+                className="max-sm:order-2 max-sm:border-r-0 max-sm:border-t"
+                selectedDate={selectedDate}
+                onDateChange={goToDate}
+                busyDayKeys={busyDayKeys}
+                daySummary={daySummary}
+                dateLocale={dateFnsLocale}
+                isBookableDate={isBookableDate}
+              />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col max-sm:order-1">
+              {calendarScope === 'by-week' ? (
               <AppointmentBookWeekView
                 weekDays={weekDays}
                 employees={columns}
@@ -693,7 +663,9 @@ export function AppointmentBook() {
                 onAppointmentClick={(apt) => setDetailsId(apt.id)}
                 onSlotClick={(staffId, time) => openCreate({ staffId, date: selectedDate, time })}
               />
-            )
+            )}
+              </div>
+            </div>
           ) : tab === 'list' ? (
             <AppointmentBookListView
               key={`${petFilterId ?? ''}-${historyScope}`}
@@ -703,15 +675,9 @@ export function AppointmentBook() {
               services={services}
               employees={employees}
               calendarEmployees={groomers}
-              selectedDate={selectedDate}
-              onSelectDate={goToDate}
-              onPreviousDay={() => goToDate(subDays(selectedDate, 1))}
-              onNextDay={() => goToDate(addDays(selectedDate, 1))}
-              onToday={() => goToDate(new Date())}
               filters={{ service: 'All Services', staff: 'All Employees', view: 'day' }}
               onFilterChange={() => {}}
               onEdit={(apt) => setDetailsId(apt.id)}
-              initialScope="all"
               petFilterId={petFilterId}
               onClearPetFilter={() => {
                 const next = new URLSearchParams(searchParams);

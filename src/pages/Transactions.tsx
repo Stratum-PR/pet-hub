@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Transaction, TransactionLineItem } from '@/types/transactions';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
-import { Plus, CheckCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -198,19 +198,6 @@ export function Transactions() {
           onSearchChange={setSearchTerm}
           placeholder={t('transactions.searchPlaceholder')}
         />
-        {demoBrowseOnly ? (
-          <Button type="button" className="gap-2 shadow-sm shrink-0" disabled title={t('demo.workspaceReadOnlyAction')}>
-            <Plus className="w-4 h-4" />
-            {t('transactions.newTransaction')}
-          </Button>
-        ) : (
-          <Button asChild className="gap-2 shadow-sm shrink-0">
-            <Link to={businessSlug ? `/${businessSlug}/transactions/new` : '/transactions/new'}>
-              <Plus className="w-4 h-4" />
-              {t('transactions.newTransaction')}
-            </Link>
-          </Button>
-        )}
       </div>
 
       <div data-page-content>

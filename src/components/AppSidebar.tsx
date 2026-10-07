@@ -98,6 +98,10 @@ interface AppSidebarProps {
   allowEmployeeMobilePunch?: boolean;
   /** When true, render for mobile sheet (no collapse button, full width) */
   mobile?: boolean;
+  /** Collapsed sidebar shown expanded temporarily (hovering the expand icon). */
+  peeking?: boolean;
+  /** Hovering the expand icon while collapsed. */
+  onPeek?: () => void;
 }
 
 export function AppSidebar({
@@ -109,6 +113,8 @@ export function AppSidebar({
   brandingLayout = DEFAULT_BUSINESS_BRANDING_LAYOUT,
   allowEmployeeMobilePunch = false,
   mobile,
+  peeking = false,
+  onPeek,
 }: AppSidebarProps) {
   const sidebarRef = useRef<HTMLDivElement | null>(null);
   const businessSlug = useResolvedBusinessSlug();
@@ -399,14 +405,16 @@ export function AppSidebar({
                 ? 'absolute right-0 top-0'
                 : 'absolute right-2 top-2'
             )}
+            onMouseEnter={collapsed ? onPeek : undefined}
             onClick={() => {
-              const next = !collapsed;
+              // While peeking, a click keeps it open; otherwise it toggles.
+              const next = peeking ? false : !collapsed;
               onCollapsedChange(next);
               setSidebarCollapsed(next);
             }}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={collapsed || peeking ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            {collapsed || peeking ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         )}
       </div>

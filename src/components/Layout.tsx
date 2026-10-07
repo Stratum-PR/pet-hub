@@ -146,6 +146,7 @@ export function Layout({ children, settings }: LayoutProps) {
     businessName: string;
   } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(getSidebarCollapsed);
+  const [sidebarPeek, setSidebarPeek] = useState(false);
   const pageTransition = usePageTransition();
   const isRevealing = pageTransition?.isRevealing ?? false;
   const demoLocalOnly = useDemoLocalSettingsMode();
@@ -301,10 +302,21 @@ export function Layout({ children, settings }: LayoutProps) {
         style={{ paddingTop: showAdminHeader ? 48 : 0 }}
       >
         {/* Desktop sidebar: fills column height; main area scrolls separately */}
-        <div className="hidden min-h-0 shrink-0 self-stretch pt-4 pb-4 pl-5 lg:flex lg:flex-col print:hidden">
+        <div
+          className="relative hidden min-h-0 shrink-0 self-stretch pt-4 pb-4 pl-5 lg:flex lg:flex-col print:hidden"
+          style={sidebarCollapsed ? { width: 92 } : undefined}
+          onMouseLeave={() => setSidebarPeek(false)}
+        >
+          {/* Hovering the expand icon opens the sidebar over the page (no reflow); leaving closes it again. */}
+          <div className={cn('flex min-h-0 flex-1 flex-col', sidebarPeek && 'absolute bottom-4 left-5 top-4 z-50 rounded-xl shadow-xl')}>
           <AppSidebar
-            collapsed={sidebarCollapsed}
-            onCollapsedChange={setCollapsed}
+            collapsed={sidebarCollapsed && !sidebarPeek}
+            peeking={sidebarCollapsed && sidebarPeek}
+            onPeek={() => setSidebarPeek(true)}
+            onCollapsedChange={(v) => {
+              setSidebarPeek(false);
+              setCollapsed(v);
+            }}
             businessName={settings.business_name && settings.business_name.toLowerCase().includes('demo') ? 'Demo' : settings.business_name || 'Grumi'}
             businessLogoUrl={logoToShow}
             businessIconUrl={iconToShow}
@@ -312,6 +324,7 @@ export function Layout({ children, settings }: LayoutProps) {
             allowEmployeeMobilePunch={settings.allow_employee_mobile_punch === 'true'}
             mobile={false}
           />
+          </div>
         </div>
 
         {/* Main area: header fixed in column; body + footer scroll together */}
