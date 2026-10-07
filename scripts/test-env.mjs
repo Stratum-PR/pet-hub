@@ -11,7 +11,7 @@
 // so `supabase link`, supabase/config.toml and the default local ports (54320-54329) stay untouched.
 // Needs Docker Desktop (or Docker Engine) running, Node 20+, and `npm install` done.
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,6 +20,8 @@ const WORKDIR = join(ROOT, '.test-env');
 const WIN = process.platform === 'win32';
 const SUPABASE = join(ROOT, 'node_modules', '.bin', WIN ? 'supabase.cmd' : 'supabase');
 const COMPOSE_FILE = join(ROOT, 'test-env', 'docker-compose.yml');
+// Production schema as of this version is in test-env/supabase/prod-schema-snapshot.sql (bump both together).
+const SNAPSHOT_VERSION = '20261007235900';
 
 function run(cmd, args, { capture = false, allowFail = false } = {}) {
   const r = spawnSync(cmd, args, { cwd: ROOT, stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit', shell: WIN, encoding: 'utf8' });
@@ -44,7 +46,16 @@ function prepareWorkdir() {
   mkdirSync(sb, { recursive: true });
   for (const d of ['migrations', 'functions']) rmSync(join(sb, d), { recursive: true, force: true });
   cpSync(join(ROOT, 'test-env', 'supabase', 'config.toml'), join(sb, 'config.toml'));
-  cpSync(join(ROOT, 'supabase', 'migrations'), join(sb, 'migrations'), { recursive: true });
+  // The repo's migration history can't be replayed from scratch, so the stack starts from a snapshot of
+  // production's schema and applies only repo migrations newer than it.
+  mkdirSync(join(sb, 'migrations'), { recursive: true });
+  cpSync(join(ROOT, 'test-env', 'supabase', 'prod-schema-snapshot.sql'), join(sb, 'migrations', `${SNAPSHOT_VERSION}_prod_schema_snapshot.sql`));
+  for (const f of readdirSync(join(ROOT, 'supabase', 'migrations'))) {
+    const version = f.split('_')[0];
+    if (f.endsWith('.sql') && /^\d{14}$/.test(version) && version > SNAPSHOT_VERSION) {
+      cpSync(join(ROOT, 'supabase', 'migrations', f), join(sb, 'migrations', f));
+    }
+  }
   cpSync(join(ROOT, 'supabase', 'functions'), join(sb, 'functions'), { recursive: true });
 }
 
