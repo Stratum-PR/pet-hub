@@ -26,12 +26,26 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Start test stack
-        run: npm run test:env:up
+        run: |
+          set -o pipefail
+          npm run test:env:up 2>&1 | tee test-env-up.log
       - name: Payments end-to-end tests
-        run: npm run test:payments
-      - name: Edge Function logs (on failure)
+        run: |
+          set -o pipefail
+          npm run test:payments 2>&1 | tee test-payments.log
+      - name: Show the failure as an annotation (readable without opening the log)
         if: failure()
-        run: docker logs supabase_edge_runtime_grumi-test 2>&1 | tail -200 || true
+        run: |
+          for f in test-env-up.log test-payments.log; do
+            [ -f "$f" ] || continue
+            msg=$(tail -n 60 "$f" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$f::$msg"
+          done
+          docker logs supabase_edge_runtime_grumi-test 2>&1 | tail -60 > edge.log || true
+          if [ -s edge.log ]; then
+            msg=$(sed -e 's/%/%25/g' edge.log | awk '{printf "%s%%0A", $0}')
+            echo "::error title=edge-runtime::$msg"
+          fi
       - name: Stop test stack
         if: always()
         run: npm run test:env:down
