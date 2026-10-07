@@ -21,6 +21,8 @@ import { normalizeTaxLabelForDisplay } from '@/lib/taxLabels';
 import { validateCreatePayload } from '@/lib/transactionValidation';
 import { devConsole } from '@/lib/clientDebug';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AthMovilChargeDialog } from '@/components/AthMovilChargeDialog';
+import { callPayments, type AthMode, type PaymentAttempt } from '@/lib/payments';
 
 function toCents(d: number): number {
   return Math.round(d * 100);
@@ -52,6 +54,27 @@ export function TransactionCreate() {
   const [amountTendered, setAmountTendered] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  // ATH Móvil: charge through the app (test or real mode) when the business turned it on in Settings → Pagos.
+  const [athMode, setAthMode] = useState<AthMode>('off');
+  const [athOpen, setAthOpen] = useState(false);
+  const [paidUnsaved, setPaidUnsaved] = useState<PaymentAttempt | null>(null);
+
+  useEffect(() => {
+    if (demoBrowseOnly) return;
+    void callPayments<{ athmovil: { mode: AthMode } }>('settings_get').then(({ data }) => {
+      if (data) setAthMode(data.athmovil.mode);
+    });
+  }, [demoBrowseOnly]);
+
+  // A charge that was paid but whose transaction wasn't saved (e.g. the page closed): offer to finish it.
+  useEffect(() => {
+    if (!urlAppointmentId || demoBrowseOnly) return;
+    void callPayments<{ payments: PaymentAttempt[] }>('unlinked_for_appointment', { appointmentId: urlAppointmentId }).then(
+      ({ data }) => {
+        if (data?.payments?.[0]) setPaidUnsaved(data.payments[0]);
+      },
+    );
+  }, [urlAppointmentId, demoBrowseOnly]);
 
   // Prefill from appointment when opened via ?appointmentId=...
   useEffect(() => {
@@ -182,23 +205,46 @@ export function TransactionCreate() {
     });
   };
 
-  const handleSave = async () => {
-    const payload = {
+  const buildPayload = (athPaid?: PaymentAttempt) => {
+    const paidCents = athPaid ? athPaid.amountPaidCents ?? athPaid.amountCents : null;
+    const tendered = paidCents ?? (paymentMethod === 'cash' ? toCents(Number(amountTendered || totalCents / 100)) : totalCents);
+    const athNote = athPaid?.receiptReference ? `ATH Móvil ref. ${athPaid.receiptReference}` : null;
+    return {
       customer_id: customerId,
       appointment_id: appointmentId,
       line_items: lineItems,
       discount_amount: toCents(discountAmount),
       discount_label: discountLabel || null,
       tip_amount: tipCents,
-      payment_method: paymentMethod,
+      payment_method: athPaid ? ('ath_movil' as PaymentMethod) : paymentMethod,
       payment_method_secondary: null,
-      amount_tendered: paymentMethod === 'cash' ? toCents(Number(amountTendered || totalCents / 100)) : totalCents,
-      change_given: paymentMethod === 'cash' ? changeCents : null,
-      status: getPaymentStatusFromAmount(paymentMethod === 'cash' ? toCents(Number(amountTendered || totalCents / 100)) : totalCents, totalCents),
-      notes: notes || null,
+      amount_tendered: tendered,
+      change_given: !athPaid && paymentMethod === 'cash' ? changeCents : null,
+      status: getPaymentStatusFromAmount(tendered, totalCents),
+      notes: [notes || null, athNote].filter(Boolean).join(' · ') || null,
     };
+  };
+
+  const athActive = paymentMethod === 'ath_movil' && athMode !== 'off';
+
+  /** Validate, then either open the ATH Móvil charge or save directly. */
+  const handlePrimary = () => {
+    if (athActive) {
+      const validation = validateCreatePayload(buildPayload() as Parameters<typeof validateCreatePayload>[0]);
+      if (validation.valid === false) {
+        toast.error(validation.error);
+        return;
+      }
+      setAthOpen(true);
+      return;
+    }
+    void handleSave();
+  };
+
+  const handleSave = async (athPaid?: PaymentAttempt) => {
+    const payload = buildPayload(athPaid);
     const validation = validateCreatePayload(payload as any);
-    if (!validation.valid) {
+    if (validation.valid === false) {
       toast.error(validation.error);
       return;
     }
@@ -207,11 +253,21 @@ export function TransactionCreate() {
     setSaving(false);
     if (result.error) {
       devConsole.error('[TransactionCreate] createTransaction', result.error);
-      toast.error(result.error);
+      if (athPaid) {
+        // Money was received; keep the payment so "Guardar" retries without charging again.
+        setPaidUnsaved(athPaid);
+        toast.error(t('payments.charge.paidNotSaved'));
+      } else {
+        toast.error(t('common.genericError'));
+      }
       return;
     }
     const created = result.data;
     const createdLineItems = (result as { lineItems?: typeof lineItems }).lineItems;
+    if (created && athPaid) {
+      await callPayments('link_transaction', { paymentId: athPaid.id, transactionId: created.id });
+      setPaidUnsaved(null);
+    }
     if (created) {
       toast.success(t('transactions.created'));
       navigate(`/${businessSlug}/transactions/${created.id}`, {
@@ -242,6 +298,19 @@ export function TransactionCreate() {
           <AlertDescription>{t('demo.workspaceReadOnlyAction')}</AlertDescription>
         </Alert>
       )}
+
+      {paidUnsaved ? (
+        <Alert>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {t('payments.charge.paidUnsavedBanner', { amount: `$${fromCents(paidUnsaved.amountPaidCents ?? paidUnsaved.amountCents).toFixed(2)}` })}
+            </span>
+            <Button size="sm" disabled={saving || lineItems.length === 0} onClick={() => void handleSave(paidUnsaved)}>
+              {t('transactions.saveTransaction')}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -455,6 +524,11 @@ export function TransactionCreate() {
               </SelectContent>
             </Select>
           </div>
+          {paymentMethod === 'ath_movil' ? (
+            <p className="text-xs text-muted-foreground">
+              {athMode === 'off' ? t('payments.charge.athOffHint') : athMode === 'simulator' ? t('payments.charge.athTestHint') : t('payments.charge.athLiveHint')}
+            </p>
+          ) : null}
           {paymentMethod === 'cash' && (
             <div className="space-y-2">
               <Label>{t('transactions.amountTendered')} ($)</Label>
@@ -482,13 +556,28 @@ export function TransactionCreate() {
       </Card>
 
       <div className="flex gap-2">
-        <Button onClick={handleSave} disabled={demoBrowseOnly || saving || lineItems.length === 0}>
-          {saving ? t('common.saving') : t('transactions.saveTransaction')}
+        <Button onClick={handlePrimary} disabled={demoBrowseOnly || saving || lineItems.length === 0 || !!paidUnsaved}>
+          {saving ? t('common.saving') : athActive ? t('payments.charge.chargeWithAth') : t('transactions.saveTransaction')}
         </Button>
         <Button variant="outline" onClick={() => navigate(`/${businessSlug}/transactions`)}>
           {t('common.cancel')}
         </Button>
       </div>
+
+      <AthMovilChargeDialog
+        open={athOpen}
+        onOpenChange={setAthOpen}
+        amountCents={totalCents}
+        mode={athMode}
+        defaultPhone={clients.find((c) => c.id === customerId)?.phone ?? null}
+        appointmentId={appointmentId}
+        customerId={customerId}
+        description={lineItems.map((li) => li.name).join(', ').slice(0, 60)}
+        onPaid={(p) => {
+          window.setTimeout(() => setAthOpen(false), 1200);
+          void handleSave(p);
+        }}
+      />
     </div>
   );
 }

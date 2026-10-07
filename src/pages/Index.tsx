@@ -32,6 +32,8 @@ import { useCanonicalSlugRedirect } from '@/hooks/useCanonicalSlugRedirect';
 import { useResolvedBusinessSlug } from '@/hooks/useResolvedBusinessSlug';
 import { AccountSettings } from '@/pages/AccountSettings';
 import { BusinessSettingsPage } from '@/pages/BusinessSettingsPage';
+import { PaymentsSettingsPage } from '@/pages/PaymentsSettingsPage';
+import { AthSimulatorPhone } from '@/pages/AthSimulatorPhone';
 import { BookingSettings } from '@/pages/BookingSettings';
 import { Billing } from '@/pages/Billing';
 import { Help } from '@/pages/Help';
@@ -558,6 +560,7 @@ const Index = () => {
               path="payment"
               element={paymentsVisible ? <Payment /> : <Navigate to="dashboard" replace />}
             />
+            <Route path="ath-simulador" element={<AthSimulatorPhone />} />
             <Route
               path="transactions"
               element={transactionsListVisible ? <Transactions /> : <Navigate to="dashboard" replace />}
@@ -603,6 +606,10 @@ const Index = () => {
               <Route
                 path="business"
                 element={role === 'employee' ? <Navigate to="../clients" replace /> : <BusinessSettingsPage />}
+              />
+              <Route
+                path="payments"
+                element={role === 'employee' ? <Navigate to="../clients" replace /> : <PaymentsSettingsPage />}
               />
               <Route
                 path="booking"
