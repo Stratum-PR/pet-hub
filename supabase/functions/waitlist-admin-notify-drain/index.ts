@@ -131,7 +131,7 @@ function adminWaitlistNotifyHtml(params: {
 </div>`;
 }
 
-const FROM = "Grumi <noreply@stratumpr.com>";
+const FROM = "Grumi <no-reply@grumi.pet>";
 
 function resendFrom(): string {
   return Deno.env.get("RESEND_FROM_EMAIL")
