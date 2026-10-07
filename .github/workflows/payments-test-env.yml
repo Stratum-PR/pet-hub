@@ -1,10 +1,19 @@
 # Grumi payments tests on the separate local test stack (security review G-12):
 # local Supabase (ports 55420-55429) + ATH Móvil simulator (55430), then scripts/test-env-payments.mjs.
-# Run it from GitHub → Actions → "Payments test environment" → Run workflow.
-# No secrets are used: everything runs inside the job with fake keys.
+# Runs on pushes to dev that touch payments, and by hand (Actions → "Payments test environment" → Run
+# workflow, once this file is on main). No secrets are used: everything runs inside the job with fake keys.
 name: Payments test environment
 on:
   workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - "supabase/functions/payments/**"
+      - "supabase/functions/athm-simulator/**"
+      - "supabase/migrations/**"
+      - "test-env/**"
+      - "scripts/test-env*.mjs"
+      - ".github/workflows/payments-test-env.yml"
 jobs:
   payments-e2e:
     runs-on: ubuntu-latest
