@@ -10,7 +10,8 @@
 //
 // Secrets (supabase secrets set …)
 //   RESEND_API_KEY            required for email
-//   NOTIFY_FROM_EMAIL         optional, default "Grumi <noreply@stratumpr.com>"
+//   NOTIFY_FROM_EMAIL         optional, default "Grumi <no-reply@grumi.pet>" (falls back to noreply@stratumpr.com
+//                             until grumi.pet is verified in Resend)
 //   TWILIO_ACCOUNT_SID        optional, enables SMS
 //   TWILIO_AUTH_TOKEN         optional, enables SMS
 //   TWILIO_FROM_NUMBER        optional, enables SMS (E.164, e.g. +17875550100)
@@ -19,6 +20,27 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
 
 type Kind = "confirmed" | "declined" | "proposed_time" | "rescheduled" | "canceled";
 const KINDS: Kind[] = ["confirmed", "declined", "proposed_time", "rescheduled", "canceled"];
+
+const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>";
+const FALLBACK_FROM = "Grumi <noreply@stratumpr.com>";
+
+/** Sends via Resend from no-reply@grumi.pet; if that domain isn't verified in Resend yet, retries from FALLBACK_FROM. */
+async function sendResend(resendKey: string, payload: Record<string, unknown>): Promise<Response> {
+  const post = (sender: string) =>
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, from: sender }),
+    });
+  const from = NO_REPLY_FROM();
+  const res = await post(from);
+  if (res.ok || from === FALLBACK_FROM) return res;
+  const body = await res.text();
+  if ((res.status === 403 || res.status === 422) && /domain/i.test(body) && /verif/i.test(body)) {
+    return post(FALLBACK_FROM);
+  }
+  return new Response(body, { status: res.status });
+}
 
 function corsHeaders(req: Request): Record<string, string> {
   // Access is controlled by the signed-in user's JWT, so the caller's origin and requested headers are echoed
@@ -217,11 +239,7 @@ Deno.serve(async (req) => {
 
   try {
     if (channel === "email") {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from: Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@stratumpr.com>",
+      const res = await sendResend(resendKey, {
           to: [email],
           subject: msg.subject,
           text: msg.text,
@@ -230,7 +248,6 @@ Deno.serve(async (req) => {
             <p style="line-height:1.6;margin:0">${esc(msg.text)}</p>
             <p style="color:#9ca3af;font-size:12px;margin-top:24px">${esc(business?.name ?? "Grumi")}</p>
           </div>`,
-        }),
       });
       if (!res.ok) {
         await log("email", "failed", `resend ${res.status}: ${await res.text()}`);

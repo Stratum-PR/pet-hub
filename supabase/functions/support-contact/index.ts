@@ -5,8 +5,12 @@
 // Security: requires a signed-in user (JWT verified by the platform and here). Sender identity,
 // business and account come from the session, not from the form. Max 5 messages per user per hour.
 //
+// Emails: (1) to the support inbox, Reply-To = the customer; (2) a copy to the customer's account email,
+// both sent FROM support@grumi.pet so replies land in the Support inbox. If grumi.pet isn't verified in
+// Resend yet, the sender falls back to FALLBACK_FROM so nothing is lost.
+//
 // Secrets: RESEND_API_KEY (or NOTIFY_RESEND_API_KEY), SUPPORT_INBOX_EMAIL (default support@grumi.pet),
-//          NOTIFY_FROM_EMAIL (default "Grumi <noreply@stratumpr.com>"), ALLOWED_ORIGINS (optional).
+//          SUPPORT_FROM_EMAIL (default "Grumi Soporte <support@grumi.pet>").
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
 
 const TOPICS: Record<string, string> = {
@@ -17,6 +21,27 @@ const TOPICS: Record<string, string> = {
   other: "Otro",
 };
 const recentByUser = new Map<string, number[]>();
+const SUPPORT_INBOX = () => Deno.env.get("SUPPORT_INBOX_EMAIL") ?? "support@grumi.pet";
+const SUPPORT_FROM = () => Deno.env.get("SUPPORT_FROM_EMAIL") ?? "Grumi Soporte <support@grumi.pet>";
+const FALLBACK_FROM = "Grumi <noreply@stratumpr.com>";
+
+/** Sends via Resend from `from`; if that sender's domain isn't verified yet, retries from FALLBACK_FROM. */
+async function sendEmail(resendKey: string, from: string, payload: Record<string, unknown>): Promise<Response> {
+  const post = (sender: string) =>
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, from: sender }),
+    });
+  const res = await post(from);
+  if (res.ok || from === FALLBACK_FROM) return res;
+  const body = await res.text();
+  if ((res.status === 403 || res.status === 422) && /domain/i.test(body) && /verif/i.test(body)) {
+    console.warn("support-contact: sender domain not verified yet, using fallback sender");
+    return post(FALLBACK_FROM);
+  }
+  return new Response(body, { status: res.status });
+}
 
 function corsHeaders(req: Request): Record<string, string> {
   // Access is controlled by the signed-in user's JWT, so the caller's origin and requested headers are echoed
@@ -100,27 +125,37 @@ Deno.serve(async (req) => {
     ["Página", page || "—"],
   ];
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <noreply@stratumpr.com>",
-      to: [Deno.env.get("SUPPORT_INBOX_EMAIL") ?? "support@grumi.pet"],
-      reply_to: replyTo,
-      subject,
-      text: `${details.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\n${message}`,
-      html: `<div style="font-family:Arial,sans-serif;max-width:640px;color:#1f2937">
+  const res = await sendEmail(resendKey, SUPPORT_FROM(), {
+    to: [SUPPORT_INBOX()],
+    reply_to: replyTo,
+    subject,
+    text: `${details.map(([k, v]) => `${k}: ${v}`).join("\n")}\n\n${message}`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:640px;color:#1f2937">
         <table style="font-size:13px;border-collapse:collapse;margin-bottom:16px">
           ${details.map(([k, v]) => `<tr><td style="padding:2px 12px 2px 0;color:#6b7280">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
         </table>
         <div style="white-space:pre-wrap;line-height:1.6;font-size:14px;border-top:1px solid #e5e7eb;padding-top:12px">${esc(message)}</div>
       </div>`,
-    }),
   });
   if (!res.ok) {
     console.error("support-contact resend error", res.status, await res.text());
     return json(req, 502, { error: "send_failed" });
   }
+
+  // Copy to the customer, from support@ so their reply goes to the Support inbox.
+  const copy = await sendEmail(resendKey, SUPPORT_FROM(), {
+    to: [replyTo],
+    reply_to: SUPPORT_INBOX(),
+    subject: `Recibimos tu mensaje · Grumi`,
+    text: `Hola,\n\nRecibimos tu mensaje (${TOPICS[topic]}) y te responderemos a este correo lo antes posible. Si quieres añadir algo, responde a este email.\n\nTu mensaje:\n${message}\n\nEquipo de Grumi`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:560px;color:#1f2937;line-height:1.6">
+        <p>Hola,</p>
+        <p>Recibimos tu mensaje (<strong>${esc(TOPICS[topic])}</strong>) y te responderemos a este correo lo antes posible. Si quieres añadir algo, responde a este email.</p>
+        <div style="white-space:pre-wrap;font-size:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:16px 0">${esc(message)}</div>
+        <p style="color:#6b7280;font-size:13px">Equipo de Grumi</p>
+      </div>`,
+  });
+  if (!copy.ok) console.error("support-contact copy to customer failed", copy.status, await copy.text());
 
   recent.push(now);
   recentByUser.set(user.id, recent);
