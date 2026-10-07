@@ -45,6 +45,27 @@ function resolveAppBase(req: Request): string {
   return "http://localhost:8080";
 }
 
+const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>";
+const FALLBACK_FROM = "Grumi <noreply@stratumpr.com>";
+
+/** Sends via Resend from no-reply@grumi.pet; if that domain isn't verified in Resend yet, retries from FALLBACK_FROM. */
+async function sendResend(resendKey: string, payload: Record<string, unknown>): Promise<Response> {
+  const post = (sender: string) =>
+    fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, from: sender }),
+    });
+  const from = NO_REPLY_FROM();
+  const res = await post(from);
+  if (res.ok || from === FALLBACK_FROM) return res;
+  const body = await res.text();
+  if ((res.status === 403 || res.status === 422) && /domain/i.test(body) && /verif/i.test(body)) {
+    return post(FALLBACK_FROM);
+  }
+  return new Response(body, { status: res.status });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
@@ -120,8 +141,7 @@ Deno.serve(async (req) => {
   }
 
   const actionLink = escapeHtml(linkData.properties.action_link);
-  const resendPayload = JSON.stringify({
-    from: "Grumi <noreply@stratumpr.com>",
+  const resendPayload = {
     to: [email],
     subject: `Confirma tu cuenta en ${businessName}`,
     html: `
@@ -147,16 +167,9 @@ Deno.serve(async (req) => {
         </div>
       </div>
     `,
-  });
+  };
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendKey}`,
-      "Content-Type": "application/json",
-    },
-    body: resendPayload,
-  });
+  const response = await sendResend(resendKey, resendPayload);
 
   if (!response.ok) {
     await response.text();
