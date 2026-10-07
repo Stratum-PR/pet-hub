@@ -114,3 +114,7 @@ This document tracks the phased implementation of the comprehensive modification
 - Business: `BusinessSettingsPage.tsx` (tax DB, receipt, payment cards, export)
 - Booking/Billing: scaffold pages
 - Help: `Help.tsx` (Formspree, rename), translations
+
+## ATH Móvil (added 2026-10-07)
+
+The ATH Móvil part of "Payment setup" and "Payment gateways" is planned in [ATH_MOVIL_PLAN.md](ATH_MOVIL_PLAN.md): a shared public `athmovil` package used by Grumi and Mezza, Grumi phases G0–G6, and a separate Docker test environment for Grumi (its own local Supabase stack and a fake ATH server) as the first task. Nothing above changes.
