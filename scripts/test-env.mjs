@@ -3,6 +3,7 @@
 //
 //   node scripts/test-env.mjs up      start: local Supabase (ports 55420-55429) + ATH Móvil simulator (55430)
 //   node scripts/test-env.mjs test    run the payments end-to-end tests against it
+//   node scripts/test-env.mjs test security   run the access-control (RLS) tests against it
 //   node scripts/test-env.mjs reset   wipe the test database and re-apply every migration
 //   node scripts/test-env.mjs status  show URLs
 //   node scripts/test-env.mjs down    stop and remove everything (keeps nothing)
@@ -134,7 +135,8 @@ switch (cmd) {
       console.error('✗ Test stack is not running. Start it with: npm run test:env:up');
       process.exit(1);
     }
-    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', 'test-env-payments.mjs')], {
+    const suite = process.argv[3] === 'security' ? 'test-env-security.mjs' : 'test-env-payments.mjs';
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', suite)], {
       cwd: ROOT,
       stdio: 'inherit',
       env: { ...process.env, TEST_API_URL: e.apiUrl, TEST_ANON_KEY: e.anonKey, TEST_SERVICE_KEY: e.serviceKey, TEST_ATH_SIM_URL: 'http://localhost:55430' },
