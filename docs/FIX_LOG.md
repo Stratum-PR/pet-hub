@@ -114,3 +114,45 @@ Not rehearsed against the hosted project (by rule): the Session pooler connectio
 **Production steps (Jovaniel).** Follow `docs/BACKUP_RESTORE.md` → "Take a backup": `npm run db:backup` with the Session pooler string, copy the storage buckets, `npm run db:restore-check -- <folder>`, and record the backup ID in the P0-01 entry above. Paste me the output of both scripts (they print no secrets) if anything fails.
 
 **Rollback.** Nothing to roll back: the scripts only read production.
+
+---
+
+## 2026-10-08 · P0-06 · Restore `clients.name` (client signup broken)
+
+**Status:** gates green on the local stack; committed on `remediation`. **Not applied to production.** Found by P0-05; decision (Jovaniel, 2026-10-08): add the column back as optional.
+
+**Problem.** `Register.tsx` (both `main` and `dev`) saves the client's global record with `clients.name`, and the `send-appointment-reminder` Edge Function selects it. Production's `clients` has `first_name`/`last_name` but no `name`: it was dropped directly in production (no repo migration drops it). PostgREST rejects the insert (`PGRST204 Could not find the 'name' column of 'clients'`), so a client signup creates the auth account and profile, then fails with no client record; the reminder's client lookup fails, so it skips every reminder as `no_client_email`.
+
+**Change.**
+- `supabase/migrations/20261008130000_restore_clients_name.sql`: `ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS name text` (nullable, commented), then `NOTIFY pgrst, 'reload schema'`. No backfill (it would bump every client's `updated_at`).
+- `supabase/rollbacks/20261008130000_restore_clients_name.down.sql`.
+- `scripts/test-env-security.mjs`: `Register.tsx`'s exact clients insert, and the reminder's exact lookup.
+
+**Compatibility with `main`.** Expand-only, and it fixes `main`'s signup without a deploy.
+
+**Gates.**
+
+| Gate | Before | After |
+|---|---|---|
+| Typecheck | 82 (125 strict) | 82 |
+| `as any` | 230 | 230 |
+| Lint | 422 (345/77) | 422 (345/77), 0 new |
+| Unit tests | 102/102 | 102/102 |
+| Build | 4,016,416 bytes | 4,016,416 bytes |
+| `test:security` | 21/23 | **23/23** |
+| `test:payments` | 24/24 | 24/24 |
+
+Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration is idempotent.
+
+**Follow-up (not in this unit).** Reminders greet `Hola ${client.name}`; clients created before this fix have no `name`, so they'd get "Hola " without a name. Small Edge Function change for later: fall back to `first_name`. Needs an Edge Function deploy, so it goes with the next functions release.
+
+**Production steps (Jovaniel; after the P0-02 results and the P0-04 backup, can go with P0-01).**
+1. Confirm the problem: in `scripts/prod-checks/p0-checks.sql`'s results, `P0-05 clients.name exists` is `false`. Note `P0-05 client profiles with no clients row` (people whose signup failed).
+2. SQL editor: paste and run the migration file. Then `npx supabase migration repair --status applied 20261008130000`.
+3. Verify: `select column_name, is_nullable from information_schema.columns where table_schema = 'public' and table_name = 'clients' and column_name = 'name';` returns `name | YES`.
+4. Smoke test: on the production app, register a client with your own `+p006` email. It should finish without an error, and a `clients` row with that email should exist. Then delete that test account (Authentication → Users).
+5. Decide what to do about the people in step 1's count. They have accounts but no client record; the next sign-in may or may not repair it. Look at it together.
+
+**Rollback (production).** Run the `.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261008130000`. This breaks client signup again.
+
+**Tag:** `fix/P0-06` once applied to production.
