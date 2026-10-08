@@ -9,7 +9,7 @@ One entry per change unit from [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md), newes
 | Typecheck | `npx tsc -p tsconfig.app.json --noEmit` (count of `error TS`) and the same with `--strictNullChecks` |
 | `as any` | `grep -roE '\bas any\b' src supabase/functions scripts --include=*.ts --include=*.tsx --include=*.mjs \| wc -l` |
 | Lint | `npx eslint . --ignore-pattern ".test-env/**"` (`.test-env/` is the test stack's copy of the functions and isn't in the ESLint ignore list yet) |
-| Unit tests | `npx vitest run` (on Windows set `SWC_NATIVE_BINDING_CACHE=<repo>/node_modules/.cache/swc-native`) |
+| Unit tests | `npx vitest run` (projects `unit` = Node, `*.test.ts`; `dom` = jsdom, `*.test.tsx`). Since P1-06 no environment variable is needed on Windows. |
 | Build | `npm run build`; size of the largest `dist/assets/main-*.js` |
 | Security | `npm run test:security` on the local stack (`npm run test:env:up` / `test:env:reset`) |
 | Payments | `npm run test:payments` on the local stack |
@@ -156,3 +156,30 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 **Rollback (production).** Run the `.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261008130000`. This breaks client signup again.
 
 **Tag:** `fix/P0-06` once applied to production.
+
+---
+
+## 2026-10-08 · P1-06 · Vitest config (jsdom + setup) and the Windows SWC fix
+
+**Status:** done on `remediation` (local only; no production impact).
+
+**Problem.** (1) On Windows, `vite`, `vitest` and `vite build` failed with "Failed to load native binding" unless `SWC_NATIVE_BINDING_CACHE` was set by hand: `@swc/core` 1.16 unpacks its native addon into `%LOCALAPPDATA%swc` on first load, and that folder's permissions are rejected. (2) Tests ran only in Node, so component tests were impossible (`document is not defined`).
+
+**Change.**
+- `scripts/vite-swc-cache.ts`: defaults `SWC_NATIVE_BINDING_CACHE` to `node_modules/.cache/swc-native` (an explicit value still wins). Imported by `vite.config.ts`, which now loads `@vitejs/plugin-react-swc` lazily: Vite bundles the config and hoists package imports above local code, so a plain import ran too late. The config function is `async` and typed `Promise<UserConfig>`; nothing else in the config changed.
+- Vitest projects: `unit` (Node, `src/**/*.test.ts`, the existing 102 tests) and `dom` (jsdom, `src/**/*.test.tsx`, setup `src/test/setup-dom.ts` with jest-dom matchers and cleanup).
+- Dev dependencies: `jsdom@26.1.0`, `@testing-library/react@16.3.0`, `@testing-library/dom@10.4.0`, `@testing-library/jest-dom@6.6.3`. The lockfile diff is additions only (npm 10.9.2 dropped the `libc` tags of 40 optional native packages; they were restored so Linux CI keeps installing only the matching binaries).
+- `src/components/ui/button.test.tsx`: first component test (2 cases), proves the `dom` project works.
+
+**Gates** (all run **without** `SWC_NATIVE_BINDING_CACHE`).
+
+| Gate | Before | After |
+|---|---|---|
+| `vitest run` without the env var | fails to start | **104/104** (102 unit + 2 dom) |
+| Typecheck app / node config | 82 / 0 | 82 / 0 |
+| Lint | 422 (345/77) | 422 (345/77), 0 new |
+| Build | OK, 4,016,416 bytes (with env var) | OK, 4,016,416 bytes (without) |
+| Dev server | needed env var | serves and transforms TSX without it |
+| `test:security` / `test:payments` | 23/23 / 24/24 | 23/23 / 24/24 |
+
+**Rollback.** Revert the commit (no database or production change).
