@@ -75,3 +75,42 @@ No frontend deploy is needed: no app code changed.
 **Rollback (production).** Run `supabase/rollbacks/20261008120000_lock_profile_identity_columns.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261008120000`. This reopens the takeover; use it only if the lock breaks a legitimate flow.
 
 **Tag:** `fix/P0-01` once applied to production.
+
+---
+
+## 2026-10-08 · P0-04 · Production backup procedure
+
+**Status:** procedure and scripts rehearsed end to end on the local stacks; committed on `remediation`. **No production backup taken yet** (Jovaniel runs it, before P0-01 is applied).
+
+**Problem.** The free plan has no downloadable backups, and a plain `supabase db dump` is not a complete backup of this project. The rehearsal showed a restore from the three standard dump files:
+- loses the `auth.users` triggers (`on_auth_user_created` → `handle_new_user`, `on_auth_user_email_updated`): new signups would get no profile;
+- loses the migration history (`supabase_migrations` is excluded);
+- loses storage/auth RLS policies (bucket policies);
+- **re-opens `set_profile_business_id` to `anon`/`authenticated`**: functions are re-created under the new project's default privileges, which pg_dump's REVOKE/GRANT lines don't undo;
+- fails outright on two Supabase-managed objects (`GRANT SET ON PARAMETER log_min_messages`, `storage.buckets_vectors`/`vector_indexes`) that `postgres` may not write.
+
+**Change.**
+- `scripts/db-backup.mjs` (`npm run db:backup`): roles/schema/data dumps + `extras.sql` + `fingerprint.txt` + `manifest.json` (sha256). Read-only against the source (`default_transaction_read_only=on` for its own queries), connection string only from `GRUMI_DB_URL` (never on a command line or in output), refuses a backup folder inside the repo, runs the CLI without a shell.
+- `scripts/db-backup/capture-extras.sql`: migration history, app triggers and policies on `auth`/`storage`, exact API-role privileges on every `public` function/table/sequence/column, all schema-qualified.
+- `scripts/db-backup/fingerprint.sql`: counts and hashes of tables, policies, functions, triggers, RLS flags, realtime publication, migration history, privileges (order-normalized), and rows per table.
+- `scripts/db-restore-check.mjs` (`npm run db:restore-check -- <folder>`): verifies checksums, restores into a throwaway local stack (`grumi-restore`, ports 55520-55529; takes no connection string), compares fingerprints; fails on any schema/privilege difference.
+- `docs/BACKUP_RESTORE.md`: how to take, store, verify and restore a backup, including storage files.
+
+**Rehearsal (local test stack as the source, with a storage bucket + policy + file and a realtime table added to mimic production).**
+
+| Check | Result |
+|---|---|
+| Restore into an empty project, one transaction | ✓ committed |
+| Schema, policies (public 183, storage 1), functions (71), triggers (public 27, auth 2, storage 7), RLS 54/54, privileges, publication, migration history | ✓ 0 differences |
+| Rows | ✓ 302 rows across 91 tables, all equal |
+| Restored DB through the API | ✓ signup creates a client profile; profile takeover blocked; `set_profile_business_id` not callable; data readable |
+| Storage file download → upload into the restored project | ✓ sha256 identical |
+| Tampered backup file / invalid URL / folder inside the repo | ✓ all rejected |
+
+Not rehearsed against the hosted project (by rule): the Session pooler connection and `storage cp --project-ref`. The first production run will show whether they need adjusting.
+
+**Gates.** No app or schema change: lint 422 → 422 (0 new; the new scripts have 0 problems), unit 102/102, `test:security` 21/21, `test:payments` 24/24 after a stack reset.
+
+**Production steps (Jovaniel).** Follow `docs/BACKUP_RESTORE.md` → "Take a backup": `npm run db:backup` with the Session pooler string, copy the storage buckets, `npm run db:restore-check -- <folder>`, and record the backup ID in the P0-01 entry above. Paste me the output of both scripts (they print no secrets) if anything fails.
+
+**Rollback.** Nothing to roll back: the scripts only read production.

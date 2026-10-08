@@ -32,7 +32,9 @@
     "test:env:reset": "node scripts/test-env.mjs reset",
     "test:env:status": "node scripts/test-env.mjs status",
     "test:payments": "node scripts/test-env.mjs test",
-    "test:security": "node scripts/test-env.mjs test security"
+    "test:security": "node scripts/test-env.mjs test security",
+    "db:backup": "node scripts/db-backup.mjs",
+    "db:restore-check": "node scripts/db-restore-check.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
