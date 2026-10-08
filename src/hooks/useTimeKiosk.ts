@@ -98,7 +98,7 @@ export function useTimeKiosk() {
           return null;
         }
 
-        return data as ScheduleCheckResult;
+        return data as unknown as ScheduleCheckResult;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to check schedule');
         return null;
@@ -164,7 +164,7 @@ export function useTimeKiosk() {
         }
 
         setLoading(false);
-        return data as ClockInOutResult;
+        return data as unknown as ClockInOutResult;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to clock in/out');
         setLoading(false);

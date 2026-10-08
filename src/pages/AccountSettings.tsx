@@ -175,7 +175,7 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
     // Verify current password server-side by re-authenticating
     const credentials: Record<string, string> = { email: user?.email ?? '' };
     credentials['password'] = currentPassword;
-    const { error: signInError } = await supabase.auth.signInWithPassword(credentials as Parameters<typeof supabase.auth.signInWithPassword>[0]);
+    const { error: signInError } = await supabase.auth.signInWithPassword(credentials as unknown as Parameters<typeof supabase.auth.signInWithPassword>[0]);
     if (signInError) {
       setChangingPassword(false);
       devConsole.error('[AccountSettings] signInWithPassword for change password', signInError);
@@ -247,7 +247,7 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
                   setSavingLoginPreference(true);
                   const { error } = await supabase
                     .from('profiles')
-                    .update({ prefer_admin_dashboard_on_login: checked } as Record<string, unknown>)
+                    .update({ prefer_admin_dashboard_on_login: checked } as never)
                     .eq('id', user.id);
                   setSavingLoginPreference(false);
                   if (error) {

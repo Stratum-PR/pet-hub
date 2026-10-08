@@ -37,7 +37,7 @@ export function useStaff() {
         const biz = row.businesses as { slug: string | null; name: string } | { slug: string | null; name: string }[] | null | undefined;
         const businesses = Array.isArray(biz) ? biz[0] ?? null : biz ?? null;
         const { businesses: _b, ...rest } = row;
-        setStaffMember({ ...(rest as StaffMember), businesses });
+        setStaffMember({ ...(rest as unknown as StaffMember), businesses });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Error loading staff';
         devConsole.error('useStaff:', err);

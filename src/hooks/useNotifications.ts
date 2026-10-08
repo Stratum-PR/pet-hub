@@ -515,7 +515,7 @@ export function useNotifications(settings: Settings) {
     };
 
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let timeoutId: number | undefined;
 
     const scheduleNext6am = () => {
       if (cancelled) return;
@@ -599,7 +599,7 @@ export function useNotifications(settings: Settings) {
     };
 
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let timeoutId: number | undefined;
 
     const scheduleNext6am = () => {
       if (cancelled) return;
