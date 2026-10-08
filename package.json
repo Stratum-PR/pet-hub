@@ -31,7 +31,8 @@
     "test:env:down": "node scripts/test-env.mjs down",
     "test:env:reset": "node scripts/test-env.mjs reset",
     "test:env:status": "node scripts/test-env.mjs status",
-    "test:payments": "node scripts/test-env.mjs test"
+    "test:payments": "node scripts/test-env.mjs test",
+    "test:security": "node scripts/test-env.mjs test security"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
