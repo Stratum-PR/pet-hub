@@ -102,7 +102,8 @@ export function AppointmentDetailsSheet({
   const status = normalizeAppointmentStatus(apt.status);
   const terminal = isTerminalAppointmentStatus(apt.status);
   const paidTxnId = apt.transaction_id ?? null;
-  const openChargePanel = () =>
+  const openChargePanel = () => {
+    onOpenChange(false);
     openQuickCharge({
       appointmentId: apt.id,
       clientId: apt.client_id ?? null,
@@ -110,6 +111,7 @@ export function AppointmentDetailsSheet({
       fallbackPrice: apt.total_price ?? apt.price ?? null,
       label: [pet?.name, svc.map((s) => s.name).join(', ')].filter(Boolean).join(' · ') || null,
     });
+  };
   // Services' list prices (before tax and tip); the charge panel shows the full total.
   const chargeDollars = svc.length ? svc.reduce((s, x) => s + Number(x.price || 0), 0) : Number(apt.total_price ?? apt.price ?? 0);
 
