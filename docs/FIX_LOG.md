@@ -6,7 +6,7 @@ One entry per change unit from [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md), newes
 
 | Gate | Command |
 |---|---|
-| Typecheck | `npx tsc -p tsconfig.app.json --noEmit` (count of `error TS`) and the same with `--strictNullChecks` |
+| Typecheck | `npm run typecheck:ratchet` (fails on any error not in `scripts/typecheck-baseline.json`); counts from `npx tsc -p tsconfig.app.json --noEmit`, and the same with `--strictNullChecks` |
 | `as any` | `grep -roE '\bas any\b' src supabase/functions scripts --include=*.ts --include=*.tsx --include=*.mjs \| wc -l` |
 | Lint | `npx eslint . --ignore-pattern ".test-env/**"` (`.test-env/` is the test stack's copy of the functions and isn't in the ESLint ignore list yet) |
 | Unit tests | `npx vitest run` (projects `unit` = Node, `*.test.ts`; `dom` = jsdom, `*.test.tsx`). Since P1-06 no environment variable is needed on Windows. |
@@ -183,3 +183,15 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 | `test:security` / `test:payments` | 23/23 / 24/24 | 23/23 / 24/24 |
 
 **Rollback.** Revert the commit (no database or production change).
+
+---
+
+## 2026-10-08 · P1-03 (stage 1) · Typecheck scripts and ratchet
+
+**Status:** done on `remediation`. Stage 2 (fixing errors) not started; see docs/REMEDIATION_STATUS.md.
+
+**Change.** `npm run typecheck` (app + node configs; fails today, 82 errors), `npm run typecheck:ratchet` (`scripts/typecheck-ratchet.mjs` + `scripts/typecheck-baseline.json`: fails on any error not in the baseline, keyed by file + code + message so line moves don't count; `--update` only shrinks it), `npm run check` (ratchet + vitest).
+
+**Gates.** Ratchet: 82 known, none new; a deliberately added error is caught (exit 1). `npm run check` passes (104/104). Lint 0 problems in the new script. No app code changed.
+
+**Rollback.** Revert the commit.
