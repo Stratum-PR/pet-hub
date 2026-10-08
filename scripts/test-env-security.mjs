@@ -33,9 +33,12 @@ function check(label, cond, detail) {
   }
 }
 
-/** A signed-in user. `profile` is applied with the service role, the way the server-side signup paths do it. */
+/**
+ * A signed-in user. `profile` is applied with the service role, the way the server-side signup paths do it.
+ * A label containing '@' is used as the full email address.
+ */
 async function newUser(label, profile, metadata = {}) {
-  const email = `${label}-${run}@grumi.test`;
+  const email = label.includes('@') ? label : `${label}-${run}@grumi.test`;
   const { data, error } = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: metadata });
   if (error) throw new Error(`createUser ${label}: ${error.message}`);
   const id = data.user.id;
@@ -56,8 +59,20 @@ async function newUser(label, profile, metadata = {}) {
 }
 
 async function profileOf(id) {
-  const { data } = await admin.from('profiles').select('role, business_id, staff_id, full_name').eq('id', id).single();
+  const { data } = await admin
+    .from('profiles')
+    .select('role, business_id, staff_id, full_name, is_super_admin, prefer_admin_dashboard_on_login')
+    .eq('id', id)
+    .single();
   return data;
+}
+
+/** Self-service signup through the public API, the way Register.tsx does it (email confirmation is off locally). */
+async function signUp(email, metadata = {}) {
+  const db = createClient(API, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data, error } = await db.auth.signUp({ email, password: `Pw-${run}-x9!`, options: { data: metadata } });
+  if (error || !data.session) throw new Error(`signUp ${email}: ${error?.message ?? 'no session'}`);
+  return { id: data.user.id, db };
 }
 
 async function main() {
@@ -82,23 +97,51 @@ async function main() {
     .insert({ business_id: victim, first_name: 'Private', last_name: 'Customer', email: `private-${run}@grumi.test` });
   if (cErr) throw new Error(`client: ${cErr.message}`);
 
-  console.log('Profiles: users cannot rewrite their own role, business or staff link');
-  const stranger = await newUser('stranger', { role: 'client' });
+  // Each attack uses its own fresh client, so one attack succeeding can't decide another check's result.
+  const freshClient = (label) => newUser(label, { role: 'client' });
+  /** A signed-in user whose profile row is gone, to exercise the INSERT path. */
+  async function rowlessUser(label) {
+    const u = await newUser(label, null);
+    const { error } = await admin.from('profiles').delete().eq('id', u.id);
+    if (error) throw new Error(`delete profile ${label}: ${error.message}`);
+    return { ...u, email: `${label}-${run}@grumi.test` };
+  }
 
+  console.log('Profiles: users cannot rewrite their own role, business or staff link');
+  const stranger = await freshClient('stranger');
   let r = await stranger.db.from('profiles').update({ role: 'manager', business_id: victim }).eq('id', stranger.id).select();
   let p = await profileOf(stranger.id);
   check('client cannot make themselves manager of another business', !!r.error && p.role === 'client' && p.business_id === null, { r, p });
 
-  r = await stranger.db.from('profiles').update({ business_id: victim }).eq('id', stranger.id).select();
-  p = await profileOf(stranger.id);
+  const mover = await freshClient('mover');
+  r = await mover.db.from('profiles').update({ business_id: victim }).eq('id', mover.id).select();
+  p = await profileOf(mover.id);
   check('client cannot move themselves into another business', !!r.error && p.business_id === null, { r, p });
 
-  r = await stranger.db.from('profiles').update({ role: 'manager' }).eq('id', stranger.id).select();
-  p = await profileOf(stranger.id);
+  const climber = await freshClient('climber');
+  r = await climber.db.from('profiles').update({ role: 'manager' }).eq('id', climber.id).select();
+  p = await profileOf(climber.id);
   check('client cannot promote themselves to manager', !!r.error && p.role === 'client', { r, p });
+
+  // set_profile_business_id is SECURITY DEFINER and trusts its arguments; only signup functions may call it.
+  const caller = await freshClient('rpc');
+  r = await caller.db.rpc('set_profile_business_id', { p_uid: caller.id, p_business_id: victim });
+  p = await profileOf(caller.id);
+  check('client cannot call set_profile_business_id to join another business', !!r.error && p.role === 'client' && p.business_id === null, { r, p });
 
   const { data: seen } = await stranger.db.from('clients').select('id').eq('business_id', victim);
   check("stranger still cannot read the business's customers", (seen ?? []).length === 0, seen);
+
+  console.log('Profiles: users cannot insert a profile row with a role, business or staff link');
+  const inserter = await rowlessUser('inserter');
+  r = await inserter.db.from('profiles').insert({ id: inserter.id, email: inserter.email, role: 'manager', business_id: victim }).select();
+  p = await profileOf(inserter.id);
+  check('user cannot insert their own profile as manager of another business', !!r.error && !p, { r, p });
+
+  const plain = await rowlessUser('plain');
+  r = await plain.db.from('profiles').insert({ id: plain.id, email: plain.email, role: 'client' }).select();
+  p = await profileOf(plain.id);
+  check('user can still insert their own plain client profile', !r.error && p?.role === 'client' && p.business_id === null, { r, p });
 
   console.log('Profiles: normal self-service still works');
   r = await stranger.db.from('profiles').update({ full_name: 'Renamed Person' }).eq('id', stranger.id).select();
@@ -107,6 +150,46 @@ async function main() {
   // Register.tsx writes role: 'client' right after client signup; unchanged values must keep working.
   r = await stranger.db.from('profiles').update({ role: 'client', full_name: 'Client Signup' }).eq('id', stranger.id).select();
   check("client signup's role write (unchanged value) still works", !r.error, r);
+
+  r = await stranger.db.from('profiles').update({ prefer_admin_dashboard_on_login: true }).eq('id', stranger.id).select();
+  check('user can toggle prefer_admin_dashboard_on_login (AccountSettings)', !r.error && (await profileOf(stranger.id)).prefer_admin_dashboard_on_login === true, r);
+
+  console.log('Signup: real self-service registration still works');
+  const registered = await signUp(`registered-${run}@grumi.test`, { full_name: 'Real Client' });
+  p = await profileOf(registered.id);
+  check('client signUp creates a client profile', p?.role === 'client' && p.business_id === null, p);
+  r = await registered.db.from('profiles').update({ role: 'client', full_name: 'Real Client' }).eq('id', registered.id).select();
+  check("Register.tsx's profile write after a real signUp succeeds", !r.error, r);
+
+  console.log('Signup: an invited employee is linked to the business and staff row');
+  const inviteEmail = `employee-${run}@grumi.test`;
+  const inviter = await newUser('inviter', null);
+  const { data: staffRow, error: staffErr } = await admin
+    .from('staff')
+    .insert({ business_id: victim, name: 'Eve Employee', first_name: 'Eve', last_name: 'Employee', email: inviteEmail, phone: '7870000000', pin: '0000' })
+    .select('id')
+    .single();
+  if (staffErr) throw new Error(`staff: ${staffErr.message}`);
+  const { error: invErr } = await admin.from('staff_invites').insert({ business_id: victim, staff_id: staffRow.id, email: inviteEmail, invited_by: inviter.id });
+  if (invErr) throw new Error(`staff invite: ${invErr.message}`);
+  const employee = await signUp(inviteEmail);
+  p = await profileOf(employee.id);
+  check('invited employee gets role employee with business and staff link', p?.role === 'employee' && p.business_id === victim && p.staff_id === staffRow.id, p);
+  r = await employee.db.from('profiles').update({ full_name: 'Eve E.' }).eq('id', employee.id).select();
+  check('employee can edit their own name', !r.error, r);
+  r = await employee.db.from('profiles').update({ role: 'client' }).eq('id', employee.id).select();
+  check('employee cannot change their own role', !!r.error && (await profileOf(employee.id)).role === 'employee', r);
+
+  console.log('Super admins: AdminDashboard paths still work');
+  const superAdmin = await newUser(`qa-sa-${run}@stratumpr.com`, null);
+  check('a @stratumpr.com signup is a super admin (unchanged; see SECURITY_RISKS S-1)', (await profileOf(superAdmin.id))?.is_super_admin === true);
+  const target = await freshClient('target');
+  r = await superAdmin.db.rpc('admin_set_profile_role', { p_profile_id: target.id, p_role: 'manager' });
+  check("admin_set_profile_role still changes another user's role", !r.error && (await profileOf(target.id)).role === 'manager', r);
+  r = await superAdmin.db.from('profiles').update({ business_id: victim }).eq('id', target.id).select();
+  check("super admin can still set another profile's business directly", !r.error && (await profileOf(target.id)).business_id === victim, r);
+  r = await target.db.rpc('admin_set_profile_role', { p_profile_id: target.id, p_role: 'super_admin' });
+  check('non-admin cannot call admin_set_profile_role', !!r.error && (await profileOf(target.id)).is_super_admin === false, r);
 
   console.log('Signup: server-side paths can still link profiles');
   const owner = await newUser('owner', null, { role: 'manager', full_name: 'New Owner' });
