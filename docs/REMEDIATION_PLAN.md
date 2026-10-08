@@ -74,7 +74,7 @@ No item is applied until it passes all gates. Each item, or group of tightly rel
 | 1 | Build the gates (test harness, CI, baseline) | Week 1 | Yes |
 | 2 | Security fixes | Week 2 | Yes |
 | 3 | Code cleanup (dead code, duplicate hooks) | Weeks 3–4 | Lifted for small features |
-| 4 | Feature-folder restructure | Weeks 4–8, one feature at a time | No |
+| 4 | Route-level code splitting (folder restructure dropped, decision 7) | 1–2 days, after P1-07 | No |
 | 5 | Schema normalization | Ongoing, one table at a time | No |
 | 6 | Promote `dev` → `main` | After Phase 2 | — |
 | 7 | `CLAUDE.md` + `AGENTS.md` + agent hooks | After Phases 1–5 | — |
@@ -139,24 +139,23 @@ Each row is one change unit and follows the protocol in §2.
 | P3-07 | **Clean up branches.** Merge or close `feature/scheduling-overhaul`; delete `oauth-v1` and `cursor/*` after review. | |
 | P3-08 | **Rewrite the README**; make the PowerShell-only scripts cross-platform. | |
 
-## Phase 4: Feature-folder restructure (weeks 4–8)
+## Phase 4: Route-level code splitting
 
-Target structure: `src/features/<feature>/{components,hooks,api.ts,types.ts,tests,README.md}`, plus `src/shared/` and `src/app/`. Features may not import each other's internals (enforced by a lint boundaries rule); they use a public `index.ts` instead.
+**Scope reduced (decision 7, 2026-10-08):** only code splitting. The feature-folder restructure, the per-feature `translations.ts` split and the import-boundaries lint rule are dropped; revisit only if the codebase outgrows the current layout.
 
-Order: **appointments → clients/pets → staff/time → payroll → payments → inventory → reports → marketing/waitlist**.
+| ID | Item | Gate / verification |
+|---|---|---|
+| P4-01 | **Lazy-load routes** with `React.lazy` + `Suspense` (the main bundle is 3.9 MB today, slow on mobile). Start with the heavy, rarely used routes (admin, reports, payroll, marketing, inventory), then the rest. | Needs the smoke E2E (P1-07) first: lazy routes can break navigation and deep links. Smoke E2E green on every route; record the main bundle size before/after in FIX_LOG; check a cold load on a throttled mobile profile. |
 
-Each feature move is one change unit: a pure move with no behavior change, all gates green, then any follow-up refactor. Also:
-- split `translations.ts` per feature,
-- add route-level code splitting (the main bundle is 3.9 MB today),
-- add a spec template at `docs/features/_template.md` and ADRs at `docs/adr/`.
+The spec template (`docs/features/_template.md`) and ADRs (`docs/adr/`) move to Phase 7.
 
 ## Phase 5: Schema normalization (ongoing)
 
 Pattern for each item: **expand → backfill → switch code → verify → contract.** Old and new columns coexist until the code no longer reads the old one; then the old column is dropped in a later, separate unit. Always take a production backup first.
 
 - **Appointments.** Settle on one each of: date/time model, price (integer cents), service (`service_ids` vs a join table), and client (`client_id`; drop `customer_id`).
-- **Text IDs.** Convert `appointments.id` and `pets.id` from text to UUID, then add the missing foreign keys.
-- **Missing foreign keys.** Add the 28 missing `_id` FKs after orphan cleanup.
+- **Text IDs: skipped (decision 8, 2026-10-08).** `appointments.id` and `pets.id` stay `text`; convert only if something forces it. Existing references to them are already `text` with FKs.
+- **Missing foreign keys.** Add the 28 missing `_id` FKs after orphan cleanup. Because of decision 8, `notifications.appointment_id` and `notifications.pet_id` (`uuid`, pointing at `text` ids) are first converted to `text` (expand → backfill → switch → contract); `payments.appointment_id` is already `text`.
 - **Required `business_id`.** Make it `NOT NULL` on the 9 tenant tables after backfill.
 - **`settings` types.** Convert text booleans and numbers to real types; resolve the `businesses` vs `settings` overlap (name, logos).
 - **`staff`.** Drop the legacy SSN/bank columns; one name model; one role model.
@@ -174,17 +173,18 @@ From then on: `main` = production, `dev` = integration, and every change unit is
 
 ## Phase 7: `CLAUDE.md` + `AGENTS.md` (after the remediation)
 
-Written last so they describe the finished architecture, not the current one.
+Written last so they describe the finished architecture, not the current one. With Phase 4 reduced to code splitting (decision 7), that architecture is the current folder layout, cleaned up in Phase 3.
 - **`CLAUDE.md` and `AGENTS.md`** (same content, two entry points), covering:
-  - architecture map and feature-folder rules,
-  - data-access rules (no `as any` on rows, feature `api.ts` only),
+  - architecture map (current layout: pages, components, hooks, lib) and where new code goes,
+  - data-access rules (no `as any` on rows; tables are read and written only through the data hooks merged in P3-03),
   - the change-unit protocol from §2 and the "done = gates green" definition,
   - commands, migration workflow (migration + regenerated types + rollback script),
   - i18n rules,
   - files and areas that need extra care,
   - the security model (roles, RLS helpers),
   - what agents must never do: push, edit production, `--no-verify`, or apply DB changes without a backup.
-- **Per-feature `README.md` files**, which agents read before touching a feature.
+- **`README.md` files for the main areas** (appointments, clients/pets, staff/time, payroll, payments, inventory, reports), which agents read before touching that area.
+- **Spec template** at `docs/features/_template.md` and **ADRs** at `docs/adr/` (moved from Phase 4).
 - **`.claude/settings.json` hooks:** typecheck and related tests after edits; block edits to applied migrations.
 - **Move the security-decisions gate** (Genesis Q&A) into a section of `CLAUDE.md` instead of a hard stop at session start.
 
@@ -200,6 +200,8 @@ Written last so they describe the finished architecture, not the current one.
 | 4 | Production deploy branch | **`main`** → production on Vercel. **`dev`** → a separate Vercel dev page. |
 | 5 | Database used by the dev page | **The same Supabase project as production.** |
 | 6 | Payment secrets tables (P2-08) | **Open:** Genesis to confirm which one is live. |
+| 7 | Phase 4 scope | **Route-level code splitting only.** No feature-folder restructure, no per-feature translations split, no boundaries lint rule. Phase 7 documents the current layout. |
+| 8 | Text IDs on `appointments`/`pets` | **Keep `text`.** Skip the UUID conversion unless something forces it; convert the two `uuid` reference columns on `notifications` to `text` instead so their FKs can be added. |
 
 ### Consequence of decisions 4 and 5: one database, two app versions
 
