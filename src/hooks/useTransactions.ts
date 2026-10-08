@@ -28,7 +28,7 @@ export type FetchTransactionByIdResult =
   | { ok: false; notFound: true }
   | { ok: false; error: string };
 
-export type UpdateTransactionResult = { ok: true } | { ok: false; error: string };
+export type UpdateTransactionResult = { ok: true; error?: undefined } | { ok: false; error: string };
 
 function mapRowToTransaction(row: any): Transaction {
   return {
@@ -472,12 +472,12 @@ export function useTransactions() {
     }
     if (!updatedRow) return false;
     setServerTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
-    if (user?.id && current?.status !== status) {
+    if (user?.id && (current as { status?: string } | null)?.status !== status) {
       await supabase.from('transaction_history' as any).insert({
         transaction_id: id,
         business_id: businessId,
         changed_by_user_id: user.id,
-        change_summary: [{ field: 'status', old_value: current?.status, new_value: status }],
+        change_summary: [{ field: 'status', old_value: (current as { status?: string } | null)?.status, new_value: status }],
       });
     }
     return true;
@@ -602,7 +602,7 @@ export function useTransactions() {
     await supabase.from('transactions' as any).update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', transactionId).eq('business_id', businessId);
     setServerTransactions((prev) => prev.map((t) => (t.id === transactionId ? { ...t, status: newStatus } : t)));
 
-    return { data: refund as TransactionRefund, error: null };
+    return { data: refund as unknown as TransactionRefund, error: null };
   };
 
   const fetchTransactionHistory = useCallback(async (transactionId: string): Promise<TransactionHistoryEntry[]> => {
@@ -615,11 +615,11 @@ export function useTransactions() {
       .eq('business_id', businessId)
       .order('changed_at', { ascending: false });
     if (error) return [];
-    const entries = (data ?? []) as TransactionHistoryEntry[];
+    const entries = (data ?? []) as unknown as TransactionHistoryEntry[];
     const userIds = [...new Set(entries.map((e) => e.changed_by_user_id).filter(Boolean))] as string[];
     if (userIds.length === 0) return entries;
     const { data: profiles } = await supabase.from('profiles' as any).select('id, full_name, email').in('id', userIds);
-    const byId = new Map((profiles ?? []).map((p: { id: string; full_name: string | null; email: string | null }) => [p.id, (p.full_name || p.email || null) as string]));
+    const byId = new Map(((profiles ?? []) as unknown as { id: string; full_name: string | null; email: string | null }[]).map((p) => [p.id, (p.full_name || p.email || null) as string]));
     return entries.map((e) => ({
       ...e,
       changed_by_display: e.changed_by_user_id ? (byId.get(e.changed_by_user_id) ?? null) : null,

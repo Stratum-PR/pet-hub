@@ -195,3 +195,38 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 **Gates.** Ratchet: 82 known, none new; a deliberately added error is caught (exit 1). `npm run check` passes (104/104). Lint 0 problems in the new script. No app code changed.
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-03 (stage 2) · Fix the type-only TypeScript errors (82 → 43)
+
+**Status:** done on `remediation`. Decision (Jovaniel): fix only errors that can't change runtime behavior now; real bugs get their own units after P1-07; the duplicate data hooks are fixed in P3-03.
+
+**Change** (types and casts only; 14 files):
+- `ValidationResult` (businessValidation, transactionValidation) and `UpdateTransactionResult`: the success variant gets `error?: undefined`. With `strictNullChecks` off TypeScript can't narrow these unions, so every `result.error` was an error (≈20 errors); this keeps narrowing correct once strict mode is on.
+- `window.setTimeout`/`setInterval` handles typed `number` (they were typed as Node's `Timeout`).
+- Supabase rows whose generated types are missing or wrong: `as unknown as X` / `as never` instead of single casts (useStaff, useTimeKiosk, useTransactions, ClientPortalPublicPage, AccountSettings, demoManagerBirthdaySync).
+- `Service.is_active?` added to `src/types/index.ts` (the column exists; TransactionCreate filters on it).
+- `BusinessLayout`: the query's `.then()` returns a native Promise at runtime (postgrest-js `then` wraps an async function), so `.catch` works; cast to `Promise<void>` for the type.
+- `translations.ts`: removed the second, identical copy of `employeeManagement.statusActiveShort`/`statusInactiveShort`.
+
+**Proof of no behavior change.** With every edit except the translations dedupe, `npm run build` produced a **byte-identical** bundle (sha256 of all 12 JS/CSS/HTML files). The dedupe changes only the main chunk (−136 bytes: exactly the duplicate pair), plus `index.html` and `index.es-*.js`, which differ only in the main chunk's file name.
+
+**Gates.**
+
+| Gate | Before | After |
+|---|---|---|
+| TypeScript errors (ratchet baseline) | 82 | **43** |
+| With `strictNullChecks` | 125 | 104 |
+| `as any` | 230 | 230 |
+| Lint | 422 (345/77) | 422 (345/77) |
+| vitest | 104/104 | 104/104 |
+| Build | 4,016,416 bytes | 4,016,280 bytes |
+| `test:security` / `test:payments` | 23/23 / 24/24 | 23/23 / 24/24 |
+
+**Remaining 43, by where they get fixed.**
+- **P3-03 (data hook merge), 30:** `useSupabaseData` 10, `useBusinessData` 8, `Index.tsx` 8, `Pets.tsx` 2, `Clients.tsx` 2.
+- **P3-01/P3-02 (orphan and legacy files), 5:** `DaycareCalendarView` 2, `KioskManagerAccess` 1, `BusinessServices` 2.
+- **Likely real bugs, own units after P1-07, 8:** `Admin.tsx` service handlers return nothing where callers expect the saved record (3); `TimeKiosk` compares with a `'clocking'` state that doesn't exist, so "processing" never shows (1); `Landing` passes `showRegisterAccountButton` that `LoginForm` doesn't accept (1); `Register.tsx:933` passes `className` to a component without props (1); `staffBirthdayDispatch` calls an RPC production doesn't have (1); `qrCode.ts` uses `String.replaceAll`, missing on the Safari 12/13.0 the build targets (1).
+
+**Rollback.** Revert the commit.

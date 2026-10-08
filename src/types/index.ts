@@ -213,6 +213,7 @@ export interface Service {
   description?: string;
   price: number;
   duration_minutes: number;
+  is_active?: boolean;
   created_at: string;
 }
 

@@ -14,14 +14,15 @@ Branch `remediation` (local only, from `dev` at `abb6350`; never pushed). Workin
 | P0-06 | `clients.name` restored (client signup broken in prod) | **Pending: apply after backup** |
 | Plan | Phase 4 = route code splitting only; keep text ids (decisions 7, 8) | — |
 | P1-06 | Vitest `unit` + `dom` projects; SWC cache fix (no env var needed) | — |
-| P1-03 stage 1 | `npm run typecheck`, `typecheck:ratchet`, `check`; baseline 82 errors (scripts/typecheck-baseline.json) | — |
+| P1-03 stage 1 | `npm run typecheck`, `typecheck:ratchet`, `check`; baseline in scripts/typecheck-baseline.json | — |
+| P1-03 stage 2 | 39 type-only errors fixed, bundle proven byte-identical (82 → 43) | — |
 
-Gates now: tsc 82 (ratcheted) · lint 422 (345/77) · vitest 104/104 · build OK (main 4,016,416 B) · test:security 23/23 · test:payments 24/24.
+Gates now: tsc 43 (ratcheted) · lint 422 (345/77) · vitest 104/104 · build OK (main 4,016,280 B) · test:security 23/23 · test:payments 24/24.
 
 ## Next, in order
 
 1. **Jovaniel (production):** PHASE0_PRODUCTION_CHECKS §1–3 → paste results → `npm run db:backup` + `db:restore-check` → apply P0-01 and P0-06 (FIX_LOG steps) → walkthrough.
-2. **P1-03 stage 2** (decision pending; recommendation): fix the ~45 type-only errors (narrowing artifacts from `strictNullChecks` off: `ValidationResult`/`UpdateTransactionResult` `.error`; `Timeout` vs `number`; stale casts) with no runtime change, then `npm run typecheck:ratchet -- --update`. Leave the ~10 likely real bugs (TimeKiosk `'clocking'` state never set, Admin.tsx service handlers return void, Landing/Register props, duplicate translation keys at translations.ts:4362/4366, Index.tsx Reports missing `clients`) for small units with a test each after P1-07; the ~25 in `useBusinessData`/`useSupabaseData` go with P3-03.
+2. **Real-bug units from P1-03** (after P1-07, one small unit each with a test): Admin.tsx service handlers, TimeKiosk `'clocking'`, Landing/Register props, `qrCode.ts` `replaceAll` on old Safari, missing `dispatch_staff_missing_email_reminders`. List in FIX_LOG → P1-03 stage 2.
 3. **P1-05** lint ratchet (same pattern as `typecheck-ratchet.mjs`; also add `.test-env/` to ESLint ignores).
 4. P1-09 PR template + tags, P1-11 repo hygiene (`.env`, `supabase/.temp/` untracked), P1-08 known-failing security tests, **P1-07** Playwright smoke E2E (9 flows), P1-13 dual-frontend gate, P1-04 PR CI workflow.
 5. Need Jovaniel: P1-01 (`supabase db pull` baseline, read-only against prod), P1-02 drift check secrets, P1-10 branch protection, P1-12 Sentry DSN.

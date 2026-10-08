@@ -27,7 +27,7 @@ export interface CreateTransactionPayload {
   notes: string | null;
 }
 
-export type ValidationResult = { valid: true } | { valid: false; error: string };
+export type ValidationResult = { valid: true; error?: undefined } | { valid: false; error: string };
 
 /**
  * Validate payload for creating a transaction.

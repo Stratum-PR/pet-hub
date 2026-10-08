@@ -4359,14 +4359,6 @@ export const translations: Translations = {
     en: 'Status',
     es: 'Estado'
   },
-  'employeeManagement.statusActiveShort': {
-    en: 'Active',
-    es: 'Activo'
-  },
-  'employeeManagement.statusInactiveShort': {
-    en: 'Inactive',
-    es: 'Inactivo'
-  },
   'employeeManagement.lastDateFieldLabel': {
     en: 'Last date (end of employment)',
     es: 'Último día laboral'

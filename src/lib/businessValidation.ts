@@ -9,7 +9,7 @@ function isUuid(value: string): boolean {
   return typeof value === 'string' && UUID_REGEX.test(value);
 }
 
-export type ValidationResult = { valid: true } | { valid: false; error: string };
+export type ValidationResult = { valid: true; error?: undefined } | { valid: false; error: string };
 
 // --- Client ---
 
@@ -75,7 +75,7 @@ export function validatePetPayload(payload: Partial<PetInput>): ValidationResult
   if (payload.weight != null && payload.weight < 0) {
     return { valid: false, error: 'Weight cannot be negative.' };
   }
-  if (payload.vaccination_status != null && payload.vaccination_status !== '' && !PET_VACCINATION.has(payload.vaccination_status)) {
+  if (payload.vaccination_status != null && (payload.vaccination_status as string) !== '' && !PET_VACCINATION.has(payload.vaccination_status)) {
     return { valid: false, error: 'Invalid vaccination status.' };
   }
   return { valid: true };
