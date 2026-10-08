@@ -161,6 +161,30 @@ async function main() {
   r = await registered.db.from('profiles').update({ role: 'client', full_name: 'Real Client' }).eq('id', registered.id).select();
   check("Register.tsx's profile write after a real signUp succeeds", !r.error, r);
 
+  // Register.tsx (main and dev) saves the client's global record with this payload, `name` included.
+  const registeredEmail = `registered-${run}@grumi.test`;
+  r = await registered.db
+    .from('clients')
+    .insert({
+      id: crypto.randomUUID(),
+      profile_id: registered.id,
+      business_id: null,
+      name: 'Real Client',
+      first_name: 'Real',
+      last_name: 'Client',
+      email: registeredEmail,
+      phone: null,
+      notes: null,
+      marketing_email_opt_in: false,
+      marketing_sms_opt_in: false,
+    })
+    .select('id')
+    .single();
+  check("Register.tsx's clients insert (with name) succeeds", !r.error && !!r.data?.id, r);
+  // send-appointment-reminder reads the client this way (service role).
+  r = await admin.from('clients').select('email, name, profile_id').eq('profile_id', registered.id).maybeSingle();
+  check("send-appointment-reminder's client lookup returns the client", !r.error && r.data?.email === registeredEmail && r.data?.name === 'Real Client', r);
+
   console.log('Signup: an invited employee is linked to the business and staff row');
   const inviteEmail = `employee-${run}@grumi.test`;
   const inviter = await newUser('inviter', null);
