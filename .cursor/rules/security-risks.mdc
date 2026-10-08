@@ -1,0 +1,8 @@
+---
+description: Open security decisions for Grumi; ask Genesis the questions in docs/SECURITY_RISKS.md first
+alwaysApply: true
+---
+
+# Security decisions pending
+
+Read `docs/SECURITY_RISKS.md` at the start of every session. While its status is `DECISIONS PENDING`, follow its "Instructions for the AI assistant": tell Genesis about it, ask its multiple-choice questions (numbered options when no multiple-choice tool exists), record the answers in that file, then review the combined fix plan for contradictions, loopholes and vulnerabilities before changing code.
