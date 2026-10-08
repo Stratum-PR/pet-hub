@@ -2,13 +2,15 @@
 
 One entry per change unit from [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md), newest last. Each entry records what changed, the gate results before and after, how to roll back, and the production steps. Production steps are run by a person (Jovaniel), never by an agent session.
 
+**Tags.** When a unit reaches production, tag the commit that was applied: `git tag fix/<unit ID>` (e.g. `fix/P0-01`), and write the backup ID in its entry. A unit that is only committed or merged has no tag. `npm run check` runs the typecheck and lint ratchets and vitest.
+
 **How the gates are measured** (until P1-03/P1-05 add proper scripts):
 
 | Gate | Command |
 |---|---|
 | Typecheck | `npm run typecheck:ratchet` (fails on any error not in `scripts/typecheck-baseline.json`); counts from `npx tsc -p tsconfig.app.json --noEmit`, and the same with `--strictNullChecks` |
 | `as any` | `grep -roE '\bas any\b' src supabase/functions scripts --include=*.ts --include=*.tsx --include=*.mjs \| wc -l` |
-| Lint | `npx eslint . --ignore-pattern ".test-env/**"` (`.test-env/` is the test stack's copy of the functions and isn't in the ESLint ignore list yet) |
+| Lint | `npm run lint:ratchet` (fails on any problem not in `scripts/lint-baseline.json`); counts from `npx eslint .` (`.test-env/` is ignored since P1-05) |
 | Unit tests | `npx vitest run` (projects `unit` = Node, `*.test.ts`; `dom` = jsdom, `*.test.tsx`). Since P1-06 no environment variable is needed on Windows. |
 | Build | `npm run build`; size of the largest `dist/assets/main-*.js` |
 | Security | `npm run test:security` on the local stack (`npm run test:env:up` / `test:env:reset`) |
@@ -228,5 +230,27 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 - **P3-03 (data hook merge), 30:** `useSupabaseData` 10, `useBusinessData` 8, `Index.tsx` 8, `Pets.tsx` 2, `Clients.tsx` 2.
 - **P3-01/P3-02 (orphan and legacy files), 5:** `DaycareCalendarView` 2, `KioskManagerAccess` 1, `BusinessServices` 2.
 - **Likely real bugs, own units after P1-07, 8:** `Admin.tsx` service handlers return nothing where callers expect the saved record (3); `TimeKiosk` compares with a `'clocking'` state that doesn't exist, so "processing" never shows (1); `Landing` passes `showRegisterAccountButton` that `LoginForm` doesn't accept (1); `Register.tsx:933` passes `className` to a component without props (1); `staffBirthdayDispatch` calls an RPC production doesn't have (1); `qrCode.ts` uses `String.replaceAll`, missing on the Safari 12/13.0 the build targets (1).
+
+**Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-05 · Lint ratchet
+
+**Status:** done on `remediation`.
+
+**Change.** `scripts/lint-ratchet.mjs` + `scripts/lint-baseline.json` (`npm run lint:ratchet`): fails on any ESLint problem not in the baseline, keyed by file + rule + message (no line numbers); `--update` only shrinks it. `.test-env` added to the ESLint ignores (the test stack's copy of the functions added 6 problems whenever it had run). `npm run check` = typecheck ratchet + lint ratchet + vitest.
+
+**Gates.** Baseline 422 (345 errors, 77 warnings), unchanged. A deliberate new `any` fails the ratchet (exit 1), which is the plan's "done" condition (CI wiring is P1-04). `npm run check` passes.
+
+**Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-09 · PR template and tags
+
+**Status:** done on `remediation`.
+
+**Change.** `.github/pull_request_template.md` with the §2 gate checklist (before → after table, database/Edge Function checklist including §9 rule 1, FIX_LOG and tag steps). Tag convention at the top of this file: `fix/<unit ID>` once a unit is applied to production.
 
 **Rollback.** Revert the commit.
