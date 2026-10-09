@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.93.2";
+import { esc, reminderGreeting } from "./greeting.ts";
 
 type Body = { appointment_id?: string };
 
@@ -29,10 +30,6 @@ function toDateTime(appointmentDate: string | null, startTime: string | null): D
   const value = `${appointmentDate}T${startTime || "00:00:00"}`;
   const dt = new Date(value);
   return Number.isNaN(dt.getTime()) ? null : dt;
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
 const NO_REPLY_FROM = () => Deno.env.get("NOTIFY_FROM_EMAIL") ?? "Grumi <no-reply@grumi.pet>";
@@ -151,7 +148,7 @@ Deno.serve(async (req) => {
     admin.from("businesses").select("name, address").eq("id", apt.business_id).maybeSingle(),
     admin
       .from("clients")
-      .select("email, name, profile_id")
+      .select("email, name, first_name, last_name, profile_id")
       .eq("id", apt.client_id)
       .maybeSingle(),
     admin.from("pets").select("name").eq("id", apt.pet_id).maybeSingle(),
@@ -194,7 +191,7 @@ Deno.serve(async (req) => {
           <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Recordatorio de cita</p>
         </div>
         <div style="padding: 30px; background: white; border: 1px solid #e5e7eb; border-top: none;">
-          <h2 style="color: #1f2937; margin: 0 0 16px 0;">Hola ${esc(client?.name ?? "")}</h2>
+          <h2 style="color: #1f2937; margin: 0 0 16px 0;">${reminderGreeting(client)}</h2>
           <p style="color: #4b5563; line-height: 1.7;">
             <strong>Negocio:</strong> ${esc(businessName)}<br/>
             <strong>Mascota:</strong> ${esc(petName)}<br/>

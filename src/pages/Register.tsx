@@ -480,10 +480,10 @@ export function Register() {
         if (data.user) {
           const nameParts = splitClientName(fullName);
           let globalClientId: string | null = null;
+          // The role is set server-side (handle_new_user creates the profile as 'client'; P0-01 locks it).
           await supabase
             .from('profiles')
             .update({
-              role: 'client',
               full_name: fullName || null,
             } as never)
             .eq('id', data.user.id);

@@ -1,5 +1,5 @@
 {
-  "total": 39,
+  "total": 37,
   "errors": {
     "src/components/DaycareCalendarView.tsx TS2551 Property 'breeds' does not exist on type 'Pet'. Did you mean 'breed'?": 2,
     "src/components/KioskManagerAccess.tsx TS2322 Type '(pinToUse?: string) => Promise<void>' is not assignable to type 'MouseEventHandler<HTMLButtonElement>'.": 1,
@@ -22,8 +22,6 @@
     "src/pages/Admin.tsx TS2322 Type '(id: string) => void' is not assignable to type '(id: string) => Promise<boolean>'.": 1,
     "src/pages/Admin.tsx TS2322 Type '(id: string, service: Partial<Service>) => void' is not assignable to type '(id: string, service: Partial<Service>) => Promise<Service>'.": 1,
     "src/pages/Admin.tsx TS2322 Type '(service: Omit<Service, \"id\" | \"created_at\">) => void' is not assignable to type '(service: Omit<Service, \"id\" | \"created_at\">) => Promise<Service>'.": 1,
-    "src/pages/BusinessServices.tsx TS2322 Type 'string' is not assignable to type '\"#7DD3FC\"'.": 1,
-    "src/pages/BusinessServices.tsx TS2345 Argument of type '{ description: string; name: string; price: number; duration_minutes: number; is_active: boolean; category: string; color: \"#7DD3FC\"; }' is no": 1,
     "src/pages/Clients.tsx TS2322 Type '(petData: Omit<Pet, \"id\" | \"created_at\" | \"updated_at\">) => Promise<void>' is not assignable to type '(pet: Omit<Pet, \"id\" | \"business_id\" | \"created_at\" ": 1,
     "src/pages/Clients.tsx TS2739 Type 'Client' is missing the following properties from type 'BusinessClient': city, state, zip_code": 1,
     "src/pages/Index.tsx TS2322 Type '(employeeId: string, clockIn: string, clockOut?: string) => Promise<TimeEntry | { business_id: string | null; clock_in: string | null; clock_out: string |": 1,
@@ -32,6 +30,6 @@
     "src/pages/Index.tsx TS2322 Type '(petData: Omit<Pet, \"id\" | \"created_at\" | \"updated_at\"> & { staff_notes_business?: string | null; }) => Promise<Pet | { birth_month: number | null; birth_": 2,
     "src/pages/Index.tsx TS2741 Property 'clients' is missing in type '{ pets: Pet[]; employees: Employee[]; timeEntries: TimeEntry[]; appointments: Appointment[]; }' but required in type 'Rep": 2,
     "src/pages/Pets.tsx TS2322 Type '(petData: Omit<Pet, \"id\" | \"created_at\" | \"updated_at\"> & { staff_notes_business?: string | null; }) => Promise<void>' is not assignable to type '(pet: Om": 1,
-    "src/pages/Pets.tsx TS2741 Property 'color' is missing in type 'import(\"C:/Users/Jovaniel/dev/Grumi/src/types/index\").Pet' but required in type 'import(\"C:/Users/Jovaniel/dev/Grumi/src/ho": 1
+    "src/pages/Pets.tsx TS2741 Property 'color' is missing in type 'import(\"src/types/index\").Pet' but required in type 'import(\"src/hooks/useBusinessData\").Pet'.": 1
   }
 }
