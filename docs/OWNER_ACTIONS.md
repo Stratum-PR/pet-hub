@@ -55,4 +55,4 @@ Each new production item lands here **in apply order**, with its FIX_LOG link. A
 
 | # | Unit | What you do | Status |
 |---|---|---|---|
-| D1 | E2E-1 checkout crash | Nothing in production: frontend only, ships with the next `dev` deploy. Note: it affects **dev.grumi.pet** today (Cobrar crashes), not `main`. | Claude working on it |
+| D1 | E2E-1 checkout crash ([FIX_LOG](FIX_LOG.md)) | Nothing in production: frontend only. It's fixed once `remediation` is merged into `dev` and dev.grumi.pet redeploys. Until then Cobrar crashes on dev.grumi.pet (not on `main`). | Fixed on `remediation` |
