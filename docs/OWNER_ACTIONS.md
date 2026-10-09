@@ -45,6 +45,7 @@ Then tell Claude "Part A done" with A1/A2 results and anything odd.
 - [ ] **C1. Client portal booking.** The plan's E2E list said "client portal booking", but the portal has no booking; clients book via the public `/<slug>/reservar` page. Is portal booking a wanted feature (later, outside the remediation), or is the public page enough?
 - [ ] **C2. Transaction numbers (ask Genesis).** A new business's first sale was `TXN-00009` locally, which suggests numbering is global across businesses and reveals the platform's sale count. Per-business numbering, or fine as is?
 - [ ] **C3. People whose client signup failed.** After A1, look at "client profiles with no clients row" (P0-05) together with Claude: repair their records, or let them re-register?
+- [ ] **C5. "Staff missing email" reminders.** The app calls `dispatch_staff_missing_email_reminders` (a daily notification to managers listing active staff with no email), but that database function never reached production, so the call fails quietly every time. Turn the feature on (Claude re-issues the migration with a security test; you apply it via Part D) or drop the call?
 - [ ] **C4. SECURITY_RISKS.md questions** (Genesis's payments decisions) are still pending; Claude skips them when you're the one in session. Schedule a session with Genesis.
 
 ---

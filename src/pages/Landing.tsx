@@ -339,7 +339,6 @@ export function Landing() {
         titleId="splash-login-modal-title"
       >
         <LoginForm
-          showRegisterAccountButton={showRegisterAccountOnRoot}
           onClose={() => setLoginModalOpen(false)}
           onLoginSuccess={(destination) => {
             setLoginModalOpen(false);

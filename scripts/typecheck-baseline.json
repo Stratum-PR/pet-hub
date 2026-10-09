@@ -1,5 +1,5 @@
 {
-  "total": 42,
+  "total": 39,
   "errors": {
     "src/components/DaycareCalendarView.tsx TS2551 Property 'breeds' does not exist on type 'Pet'. Did you mean 'breed'?": 2,
     "src/components/KioskManagerAccess.tsx TS2322 Type '(pinToUse?: string) => Promise<void>' is not assignable to type 'MouseEventHandler<HTMLButtonElement>'.": 1,
@@ -31,10 +31,7 @@
     "src/pages/Index.tsx TS2322 Type '(id: string, petData: Partial<Pet> & { staff_notes_business?: string | null; }) => Promise<Pet | { birth_month: number | null; birth_year: number | null; ": 2,
     "src/pages/Index.tsx TS2322 Type '(petData: Omit<Pet, \"id\" | \"created_at\" | \"updated_at\"> & { staff_notes_business?: string | null; }) => Promise<Pet | { birth_month: number | null; birth_": 2,
     "src/pages/Index.tsx TS2741 Property 'clients' is missing in type '{ pets: Pet[]; employees: Employee[]; timeEntries: TimeEntry[]; appointments: Appointment[]; }' but required in type 'Rep": 2,
-    "src/pages/Landing.tsx TS2322 Type '{ showRegisterAccountButton: boolean; onClose: () => void; onLoginSuccess: (destination: string) => void; }' is not assignable to type 'IntrinsicAttribute": 1,
     "src/pages/Pets.tsx TS2322 Type '(petData: Omit<Pet, \"id\" | \"created_at\" | \"updated_at\"> & { staff_notes_business?: string | null; }) => Promise<void>' is not assignable to type '(pet: Om": 1,
-    "src/pages/Pets.tsx TS2741 Property 'color' is missing in type 'import(\"C:/Users/Jovaniel/dev/Grumi/src/types/index\").Pet' but required in type 'import(\"C:/Users/Jovaniel/dev/Grumi/src/ho": 1,
-    "src/pages/Register.tsx TS2322 Type '{ className: string; }' is not assignable to type 'IntrinsicAttributes'.": 1,
-    "src/pages/TimeKiosk.tsx TS2367 This comparison appears to be unintentional because the types 'KioskState' and '\"clocking\"' have no overlap.": 1
+    "src/pages/Pets.tsx TS2741 Property 'color' is missing in type 'import(\"C:/Users/Jovaniel/dev/Grumi/src/types/index\").Pet' but required in type 'import(\"C:/Users/Jovaniel/dev/Grumi/src/ho": 1
   }
 }
