@@ -2,7 +2,7 @@
 
 Everything in the remediation that only you can do: production, GitHub settings, accounts and decisions. Claude keeps working on `remediation` meanwhile and **adds new items to the bottom of Part D** as later units need them. Work top to bottom; parts are independent unless they say otherwise.
 
-Last updated 2026-10-08 (after P1-07).
+Last updated 2026-10-08 (end of session: P1-07, P1-08, P1-11 and five bug fixes done).
 
 **Rules for every production step**
 - Backup first (A3) before any database change. Note the backup folder name where asked.
@@ -31,7 +31,7 @@ Then tell Claude "Part A done" with A1/A2 results and anything odd.
 
 ## Part B: Setup that unblocks later units (any order, ~1 h total)
 
-- [ ] **B1. Push and review the branch.** `git push` on `remediation` (Claude doesn't push). Look over the commits when convenient; merging into `dev` waits for your review.
+- [ ] **B1. Review the branch.** `remediation` is pushed (Claude pushed it at the end of the 2026-10-08 session, at your request). Look over the commits when convenient; merging into `dev` waits for your review, and merging is what ships D1–D3 to dev.grumi.pet.
 - [ ] **B2. Production schema baseline, P1-01** (~20 min, read-only against production). With the CLI linked to the project: `npx supabase db pull` into a new branch or folder Claude can read, and tell Claude where it is. Claude turns it into the baseline migration. Also needed: production's **reference data** the repo lacks: `feature_catalog`, `feature_rollout`, `feature_visibility_rules`, `breeds`. In the SQL editor run `select * from <table>` for each and export CSV. Ordinary managers' visibility of the appointment book depends on these rows.
 - [ ] **B3. GitHub secrets for the drift check, P1-02** (~10 min). Repo Settings → Secrets → Actions: add `SUPABASE_ACCESS_TOKEN` (a personal access token from supabase.com/dashboard/account/tokens) and `SUPABASE_PROJECT_REF`. Tell Claude when they exist (not their values). Claude writes the workflow.
 - [ ] **B4. Branch protection, P1-10** (~5 min, after Claude's CI workflow P1-04 exists). Settings → Branches → rules for `dev` and `main`: require a PR, require status checks (the CI job names Claude will give you), 1 review.
