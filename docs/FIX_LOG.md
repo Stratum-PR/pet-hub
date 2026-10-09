@@ -15,6 +15,7 @@ One entry per change unit from [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md), newes
 | Build | `npm run build`; size of the largest `dist/assets/main-*.js` |
 | Security | `npm run test:security` on the local stack (`npm run test:env:up` / `test:env:reset`) |
 | Payments | `npm run test:payments` on the local stack |
+| Smoke E2E | `npm run test:e2e` on the local stack (since P1-07; first time: `npx playwright install chromium`). Reports "N passed" including known-failing tests marked `test.fail()` |
 
 ---
 
@@ -254,3 +255,56 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 **Change.** `.github/pull_request_template.md` with the §2 gate checklist (before → after table, database/Edge Function checklist including §9 rule 1, FIX_LOG and tag steps). Tag convention at the top of this file: `fix/<unit ID>` once a unit is applied to production.
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-07 · Smoke E2E with Playwright (9 flows)
+
+**Status:** done on `remediation`. 8 flows green; flow 5 (checkout) and one extra check (4b) are **known-failing** on real bugs found by this unit (E2E-1, E2E-2), marked `test.fail()` so the suite stays green and each fix flips its test. CI wiring is P1-04.
+
+**Change.**
+- `@playwright/test` 1.56.1 (dev dependency; Chromium only). `package-lock.json` gets only the 4 Playwright entries: local npm (10 and 11 on Windows) rewrites the lockfile's `libc`/`peer` fields, so the entries were spliced into the existing file and checked with `npm ci --dry-run`.
+- `playwright.config.ts`: runs the real app (Vite dev server on port 55440) with `VITE_SUPABASE_URL`/`_PUBLISHABLE_KEY` pointed at the local test stack; one worker, in order; locale `es-PR`, time zone `America/Puerto_Rico`; HTML report in `reports/e2e`, traces on failure in `test-results/` (both ignored).
+- `npm run test:e2e` → `node scripts/test-env.mjs e2e`: reads the stack's URL and keys from `supabase status` (like `test:security`) and runs Playwright. The seed refuses any API that isn't the local stack.
+- `e2e/seed.ts` (global setup, a fresh business per run): the manager signs up through the real `complete_manager_signup` RPC (pro tier; business, subscription, profile and owner staff row come from production code), plus a service, two clients (one linked to a portal login), pets, two hourly employees with kiosk PINs, a 6-digit kiosk manager PIN, three appointments shaped like the ones `BookingFormDialog` writes, and two closed 4 h shifts. Credentials are generated per run and written only to the ignored `test-results/e2e-seed.json`.
+- The seed also writes **global reference data the local stack lacks** (the snapshot has schema, no data): `feature_catalog`/`feature_rollout`/`feature_visibility_rules` rows that show the appointment book, transactions, payments, inventory and booking settings to managers on `pro`, and three `breeds` (the pet form requires a breed). Local stack only.
+- `e2e/fixtures.ts`: login through the real form, dismisses the cookie banner ("Rechazar todas") whenever it appears, date pickers, a service-role client for DB checks.
+- `tsconfig.node.json` now includes `playwright.config.ts` and `e2e/`, so the typecheck gate covers the suite (strict).
+
+**The flows** (`e2e/01…09-*.spec.ts`):
+
+| # | Flow | Checks |
+|---|---|---|
+| 1 | Manager login → dashboard | URL `/<slug>/dashboard`, user menu, "Personal Activo 3" |
+| 2 | Create client + pet | inline client form, pet with species + breed; still on the card after reload |
+| 3 | Book an appointment | "Nueva cita": existing client, service, groomer, tomorrow 11 AM, total $45.00; calendar block + history row |
+| 4 | Edit / cancel | reschedule 2 PM → 3 PM through "Editar / reprogramar" (browser clock pinned to 08:00), then "Cancelar cita" → "Cancelada" |
+| 4b | **known issue E2E-2** | same dialog at 20:00 must open on the appointment's date |
+| 5 | **known issue E2E-1** — checkout | "Cobrar": $45.00 + 10.5% + 1% = $50.18, cash, "Pagado"; TXN row Paid/Cash; appointment "Pagado". Passes in full with E2E-1 patched locally |
+| 6 | Kiosk clock-in/out | PIN → off-schedule warning → "Ponchar" → "Salir"; one closed `time_entries` row in the DB |
+| 7 | Payroll totals | "Cálculo de pagos": Eli $12.00 × 8.00 h = $96.00; TOTALS 8.00 / $96.00 |
+| 8 | Client portal | portal login sees own name, pet and appointment, not another client's pet |
+| 9 | Public booking | `/<slug>/reservar` request (service, any groomer, day +2 10 AM) → "Solicitud enviada"; manager sees it under "Solicitudes en línea 1" with $45.00 |
+
+**Scope note, flow 8.** The plan says "client portal booking", but the portal has no booking action (`booking_source = 'portal'` exists in the schema and nothing writes it); clients book through `/<slug>/reservar`, which flow 9 covers. Flow 8 covers what the portal does today. If portal booking is meant to exist, that's a feature, not a remediation unit.
+
+**Findings (real bugs; each gets its own unit unless noted).**
+- **E2E-1 (high, `dev` only).** `/transactions/new`, "Cobrar" on any appointment and the header Quick charge crash the whole app ("App failed to start": ``cannot add `postgres_changes` callbacks … after `subscribe()` ``). `useInventory` opens channel `inventory-rt-<business>`; `Index` and `QuickChargeDialog`/`TransactionCreate` both mount it, and since `9ca7835` (2026-10-06, realtime-js 2.93.2 → 2.117.2) `supabase.channel()` returns the existing, already-subscribed channel for the same topic. `8543663` (2026-10-07) then put "Cobrar" on every appointment. `main` still locks 2.93.2, so production is probably unaffected (not verified). `useTransactions` and both appointment hooks use the same fixed-name pattern, so they carry the same risk if two instances ever mount together (not observed in these flows). Fix: unique channel name per hook instance. Flips flow 5.
+- **E2E-2 (medium, data).** `EditAppointmentDialog` starts `selectedDate` at "now". On the first open after page load, its auto-jump effect runs in the same commit as the initialization, sees the stale date, and when today has no bookable slot left (evenings, or an appointment earlier today) queues "tomorrow" after the real date. The dialog then shows the wrong date, and saving reschedules the appointment. Flips 4b.
+- **E2E-3 (low).** `/<slug>/appointments` and `/<slug>/calendar` render a blank page when the feature is hidden: `<Navigate to="dashboard">` is relative, so it goes to `/appointments/dashboard`, which matches nothing.
+- **E2E-4 (low, check with Genesis).** Transaction numbers look global: this business's first sale was TXN-00009 on a stack with other businesses' sales, which leaks the platform's sale count across tenants.
+- **E2E-5 (low, UX).** The portal lists appointments raw ("2026-10-13 10:00:00 · scheduled", no pet, English status); the edit dialog is in English; online requests show species as "Unknown".
+- **Production config is unknown to the repo.** Feature visibility for every business comes from the `feature_rollout`/`feature_visibility_rules` rows, which exist only in production. With the migrations' last-known values (`development` tier), ordinary managers would not see the appointment book. P1-01 should capture this reference data (and `breeds`) along with the schema.
+
+**Gates.**
+
+| Gate | Before | After |
+|---|---|---|
+| TypeScript errors (ratchet) | 43 | 43 (now also covers `e2e/`, 0 there) |
+| Lint | 422 | 422 |
+| vitest | 104/104 | 104/104 |
+| Build (main chunk) | 4,016,280 bytes | 4,016,280 bytes (no app code changed) |
+| `test:security` / `test:payments` | 23/23 / 24/24 | 23/23 / 24/24 |
+| Smoke E2E | — | **10 passed** (8 green + 2 known-failing), 3 fresh runs in a row plus 1 in `CI=1` mode (own server, retries on, none used) |
+
+**Rollback.** Revert the commit (removes the dev dependency and the `e2e/` folder). The seed's rows live only on the local test stack (`npm run test:env:reset` wipes them).

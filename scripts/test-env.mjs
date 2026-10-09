@@ -4,6 +4,7 @@
 //   node scripts/test-env.mjs up      start: local Supabase (ports 55420-55429) + ATH Móvil simulator (55430)
 //   node scripts/test-env.mjs test    run the payments end-to-end tests against it
 //   node scripts/test-env.mjs test security   run the access-control (RLS) tests against it
+//   node scripts/test-env.mjs e2e     run the Playwright smoke E2E (the app on :55440 against it)
 //   node scripts/test-env.mjs reset   wipe the test database and re-apply every migration
 //   node scripts/test-env.mjs status  show URLs
 //   node scripts/test-env.mjs down    stop and remove everything (keeps nothing)
@@ -143,7 +144,21 @@ switch (cmd) {
     });
     process.exit(r.status ?? 1);
   }
+  case 'e2e': {
+    const e = stackEnv();
+    if (!e?.apiUrl || !e.anonKey || !e.serviceKey) {
+      console.error('✗ Test stack is not running. Start it with: npm run test:env:up');
+      process.exit(1);
+    }
+    const r = spawnSync(join(ROOT, 'node_modules', '.bin', WIN ? 'playwright.cmd' : 'playwright'), ['test', ...process.argv.slice(3)], {
+      cwd: ROOT,
+      stdio: 'inherit',
+      shell: WIN,
+      env: { ...process.env, TEST_API_URL: e.apiUrl, TEST_ANON_KEY: e.anonKey, TEST_SERVICE_KEY: e.serviceKey },
+    });
+    process.exit(r.status ?? 1);
+  }
   default:
-    console.error(`Unknown command "${cmd}". Use: up | test | reset | status | down`);
+    console.error(`Unknown command "${cmd}". Use: up | test | e2e | reset | status | down`);
     process.exit(1);
 }
