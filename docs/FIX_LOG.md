@@ -596,3 +596,62 @@ No frontend deploy is needed.
 **Gates.** tsc 37 · lint 404 · vitest 110/110 · build OK · CI run 37984178588: `check` ✓, `db-tests` ✓ · coordinator after merge: `npm run kill-preview` frees 4173, `supabase:restart -- --dry-run` prints stop → start. Not run on Windows or macOS (netstat parser tested on sample output only) — first Windows use: `npm run kill-preview` and `npm run supabase:start`.
 
 **Rollback.** Revert the merge commit and the coordinator's follow-up commit.
+
+
+---
+
+## 2026-10-09 · P2-01 staff · One RLS policy set on `staff` (employees can't add or remove staff)
+
+**Status:** done on `remediation` (unit U08, branch `fix/U08-staff-rls`). **Not applied to production** (OWNER_ACTIONS D6).
+
+**Problem.** `staff` had 13 policies, most of them generic or duplicates. "Employees insert/update/delete" let any member of a business, employees included, add staff rows with any pay rate (the P2-03 trigger only covers UPDATE), edit coworkers' rows, and delete coworkers.
+
+**Change.**
+- `supabase/migrations/20261009120000_staff_rls_rewrite.sql`.
+  - New shared helpers, SECURITY DEFINER, EXECUTE for authenticated and service_role only:
+    - `is_business_member(b)`
+    - `is_business_manager(b)`: same rule as `can_manage_staff_private`
+    - `is_own_staff_row(id)`
+  - Drops 11 policies by name.
+  - Creates 5 policies, all TO authenticated:
+    - select: member or own row
+    - insert: manager
+    - update: manager
+    - update own row: own row, kept in a business the caller belongs to
+    - delete: manager
+  - Not touched: the demo-workspace read policies (P2-05) and both staff triggers. The P2-03 trigger still limits which columns an employee may change on their own row.
+- `supabase/rollbacks/20261009120000_staff_rls_rewrite.down.sql`: recreates the 11 old policies verbatim from the production snapshot and drops the helpers.
+- `scripts/test-env-security.mjs`:
+  - "employee cannot delete a coworker" moved from known() to check().
+  - New checks: an employee cannot add staff, edit a coworker, or move their own row to another business.
+  - Regression checks for every legitimate path.
+  - The P2-03 "coworker's pay rate" check now also accepts RLS's 0-row result; the rate must still be unchanged.
+
+**Compatibility with `main` (shared database).** Expand-only for every flow either frontend uses. Only employee writes to other staff rows are blocked, and no screen on main or dev makes them.
+
+**Gates.**
+- tsc 37 · lint 404 · vitest 110/110 · build OK.
+- Red test-only run 37984287777 → green run 37985608351: `check` ✓, `db-tests` ✓ (`test:payments` ✓, `test:security` all ✓ + **5 known issues open** (was 6), smoke E2E 15/15).
+- Migration → rollback → migration verified on a scratch Postgres 16: policies and behavior identical after the rollback; both scripts are idempotent.
+
+**Production steps (Jovaniel; OWNER_ACTIONS D6).**
+1. Backup (A3) and note its folder name: `__________`.
+2. Paste the whole migration file into the Supabase SQL editor and run it. **Never `supabase db push`.**
+3. `npx supabase migration repair --status applied 20261009120000`.
+4. Verify (read-only):
+   - `select policyname, cmd from pg_policies where schemaname='public' and tablename='staff' order by 1;` → 7 rows: the 2 demo policies plus staff_delete_managers, staff_insert_managers, staff_select_business_members, staff_update_managers, staff_update_own_row.
+   - `select has_function_privilege('authenticated','public.is_business_manager(uuid)','execute'), has_function_privilege('anon','public.is_business_manager(uuid)','execute');` → true, false.
+5. Smoke test on the dev page with the QA business:
+   - as a manager: add, edit (pay and PIN), reset the PIN of, and delete an employee; open the appointment book and payroll;
+   - as an employee: open the staff page and save (including your own PIN), open schedules and the kiosk, save your birthday in Account settings;
+   - open the public booking page and check the groomers;
+   - then, on the production app, save an employee as a manager.
+6. Watch for RLS errors on `staff` for 24 h.
+
+No frontend deploy is needed.
+
+**Rollback (production).** Run `supabase/rollbacks/20261009120000_staff_rls_rewrite.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261009120000`. This reopens "employees add, edit or delete staff rows". If a later migration's policy uses the new helpers, the rollback's DROP FUNCTION fails on purpose: roll that migration back first.
+
+**Tag:** `fix/P2-01-staff` once applied to production.
+
+**Note.** The worker loosened U04's "coworker's pay rate" check to accept RLS's 0-row result as well as the trigger's error; the assertion (rate unchanged) is the same. Accepted by the coordinator.
