@@ -110,6 +110,6 @@ If **Crear cuenta** takes ~30+ seconds and then shows a timeout and **no user or
 
 ## Notes
 
-- The `start-supabase` script automatically checks if Supabase is already running before starting
+- `npm run supabase:start` (`scripts/supabase-local.mjs`) automatically checks if Supabase is already running before starting
 - This prevents the "too many ports in use" error
 - Always use `npm run supabase:stop` before closing your terminal to clean up resources
