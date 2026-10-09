@@ -1,0 +1,123 @@
+# Grumi CI (remediation plan P1-04): runs on every push to the main branches, the remediation branch and
+# every fix/* branch, and on PRs to dev/main. No path filters and no secrets: everything runs inside the job
+# against the local test stack (scripts/test-env.mjs) with fake keys.
+#
+# Job names are stable on purpose, so they can be made required status checks: `check` and `db-tests`.
+name: CI
+on:
+  push:
+    branches: [dev, main, remediation, "fix/**"]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck ratchet, lint ratchet, unit tests
+        run: npm run check
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder
+
+  db-tests:
+    name: db-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start test stack
+        id: up
+        run: |
+          set -o pipefail
+          npm run test:env:up 2>&1 | tee test-env-up.log
+      - name: Payments end-to-end tests
+        run: |
+          set -o pipefail
+          npm run test:payments 2>&1 | tee test-payments.log
+      - name: Access-control (RLS) tests
+        # Keep going after a failed suite (so every result is visible), but only if the stack is up.
+        if: (success() || failure()) && steps.up.outcome == 'success'
+        run: |
+          set -o pipefail
+          npm run test:security 2>&1 | tee test-security.log
+      - name: Install Playwright browser
+        # Keep going after a failed suite (so every result is visible), but only if the stack is up.
+        if: (success() || failure()) && steps.up.outcome == 'success'
+        run: npx playwright install --with-deps chromium
+      - name: Smoke E2E (Playwright)
+        # Keep going after a failed suite (so every result is visible), but only if the stack is up.
+        if: (success() || failure()) && steps.up.outcome == 'success'
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee test-e2e.log
+      - name: Show the test results as an annotation
+        if: success()
+        run: |
+          for f in test-payments.log test-security.log test-e2e.log; do
+            [ -f "$f" ] || continue
+            msg=$(grep -E "✓|✗|○|passed|failed|FAILED|known issue" "$f" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/%/%25/g' | tail -n 80 | awk '{printf "%s%%0A", $0}')
+            echo "::notice title=$f::$msg"
+          done
+      - name: Show the failure as an annotation (readable without opening the log)
+        if: failure()
+        run: |
+          for f in test-env-up.log test-payments.log test-security.log test-e2e.log; do
+            [ -f "$f" ] || continue
+            msg=$(tail -n 60 "$f" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$f::$msg"
+          done
+          docker logs supabase_edge_runtime_grumi-test 2>&1 | tail -60 > edge.log || true
+          if [ -s edge.log ]; then
+            msg=$(sed -e 's/%/%25/g' edge.log | awk '{printf "%s%%0A", $0}')
+            echo "::error title=edge-runtime::$msg"
+          fi
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-tests-logs
+          path: |
+            test-env-up.log
+            test-payments.log
+            test-security.log
+            test-e2e.log
+            edge.log
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            reports/e2e
+            test-results/e2e
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Stop test stack
+        if: always()
+        run: npm run test:env:down
