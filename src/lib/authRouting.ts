@@ -1,4 +1,5 @@
 import type { Business } from '@/lib/auth';
+import { BUSINESS_COLUMNS } from '@/lib/businessSlug';
 import { clearAllDemoStoredSettings } from '@/lib/demoLocalSettings';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { supabase } from '@/integrations/supabase/client';
@@ -186,7 +187,7 @@ type LoginProfile = {
 
 async function fetchBusinessById(businessId: string | null): Promise<Business | null> {
   if (!businessId) return null;
-  const { data } = await supabase.from('businesses').select('*').eq('id', businessId).maybeSingle();
+  const { data } = await supabase.from('businesses').select(BUSINESS_COLUMNS).eq('id', businessId).maybeSingle();
   return (data as Business | null) ?? null;
 }
 
