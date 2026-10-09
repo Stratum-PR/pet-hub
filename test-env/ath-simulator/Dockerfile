@@ -1,6 +1,7 @@
 # ATH Móvil API simulator from @stratum-pr/payments (Stratum-PR/payment_methods, simulator/athmovil).
 # Local tests only. server.mjs and core.mjs are copied by scripts/sync-payment-libs.sh; don't edit them here.
-FROM node:22-alpine
+# Official node image via AWS's public mirror: Docker Hub rate-limits (429) pulls in CI and cloud sessions.
+FROM public.ecr.aws/docker/library/node:22-alpine
 WORKDIR /app
 COPY server.mjs core.mjs ./
 ENV PORT=4010
