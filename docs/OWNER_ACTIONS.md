@@ -57,3 +57,4 @@ Each new production item lands here **in apply order**, with its FIX_LOG link. A
 |---|---|---|---|
 | D1 | E2E-1 checkout crash ([FIX_LOG](FIX_LOG.md)) | Nothing in production: frontend only. It's fixed once `remediation` is merged into `dev` and dev.grumi.pet redeploys. Until then Cobrar crashes on dev.grumi.pet (not on `main`). | Fixed on `remediation` |
 | D2 | E2E-2 edit dialog date ([FIX_LOG](FIX_LOG.md)) | Nothing in production: frontend only, same as D1. | Fixed on `remediation` |
+| D3 | E2E-3 blank page on hidden features ([FIX_LOG](FIX_LOG.md)) | Nothing in production: frontend only, same as D1. | Fixed on `remediation` |
