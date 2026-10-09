@@ -655,3 +655,21 @@ No frontend deploy is needed.
 **Tag:** `fix/P2-01-staff` once applied to production.
 
 **Note.** The worker loosened U04's "coworker's pay rate" check to accept RLS's 0-row result as well as the trigger's error; the assertion (rate unchanged) is the same. Accepted by the coordinator.
+
+---
+
+## 2026-10-09 · P4-01 · Lazy-load routes (main bundle 4.0 MB → 1.07 MB)
+
+**Status:** done on `remediation` (unit U06, branch `fix/U06-lazy-routes`). The worker was stopped before reporting; the coordinator reviewed the diff and ran the gates (owner's choice 2026-10-09). Frontend only.
+
+**Change.**
+- `src/App.tsx`: every page except Landing (`/`), Login, NotFound, the redirect components and route guards is loaded with `React.lazy`; the whole business app (`Index` and everything it imports) is one lazy chunk until Index splits its own routes. `DemoLegacyRedirect` is lazy too (it imports Index). Routes are wrapped in one `Suspense`.
+- `src/components/RouteFallback.tsx` (new): the same full-screen paw loader ProtectedRoute shows (fades in after ~0.12 s, so fast loads barely show it), label `common.loading`.
+- Stale chunks after a redeploy: a failed chunk import reloads the page once (sessionStorage guard, 60 s window); a second failure reaches GlobalErrorBoundary as before.
+- Visible change: a brief paw loader on the first visit to a page whose code isn't downloaded yet.
+
+**Gates.** Main chunk **4,016,277 → 1,070,838 B** (gzip 1,158 → 314 kB), 41 JS chunks · tsc 37 · lint 404 · vitest 110/110 · build OK · `verify-discoverability` passes (15 routes) · CI run 37980434227: `check` ✓, `db-tests` ✓ (smoke E2E 15/15 incl. deep links and hidden-feature redirects). Not done: cold load on a throttled mobile profile.
+
+**Rollback.** Revert the merge commit (frontend only; previous Vercel deployment for instant rollback).
+
+**Follow-up.** `Index.tsx` still loads the whole business app as one ~chunk; splitting its inner routes is the next step if needed.
