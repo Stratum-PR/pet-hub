@@ -324,8 +324,13 @@ async function knownIssues() {
   check('employee cannot switch their own pay type to commission (P2-03)', !!r.error && s.compensation_type === 'hourly' && s.commission_rate === null, { r, s });
 
   r = await worker.db.from('staff').update({ hourly_rate: 1 }).eq('id', coworker.id).select();
-  // Blocked by the P2-03 column lock. Other edits to a coworker's row stay open until P2-01 (staff policies).
-  check("employee cannot change a coworker's pay rate (P2-03)", !!r.error && Number((await staffOf(coworker.id)).hourly_rate) === 12, r);
+  // Blocked by the P2-03 column lock and, since P2-01 staff, earlier by RLS: a coworker's row is not updatable
+  // by an employee at all, so the update matches 0 rows instead of raising. Either way nothing may change.
+  check(
+    "employee cannot change a coworker's pay rate (P2-03)",
+    (!!r.error || (r.data ?? []).length === 0) && Number((await staffOf(coworker.id)).hourly_rate) === 12,
+    r
+  );
 
   console.log('Staff: employee self-service and manager edits still work (P2-03)');
   // EmployeeManagement self-service save (main and dev): own profile fields plus their own kiosk PIN.
