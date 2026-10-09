@@ -580,3 +580,19 @@ No frontend deploy is needed.
 **Open for P2-01 staff (U08).** INSERT isn't covered: an employee can still insert a new staff row with any rate under "Employees insert".
 
 **Tag:** `fix/P2-03` once applied to production.
+
+---
+
+## 2026-10-09 · P3-08 · README rewrite; cross-platform replacements for the PowerShell-only scripts
+
+**Status:** done on `remediation` (unit U10, branch `fix/U10-readme-scripts`; package.json switch and old-script deletion by the coordinator). No app or schema change.
+
+**Change.**
+- `README.md` rewritten: what Grumi is, stack, prerequisites (Node 22, npm, Docker, Supabase CLI via npx), setup (`.env.example` names), everyday commands, the test stack and suites, CI (`check`, `db-tests`), the migration workflow (new files + rollback, expand-only; production by the owner via SQL editor + `migration repair`, never `supabase db push`), and where the docs live.
+- New Node scripts that work on Windows, macOS and Linux: `scripts/kill-port.mjs <port>` (kills only listeners; netstat/taskkill on Windows, lsof or fuser elsewhere; same retries as the .ps1), `scripts/supabase-local.mjs start|stop|restart|status [--dry-run]`, `scripts/setup-env.mjs [--out <file>]`, `scripts/move-hero-background.mjs`. `scripts/kill-port-8080.mjs` now delegates to `kill-port.mjs` (kept: `dev-safari.mjs` calls it).
+- package.json: `kill-vite`, `kill-preview`, `supabase:start|stop|restart`, `setup-env`, `move-hero-fallback` run these scripts; no script calls PowerShell any more. Deleted: `kill-port-4173.ps1`, `kill-port-8080.ps1/.sh`, `start-/stop-/restart-supabase.ps1`, `start-/stop-supabase.sh`, `setup-env.ps1`, `move-hero-background.ps1`.
+- Developer-only behaviour changes: `supabase:stop` no longer force-kills every process named *supabase*/*postgres*/*kong* on the machine (it also killed unrelated local Postgres servers); `kill-vite` kills only listeners on 8080 (not connected browsers); `setup-env` writes UTF-8 without BOM.
+
+**Gates.** tsc 37 · lint 404 · vitest 110/110 · build OK · CI run 37984178588: `check` ✓, `db-tests` ✓ · coordinator after merge: `npm run kill-preview` frees 4173, `supabase:restart -- --dry-run` prints stop → start. Not run on Windows or macOS (netstat parser tested on sample output only) — first Windows use: `npm run kill-preview` and `npm run supabase:start`.
+
+**Rollback.** Revert the merge commit and the coordinator's follow-up commit.
