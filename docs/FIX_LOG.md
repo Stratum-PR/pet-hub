@@ -543,3 +543,40 @@ Note for P2-01: whether employees should be allowed to delete clients, pets or a
 **Rollback.** Redeploy the previous version: `git checkout <commit before merge> -- supabase/functions/send-appointment-reminder && npx supabase functions deploy send-appointment-reminder`. No DB change.
 
 **Decision.** Greeting falls back to `first_name` only (no `last_name`), matching `notify-appointment`; no name → "Hola,".
+
+---
+
+## 2026-10-09 · P2-03 · Staff pay, job title and access columns are manager-only
+
+**Status:** done on `remediation` (unit U04, branch `fix/U04-staff-column-privileges`). **Not applied to production** (OWNER_ACTIONS D5).
+
+**Problem.** The "Employees update" policy lets any member of a business update any staff row of that business, so an employee could raise their own (or a coworker's) hourly rate, set a commission, or change their job title. `access_role` was already guarded by `staff_enforce_access_role_mutations`.
+
+**Change.**
+- `supabase/migrations/20261009110000_staff_lock_pay_and_role_columns.sql`: trigger `staff_lock_pay_and_role_columns`, `BEFORE UPDATE` on `public.staff`. For `authenticated`/`anon` callers, a change to `hourly_rate`, `commission_rate`, `compensation_type`, `role`, `job_title_id` or `access_role` requires `can_manage_staff_private(business_id)` (super admin, profile manager, or staff access_role admin/manager); otherwise `42501 staff_pay_and_role_columns_are_manager_only`. Unchanged values pass, so the manager form (which sends every field) still saves. The service role and SECURITY DEFINER functions are unaffected.
+- `job_title_id` and `compensation_type` are locked beyond the plan's list: the job title feeds `role` (via `staff_sync_name_and_role_trigger`) and pay type changes how pay is calculated. No employee screen writes either.
+- `pin` is deliberately **not** locked: employees change their own kiosk PIN in the self-service form (main and dev). P2-02 (U11) moves this to an own-PIN RPC, hashes PINs, then locks `pin`.
+- `supabase/rollbacks/20261009110000_staff_lock_pay_and_role_columns.down.sql`.
+- `scripts/test-env-security.mjs`: "own hourly rate" and "coworker's pay rate" moved from known() to check(); new checks for role, job title, commission rate and pay type; regression checks for the employee self-service save (incl. own PIN), the AccountSettings birthday save, unchanged values, a full manager save and the service role.
+
+**Compatibility with `main` (shared database).** Expand-only. Neither frontend writes these columns as an employee (self-service and AccountSettings payloads checked on both branches).
+
+**Gates.** tsc 37 · lint 404 · vitest 110/110 · build OK · red test-only run 37979599661 (attacks still worked) → green run 37980168857: `check` ✓, `db-tests` ✓ (`test:payments` 24/24, `test:security` all ✓ + **6 known issues open** (was 8), smoke E2E 15/15). Migration → rollback → migration verified on a scratch Postgres 16 with the real staff triggers/helpers; both scripts idempotent.
+
+**Production steps (Jovaniel; OWNER_ACTIONS D5).**
+1. Backup (A3) and note its folder name: `__________`.
+2. Paste the whole migration file into the Supabase SQL editor and run it. **Never `supabase db push`.**
+3. `npx supabase migration repair --status applied 20261009110000`.
+4. Verify (read-only):
+   `select tgname, tgtype, tgenabled from pg_trigger where tgname = 'staff_lock_pay_and_role_columns';` → 1 row, tgtype 19, 'O'
+   `select has_function_privilege('authenticated', 'public.can_manage_staff_private(uuid)', 'execute');` → true
+5. Smoke test on the dev page with the QA business: as a manager, edit an employee's pay rate, commission, job title and PIN; as an employee, change your own name/phone/PIN and save; save your birthday in Account settings. Then, on the production app, save an employee as a manager.
+6. Watch for errors mentioning `staff_pay_and_role_columns_are_manager_only` for 24 h.
+
+No frontend deploy is needed.
+
+**Rollback (production).** Run `supabase/rollbacks/20261009110000_staff_lock_pay_and_role_columns.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261009110000`. This reopens "employee raises their own pay"; use only if the lock breaks a legitimate flow.
+
+**Open for P2-01 staff (U08).** INSERT isn't covered: an employee can still insert a new staff row with any rate under "Employees insert".
+
+**Tag:** `fix/P2-03` once applied to production.
