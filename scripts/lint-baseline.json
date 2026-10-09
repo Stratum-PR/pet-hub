@@ -1,5 +1,5 @@
 {
-  "total": 404,
+  "total": 400,
   "problems": {
     "src/components/AppSidebar.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 2,
     "src/components/BusinessBrandingAssets.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 6,
@@ -7,7 +7,6 @@
     "src/components/ClientList.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 1,
     "src/components/ClientProfileDialog.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 3,
     "src/components/ClientProfileDialog.tsx react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'client'. Either include it or remove the dependency array.": 1,
-    "src/components/CustomerList.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 1,
     "src/components/DataDiagnostics.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 21,
     "src/components/DataDiagnostics.tsx prefer-const 'clients' is never reassigned. Use 'const' instead.": 1,
     "src/components/DataDiagnostics.tsx prefer-const 'clientsError' is never reassigned. Use 'const' instead.": 1,
@@ -17,7 +16,6 @@
     "src/components/EditAppointmentDialog.tsx react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'normalizedClients'. Either include it or remove the dependency array.": 1,
     "src/components/GeofencingSettings.tsx react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'loadSettings'. Either include it or remove the dependency array.": 1,
     "src/components/InventoryItemExpanded.tsx react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'product'. Either include it or remove the dependency array. If 'setForm' needs the current value of 'product', y": 1,
-    "src/components/KioskManagerAccess.tsx react-hooks/exhaustive-deps React Hook useCallback has an unnecessary dependency: 't'. Either exclude it or remove the dependency array. Outer scope values like 't' aren't valid dependenci": 1,
     "src/components/KioskManagerPinResetDialog.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 1,
     "src/components/KioskManagerPinSettings.tsx react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'checkExistingPin'. Either include it or remove the dependency array.": 1,
     "src/components/Layout.tsx react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'mobileMenuOpen'. Either include it or remove the dependency array.": 1,
@@ -45,7 +43,6 @@
     "src/components/ui/button.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 1,
     "src/components/ui/command.tsx @typescript-eslint/no-empty-object-type An interface declaring no members is equivalent to its supertype.": 1,
     "src/components/ui/form.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 1,
-    "src/components/ui/navigation-menu.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 1,
     "src/components/ui/sidebar.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 1,
     "src/components/ui/sonner.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 1,
     "src/components/ui/textarea.tsx @typescript-eslint/no-empty-object-type An interface declaring no members is equivalent to its supertype.": 1,
@@ -78,7 +75,6 @@
     "src/hooks/useTransactions.ts @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 51,
     "src/hooks/useTransactions.ts react-hooks/exhaustive-deps React Hook useCallback has a missing dependency: 'fetchTaxSettings'. Either include it or remove the dependency array.": 1,
     "src/integrations/supabase/client.ts @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 1,
-    "src/lib/bookingAvailability.ts prefer-const 'endStr' is never reassigned. Use 'const' instead.": 1,
     "src/lib/businessValidation.test.ts @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 3,
     "src/lib/colorFormat.ts prefer-const 'b' is never reassigned. Use 'const' instead.": 1,
     "src/lib/colorFormat.ts prefer-const 'g' is never reassigned. Use 'const' instead.": 1,
