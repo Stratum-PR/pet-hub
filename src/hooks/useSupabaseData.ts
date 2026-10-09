@@ -700,6 +700,12 @@ function stripPgrst204KeysFromPayload(payload: Record<string, unknown>): void {
 
 type StaffWriteClient = SupabaseClient<Database>;
 
+/** A `staff` row as selected with `STAFF_MANAGER_COLUMNS` (declared below). */
+type StaffManagerDbRow = Omit<
+  Database['public']['Tables']['staff']['Row'],
+  'auth_user_id' | 'invite_status' | 'payment_method'
+>;
+
 /** Parse column name from PostgREST PGRST204 body, e.g. ... 'bank_account_number' column of 'staff' ... */
 function parsePgrst204UnknownColumn(message: string): string | null {
   const m = /Could not find the '([^']+)' column/.exec(message);
@@ -715,20 +721,20 @@ async function staffApplyStripFollowUp(
   client: StaffWriteClient,
   staffId: string,
   stripFollowUp: Record<string, unknown>
-): Promise<{ data: Employee | null; fatalError: { code?: string; message: string } | null }> {
+): Promise<{ data: StaffManagerDbRow | null; fatalError: { code?: string; message: string } | null }> {
   const follow: Record<string, unknown> = { ...stripFollowUp };
-  let lastData: Employee | null = null;
+  let lastData: StaffManagerDbRow | null = null;
 
   while (Object.keys(follow).length > 0) {
     const { data: row, error: followErr } = await client
       .from('staff')
       .update(follow as any)
       .eq('id', staffId)
-      .select()
+      .select(STAFF_MANAGER_COLUMNS)
       .single();
 
     if (!followErr && row) {
-      lastData = row as Employee;
+      lastData = row;
       break;
     }
 
@@ -901,8 +907,43 @@ function mergeStaffPrivate<T extends object>(row: T, fields: StaffPrivateFields 
 export const STAFF_PUBLIC_COLUMNS =
   'id, business_id, name, first_name, last_name, job_title_id, email, phone, role, access_role, status, birth_month, birth_day, photo_url, offered_service_ids, user_id, created_at, updated_at';
 
+/**
+ * Every `staff` column the staff page (manager edit form and employee self-service form), payroll and
+ * schedules read: the `Employee` type minus `hire_date`/`last_date` (not database columns).
+ * Includes `pin` (shown/edited in the staff form) and the legacy payroll columns (overlaid by `staff_private`).
+ * Used by `useEmployees()` and the rows returned by staff inserts/updates. Not selected: `auth_user_id`,
+ * `invite_status`, `payment_method` (nothing reads them).
+ */
+export const STAFF_MANAGER_COLUMNS =
+  'id, business_id, name, first_name, last_name, job_title_id, email, phone, pin, pin_set_at, pin_required, hourly_rate, role, access_role, user_id, status, birth_month, birth_day, birth_year, photo_url, compensation_type, commission_rate, staff_address, ssn, bank_routing_number, bank_account_type, bank_account_number, bank_name, payment_notes, offered_service_ids, created_at, updated_at';
+
+/** A staff row loaded with `STAFF_PUBLIC_COLUMNS`. */
+export type StaffPublicRow = Pick<
+  Employee,
+  | 'id'
+  | 'business_id'
+  | 'name'
+  | 'first_name'
+  | 'last_name'
+  | 'job_title_id'
+  | 'email'
+  | 'phone'
+  | 'role'
+  | 'access_role'
+  | 'status'
+  | 'birth_month'
+  | 'birth_day'
+  | 'photo_url'
+  | 'offered_service_ids'
+  | 'user_id'
+  | 'created_at'
+  | 'updated_at'
+>;
+
 export function useEmployees(options?: { includeSensitive?: boolean }) {
-  const staffColumns = options?.includeSensitive === false ? STAFF_PUBLIC_COLUMNS : '*';
+  const includeSensitive = options?.includeSensitive !== false;
+  // Typed as string: one query serves both lists; rows are cast to `Employee` below.
+  const staffColumns: string = includeSensitive ? STAFF_MANAGER_COLUMNS : STAFF_PUBLIC_COLUMNS;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -933,7 +974,7 @@ export function useEmployees(options?: { includeSensitive?: boolean }) {
       setError(null);
       if (isDemoRoute() && isDemoWorkspaceBusiness(businessId) && data.length === 0) {
         setEmployees(getDemoStaffSeed());
-      } else if (staffColumns === '*' && !demoBrowseOnly) {
+      } else if (includeSensitive && !demoBrowseOnly) {
         const privateById = await fetchStaffPrivateFields(businessId);
         setEmployees(
           (data as unknown as Employee[]).map((e) => mergeStaffPrivate(e, privateById.get(e.id)))
@@ -1035,14 +1076,14 @@ export function useEmployees(options?: { includeSensitive?: boolean }) {
     const stripFollowUpInsert = snapshotStripFollowUp(payload);
     const hadStripFollowUpInsert = Object.keys(stripFollowUpInsert).length > 0;
 
-    let { data, error } = await supabase.from('staff').insert(payload as any).select().single();
+    let { data, error } = await supabase.from('staff').insert(payload as any).select(STAFF_MANAGER_COLUMNS).single();
 
     // If schema cache doesn't know newer columns, retry with a smaller payload (legacy PostgREST cache).
     let didStripInsertForPgrst204 = false;
     if (error?.code === 'PGRST204') {
       didStripInsertForPgrst204 = true;
       stripPgrst204KeysFromPayload(payload);
-      ({ data, error } = await supabase.from('staff').insert(payload as any).select().single());
+      ({ data, error } = await supabase.from('staff').insert(payload as any).select(STAFF_MANAGER_COLUMNS).single());
     }
 
     if (!error && data && didStripInsertForPgrst204 && hadStripFollowUpInsert) {
@@ -1166,16 +1207,16 @@ export function useEmployees(options?: { includeSensitive?: boolean }) {
 
     let { data, error } =
       Object.keys(payload).length > 0
-        ? await supabase.from('staff').update(payload as any).eq('id', id).select().single()
-        : await supabase.from('staff').select().eq('id', id).single();
+        ? await supabase.from('staff').update(payload as any).eq('id', id).select(STAFF_MANAGER_COLUMNS).single()
+        : await supabase.from('staff').select(STAFF_MANAGER_COLUMNS).eq('id', id).single();
     let didStripUpdateForPgrst204 = false;
     if (error?.code === 'PGRST204') {
       didStripUpdateForPgrst204 = true;
       stripPgrst204KeysFromPayload(payload);
       if (Object.keys(payload).length > 0) {
-        ({ data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select().single());
+        ({ data, error } = await supabase.from('staff').update(payload as any).eq('id', id).select(STAFF_MANAGER_COLUMNS).single());
       } else {
-        const sel = await supabase.from('staff').select().eq('id', id).single();
+        const sel = await supabase.from('staff').select(STAFF_MANAGER_COLUMNS).eq('id', id).single();
         data = sel.data;
         error = sel.error;
       }
@@ -1238,7 +1279,8 @@ export function useEmployees(options?: { includeSensitive?: boolean }) {
     return false;
   };
 
-  const verifyPin = async (pin: string) => {
+  /** Looks up the active staff member with this PIN. Returns public columns only (not the PIN itself). */
+  const verifyPin = async (pin: string): Promise<StaffPublicRow | null> => {
     if (!businessId) return null;
     if (isDemoRoute() && isDemoWorkspaceBusiness(businessId)) {
       const list = employees.length > 0 ? employees : getDemoStaffSeed();
@@ -1247,14 +1289,14 @@ export function useEmployees(options?: { includeSensitive?: boolean }) {
     }
     const { data, error } = await supabase
       .from('staff')
-      .select('*')
+      .select(STAFF_PUBLIC_COLUMNS)
       .eq('business_id', businessId)
       .eq('pin', pin)
       .eq('status', 'active')
       .maybeSingle();
 
     if (!error && data) {
-      return data as Employee;
+      return data as StaffPublicRow;
     }
     return null;
   };
