@@ -488,3 +488,25 @@ Note for P2-01: whether employees should be allowed to delete clients, pets or a
 - Note: `payments-test-env.yml` is now redundant with `db-tests` (dev pushes touching payments run the suite twice). Left in place; owner's call.
 
 **Rollback.** Revert the merge commit (deleting `ci.yml` removes CI; the old ratchet only works on the owner's PC).
+
+---
+
+## 2026-10-09 · P2-07 · Stop writing `profiles.role` from the client sign-up
+
+**Status:** done on `remediation` (unit U01, branch `fix/U01-register-role`). Frontend only; no schema change.
+
+**Problem.** After a client sign-up that returns a session, `Register.tsx` updated the user's profile with `{ role: 'client', full_name }` from the browser. The server already sets the role: `handle_new_user` (trigger `on_auth_user_created` on `auth.users`) creates every profile and gives a plain client sign-up (metadata has no `role`) the role `client`. Since P0-01, the lock trigger rejects any API change to `role`, so the browser write did nothing for clients. It also silently failed (and took the `full_name` in the same update with it) for a person with a pending staff invite, and, because super admins bypass the lock, it turned a `@stratumpr.com` account that registered through the client form into `role = 'client'`.
+
+**Change.**
+- `src/pages/Register.tsx`: the profile update after a client sign-up sends only `full_name`.
+- `src/pages/Register.test.tsx` (new): drives the client form against a fake Supabase client and checks that no write and no `signUp` metadata carries `role` and that the profile still gets the typed name. Failed before the fix.
+
+**Compatibility with `main`.** No database change. `main` still sends `role: 'client'`; the security suite keeps covering that write ("client signup's role write (unchanged value) still works").
+
+**Gates.** tsc 39 (none new) · lint 421 (none new) · vitest 110/110 (+1) · build OK (main 4,016,263 B) · CI run 37979424683: `check` ✓, `db-tests` ✓ (`test:payments` 24/24, `test:security` all pass + 8 known issues open, smoke E2E 15/15).
+
+**Rollback.** Revert the merge commit (frontend only; previous Vercel deployment for instant rollback).
+
+**Tag:** `fix/P2-07` once deployed.
+
+**Follow-up found.** Pressing Enter on step 1 or 2 of the client form submits the whole sign-up (the `<form onSubmit>` spans all three steps), so someone can register with no name and no pets. Candidate small unit.
