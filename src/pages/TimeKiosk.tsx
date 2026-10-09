@@ -745,7 +745,6 @@ export function TimeKiosk() {
             <p className="text-muted-foreground text-lg">
               {state === 'pin_entry' && t('timeTracking.description')}
               {state === 'employee_verified' && t('timeTracking.welcome', { name: kioskDisplayName })}
-              {state === 'clocking' && t('timeKiosk.processing')}
               {state === 'success' &&
                 (clockResult?.action === 'clock_in'
                   ? t('timeTracking.clockedIn', { name: kioskDisplayName })

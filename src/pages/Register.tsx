@@ -58,7 +58,7 @@ const PET_SPECIES_CHOICES: {
   id: PetSpeciesChoice;
   label: string;
   species: PetDraft['species'];
-  icon: React.ComponentType;
+  icon: React.ComponentType<{ className?: string }>;
 }[] = [
   { id: 'dogs', label: 'dogs', species: 'dog', icon: Dog },
   { id: 'cats', label: 'cats', species: 'cat', icon: Cat },

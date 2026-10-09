@@ -406,3 +406,21 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 **Gates.** tsc **43 → 42** (baseline updated) · lint 422 · vitest 109/109 · build OK (main 4,016,651 bytes) · `test:security` 23/23 · `test:payments` 24/24 · smoke E2E 15/15.
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-03 follow-up · The other "likely real bugs", checked one by one
+
+**Status:** done on `remediation`. Of P1-03's 8 "likely real bugs", only the QR code one was a user-visible bug (fixed above). The rest, after reading the code:
+
+| Item | Verdict | Action |
+|---|---|---|
+| `TimeKiosk` compares `state === 'clocking'` (no such state) | Dead line: the clock button already shows "processing" and is disabled while `loading` | Line removed. No visible change |
+| `Landing` passes `showRegisterAccountButton` to `LoginForm` | `LoginForm` never had the prop; only passed on localhost (registration is localhost-only), and `LoginForm` already links to sign-up | Prop removed. No visible change |
+| `Register.tsx:933` `className` on the species icon | Type only: lucide icons accept `className`; the option type said `ComponentType` with no props | Type is `ComponentType<{ className?: string }>` |
+| `Admin.tsx` service handlers (3 errors) | **Not reachable:** `src/pages/Admin.tsx` is imported nowhere (no route, no lazy import); `/admin` renders `AdminDashboard` | Moved to P3-01 (orphan files); delete it there |
+| `staffBirthdayDispatch` calls `dispatch_staff_missing_email_reminders` | The function's migration (`20260328103000`) never reached production (P0-05) or the local stack; the call fails quietly (warning) on every run | **Decision for Jovaniel** (OWNER_ACTIONS C5): turn the feature on (re-issue the migration with a security test, apply in production) or remove the call |
+
+**Gates.** tsc **42 → 39** (baseline updated) · lint 422 · vitest 109/109 · build OK (main 4,016,581 bytes) · `test:security` 23/23 · `test:payments` 24/24 · smoke E2E 15/15 (flow 6 exercises the kiosk).
+
+**Rollback.** Revert the commit.
