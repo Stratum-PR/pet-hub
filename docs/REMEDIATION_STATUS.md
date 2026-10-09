@@ -2,7 +2,7 @@
 
 Updated 2026-10-08. Branch `remediation` is pushed to `origin` for review (Jovaniel evaluates it before merging into `dev`, then `main`). Read this first when resuming; the plan is [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md), the per-unit record is [FIX_LOG.md](FIX_LOG.md).
 
-Branch `remediation` (local only, from `dev` at `abb6350`; never pushed). Working rules: one unit at a time through the §2 protocol; no push/PR/merge; nothing run against hosted Supabase/Vercel; production steps are prepared for Jovaniel; units run without per-step approval and stop only at phase ends, failing gates, real decisions, or production actions.
+Branch `remediation` (from `dev` at `abb6350`; Jovaniel pushes it, Claude never does). **Everything that needs Jovaniel is in [OWNER_ACTIONS.md](OWNER_ACTIONS.md)**; when a unit adds a production step, append it to that file's Part D. Working rules: one unit at a time through the §2 protocol; no push/PR/merge; nothing run against hosted Supabase/Vercel; production steps are prepared for Jovaniel; units run without per-step approval and stop only at phase ends, failing gates or real decisions; production steps never block: they go to OWNER_ACTIONS Part D and work continues (decided by Jovaniel 2026-10-08).
 
 ## Done (committed on `remediation`)
 
@@ -24,12 +24,11 @@ Gates now: tsc 43 (ratcheted) · lint 422 (345/77, ratcheted) · vitest 104/104 
 
 ## Next, in order
 
-1. **Jovaniel (production):** PHASE0_PRODUCTION_CHECKS §1–3 → paste results → `npm run db:backup` + `db:restore-check` → apply P0-01 and P0-06 (FIX_LOG steps) → walkthrough.
+1. **Jovaniel:** works through [OWNER_ACTIONS.md](OWNER_ACTIONS.md) on his own schedule (Part A = production P0 steps). Claude continues with items 2–4 meanwhile; production-dependent work (P1-01 baseline, P1-02, P1-10, P1-12, P1-13 QA business) waits for the matching Part B item.
 2. **Real-bug units found by P1-07** (each flips a known-failing E2E test): **E2E-1** realtime channel crash on Cobrar / Quick charge / Nueva transacción (`dev` only, high; flips flow 5), **E2E-2** edit dialog opens on the wrong date and saving reschedules (flips 4b), E2E-3 blank page on hidden-feature redirect. Details in FIX_LOG → P1-07.
 3. **Real-bug units from P1-03** (one small unit each with a test): Admin.tsx service handlers, TimeKiosk `'clocking'`, Landing/Register props, `qrCode.ts` `replaceAll` on old Safari, missing `dispatch_staff_missing_email_reminders`. List in FIX_LOG → P1-03 stage 2.
 4. P1-11 repo hygiene (`.env`, `supabase/.temp/` untracked), P1-08 known-failing security tests, P1-13 dual-frontend gate, P1-04 PR CI workflow (add `npx playwright install --with-deps chromium` + `npm run test:e2e`).
-5. Need Jovaniel: decide whether the client portal should get its own booking (flow 8 note); check with Genesis whether TXN numbers are meant to be global (E2E-4).
-6. Need Jovaniel: P1-01 (`supabase db pull` baseline, read-only against prod; also capture reference data: `feature_rollout`, `feature_visibility_rules`, `feature_catalog`, `breeds`), P1-02 drift check secrets, P1-10 branch protection, P1-12 Sentry DSN.
+5. Waiting on Jovaniel (OWNER_ACTIONS Parts B and C): P1-01 baseline + reference data, P1-02 secrets, P1-10 branch protection, P1-12 Sentry, P1-13 QA business; decisions on portal booking and TXN numbering.
 
 ## Open findings to schedule
 
