@@ -8,6 +8,7 @@
 //   node scripts/test-env.mjs reset   wipe the test database and re-apply every migration
 //   node scripts/test-env.mjs status  show URLs
 //   node scripts/test-env.mjs down    stop and remove everything (keeps nothing)
+//   node scripts/test-env-dual.mjs main|dev   the smoke E2E against another ref's frontend (P1-13, see that file)
 //
 // It never touches the hosted project: it runs from its own folder (.test-env/) with project_id "grumi-test",
 // so `supabase link`, supabase/config.toml and the default local ports (54320-54329) stay untouched.
@@ -15,7 +16,7 @@
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WORKDIR = join(ROOT, '.test-env');
@@ -101,8 +102,12 @@ function printStatus() {
 Run the payments tests with: npm run test:payments\n`);
 }
 
-const cmd = process.argv[2] ?? 'status';
+// Only run the CLI when executed directly (scripts/test-env-dual.mjs imports stackEnv()).
+const isMain = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const cmd = isMain ? process.argv[2] ?? 'status' : null;
 switch (cmd) {
+  case null:
+    break;
   case 'up': {
     checkDocker();
     prepareWorkdir();
