@@ -471,3 +471,20 @@ Note for P2-01: whether employees should be allowed to delete clients, pets or a
 - Also in this commit: E2E 10 gets a 2-minute budget (8 full page loads); one run had hit the 60 s default while the stack was busy right after the security suite.
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-09 · P1-04 · CI on every push + machine-independent typecheck ratchet
+
+**Status:** done on `remediation` (unit U00, branch `fix/U00-ci-every-push`, merged by the coordinator). No app or schema change.
+
+**Change.**
+- New `.github/workflows/ci.yml` (no secrets, no path filters): runs on pushes to `dev`, `main`, `remediation`, `fix/**`, on PRs to `dev`/`main`, and by hand. Concurrency per ref with cancel-in-progress.
+  - Job `check`: `npm ci`, `npm run check` (typecheck ratchet + lint ratchet + vitest), `npm run build` with placeholder Supabase env.
+  - Job `db-tests` (40 min budget): local test stack (`test:env:up`), `test:payments`, `test:security`, `npx playwright install --with-deps chromium`, `test:e2e`. Each suite still runs if an earlier one failed (as long as the stack is up); logs are tee'd, results/failures shown as annotations, logs + Playwright report uploaded as artifacts, stack always torn down.
+- `scripts/typecheck-ratchet.mjs`: TypeScript writes absolute paths into some messages (`import("C:/Users/…/src/types/index")`), so the Windows-written baseline failed on every other machine (1 "new" error on Linux/CI). Messages are now normalized to repo-relative form (`import("src/…")`) before keying and truncation; baseline keys are normalized when read, and old keys that were truncated inside a long absolute path match as prefixes (still counted per instance). `--update` writes normalized keys. Baseline file unchanged.
+
+**Gates.** tsc 39 (ratchet now green on Linux; red before) · deliberate new error and a duplicate of the path-bearing error both fail it · lint 421 · vitest 109/109 · build OK (main 4,016,277 B) · CI run 37977573219: `check` ✓, `db-tests` ✓ (`test:payments` 24/24, `test:security` 24 ✓ + 8 known issues open, smoke E2E 15/15).
+- Note: `payments-test-env.yml` is now redundant with `db-tests` (dev pushes touching payments run the suite twice). Left in place; owner's call.
+
+**Rollback.** Revert the merge commit (deleting `ci.yml` removes CI; the old ratchet only works on the owner's PC).
