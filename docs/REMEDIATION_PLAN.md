@@ -203,6 +203,7 @@ Written last so they describe the finished architecture, not the current one. Wi
 | 6 | Payment secrets tables (P2-08) | **Open:** Genesis to confirm which one is live. |
 | 7 | Phase 4 scope | **Route-level code splitting only.** No feature-folder restructure, no per-feature translations split, no boundaries lint rule. Phase 7 documents the current layout. |
 | 8 | Text IDs on `appointments`/`pets` | **Keep `text`.** Skip the UUID conversion unless something forces it; convert the two `uuid` reference columns on `notifications` to `text` instead so their FKs can be added. |
+| 9 | Employee deletes (P2-01 clients/pets/appointments) | **Employees may not delete clients, pets or appointments** (decided by Jovaniel 2026-10-09). They **may cancel** an appointment (status change), which keeps the record. Managers keep delete. |
 
 ### Consequence of decisions 4 and 5: one database, two app versions
 
