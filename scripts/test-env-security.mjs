@@ -282,21 +282,135 @@ async function knownIssues() {
   const coworker = await staffRow('coworker');
   const worker = await newUser('worker', { role: 'employee', business_id: shop.id, staff_id: meStaff.id });
   await admin.from('staff').update({ user_id: worker.id }).eq('id', meStaff.id);
-  const staffOf = async (id) => (await admin.from('staff').select('hourly_rate, access_role').eq('id', id).single()).data;
+  const staffOf = async (id) =>
+    (
+      await admin
+        .from('staff')
+        .select('hourly_rate, access_role, role, commission_rate, compensation_type, job_title_id, pin, first_name, birth_month')
+        .eq('id', id)
+        .single()
+    ).data;
   const exists = async (table, id) => ((await admin.from(table).select('id').eq('id', id)).data ?? []).length === 1;
+  const { data: title, error: titleErr } = await admin
+    .from('staff_job_titles')
+    .insert({ id: crypto.randomUUID(), business_id: shop.id, title: `Lead ${run}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .select('id, title')
+    .single();
+  if (titleErr) throw new Error(`job title: ${titleErr.message}`);
 
   let r = await worker.db.from('staff').select('pin').eq('id', coworker.id);
   known("employee cannot read a coworker's kiosk PIN (P2-02)", !(r.data ?? []).some((x) => x.pin === coworker.pin), r);
 
+  // P2-03: pay, job title and access columns on staff are manager-only (trigger staff_lock_pay_and_role_columns).
   r = await worker.db.from('staff').update({ hourly_rate: 99 }).eq('id', meStaff.id).select();
-  known('employee cannot raise their own hourly rate (P2-03)', Number((await staffOf(meStaff.id)).hourly_rate) === 12, r);
+  check('employee cannot raise their own hourly rate (P2-03)', !!r.error && Number((await staffOf(meStaff.id)).hourly_rate) === 12, r);
 
   r = await worker.db.from('staff').update({ access_role: 'admin' }).eq('id', meStaff.id).select();
   // Already blocked in production's schema by the staff_enforce_access_role_mutations trigger; keep it that way.
   check('employee cannot give themselves admin access', (await staffOf(meStaff.id)).access_role === 'staff', r);
 
+  r = await worker.db.from('staff').update({ role: 'Manager' }).eq('id', meStaff.id).select();
+  check('employee cannot change their own role / job title text (P2-03)', !!r.error && (await staffOf(meStaff.id)).role === 'groomer', r);
+
+  r = await worker.db.from('staff').update({ job_title_id: title.id }).eq('id', meStaff.id).select();
+  let s = await staffOf(meStaff.id);
+  check('employee cannot change their own job title (sets role) (P2-03)', !!r.error && s.job_title_id === null && s.role === 'groomer', { r, s });
+
+  r = await worker.db.from('staff').update({ commission_rate: 90 }).eq('id', meStaff.id).select();
+  check('employee cannot set their own commission rate (P2-03)', !!r.error && (await staffOf(meStaff.id)).commission_rate === null, r);
+
+  r = await worker.db.from('staff').update({ compensation_type: 'commission', commission_rate: 90 }).eq('id', meStaff.id).select();
+  s = await staffOf(meStaff.id);
+  check('employee cannot switch their own pay type to commission (P2-03)', !!r.error && s.compensation_type === 'hourly' && s.commission_rate === null, { r, s });
+
   r = await worker.db.from('staff').update({ hourly_rate: 1 }).eq('id', coworker.id).select();
-  known("employee cannot change a coworker's pay rate (P2-01 staff)", Number((await staffOf(coworker.id)).hourly_rate) === 12, r);
+  // Blocked by the P2-03 column lock. Other edits to a coworker's row stay open until P2-01 (staff policies).
+  check("employee cannot change a coworker's pay rate (P2-03)", !!r.error && Number((await staffOf(coworker.id)).hourly_rate) === 12, r);
+
+  console.log('Staff: employee self-service and manager edits still work (P2-03)');
+  // EmployeeManagement self-service save (main and dev): own profile fields plus their own kiosk PIN.
+  let newPin;
+  do newPin = String(1000 + Math.floor(Math.random() * 8999));
+  while (newPin === meStaff.pin || newPin === coworker.pin);
+  r = await worker.db
+    .from('staff')
+    .update({
+      first_name: 'Worker',
+      last_name: run,
+      email: `worker-${run}@grumi.test`,
+      phone: '7875550001',
+      pin: newPin,
+      pin_set_at: new Date().toISOString(),
+      pin_required: false,
+      birth_month: 5,
+      birth_day: 4,
+      birth_year: 1990,
+      photo_url: null,
+      offered_service_ids: [],
+    })
+    .eq('id', meStaff.id)
+    .select()
+    .single();
+  s = await staffOf(meStaff.id);
+  check('employee self-service save (name, phone, birthday, own PIN) still works', !r.error && s.pin === newPin && s.first_name === 'Worker' && s.birth_month === 5, { r, s });
+  // AccountSettings birthday save.
+  r = await worker.db.from('staff').update({ birth_month: 6, birth_day: 1, birth_year: 1990 }).eq('id', meStaff.id).select();
+  check('employee can still save their birthday (AccountSettings)', !r.error && (await staffOf(meStaff.id)).birth_month === 6, r);
+  // Unchanged values for locked columns are not a change.
+  r = await worker.db.from('staff').update({ hourly_rate: 12, role: 'groomer', access_role: 'staff', phone: '7875550002' }).eq('id', meStaff.id).select();
+  check('employee update that repeats unchanged pay/role values still works', !r.error, r);
+
+  const boss = await newUser('boss', null, { role: 'manager', full_name: 'Boss Owner' });
+  r = await boss.db.rpc('complete_manager_signup', { p_business_name: `Boss Grooming ${run}`, p_subscription_tier: 'basic' });
+  const bossBiz = (await profileOf(boss.id))?.business_id;
+  if (r.error || !bossBiz) throw new Error(`boss signup: ${r.error?.message ?? 'no business'}`);
+  // Kiosk PINs are unique per business; avoid the PIN complete_manager_signup gave the owner.
+  const bossPin = (await admin.from('staff').select('pin').eq('business_id', bossBiz).single()).data?.pin;
+  const [hirePin, hirePin2] = ['4321', '4322', '4323'].filter((x) => x !== bossPin);
+  const { data: hire, error: hireErr } = await admin
+    .from('staff')
+    .insert({ business_id: bossBiz, name: 'Hire', first_name: 'Hire', last_name: run, email: `hire-${run}@grumi.test`, phone: '7875550003', pin: hirePin, hourly_rate: 12, role: 'groomer', access_role: 'staff' })
+    .select('id')
+    .single();
+  if (hireErr) throw new Error(`hire: ${hireErr.message}`);
+  const { data: bossTitle, error: btErr } = await admin
+    .from('staff_job_titles')
+    .insert({ id: crypto.randomUUID(), business_id: bossBiz, title: `Bather ${run}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .select('id, title')
+    .single();
+  if (btErr) throw new Error(`boss job title: ${btErr.message}`);
+  // EmployeeManagement manager save sends every field, changed or not.
+  r = await boss.db
+    .from('staff')
+    .update({
+      first_name: 'Hire',
+      last_name: run,
+      job_title_id: bossTitle.id,
+      pin: hirePin2,
+      hourly_rate: 20,
+      role: bossTitle.title,
+      access_role: 'manager',
+      compensation_type: 'commission',
+      commission_rate: 35,
+    })
+    .eq('id', hire.id)
+    .select()
+    .single();
+  s = await staffOf(hire.id);
+  check(
+    "manager can still change an employee's pay, commission, job title, access and PIN",
+    !r.error &&
+      Number(s.hourly_rate) === 20 &&
+      Number(s.commission_rate) === 35 &&
+      s.compensation_type === 'commission' &&
+      s.job_title_id === bossTitle.id &&
+      s.role === bossTitle.title &&
+      s.access_role === 'manager' &&
+      s.pin === hirePin2,
+    { r, s }
+  );
+  const { error: svcRateErr } = await admin.from('staff').update({ hourly_rate: 13 }).eq('id', coworker.id);
+  check('service role can still change a pay rate', !svcRateErr && Number((await staffOf(coworker.id)).hourly_rate) === 13, svcRateErr);
 
   r = await worker.db.from('businesses').update({ subscription_tier: 'pro' }).eq('id', shop.id).select();
   const tier = (await admin.from('businesses').select('subscription_tier').eq('id', shop.id).single()).data?.subscription_tier;
