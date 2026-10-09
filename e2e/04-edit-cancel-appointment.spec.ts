@@ -6,14 +6,15 @@ async function browserTimeToday(page: Page, hhmm: string) {
   await page.clock.setFixedTime(new Date(`${localDateKey(0)}T${hhmm}:00-04:00`));
 }
 
-async function openEditDialog(page: Page) {
+/** Opens "Editar / reprogramar" for a seeded appointment from the history list. */
+async function openEditDialog(page: Page, which: 'edit' | 'inspect' | 'checkout', startLabel: string) {
   const s = seedData();
-  const day = Number(s.appointments.edit.date.slice(8, 10)); // seeded 3 days ahead at 2 PM
+  const day = Number(s.appointments[which].date.slice(8, 10));
   await loginAsManager(page);
   await page.goto(`/${s.slug}/appt-book`);
   await page.getByRole('tab', { name: 'Historial' }).click();
   const row = page.getByRole('row').filter({ hasText: s.client.lastName }).filter({ has: page.getByRole('cell', { name: new RegExp(`^${day} \\S+ \\d{4}`) }) });
-  await expect(row).toContainText('· 2 PM');
+  await expect(row).toContainText(`· ${startLabel}`);
   await row.click();
   await page.getByRole('button', { name: 'Editar / reprogramar' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Appointment' });
@@ -24,7 +25,7 @@ async function openEditDialog(page: Page) {
 
 test('4. manager reschedules an appointment, then cancels it', async ({ page }) => {
   await browserTimeToday(page, '08:00');
-  const { row, edit, ownDate } = await openEditDialog(page);
+  const { row, edit, ownDate } = await openEditDialog(page, 'edit', '2 PM');
   await expect(ownDate).toBeVisible();
 
   await edit.locator('#edit-appt-slot-15-00').click();
@@ -44,12 +45,25 @@ test('4. manager reschedules an appointment, then cancels it', async ({ page }) 
   await expect(row).toContainText(/Cancelada/);
 });
 
-// KNOWN ISSUE (FIX_LOG P1-07, finding E2E-2): on the first open after page load, EditAppointmentDialog's auto-jump
-// effect sees its initial "now" date; when today has no bookable slot left it moves the dialog to tomorrow, so saving
-// would reschedule the appointment. Remove test.fail() when fixed.
-test('4b. edit dialog opens on the appointment date in the evening [known issue E2E-2]', async ({ page }) => {
-  test.fail();
+// E2E-2 (FIX_LOG): the edit dialog used to start at "now" and its auto-jump effect moved it to tomorrow when today had
+// no bookable slot left, so saving silently rescheduled the appointment.
+test('4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', async ({ page }) => {
   await browserTimeToday(page, '20:00');
-  const { ownDate } = await openEditDialog(page);
+  const { row, edit, ownDate } = await openEditDialog(page, 'inspect', '2 PM');
+  await expect(ownDate).toBeVisible({ timeout: 5_000 });
+  await expect(edit.locator('#edit-appt-slot-14-00')).toHaveClass(/bg-primary/);
+
+  // Saving a notes-only change keeps the appointment where it was.
+  await edit.getByRole('textbox', { name: 'Any special instructions or requests...' }).fill('Solo notas (E2E-2)');
+  await edit.getByRole('button', { name: 'Update Appointment' }).click();
+  await expect(edit).toBeHidden();
+  await page.reload();
+  await page.getByRole('tab', { name: 'Historial' }).click();
+  await expect(row).toContainText('· 2 PM');
+});
+
+test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', async ({ page }) => {
+  await browserTimeToday(page, '20:00');
+  const { ownDate } = await openEditDialog(page, 'checkout', '9 AM');
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
 });
