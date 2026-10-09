@@ -694,3 +694,19 @@ Kept: `src/types/index.ts` (it is `@/types`, imported by 10+ files — Appendix 
 **Rollback.** Revert the merge commit (deletions only).
 
 **Follow-ups (not done; separate small units).** npm deps that now look unused: `react-resizable-panels`, `@radix-ui/react-{menubar,navigation-menu,progress,scroll-area,accordion,aspect-ratio,context-menu,hover-card}` (verify, then remove with a lockfile update). Translation keys now unused: `employeePinSetup.*`, most `kioskManager.*` (keep `kioskManager.cancel`), `clients.noBusinessClients`, `common.noEmail`, plus the 54 from P3-02.
+
+---
+
+## 2026-10-09 · CI infra · ATH simulator base image from public.ecr.aws
+
+**Status:** done on `remediation` (unit U16, branch `fix/U16-ci-ecr-node`).
+
+**Problem.** CI's `db-tests` kept failing in "Start test stack": Docker Hub returned 429/504 on `auth.docker.io` while building the ATH simulator image (`FROM node:22-alpine`) — e.g. run 37991559656 failed on all 3 attempts, before any test ran. It was the test stack's only Docker Hub pull; the Supabase images already come from `public.ecr.aws`.
+
+**Change.** `test-env/ath-simulator/Dockerfile`: `FROM public.ecr.aws/docker/library/node:22-alpine` (same official image via AWS's mirror of Docker Official Images), with a one-line comment. No other Docker Hub pulls remain in docker-compose.yml, scripts/test-env*.mjs or the workflows.
+
+**Gates.** `npm run check` ✓ · build ✓ · CI run 37995362579: `check` ✓, `db-tests` ✓ (payments 24/24, security 56 ✓ + 5 known issues open, smoke E2E 15/15).
+
+**Rollback.** Revert the merge commit (restores `FROM node:22-alpine`).
+
+**Note.** Cloud sessions still can't run the stack locally (the proxy returns 403 for ECR's CloudFront layer downloads); CI stays the DB/E2E gate.
