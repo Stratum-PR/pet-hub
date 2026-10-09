@@ -371,3 +371,22 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 | Smoke E2E | 12 passed (11 green + 1 known-failing) | **13 passed, 0 known-failing**, twice |
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · E2E-3 · Blank page when a hidden feature's route is opened
+
+**Status:** done on `remediation`. Frontend only; ships with the next `dev` deploy.
+
+**Problem** (found by P1-07). In `Index.tsx`, a route whose feature is hidden redirects with `<Navigate to="dashboard">`. React Router v6 resolves that relative to the route, so `/<slug>/appointments` went to `/<slug>/appointments/dashboard`, which matches nothing: an empty page with only the header. Confirmed for a manager on a plan without the features: `/appointments`, `/calendar`, `/appt-book` (and `/appt-book/*`), `/inventory`, `/payment`. The transaction routes already used `"../dashboard"` and worked; `/transactions` only worked by falling through to the detail route's guard.
+
+**Change** (`src/pages/Index.tsx`, 8 lines): every gated route redirects with `"../dashboard"` (parent-relative, like the transaction routes); the employee redirect on `dashboard` uses `"../clients"` (employees were already sent to clients by another guard, so no visible change there). The index route's `"dashboard"` is correct as is.
+
+**Tests.**
+- Seed: a second business on `basic` (the seeded visibility rules show these features to `pro` only) and a login for employee Eli, linked to his staff row the way an accepted invite links it.
+- E2E 10: the basic-plan manager opens 8 gated paths and lands on `/<slug>/dashboard` each time. Fails before the change (`…/appointments/dashboard`), passes after.
+- E2E 10b: an employee opening `/dashboard` lands on `/clients`.
+
+**Gates.** tsc 43 · lint 422 · vitest 108/108 · build OK (main 4,016,661 bytes) · `test:security` 23/23 · `test:payments` 24/24 · smoke E2E **15/15**, twice.
+
+**Rollback.** Revert the commit.

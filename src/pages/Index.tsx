@@ -350,7 +350,7 @@ const Index = () => {
               path="dashboard"
               element={
                 role === 'employee' ? (
-                  <Navigate to="clients" replace />
+                  <Navigate to="../clients" replace />
                 ) : (
                   <Dashboard
                     clients={clients}
@@ -404,7 +404,7 @@ const Index = () => {
                 appointmentBookVisible || appointmentsVisible ? (
                   <RedirectLegacyAppointments />
                 ) : (
-                  <Navigate to="dashboard" replace />
+                  <Navigate to="../dashboard" replace />
                 )
               }
             />
@@ -414,14 +414,14 @@ const Index = () => {
                 appointmentBookVisible ? (
                   <RedirectApptBookCalendarAlias />
                 ) : (
-                  <Navigate to="dashboard" replace />
+                  <Navigate to="../dashboard" replace />
                 )
               }
             />
             {/* Single element so calendar ↔ list does not remount AppointmentBook (avoids PawReveal / staged loaders replaying). */}
             <Route
               path="appt-book/*"
-              element={appointmentBookVisible ? <AppointmentBook /> : <Navigate to="dashboard" replace />}
+              element={appointmentBookVisible ? <AppointmentBook /> : <Navigate to="../dashboard" replace />}
             />
             <Route
               path="inventory"
@@ -440,7 +440,7 @@ const Index = () => {
                     onUploadProductPhoto={uploadProductPhoto}
                   />
                 ) : (
-                  <Navigate to="dashboard" replace />
+                  <Navigate to="../dashboard" replace />
                 )
               }
             />
@@ -567,15 +567,15 @@ const Index = () => {
             />
             <Route
               path="payment"
-              element={paymentsVisible ? <Payment /> : <Navigate to="dashboard" replace />}
+              element={paymentsVisible ? <Payment /> : <Navigate to="../dashboard" replace />}
             />
             <Route
               path="ath-simulador"
-              element={role === 'manager' || role === 'super_admin' ? <AthSimulatorPhone /> : <Navigate to="dashboard" replace />}
+              element={role === 'manager' || role === 'super_admin' ? <AthSimulatorPhone /> : <Navigate to="../dashboard" replace />}
             />
             <Route
               path="transactions"
-              element={transactionsListVisible ? <Transactions /> : <Navigate to="dashboard" replace />}
+              element={transactionsListVisible ? <Transactions /> : <Navigate to="../dashboard" replace />}
             />
             <Route
               path="transactions/new"

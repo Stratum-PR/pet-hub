@@ -10,8 +10,9 @@ export type Seed = {
   businessId: string;
   businessName: string;
   manager: { email: string; pass: string; kioskPin: string };
-  employee: { name: string; pin: string; staffId: string };
+  employee: { name: string; pin: string; staffId: string; email: string; pass: string };
   kioskEmployee: { name: string; pin: string; staffId: string };
+  basicManager: { email: string; pass: string; slug: string };
   portalClient: { email: string; pass: string; firstName: string; petName: string };
   client: { id: string; firstName: string; lastName: string };
   pet: { id: string; name: string };
@@ -107,6 +108,14 @@ export async function seed(apiUrl: string, anonKey: string, serviceKey: string):
   const managerDb = await signedIn(apiUrl, anonKey, managerEmail, pass);
   const signup = await managerDb.rpc('complete_manager_signup', { p_business_name: businessName, p_subscription_tier: 'pro' });
   if (signup.error) throw new Error(`complete_manager_signup: ${signup.error.message}`);
+
+  // A second business on 'basic': the pro-only features above are hidden for its manager (redirect checks).
+  const basicEmail = `basic-${run}@grumi.test`;
+  await createUser(admin, basicEmail, pass, 'Beto Basico');
+  const basicDb = await signedIn(apiUrl, anonKey, basicEmail, pass);
+  const basicSignup = await basicDb.rpc('complete_manager_signup', { p_business_name: `Basic ${run}`, p_subscription_tier: 'basic' });
+  if (basicSignup.error) throw new Error(`complete_manager_signup (basic): ${basicSignup.error.message}`);
+  const basicBiz = must('basic business', await admin.from('businesses').select('slug').eq('email', basicEmail).single());
   const profile = must(
     'manager profile',
     await admin.from('profiles').select('business_id, role').eq('email', managerEmail).single(),
@@ -199,6 +208,21 @@ export async function seed(apiUrl: string, anonKey: string, serviceKey: string):
       .single(),
   );
 
+  // ---------- an employee login for Eli, linked the way an accepted staff invite links it ----------
+  const employeeEmail = `eli-${run}@grumi.test`;
+  const employeeUser = await createUser(admin, employeeEmail, pass, 'Eli Empleado');
+  must(
+    'employee profile',
+    await admin
+      .from('profiles')
+      .upsert(
+        { id: employeeUser.id, email: employeeEmail, full_name: 'Eli Empleado', role: 'employee', business_id: businessId, staff_id: employee.id },
+        { onConflict: 'id' },
+      )
+      .select('id'),
+  );
+  must('employee staff link', await admin.from('staff').update({ user_id: employeeUser.id }).eq('id', employee.id).select('id'));
+
   // ---------- a client-portal user linked to their own client + pet ----------
   const portalEmail = `portal-${run}@grumi.test`;
   const portalUser = await createUser(admin, portalEmail, pass, 'Pablo Portal');
@@ -279,8 +303,9 @@ export async function seed(apiUrl: string, anonKey: string, serviceKey: string):
     businessId,
     businessName,
     manager: { email: managerEmail, pass, kioskPin: kioskManagerPin },
-    employee: { name: 'Eli Empleado', pin: employeePin, staffId: employee.id },
+    employee: { name: 'Eli Empleado', pin: employeePin, staffId: employee.id, email: employeeEmail, pass },
     kioskEmployee: { name: 'Kim Kiosko', pin: kioskPin, staffId: kioskEmployee.id },
+    basicManager: { email: basicEmail, pass, slug: basicBiz.slug as string },
     portalClient: { email: portalEmail, pass, firstName: 'Pablo', petName: portalPet },
     client: { id: client.id, firstName: client.first_name as string, lastName: client.last_name as string },
     pet: { id: pet.id, name: pet.name as string },

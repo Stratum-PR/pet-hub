@@ -21,13 +21,14 @@ Branch `remediation` (from `dev` at `abb6350`; Jovaniel pushes it, Claude never 
 | P1-07 | Playwright smoke E2E, 9 flows (`npm run test:e2e`); 8 green, flow 5 + check 4b known-failing on bugs E2E-1/E2E-2 | — |
 | E2E-1 | Realtime channel crash fixed (`uniqueChannelName` in 4 hooks); flow 5 green + 5b/5c added | Ships with next `dev` deploy (no DB step) |
 | E2E-2 | Edit dialog opens on the appointment's own date; 4b green, 4c added | Ships with next `dev` deploy (no DB step) |
+| E2E-3 | Hidden-feature routes redirect to the dashboard (parent-relative `Navigate`); E2E 10/10b | Ships with next `dev` deploy (no DB step) |
 
-Gates now: tsc 43 (ratcheted) · lint 422 (345/77, ratcheted) · vitest 108/108 · build OK (main 4,016,637 B) · test:security 23/23 · test:payments 24/24 · test:e2e 13/13 (no known-failing).
+Gates now: tsc 43 (ratcheted) · lint 422 (345/77, ratcheted) · vitest 108/108 · build OK (main 4,016,661 B) · test:security 23/23 · test:payments 24/24 · test:e2e 15/15 (no known-failing).
 
 ## Next, in order
 
 1. **Jovaniel:** works through [OWNER_ACTIONS.md](OWNER_ACTIONS.md) on his own schedule (Part A = production P0 steps). Claude continues with items 2–4 meanwhile; production-dependent work (P1-01 baseline, P1-02, P1-10, P1-12, P1-13 QA business) waits for the matching Part B item.
-2. **Real-bug units found by P1-07** (each flips a known-failing E2E test): ~~E2E-1~~, ~~E2E-2~~ done; next **E2E-3** blank page on hidden-feature redirect. Details in FIX_LOG → P1-07.
+2. **Real-bug units found by P1-07** (each flips a known-failing E2E test): ~~E2E-1~~, ~~E2E-2~~, ~~E2E-3~~ done. Details in FIX_LOG → P1-07.
 3. **Real-bug units from P1-03** (one small unit each with a test): Admin.tsx service handlers, TimeKiosk `'clocking'`, Landing/Register props, `qrCode.ts` `replaceAll` on old Safari, missing `dispatch_staff_missing_email_reminders`. List in FIX_LOG → P1-03 stage 2.
 4. P1-11 repo hygiene (`.env`, `supabase/.temp/` untracked), P1-08 known-failing security tests, P1-13 dual-frontend gate, P1-04 PR CI workflow (add `npx playwright install --with-deps chromium` + `npm run test:e2e`).
 5. Waiting on Jovaniel (OWNER_ACTIONS Parts B and C): P1-01 baseline + reference data, P1-02 secrets, P1-10 branch protection, P1-12 Sentry, P1-13 QA business; decisions on portal booking and TXN numbering.
