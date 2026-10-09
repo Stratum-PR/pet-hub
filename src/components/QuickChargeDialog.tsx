@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Component, useCallback, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Banknote,
@@ -81,7 +81,11 @@ export function QuickChargeHost() {
 
   return (
     <Dialog open={!!request} onOpenChange={(o) => !o && setRequest(null)}>
-      {request ? <QuickChargeContent key={session} request={request} onClose={() => setRequest(null)} /> : null}
+      {request ? (
+        <QuickChargeBoundary key={session} onClose={() => setRequest(null)}>
+          <QuickChargeContent request={request} onClose={() => setRequest(null)} />
+        </QuickChargeBoundary>
+      ) : null}
     </Dialog>
   );
 }
@@ -115,16 +119,22 @@ function QuickChargeContent({ request, onClose }: { request: QuickChargeRequest;
   const [athOpen, setAthOpen] = useState(false);
   const [paidUnsaved, setPaidUnsaved] = useState<PaymentAttempt | null>(null);
   const prefilled = useRef(false);
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
 
   useEffect(() => {
     if (demoBrowseOnly) return;
-    void callPayments<{ athmovil: { mode: AthMode } }>('settings_get').then(({ data }) => {
-      if (data) setAthMode(data.athmovil.mode);
-    });
+    void callPayments<{ athmovil: { mode: AthMode } }>('settings_get')
+      .then(({ data }) => {
+        if (data?.athmovil?.mode) setAthMode(data.athmovil.mode);
+      })
+      .catch((e) => devConsole.error('[QuickCharge] settings_get', e));
     if (request.appointmentId) {
-      void callPayments<{ payments: PaymentAttempt[] }>('unlinked_for_appointment', { appointmentId: request.appointmentId }).then(
-        ({ data }) => data?.payments?.[0] && setPaidUnsaved(data.payments[0]),
-      );
+      void callPayments<{ payments: PaymentAttempt[] }>('unlinked_for_appointment', { appointmentId: request.appointmentId })
+        .then(({ data }) => {
+          if (data?.payments?.[0]) setPaidUnsaved(data.payments[0]);
+        })
+        .catch((e) => devConsole.error('[QuickCharge] unlinked_for_appointment', e));
     }
   }, [demoBrowseOnly, request.appointmentId]);
 
@@ -155,9 +165,11 @@ function QuickChargeContent({ request, onClose }: { request: QuickChargeRequest;
   const [tax, setTax] = useState<{ total: number; lines: { label: string; rate: number; amount: number }[] }>({ total: 0, lines: [] });
   useEffect(() => {
     let cancelled = false;
-    void computeTax(serviceTaxable, productTaxable).then(({ taxSnapshot, totalTaxCents }) => {
-      if (!cancelled) setTax({ total: totalTaxCents, lines: taxSnapshot });
-    });
+    void computeTax(serviceTaxable, productTaxable)
+      .then(({ taxSnapshot, totalTaxCents }) => {
+        if (!cancelled) setTax({ total: totalTaxCents, lines: taxSnapshot ?? [] });
+      })
+      .catch((e) => devConsole.error('[QuickCharge] computeTax', e));
     return () => {
       cancelled = true;
     };
@@ -222,7 +234,12 @@ function QuickChargeContent({ request, onClose }: { request: QuickChargeRequest;
         return;
       }
       setSaving(true);
-      const result = await createTransaction(payload as Parameters<typeof createTransaction>[0]);
+      let result: Awaited<ReturnType<typeof createTransaction>>;
+      try {
+        result = await createTransaction(payload as Parameters<typeof createTransaction>[0]);
+      } catch (e) {
+        result = { data: null, error: String(e) };
+      }
       if (result.error || !result.data) {
         setSaving(false);
         devConsole.error('[QuickCharge] createTransaction', result.error);
@@ -305,21 +322,21 @@ function QuickChargeContent({ request, onClose }: { request: QuickChargeRequest;
       <DialogHeader className="border-b px-5 pb-3 pt-5 text-left">
         <DialogTitle className="text-xl">{t('quickCharge.title')}</DialogTitle>
         <DialogDescription className="flex flex-wrap items-center gap-2">
-          <Popover>
+          <Popover open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
             <PopoverTrigger asChild>
               <button type="button" className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-sm text-foreground hover:bg-muted">
                 <User className="h-3.5 w-3.5" /> {clientName} <ChevronDown className="h-3.5 w-3.5 opacity-60" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-[280px] p-0" align="start">
+            <PopoverContent className="z-[120] w-[280px] p-0" align="start">
               <Command>
                 <CommandInput placeholder={t('transactions.searchCustomer')} />
                 <CommandList>
                   <CommandEmpty>{t('transactions.noCustomers')}</CommandEmpty>
                   <CommandGroup>
-                    <CommandItem onSelect={() => setClientId(null)}>{t('transactions.walkIn')}</CommandItem>
+                    <CommandItem onSelect={() => { setClientId(null); setClientPickerOpen(false); }}>{t('transactions.walkIn')}</CommandItem>
                     {clients.map((c) => (
-                      <CommandItem key={c.id} value={`${c.first_name ?? ''} ${c.last_name ?? ''} ${c.phone ?? ''} ${c.id}`} onSelect={() => setClientId(c.id)}>
+                      <CommandItem key={c.id} value={`${c.first_name ?? ''} ${c.last_name ?? ''} ${c.phone ?? ''} ${c.id}`} onSelect={() => { setClientId(c.id); setClientPickerOpen(false); }}>
                         {`${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || c.email}
                       </CommandItem>
                     ))}
@@ -379,13 +396,13 @@ function QuickChargeContent({ request, onClose }: { request: QuickChargeRequest;
               </button>
             ))}
             {products.length > 0 ? (
-              <Popover>
+              <Popover open={productPickerOpen} onOpenChange={setProductPickerOpen}>
                 <PopoverTrigger asChild>
                   <button type="button" className="inline-flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-sm hover:bg-muted">
                     <Package className="h-3.5 w-3.5" /> {t('quickCharge.product')}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
+                <PopoverContent className="z-[120] w-[300px] p-0" align="start">
                   <Command>
                     <CommandInput placeholder={t('transactions.searchProducts')} />
                     <CommandList>
@@ -394,7 +411,7 @@ function QuickChargeContent({ request, onClose }: { request: QuickChargeRequest;
                         <CommandItem
                           key={p.id}
                           disabled={p.quantity <= 0}
-                          onSelect={() => addItem(line('product', p.id, p.name, toCents(p.price)))}
+                          onSelect={() => { addItem(line('product', p.id, p.name, toCents(p.price))); setProductPickerOpen(false); }}
                         >
                           <span className="flex-1">{p.name}</span>
                           <span className="text-muted-foreground">{money(toCents(p.price))}</span>
@@ -583,4 +600,35 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       {children}
     </button>
   );
+}
+
+/** Keeps a problem inside the charge panel from taking down the page: shows a friendly retry instead. */
+class QuickChargeBoundary extends Component<{ children: ReactNode; onClose: () => void }, { failed: boolean; attempt: number }> {
+  state = { failed: false, attempt: 0 };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    devConsole.error('[QuickCharge] render error', error, info.componentStack);
+  }
+
+  render() {
+    if (!this.state.failed) return <div key={this.state.attempt} className="contents">{this.props.children}</div>;
+    return (
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('quickCharge.title')}</DialogTitle>
+          <DialogDescription>{t('quickCharge.loadError')}</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" onClick={this.props.onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={() => this.setState((s) => ({ failed: false, attempt: s.attempt + 1 }))}>{t('apptBook.retry')}</Button>
+        </div>
+      </DialogContent>
+    );
+  }
 }

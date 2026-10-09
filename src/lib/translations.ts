@@ -6808,6 +6808,7 @@ export const translations: Translations = {
   'quickCharge.paidTitle': { en: "Paid", es: "Pagado" },
   'quickCharge.giveChange': { en: "Give {amount} in change", es: "Entrega {amount} de cambio" },
   'quickCharge.viewReceipt': { en: "Receipt", es: "Ver recibo" },
+  'quickCharge.loadError': { en: "The charge screen couldn't load. Try again; nothing was charged.", es: "No se pudo cargar la pantalla de cobro. Intenta de nuevo; no se cobró nada." },
   'quickCharge.done': { en: "Done", es: "Listo" },
   'details.charge': { en: "Charge", es: "Cobrar" },
   'details.viewSale': { en: "View sale", es: "Ver venta" },
