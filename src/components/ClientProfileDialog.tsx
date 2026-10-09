@@ -202,7 +202,8 @@ export interface ClientProfileDialogProps {
   transactions: Transaction[];
   onOpenChange: (open: boolean) => void;
   onSaveClientProfile: (data: ClientProfileSavePayload) => Promise<ClientRow | null>;
-  onDelete: () => void;
+  /** Omit to hide the delete button (employees may not delete clients; REMEDIATION_PLAN §9 decision 9). */
+  onDelete?: () => void;
   onAddPet: () => void;
   onOpenPet: (pet: Pet, clientId: string) => void;
   onOpenTransaction: (txn: Transaction) => void;
