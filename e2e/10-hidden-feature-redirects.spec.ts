@@ -3,6 +3,7 @@ import { test, expect, login, seedData } from './fixtures';
 // E2E-3 (FIX_LOG): a route whose feature is hidden redirects to the dashboard. The redirect was relative to the route,
 // so /<slug>/appointments went to /<slug>/appointments/dashboard, which matches nothing: a blank page.
 test('10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', async ({ page }) => {
+  test.setTimeout(120_000); // 8 full page loads
   const s = seedData();
   const b = s.basicManager;
   await login(page, b.email, b.pass);

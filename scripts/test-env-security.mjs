@@ -23,6 +23,7 @@ if (!['127.0.0.1', 'localhost'].includes(apiHost) || !API.includes(':5542')) {
 const admin = createClient(API, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const run = Math.random().toString(36).slice(2, 8);
 let failures = 0;
+let knownOpen = 0;
 
 function check(label, cond, detail) {
   if (cond) console.log(`  ✓ ${label}`);
@@ -30,6 +31,22 @@ function check(label, cond, detail) {
     failures++;
     console.log(`  ✗ ${label}`);
     if (detail !== undefined) console.log('     ', JSON.stringify(detail).slice(0, 600));
+  }
+}
+
+/**
+ * A confirmed security issue that isn't fixed yet (REMEDIATION_PLAN P1-08). `blocked` is true once the attack fails.
+ * While open it is reported, not failed; once a fix blocks it, the run fails until it is moved to check(), so the suite
+ * never silently keeps an "expected" hole.
+ */
+function known(label, blocked, detail) {
+  if (blocked) {
+    failures++;
+    console.log(`  ✗ ${label} — now BLOCKED: move it from known() to check()`);
+  } else {
+    knownOpen++;
+    console.log(`  ○ known issue: ${label}`);
+    if (detail !== undefined && process.env.VERBOSE) console.log('     ', JSON.stringify(detail).slice(0, 300));
   }
 }
 
@@ -70,7 +87,8 @@ async function profileOf(id) {
 /** Self-service signup through the public API, the way Register.tsx does it (email confirmation is off locally). */
 async function signUp(email, metadata = {}) {
   const db = createClient(API, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await db.auth.signUp({ email, password: `Pw-${run}-x9!`, options: { data: metadata } });
+  const pass = `Pw-${run}-x9!`; // throwaway, per run, local stack only
+  const { data, error } = await db.auth.signUp({ email, password: pass, options: { data: metadata } });
   if (error || !data.session) throw new Error(`signUp ${email}: ${error?.message ?? 'no session'}`);
   return { id: data.user.id, db };
 }
@@ -224,8 +242,94 @@ async function main() {
   const { error: svcErr } = await admin.from('profiles').update({ business_id: victim }).eq('id', stranger.id);
   check('service role can still change a profile link', !svcErr && (await profileOf(stranger.id)).business_id === victim, svcErr);
 
-  console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll access-control checks passed');
+  await knownIssues();
+
+  console.log(`\n${knownOpen} known issue(s) open (REMEDIATION_PLAN Phase 2 fixes them; each fix moves one to check())`);
+  console.log(failures ? `${failures} check(s) FAILED` : 'All access-control checks passed');
   process.exit(failures ? 1 : 0);
+}
+
+/** Attacks that still work today (P1-08). Each uses its own fresh rows. */
+async function knownIssues() {
+  console.log('\nKnown issues (P1-08): employees inside their own business');
+  const { data: shop, error: shopErr } = await admin
+    .from('businesses')
+    .insert({ name: `Shop ${run}`, email: `shop-${run}@grumi.test`, short_code: `S${run}`.toUpperCase().slice(0, 6), slug: `shop-${run}`, subscription_tier: 'basic' })
+    .select('id')
+    .single();
+  if (shopErr) throw new Error(`shop: ${shopErr.message}`);
+  const staffRow = async (label) => {
+    const { data, error } = await admin
+      .from('staff')
+      .insert({
+        business_id: shop.id,
+        name: label,
+        first_name: label,
+        last_name: run,
+        email: `${label}-${run}@grumi.test`,
+        phone: '7875550000',
+        pin: String(1000 + Math.floor(Math.random() * 8999)),
+        hourly_rate: 12,
+        role: 'groomer',
+        access_role: 'staff',
+      })
+      .select('id, pin')
+      .single();
+    if (error) throw new Error(`staff ${label}: ${error.message}`);
+    return data;
+  };
+  const meStaff = await staffRow('worker');
+  const coworker = await staffRow('coworker');
+  const worker = await newUser('worker', { role: 'employee', business_id: shop.id, staff_id: meStaff.id });
+  await admin.from('staff').update({ user_id: worker.id }).eq('id', meStaff.id);
+  const staffOf = async (id) => (await admin.from('staff').select('hourly_rate, access_role').eq('id', id).single()).data;
+  const exists = async (table, id) => ((await admin.from(table).select('id').eq('id', id)).data ?? []).length === 1;
+
+  let r = await worker.db.from('staff').select('pin').eq('id', coworker.id);
+  known("employee cannot read a coworker's kiosk PIN (P2-02)", !(r.data ?? []).some((x) => x.pin === coworker.pin), r);
+
+  r = await worker.db.from('staff').update({ hourly_rate: 99 }).eq('id', meStaff.id).select();
+  known('employee cannot raise their own hourly rate (P2-03)', Number((await staffOf(meStaff.id)).hourly_rate) === 12, r);
+
+  r = await worker.db.from('staff').update({ access_role: 'admin' }).eq('id', meStaff.id).select();
+  // Already blocked in production's schema by the staff_enforce_access_role_mutations trigger; keep it that way.
+  check('employee cannot give themselves admin access', (await staffOf(meStaff.id)).access_role === 'staff', r);
+
+  r = await worker.db.from('staff').update({ hourly_rate: 1 }).eq('id', coworker.id).select();
+  known("employee cannot change a coworker's pay rate (P2-01 staff)", Number((await staffOf(coworker.id)).hourly_rate) === 12, r);
+
+  r = await worker.db.from('businesses').update({ subscription_tier: 'pro' }).eq('id', shop.id).select();
+  const tier = (await admin.from('businesses').select('subscription_tier').eq('id', shop.id).single()).data?.subscription_tier;
+  known('employee cannot change the business plan or billing (P2-01 businesses, SECURITY_RISKS S-7)', tier === 'basic', r);
+
+  const { data: cli, error: cliErr } = await admin.from('clients').insert({ business_id: shop.id, first_name: 'Del', last_name: run }).select('id').single();
+  if (cliErr) throw new Error(`client: ${cliErr.message}`);
+  const { data: pet, error: petErr } = await admin.from('pets').insert({ business_id: shop.id, client_id: cli.id, name: `Del${run}` }).select('id').single();
+  if (petErr) throw new Error(`pet: ${petErr.message}`);
+  const { data: apt, error: aptErr } = await admin
+    .from('appointments')
+    .insert({
+      business_id: shop.id,
+      client_id: cli.id,
+      pet_id: pet.id,
+      staff_id: coworker.id,
+      appointment_date: '2030-01-07',
+      start_time: '10:00:00',
+      end_time: '11:00:00',
+      scheduled_date: '2030-01-07T14:00:00Z',
+      status: 'scheduled',
+    })
+    .select('id')
+    .single();
+  if (aptErr) throw new Error(`appointment: ${aptErr.message}`);
+  r = await worker.db.from('appointments').delete().eq('id', apt.id).select();
+  known("employee cannot delete the business's appointments (P2-01 appointments)", await exists('appointments', apt.id), r);
+  r = await worker.db.from('pets').delete().eq('id', pet.id).select();
+  known("employee cannot delete the business's pets (P2-01 pets)", await exists('pets', pet.id), r);
+  r = await worker.db.from('clients').delete().eq('id', cli.id).select();
+  known("employee cannot delete the business's clients (P2-01 clients)", await exists('clients', cli.id), r);
+  r = await worker.db.from('staff').delete().eq('id', coworker.id).select();
+  known('employee cannot delete a coworker (P2-01 staff)', await exists('staff', coworker.id), r);
 }
 
 main().catch((e) => {

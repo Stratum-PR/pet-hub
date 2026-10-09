@@ -443,3 +443,31 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 **Note for teammates.** After pulling this, git deletes nothing locally (the files were only untracked), but anyone who checks out a commit *before* it gets the old `.temp` files back; harmless.
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-08 · Security suite: confirmed issues as known-failing checks
+
+**Status:** done on `remediation`. No app or schema change.
+
+**Change** (`scripts/test-env-security.mjs`).
+- `known(label, blocked)`: an attack that still works is reported as `○ known issue` without failing the run. Once a fix blocks it, the run **fails** with "now BLOCKED: move it from known() to check()", so a fixed hole becomes a permanent regression check and nothing stays "expected" silently.
+- The summary prints `N known issue(s) open`.
+- New section, run as a real employee login against fresh rows in a new business: 9 attacks.
+
+| Attack (employee in their own business) | Today | Fixed by |
+|---|---|---|
+| Read a coworker's kiosk PIN | **works** | P2-02 |
+| Raise their own hourly rate | **works** | P2-03 |
+| Give themselves admin access | blocked (trigger `staff_enforce_access_role_mutations`) | → regular check |
+| Change a coworker's pay rate | **works** | P2-01 staff |
+| Change the business's plan (`subscription_tier`) | **works** | P2-01 businesses / SECURITY_RISKS S-7 |
+| Delete an appointment / a pet / a client | **works** (3) | P2-01 appointments / pets / clients |
+| Delete a coworker's staff row | **works** | P2-01 staff |
+
+Note for P2-01: whether employees should be allowed to delete clients, pets or appointments is a product rule; the tests assume "no" (managers only). If the decision is different, change the test with the policy.
+
+**Gates.** `test:security` 24 checks ✓ + **8 known issues open** (exit 0) · `test:payments` 24/24 · lint 421 (script clean) · smoke E2E 15/15 ×3.
+- Also in this commit: E2E 10 gets a 2-minute budget (8 full page loads); one run had hit the 60 s default while the stack was busy right after the security suite.
+
+**Rollback.** Revert the commit.
