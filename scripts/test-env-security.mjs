@@ -412,6 +412,8 @@ async function knownIssues() {
   const { error: svcRateErr } = await admin.from('staff').update({ hourly_rate: 13 }).eq('id', coworker.id);
   check('service role can still change a pay rate', !svcRateErr && Number((await staffOf(coworker.id)).hourly_rate) === 13, svcRateErr);
 
+  await staffPolicies({ shop: shop.id, bossBiz, worker, meStaff, coworker, boss, hire });
+
   r = await worker.db.from('businesses').update({ subscription_tier: 'pro' }).eq('id', shop.id).select();
   const tier = (await admin.from('businesses').select('subscription_tier').eq('id', shop.id).single()).data?.subscription_tier;
   known('employee cannot change the business plan or billing (P2-01 businesses, SECURITY_RISKS S-7)', tier === 'basic', r);
@@ -443,7 +445,108 @@ async function knownIssues() {
   r = await worker.db.from('clients').delete().eq('id', cli.id).select();
   known("employee cannot delete the business's clients (P2-01 clients)", await exists('clients', cli.id), r);
   r = await worker.db.from('staff').delete().eq('id', coworker.id).select();
-  known('employee cannot delete a coworker (P2-01 staff)', await exists('staff', coworker.id), r);
+  check('employee cannot delete a coworker (P2-01 staff)', await exists('staff', coworker.id), r);
+}
+
+/**
+ * P2-01 staff: one policy set on `staff`. Managers (super admin, profile manager, or staff access_role
+ * admin/manager of that business) read, add, edit and remove staff; employees read their business's staff and
+ * edit only their own row; everyone else sees nothing. Public booking reads staff through a SECURITY DEFINER RPC.
+ */
+async function staffPolicies({ shop, bossBiz, worker, meStaff, coworker, boss, hire }) {
+  console.log('Staff: who may read, add, edit and remove staff rows (P2-01 staff)');
+  const rowOf = async (id) => (await admin.from('staff').select('id, business_id, first_name, name').eq('id', id).maybeSingle()).data;
+  const countEmail = async (email) => ((await admin.from('staff').select('id').eq('email', email)).data ?? []).length;
+  const anon = createClient(API, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
+  const ids = (r) => (r.data ?? []).map((x) => x.id);
+
+  // Employees see their coworkers: staff page, schedules, appointment book, kiosk, birthdays (main and dev).
+  let r = await worker.db
+    .from('staff')
+    .select('id, name, first_name, last_name, photo_url, status, role, offered_service_ids')
+    .eq('business_id', shop);
+  check('employee can still read their coworkers (schedules, kiosk, staff list)', !r.error && ids(r).includes(meStaff.id) && ids(r).includes(coworker.id), r);
+  // useStaff (main and dev) and the time_entries / staff_shifts policies find the employee's own row by login.
+  r = await worker.db.from('staff').select('id').eq('user_id', worker.id);
+  check('employee can still read their own staff row by login (useStaff)', !r.error && ids(r).length === 1 && ids(r)[0] === meStaff.id, r);
+
+  r = await worker.db.from('staff').update({ first_name: 'Hacked' }).eq('id', coworker.id).select();
+  check("employee cannot edit a coworker's staff row (P2-01 staff)", (await rowOf(coworker.id))?.first_name === 'coworker', r);
+  r = await worker.db.from('staff').update({ business_id: bossBiz }).eq('id', meStaff.id).select();
+  check('employee cannot move their own staff row to another business (P2-01 staff)', (await rowOf(meStaff.id))?.business_id === shop, r);
+
+  const sneakEmail = `sneak-${run}@grumi.test`;
+  r = await worker.db
+    .from('staff')
+    .insert({ business_id: shop, name: 'Sneak', first_name: 'Sneak', last_name: run, email: sneakEmail, phone: '7875550009', pin: '', hourly_rate: 99, access_role: 'staff' })
+    .select();
+  check('employee cannot add a staff row (P2-01 staff)', !!r.error && (await countEmail(sneakEmail)) === 0, r);
+
+  // Clients, strangers, other businesses' managers and anonymous visitors see and change nothing.
+  const outsider = await newUser('outsider', { role: 'client' });
+  r = await outsider.db.from('staff').select('id').eq('business_id', shop);
+  check("a client cannot read a business's staff", !r.error && ids(r).length === 0, r);
+  r = await anon.from('staff').select('id').eq('business_id', shop);
+  check("an anonymous visitor cannot read a business's staff", ids(r).length === 0, r);
+  r = await boss.db.from('staff').select('id').eq('business_id', shop);
+  check("another business's manager cannot read this business's staff", !r.error && ids(r).length === 0, r);
+  const coworkerName = (await rowOf(coworker.id))?.first_name;
+  r = await boss.db.from('staff').update({ first_name: 'Poached' }).eq('id', coworker.id).select();
+  check("another business's manager cannot edit this business's staff", (await rowOf(coworker.id))?.first_name === coworkerName, r);
+  const poachEmail = `poach-${run}@grumi.test`;
+  r = await boss.db
+    .from('staff')
+    .insert({ business_id: shop, name: 'Poach', first_name: 'Poach', last_name: run, email: poachEmail, phone: '7875550010', pin: '', access_role: 'staff' })
+    .select();
+  check("another business's manager cannot add staff to this business", !!r.error && (await countEmail(poachEmail)) === 0, r);
+  r = await boss.db.from('staff').delete().eq('id', coworker.id).select();
+  check("another business's manager cannot remove this business's staff", !!(await rowOf(coworker.id)), r);
+
+  // Public booking page (dev): groomers come from the SECURITY DEFINER RPC, not from the table.
+  r = await anon.rpc('get_public_booking_options', { p_slug: `shop-${run}` });
+  const groomers = r.data?.groomers ?? [];
+  check(
+    'public booking still lists the groomers (get_public_booking_options)',
+    !r.error && groomers.some((g) => g.id === coworker.id && typeof g.display_name === 'string' && g.display_name.trim().length > 0),
+    r
+  );
+
+  // Super admin support tools (SupportImpersonationDialog) read any business's staff.
+  const sa = await newUser(`qa-sa-staff-${run}@stratumpr.com`, null);
+  r = await sa.db.from('staff').select('id, name, email, user_id, access_role, status').eq('business_id', shop).eq('status', 'active');
+  check("super admin can still read any business's staff", !r.error && ids(r).includes(coworker.id), r);
+
+  // Manager CRUD, the way EmployeeManagement's add / save / delete do it (main and dev).
+  const newEmail = `newhire-${run}@grumi.test`;
+  r = await boss.db
+    .from('staff')
+    .insert({ business_id: bossBiz, name: 'New Hire', first_name: 'New', last_name: run, email: newEmail, phone: '7875550011', pin: '', hourly_rate: 15, role: 'groomer', access_role: 'staff' })
+    .select()
+    .single();
+  const newId = r.data?.id;
+  check('manager can still add a staff member', !r.error && !!newId, r);
+  r = await boss.db.from('staff').select('id').eq('business_id', bossBiz);
+  check("manager can still read their business's staff", !r.error && ids(r).includes(newId) && ids(r).includes(hire.id), r);
+  r = await boss.db.from('staff').update({ first_name: 'Renamed' }).eq('id', newId).select().single();
+  check('manager can still edit a staff member', !r.error && (await rowOf(newId))?.first_name === 'Renamed', r);
+  r = await boss.db.from('staff').delete().eq('id', newId).select();
+  check('manager can still remove a staff member', !r.error && !(await rowOf(newId)), r);
+
+  // A staff member with access_role manager (profile role employee) keeps managing staff (can_manage_staff_private).
+  const lead = await newUser('lead', { role: 'employee', business_id: bossBiz, staff_id: hire.id });
+  await admin.from('staff').update({ user_id: lead.id }).eq('id', hire.id);
+  const leadEmail = `leadhire-${run}@grumi.test`;
+  r = await lead.db
+    .from('staff')
+    .insert({ business_id: bossBiz, name: 'Lead Hire', first_name: 'Lead', last_name: run, email: leadEmail, phone: '7875550012', pin: '', access_role: 'staff' })
+    .select()
+    .single();
+  const leadHireId = r.data?.id;
+  check('staff with access_role manager can still add a staff member', !r.error && !!leadHireId, r);
+  r = await lead.db.from('staff').update({ first_name: 'Edited' }).eq('id', leadHireId).select().single();
+  check('staff with access_role manager can still edit a staff member', !r.error && (await rowOf(leadHireId))?.first_name === 'Edited', r);
+  r = await lead.db.from('staff').delete().eq('id', leadHireId).select();
+  check('staff with access_role manager can still remove a staff member', !r.error && !(await rowOf(leadHireId)), r);
 }
 
 main().catch((e) => {
