@@ -66,7 +66,9 @@ export function Clients({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const pageLoadRef = usePageLoadRef();
-  const { user } = useAuth();
+  const { user, role, profile } = useAuth();
+  // Only managers may delete clients (decision 9, P2-01 clients); the database refuses an employee's delete.
+  const canDeleteClients = role !== 'employee' || !!profile?.is_super_admin;
   const businessId = useBusinessId();
   const { transactions } = useTransactions();
 
@@ -404,10 +406,14 @@ export function Clients({
           toast.error(t('clients.saveError'));
           return null;
         }}
-        onDelete={() => {
-          if (clientDetailOpen) handleDeleteClick(clientDetailOpen.id);
-          setClientDetailOpen(null);
-        }}
+        onDelete={
+          canDeleteClients
+            ? () => {
+                if (clientDetailOpen) handleDeleteClick(clientDetailOpen.id);
+                setClientDetailOpen(null);
+              }
+            : undefined
+        }
         onAddPet={() => {
           if (clientDetailOpen) beginAddPetForClient(clientDetailOpen);
         }}
