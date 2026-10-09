@@ -18,15 +18,18 @@ Branch `remediation` (local only, from `dev` at `abb6350`; never pushed). Workin
 | P1-03 stage 2 | 39 type-only errors fixed, bundle proven byte-identical (82 → 43) | — |
 | P1-05 | `npm run lint:ratchet` (baseline 422); `.test-env` ignored; `npm run check` = both ratchets + vitest | — |
 | P1-09 | `.github/pull_request_template.md`; tag `fix/<ID>` when applied (FIX_LOG header) | — |
+| P1-07 | Playwright smoke E2E, 9 flows (`npm run test:e2e`); 8 green, flow 5 + check 4b known-failing on bugs E2E-1/E2E-2 | — |
 
-Gates now: tsc 43 (ratcheted) · lint 422 (345/77, ratcheted) · vitest 104/104 · build OK (main 4,016,280 B) · test:security 23/23 · test:payments 24/24.
+Gates now: tsc 43 (ratcheted) · lint 422 (345/77, ratcheted) · vitest 104/104 · build OK (main 4,016,280 B) · test:security 23/23 · test:payments 24/24 · test:e2e 10 passed (8 green + 2 known-failing).
 
 ## Next, in order
 
 1. **Jovaniel (production):** PHASE0_PRODUCTION_CHECKS §1–3 → paste results → `npm run db:backup` + `db:restore-check` → apply P0-01 and P0-06 (FIX_LOG steps) → walkthrough.
-2. **Real-bug units from P1-03** (after P1-07, one small unit each with a test): Admin.tsx service handlers, TimeKiosk `'clocking'`, Landing/Register props, `qrCode.ts` `replaceAll` on old Safari, missing `dispatch_staff_missing_email_reminders`. List in FIX_LOG → P1-03 stage 2.
-3. P1-11 repo hygiene (`.env`, `supabase/.temp/` untracked), P1-08 known-failing security tests, **P1-07** Playwright smoke E2E (9 flows), P1-13 dual-frontend gate, P1-04 PR CI workflow.
-4. Need Jovaniel: P1-01 (`supabase db pull` baseline, read-only against prod), P1-02 drift check secrets, P1-10 branch protection, P1-12 Sentry DSN.
+2. **Real-bug units found by P1-07** (each flips a known-failing E2E test): **E2E-1** realtime channel crash on Cobrar / Quick charge / Nueva transacción (`dev` only, high; flips flow 5), **E2E-2** edit dialog opens on the wrong date and saving reschedules (flips 4b), E2E-3 blank page on hidden-feature redirect. Details in FIX_LOG → P1-07.
+3. **Real-bug units from P1-03** (one small unit each with a test): Admin.tsx service handlers, TimeKiosk `'clocking'`, Landing/Register props, `qrCode.ts` `replaceAll` on old Safari, missing `dispatch_staff_missing_email_reminders`. List in FIX_LOG → P1-03 stage 2.
+4. P1-11 repo hygiene (`.env`, `supabase/.temp/` untracked), P1-08 known-failing security tests, P1-13 dual-frontend gate, P1-04 PR CI workflow (add `npx playwright install --with-deps chromium` + `npm run test:e2e`).
+5. Need Jovaniel: decide whether the client portal should get its own booking (flow 8 note); check with Genesis whether TXN numbers are meant to be global (E2E-4).
+6. Need Jovaniel: P1-01 (`supabase db pull` baseline, read-only against prod; also capture reference data: `feature_rollout`, `feature_visibility_rules`, `feature_catalog`, `breeds`), P1-02 drift check secrets, P1-10 branch protection, P1-12 Sentry DSN.
 
 ## Open findings to schedule
 
