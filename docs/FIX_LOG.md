@@ -424,3 +424,22 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 **Gates.** tsc **42 → 39** (baseline updated) · lint 422 · vitest 109/109 · build OK (main 4,016,581 bytes) · `test:security` 23/23 · `test:payments` 24/24 · smoke E2E 15/15 (flow 6 exercises the kiosk).
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-11 · Repo hygiene
+
+**Status:** done on `remediation`.
+
+**Change.**
+- `.env`: already untracked before this unit (only `.env.example` is in git, and `.gitignore` covers `.env*`). Nothing to do.
+- `supabase/.temp/` (8 CLI link files: project ref, pooler host, service versions): untracked with `git rm --cached`; the local copies stay (the CLI link needs them) and `.gitignore` already lists the folder. Checked first: `pooler-url` holds no password, so nothing secret was in history.
+- `types/database.types.ts` deleted: UTF-16, imported nowhere (the app uses `src/integrations/supabase/types.ts`), and ESLint couldn't parse it.
+
+**Done-when check.** `git ls-files` lists no `.env`, `supabase/.temp/` or `database.types.ts`.
+
+**Gates.** tsc 39 · lint **422 → 421** (the file's parse error; baseline updated) · vitest 109/109 · build byte-size unchanged (4,016,581) · `test:security` 23/23 · `test:payments` 24/24 · smoke E2E 15/15.
+
+**Note for teammates.** After pulling this, git deletes nothing locally (the files were only untracked), but anyone who checks out a commit *before* it gets the old `.temp` files back; harmless.
+
+**Rollback.** Revert the commit.
