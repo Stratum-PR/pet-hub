@@ -14,11 +14,15 @@
 // key → check the bundle points at the local stack and not at whatever the ref's .env named → serve dist/
 // on :55440 (SPA fallback, like vercel.json) → Playwright with this branch's specs and seed.
 //
-// Older frontends legitimately miss fixes this branch's specs check. Those are listed per ref in EXPECTED
-// below (title + reason + FIX_LOG link). The run FAILS if a test fails that isn't listed, or if a listed
-// test passes (the list is stale: remove the entry). A ref that won't even build is a finding, not a skip.
+// Older frontends legitimately miss fixes (and features) this branch's specs check. Those are listed per ref
+// in EXPECTED below (title + reason + FIX_LOG link). Any failure is then re-run, same frontend, on the ref's
+// OWN schema (`test-env.mjs reset` with TEST_ENV_MIGRATIONS_DIR = the ref's supabase/migrations): if it
+// passes there, THIS branch's schema broke that frontend — a SCHEMA REGRESSION, which no EXPECTED entry can
+// excuse. The run FAILS on a schema regression, on a failure that isn't listed, or when a listed test passes
+// (the list is stale: remove the entry). A ref that won't even build is a finding, not a skip.
+// `--no-baseline` skips the own-schema re-run (faster, but then failures can't be told apart).
 import { spawnSync } from 'node:child_process';
-import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, appendFileSync } from 'node:fs';
+import { appendFileSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
@@ -131,7 +135,14 @@ function results(report) {
       for (const t of spec.tests ?? []) {
         const last = t.results?.[t.results.length - 1];
         const err = last?.error?.message ?? last?.errors?.[0]?.message ?? '';
-        out.push({ title: spec.title, file: spec.file, status: t.status, error: err.replace(/\x1b\[[0-9;]*m/g, '').split('\n')[0] });
+        const ctx = (last?.attachments ?? []).find((a) => a.name === 'error-context' && a.path && existsSync(a.path));
+        out.push({
+          title: spec.title,
+          file: spec.file,
+          status: t.status,
+          error: err.replace(/\x1b\[[0-9;]*m/g, '').split('\n')[0],
+          context: ctx ? readFileSync(ctx.path, 'utf8') : '',
+        });
       }
     }
     for (const s of suite.suites ?? []) visit(s);
@@ -141,17 +152,21 @@ function results(report) {
 }
 
 // ---------------------------------------------------------------- main
+let stackEnv;
+
 async function main() {
-  const [arg, ...rest] = process.argv.slice(2);
+  const [arg, ...argv] = process.argv.slice(2);
+  const noBaseline = argv.includes('--no-baseline');
+  const rest = argv.filter((a) => a !== '--no-baseline');
   if (arg === 'serve') return serve(rest[0], Number(rest[1] ?? PORT));
   if (!arg || arg.startsWith('-')) {
-    console.error('Usage: node scripts/test-env-dual.mjs <main|dev|HEAD|branch> [extra playwright args]');
+    console.error('Usage: node scripts/test-env-dual.mjs <main|dev|HEAD|branch> [--no-baseline] [extra playwright args]');
     process.exit(1);
   }
   const ref = arg;
   const expected = EXPECTED[ref] ?? [];
 
-  const { stackEnv } = await import('./test-env.mjs');
+  ({ stackEnv } = await import('./test-env.mjs'));
   const e = stackEnv();
   if (!e?.apiUrl || !e.anonKey || !e.serviceKey) fail('Test stack is not running. Start it with: npm run test:env:up');
 
@@ -194,55 +209,116 @@ async function main() {
   if (!js.some((s) => s.includes(e.apiUrl))) fail(`The ${ref} bundle doesn't contain the local stack URL; refusing to run.`);
   if (foreignUrls.some((u) => js.some((s) => s.includes(u)))) fail(`The ${ref} bundle still contains a non-local Supabase URL from its .env; refusing to run.`);
 
-  // 4. This branch's smoke E2E against it.
-  const report = join(ROOT, 'test-results', `dual-${ref.replace(/[^\w.-]/g, '_')}.json`);
-  rmSync(report, { force: true });
+  // 4. This branch's smoke E2E against it, on THIS branch's schema.
+  const safe = ref.replace(/[^\w.-]/g, '_');
   const serveCmd = `node ${JSON.stringify(join(ROOT, 'scripts', 'test-env-dual.mjs'))} serve ${JSON.stringify(dist)} ${PORT}`;
-  console.log(`▶ Smoke E2E against ${ref}'s frontend…`);
-  sh(join(ROOT, 'node_modules', '.bin', WIN ? 'playwright.cmd' : 'playwright'), ['test', ...rest], {
+  const pwEnv = { TEST_API_URL: e.apiUrl, TEST_ANON_KEY: e.anonKey, TEST_SERVICE_KEY: e.serviceKey, E2E_WEB_COMMAND: serveCmd };
+  console.log(`▶ Smoke E2E against ${ref}'s frontend, on this branch's schema…`);
+  const all = runSuite(join(ROOT, 'test-results', `dual-${safe}.json`), rest, pwEnv, `${ref}'s frontend`);
+  keepArtifacts(`dual-${safe}`);
+
+  const known = new Map(expected.map((x) => [x.title, x]));
+  const failed = all.filter((t) => t.status === 'unexpected');
+  const passed = all.filter((t) => t.status === 'expected' || t.status === 'flaky');
+  const skipped = all.filter((t) => t.status === 'skipped');
+
+  // 5. Every failure is re-run with the SAME frontend on the ref's OWN schema (its supabase/migrations on top of
+  //    the production snapshot: what that frontend runs on today). Fails there too → the ref's own bug (or a
+  //    feature/fix it doesn't have yet). Passes there → THIS branch's schema broke it: a schema regression,
+  //    never acceptable as an expected failure.
+  const baseline = new Map(); // title → 'fail' | 'pass' | 'skipped'
+  let baselineNote = '';
+  if (failed.length && ref !== 'HEAD' && !noBaseline) {
+    const migrations = join(dir, 'supabase', 'migrations');
+    if (!existsSync(migrations)) {
+      baselineNote = `${ref} has no supabase/migrations; failures could not be checked on its own schema.`;
+    } else {
+      console.log(`\n▶ ${failed.length} failure(s). Re-running them on ${ref}'s own schema to tell its bugs from schema regressions…`);
+      const testEnv = join(ROOT, 'scripts', 'test-env.mjs');
+      const reset = sh(process.execPath, [testEnv, 'reset'], { allowFail: true, env: { ...process.env, TEST_ENV_MIGRATIONS_DIR: migrations } });
+      const e2 = reset.status === 0 ? stackEnv() : null;
+      if (!e2?.apiUrl) {
+        baselineNote = `Resetting the stack to ${ref}'s schema failed; failures could not be checked on it.`;
+      } else {
+        const grep = failed.map((t) => t.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const env2 = { ...pwEnv, TEST_API_URL: e2.apiUrl, TEST_ANON_KEY: e2.anonKey, TEST_SERVICE_KEY: e2.serviceKey };
+        const base = runSuite(join(ROOT, 'test-results', `dual-${safe}-own-schema.json`), ['--grep', grep], env2, `${ref}'s frontend on its own schema`, { allowEmpty: true });
+        keepArtifacts(`dual-${safe}-own-schema`);
+        for (const t of base) baseline.set(t.title, t.status === 'unexpected' ? 'fail' : t.status === 'skipped' ? 'skipped' : 'pass');
+        if (!base.length) baselineNote = `The re-run on ${ref}'s own schema ran no tests; see the log.`;
+      }
+      if (!process.env.CI) {
+        console.log("▶ Putting the stack back on this branch's schema…");
+        sh(process.execPath, [testEnv, 'reset'], { allowFail: true });
+      }
+    }
+  }
+
+  // 6. Classify against EXPECTED.
+  const regressions = failed.filter((t) => baseline.get(t.title) === 'pass');
+  const expectedFailures = failed.filter((t) => known.has(t.title) && !regressions.includes(t));
+  const unexpectedFailures = failed.filter((t) => !known.has(t.title) && !regressions.includes(t));
+  const stale = passed.filter((t) => known.has(t.title));
+  const missing = expected.filter((x) => !all.some((t) => t.title === x.title));
+  const where = (t) =>
+    baseline.get(t.title) === 'fail' ? `fails on ${ref}'s own schema too` : baseline.has(t.title) ? `${baseline.get(t.title)} on ${ref}'s own schema` : 'not re-run on its own schema';
+
+  const lines = [];
+  lines.push(`## Dual-frontend gate: \`${ref}\` (${short}) frontend vs this branch's schema`);
+  lines.push('');
+  lines.push(
+    `**${passed.length - stale.length} passed · ${expectedFailures.length} expected failures · ${regressions.length} schema regressions · ${unexpectedFailures.length} unexpected failures · ${stale.length} expected failures that passed** (${all.length} tests${skipped.length ? `, ${skipped.length} skipped` : ''})`,
+  );
+  lines.push('');
+  for (const t of regressions) lines.push(`- **SCHEMA REGRESSION** (passes on ${ref}'s own schema, fails on this branch's): ${t.title} (${t.file}) — ${t.error}`);
+  for (const t of unexpectedFailures) lines.push(`- **UNEXPECTED FAILURE** (${where(t)}): ${t.title} (${t.file}) — ${t.error}`);
+  for (const t of stale) lines.push(`- **EXPECTED FAILURE PASSED** (remove it from EXPECTED.${ref} in scripts/test-env-dual.mjs): ${t.title}`);
+  for (const x of missing) lines.push(`- **EXPECTED-FAILURE ENTRY MATCHES NO TEST** (stale title?): ${x.title}`);
+  for (const t of expectedFailures) lines.push(`- expected failure (${where(t)}): ${t.title} — ${known.get(t.title).reason} (${known.get(t.title).link})`);
+  for (const t of skipped) lines.push(`- skipped: ${t.title}`);
+  if (baselineNote) lines.push(`- note: ${baselineNote}`);
+  const text = lines.join('\n');
+
+  // For anything that needs a human: the page as Playwright saw it when the test failed (its error context).
+  // Printed before the summary, so the summary stays at the end of the log.
+  for (const t of [...regressions, ...unexpectedFailures]) {
+    if (t.context) console.log(`\n── page at failure: ${t.title} ──\n${t.context.split('\n').slice(0, 80).join('\n')}`);
+  }
+  console.log(`\n${text.replace(/\*\*/g, '')}\n`);
+  summary(text);
+
+  const ok = regressions.length === 0 && unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0;
+  console.log(ok ? `✓ ${ref}: ${passed.length} passed, ${expectedFailures.length} expected failures.` : `✗ ${ref}: the dual-frontend gate failed (see above).`);
+  process.exit(ok ? 0 : 1);
+}
+
+/** Runs Playwright (this branch's specs) with `env` and returns the flattened results of its JSON report. */
+function runSuite(report, args, env, what, { allowEmpty = false } = {}) {
+  rmSync(report, { force: true });
+  sh(join(ROOT, 'node_modules', '.bin', WIN ? 'playwright.cmd' : 'playwright'), ['test', ...args], {
     allowFail: true,
-    env: {
-      ...process.env,
-      TEST_API_URL: e.apiUrl,
-      TEST_ANON_KEY: e.anonKey,
-      TEST_SERVICE_KEY: e.serviceKey,
-      E2E_WEB_COMMAND: serveCmd,
-      E2E_JSON_REPORT: report,
-    },
+    env: { ...process.env, ...env, E2E_JSON_REPORT: report },
   });
   if (!existsSync(report)) fail(`Playwright wrote no report (${report}); see the log above.`);
   const json = JSON.parse(readFileSync(report, 'utf8'));
   const all = results(json);
   const globalErrors = (json.errors ?? []).map((x) => (x.message ?? '').split('\n')[0]);
-  if (!all.length) fail(`No tests ran against ${ref}'s frontend. ${globalErrors.join(' | ')}`);
+  if (!all.length && !allowEmpty) fail(`No tests ran against ${what}. ${globalErrors.join(' | ')}`);
+  if (globalErrors.length) console.warn(`! Playwright errors (${what}): ${globalErrors.join(' | ')}`);
+  return all;
+}
 
-  // 5. Compare with the expected-failure list.
-  const known = new Map(expected.map((x) => [x.title, x]));
-  const failed = all.filter((t) => t.status === 'unexpected');
-  const passed = all.filter((t) => t.status === 'expected' || t.status === 'flaky');
-  const skipped = all.filter((t) => t.status === 'skipped');
-  const expectedFailures = failed.filter((t) => known.has(t.title));
-  const unexpectedFailures = failed.filter((t) => !known.has(t.title));
-  const stale = passed.filter((t) => known.has(t.title));
-  const missing = expected.filter((x) => !all.some((t) => t.title === x.title));
-
-  const lines = [];
-  lines.push(`## Dual-frontend gate: \`${ref}\` (${short}) frontend vs this branch's schema`);
-  lines.push('');
-  lines.push(`**${passed.length - stale.length} passed · ${expectedFailures.length} expected failures · ${unexpectedFailures.length} unexpected failures · ${stale.length} expected failures that passed** (${all.length} tests${skipped.length ? `, ${skipped.length} skipped` : ''})`);
-  lines.push('');
-  for (const t of expectedFailures) lines.push(`- expected failure: ${t.title} — ${known.get(t.title).reason} (${known.get(t.title).link})`);
-  for (const t of unexpectedFailures) lines.push(`- **UNEXPECTED FAILURE**: ${t.title} (${t.file}) — ${t.error}`);
-  for (const t of stale) lines.push(`- **EXPECTED FAILURE PASSED** (remove it from EXPECTED.${ref} in scripts/test-env-dual.mjs): ${t.title}`);
-  for (const x of missing) lines.push(`- **EXPECTED-FAILURE ENTRY MATCHES NO TEST** (stale title?): ${x.title}`);
-  for (const t of skipped) lines.push(`- skipped: ${t.title}`);
-  const text = lines.join('\n');
-  console.log(`\n${text.replace(/\*\*/g, '')}\n`);
-  summary(text);
-
-  const ok = unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0;
-  console.log(ok ? `✓ ${ref}: ${passed.length} passed, ${expectedFailures.length} expected failures.` : `✗ ${ref}: the dual-frontend gate failed (see above).`);
-  process.exit(ok ? 0 : 1);
+/** Moves a run's HTML report and traces aside (the next run would wipe them); the workflow uploads them. */
+function keepArtifacts(name) {
+  const moves = [
+    [join(ROOT, 'reports', 'e2e'), join(ROOT, 'reports', `e2e-${name}`)],
+    [join(ROOT, 'test-results', 'e2e'), join(ROOT, 'test-results', `e2e-${name}`)],
+  ];
+  for (const [from, to] of moves) {
+    if (!existsSync(from)) continue;
+    rmSync(to, { recursive: true, force: true });
+    renameSync(from, to);
+  }
 }
 
 main().catch((err) => {

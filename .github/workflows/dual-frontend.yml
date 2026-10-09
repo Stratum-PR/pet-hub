@@ -40,11 +40,11 @@ jobs:
   dual:
     name: dual-${{ matrix.ref }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        ref: [main, dev, HEAD] # TEMP calibration: HEAD must match test:e2e
+        ref: [main, dev]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -81,9 +81,9 @@ jobs:
           path: |
             test-env-up.log
             test-dual-${{ matrix.ref }}.log
-            test-results/dual-${{ matrix.ref }}.json
-            reports/e2e
-            test-results/e2e
+            test-results/dual-${{ matrix.ref }}*.json
+            reports/e2e-dual-*
+            test-results/e2e-dual-*
           if-no-files-found: ignore
           retention-days: 14
       - name: Stop test stack

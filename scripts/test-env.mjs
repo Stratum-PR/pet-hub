@@ -15,7 +15,7 @@
 // Needs Docker Desktop (or Docker Engine) running, Node 20+, and `npm install` done.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -53,10 +53,13 @@ function prepareWorkdir() {
   // production's schema and applies only repo migrations newer than it.
   mkdirSync(join(sb, 'migrations'), { recursive: true });
   cpSync(join(ROOT, 'test-env', 'supabase', 'prod-schema-snapshot.sql'), join(sb, 'migrations', `${SNAPSHOT_VERSION}_prod_schema_snapshot.sql`));
-  for (const f of readdirSync(join(ROOT, 'supabase', 'migrations'))) {
+  // TEST_ENV_MIGRATIONS_DIR (scripts/test-env-dual.mjs only): take the migrations from another ref's tree, to
+  // compare against the schema that ref runs on. Unset (the default): this checkout's supabase/migrations.
+  const migrations = process.env.TEST_ENV_MIGRATIONS_DIR ? resolve(process.env.TEST_ENV_MIGRATIONS_DIR) : join(ROOT, 'supabase', 'migrations');
+  for (const f of readdirSync(migrations)) {
     const version = f.split('_')[0];
     if (f.endsWith('.sql') && /^\d{14}$/.test(version) && version > SNAPSHOT_VERSION) {
-      cpSync(join(ROOT, 'supabase', 'migrations', f), join(sb, 'migrations', f));
+      cpSync(join(migrations, f), join(sb, 'migrations', f));
     }
   }
   cpSync(join(ROOT, 'supabase', 'functions'), join(sb, 'functions'), { recursive: true });
