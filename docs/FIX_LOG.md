@@ -522,3 +522,24 @@ Note for P2-01: whether employees should be allowed to delete clients, pets or a
 **Gates.** tsc 39 → 37 · lint 421 → 404 · vitest 110/110 · build OK (main bundle unchanged) · CI run 37979636826: `check` ✓, `db-tests` ✓ (`test:payments` 24/24, `test:security` ✓ + 8 known issues open, smoke E2E 15/15).
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-09 · Reminder greeting · `send-appointment-reminder` greets with `first_name` when `name` is empty
+
+**Status:** done on `remediation` (unit U05, branch `fix/U05-reminder-greeting`). **Not deployed to production** (Edge Function deploy, OWNER_ACTIONS Part D4).
+
+**Problem.** Since P0-06, `clients.name` is an optional column and is empty for most clients (they have `first_name`/`last_name`). The reminder email's heading was `Hola ${esc(client?.name ?? "")}`, so it read "Hola " with nothing after it.
+
+**Change.**
+- `supabase/functions/send-appointment-reminder/greeting.ts` (new, pure): `reminderGreeting(client)` → `Hola <name>` if `name` is non-blank, else `Hola <first_name>` (first name only, as `notify-appointment` does), else `Hola,`; HTML-escaped with the same `esc` (moved here from index.ts).
+- `index.ts`: client lookup selects `first_name, last_name` too; the `<h2>` uses `reminderGreeting(client)`. Nothing else in the email changed.
+- `greeting.test.ts` (5 cases) + folder-local `vitest.config.ts`; run with `npx vitest run -c supabase/functions/send-appointment-reminder/vitest.config.ts` (not yet in the default `vitest run`; follow-up: add `supabase/functions/**/*.test.ts` to the root `unit` project and drop the folder config).
+
+**Gates.** `npm run check`: typecheck 37 / lint 404, none new, vitest 110/110; reminder test 5/5; build OK; `deno check` of index.ts OK (supabase-js via `npm:`); CI run 37979653591: `check` ✓, `db-tests` ✓.
+
+**Production step.** Needs P0-06 applied first (else the lookup fails on `name`). Then `npx supabase functions deploy send-appointment-reminder`.
+
+**Rollback.** Redeploy the previous version: `git checkout <commit before merge> -- supabase/functions/send-appointment-reminder && npx supabase functions deploy send-appointment-reminder`. No DB change.
+
+**Decision.** Greeting falls back to `first_name` only (no `last_name`), matching `notify-appointment`; no name → "Hola,".
