@@ -35,11 +35,35 @@ const FIX_LOG = 'docs/FIX_LOG.md';
 
 /**
  * Tests expected to FAIL against a ref's frontend, by exact test title. Each needs a reason and a FIX_LOG
- * link. Remove an entry once that ref gets the fix (the run fails until you do, so the list stays honest).
+ * link, and must also fail on the ref's OWN schema (checked on every run). Remove an entry once that ref gets
+ * the fix or feature (the run fails until you do, so the list stays honest). Calibrated 2026-10-09 against
+ * main ad0bfd9 and dev c3521c2 (P1-13 in FIX_LOG has the runs).
  */
+const E1 = `${FIX_LOG} → E2E-1`;
+const E2 = `${FIX_LOG} → E2E-2`;
+const E3 = `${FIX_LOG} → E2E-3`;
+const P13 = `${FIX_LOG} → P1-13 (CI)`;
 const EXPECTED = {
-  main: [],
-  dev: [],
+  // main = production (April 2026 code). It predates the appointment-book rework the flows drive, so several
+  // flows can't even reach what they check; none of these are schema problems (all fail on main's own schema).
+  main: [
+    { title: '3. manager books an appointment for an existing client', reason: 'main\'s appointment book (April UI) has no "Nueva cita" button', link: P13 },
+    { title: '4. manager reschedules an appointment, then cancels it', reason: 'main\'s appointment book has no "Historial" tab (and no "Editar / reprogramar")', link: P13 },
+    { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'no "Historial" tab on main, and no E2E-2 fix; main\'s login also stays on "Entrando…" with the browser clock pinned ahead of real time', link: E2 },
+    { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'same as 4b', link: E2 },
+    { title: '5. manager checks out an appointment in cash', reason: 'no "Historial" tab and no per-appointment "Cobrar" (Quick charge) on main', link: P13 },
+    { title: '5c. header "Cobrar" opens Quick charge over the dashboard (second copy of useTransactions, E2E-1)', reason: 'main has no header "Cobrar" (Quick charge is dev-only)', link: E1 },
+    { title: '9. public booking page sends a request that reaches the business', reason: 'main has no /<slug>/reservar public booking page (it falls through to the landing page)', link: P13 },
+    { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on main: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
+  ],
+  // dev = the dev page: has every feature the flows use, misses only the three fixes made on `remediation`.
+  dev: [
+    { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'E2E-2 fix not on dev: the edit dialog opens on the wrong date', link: E2 },
+    { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'E2E-2 fix not on dev', link: E2 },
+    { title: '5. manager checks out an appointment in cash', reason: 'E2E-1 fix not on dev: "Cobrar" shows "No se pudo cargar la pantalla de cobro" (realtime channel reuse)', link: E1 },
+    { title: '5b. "Nueva transacción" opens (second copies of the inventory and appointments hooks, E2E-1)', reason: 'E2E-1 fix not on dev: "cannot add postgres_changes callbacks … after subscribe()"', link: E1 },
+    { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on dev: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
+  ],
 };
 
 // ---------------------------------------------------------------- static server (`serve <dir> [port]`)
@@ -276,18 +300,18 @@ async function main() {
   for (const x of missing) lines.push(`- **EXPECTED-FAILURE ENTRY MATCHES NO TEST** (stale title?): ${x.title}`);
   for (const t of expectedFailures) lines.push(`- expected failure (${where(t)}): ${t.title} — ${known.get(t.title).reason} (${known.get(t.title).link})`);
   for (const t of skipped) lines.push(`- skipped: ${t.title}`);
-  if (baselineNote) lines.push(`- note: ${baselineNote}`);
+  if (baselineNote) lines.push(`- **NOT CHECKED ON ITS OWN SCHEMA** (so failures can't be told from schema regressions): ${baselineNote}`);
   const text = lines.join('\n');
 
   // For anything that needs a human: the page as Playwright saw it when the test failed (its error context).
   // Printed before the summary, so the summary stays at the end of the log.
   for (const t of [...regressions, ...unexpectedFailures]) {
-    if (t.context) console.log(`\n── page at failure: ${t.title} ──\n${t.context.split('\n').slice(0, 80).join('\n')}`);
+    if (t.context) console.log(`\n── page at failure: ${t.title} ──\n${pageGist(t.context)}`);
   }
   console.log(`\n${text.replace(/\*\*/g, '')}\n`);
   summary(text);
 
-  const ok = regressions.length === 0 && unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0;
+  const ok = !baselineNote && regressions.length === 0 && unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0;
   console.log(ok ? `✓ ${ref}: ${passed.length} passed, ${expectedFailures.length} expected failures.` : `✗ ${ref}: the dual-frontend gate failed (see above).`);
   process.exit(ok ? 0 : 1);
 }
@@ -306,6 +330,13 @@ function runSuite(report, args, env, what, { allowEmpty = false } = {}) {
   if (!all.length && !allowEmpty) fail(`No tests ran against ${what}. ${globalErrors.join(' | ')}`);
   if (globalErrors.length) console.warn(`! Playwright errors (${what}): ${globalErrors.join(' | ')}`);
   return all;
+}
+
+/** The telling lines of Playwright's page snapshot (headings, dialogs, alerts, buttons, text), not the whole tree. */
+function pageGist(context) {
+  const telling = /heading|dialog|alert|button "|tab "|paragraph|text:|Error|textbox/;
+  const lines = context.split('\n').filter((l) => telling.test(l)).map((l) => `  ${l.trim().slice(0, 200)}`);
+  return (lines.length ? lines : context.split('\n')).slice(0, 30).join('\n');
 }
 
 /** Moves a run's HTML report and traces aside (the next run would wipe them); the workflow uploads them. */
