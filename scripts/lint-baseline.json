@@ -1,5 +1,5 @@
 {
-  "total": 421,
+  "total": 404,
   "problems": {
     "src/components/AppSidebar.tsx react-refresh/only-export-components Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.": 2,
     "src/components/BusinessBrandingAssets.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 6,
@@ -86,11 +86,6 @@
     "src/lib/transactionValidation.test.ts @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 1,
     "src/lib/translationsValidation.test.ts parse Unused eslint-disable directive (no problems were reported from 'no-cond-assign').": 1,
     "src/pages/AccountSettings.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 1,
-    "src/pages/BusinessPets.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 2,
-    "src/pages/BusinessReports.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 2,
-    "src/pages/BusinessReports.tsx react-hooks/exhaustive-deps React Hook useEffect has a missing dependency: 'fetchReportData'. Either include it or remove the dependency array.": 1,
-    "src/pages/BusinessServices.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 11,
-    "src/pages/BusinessSettings.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 1,
     "src/pages/BusinessSettingsPage.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 18,
     "src/pages/Clients.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 3,
     "src/pages/Dashboard.tsx @typescript-eslint/no-explicit-any Unexpected any. Specify a different type.": 1,
