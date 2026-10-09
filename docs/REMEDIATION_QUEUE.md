@@ -10,7 +10,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 |---|---|---|---|---|---|---|
 | 0 | U00 | P1-04 CI on every push (check, build, test:security, test:payments, test:e2e) + typecheck ratchet path fix | `.github/workflows/ci.yml` (new), `scripts/typecheck-ratchet.mjs` | – | – | merged |
 | 1 | U01 | P2-07 remove browser-side `role` write | `src/pages/Register.tsx`, its new unit test | – | U00 | merged |
-| 1 | U02 | P3-01 orphan files (Appendix B minus pages, plus `src/pages/Admin.tsx`) | the orphan files themselves (deletions) | – | U00 | running (relaunched) |
+| 1 | U02 | P3-01 orphan files (Appendix B minus pages, plus `src/pages/Admin.tsx`) | the orphan files themselves (deletions) | – | U00 | merged |
 | 1 | U03 | P3-02 legacy pages `Business{Customers,Pets,Services,Reports,Settings}`, `ClientPlaceholder` | those page files, `src/components/AppSidebar.tsx` | – | U00 | merged |
 | 1 | U04 | P2-03 staff column privileges | `supabase/migrations/20261009110000_*.sql`, `supabase/rollbacks/20261009110000_*.down.sql`, `scripts/test-env-security.mjs` | 20261009110000 | U00 | merged |
 | 1 | U05 | Reminder greets with `first_name` when `name` is empty | `supabase/functions/send-appointment-reminder/**` | – | U00 | merged |
@@ -42,6 +42,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 - Shared files (coordinator only): FIX_LOG, OWNER_ACTIONS, REMEDIATION_STATUS, this queue, CLAUDE.md/AGENTS.md, `src/lib/translations.ts`, package.json/package-lock.json, `src/integrations/supabase/types.ts`, `scripts/typecheck-baseline.json`, `scripts/lint-baseline.json`. `scripts/test-env-security.mjs` has one owner per wave (listed above).
 - No local DB stack in cloud sessions (Docker images can't be pulled), so CI on each `fix/*` branch is the DB/E2E gate. Until U00 merges, no branch has CI.
 - Every migration unit must leave the `dev` frontend working both before and after the owner applies the migration (expand-only, PLAN §9 rule 1).
+- 2026-10-09: U02 merged (CI 37988832893). Follow-ups queued as notes: unused npm deps + unused translation keys cleanup (coordinator-owned shared files).
 - 2026-10-09: U06 merged (coordinator-reviewed). U02 and U07 relaunched from their pushed commits; U09 and U13 started (U09 excludes U02's orphan files; U13 is the only security-suite writer).
 - 2026-10-09: U08 merged (CI 37985608351: security 5 known open). U02, U06, U07 workers were stopped (owner); owner chose: coordinator reviews/merges U06's pushed branch, U02 and U07 relaunched from their existing commits.
 - 2026-10-09: U04, U10 merged. U08 and U10 started before wave 1 finished (no shared Owns paths with U02/U06/U07; U08 depended only on U04).
