@@ -1,5 +1,5 @@
 {
-  "total": 43,
+  "total": 42,
   "errors": {
     "src/components/DaycareCalendarView.tsx TS2551 Property 'breeds' does not exist on type 'Pet'. Did you mean 'breed'?": 2,
     "src/components/KioskManagerAccess.tsx TS2322 Type '(pinToUse?: string) => Promise<void>' is not assignable to type 'MouseEventHandler<HTMLButtonElement>'.": 1,
@@ -18,7 +18,6 @@
     "src/hooks/useSupabaseData.ts TS2345 Argument of type '{ id?: string; client_id?: string; business_id?: string; name?: string; species?: \"other\" | \"dog\" | \"cat\"; breed_id?: string; breed?: string; ": 1,
     "src/hooks/useSupabaseData.ts TS2352 Conversion of type 'Settings' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentio": 1,
     "src/hooks/useSupabaseData.ts TS2739 Type 'Employee' is missing the following properties from type '{ access_role: string; auth_user_id: string; bank_account_number: string; bank_account_type: stri": 2,
-    "src/lib/qrCode.ts TS2550 Property 'replaceAll' does not exist on type 'string'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2021' or later.": 1,
     "src/lib/staffBirthdayDispatch.ts TS2345 Argument of type '\"dispatch_staff_missing_email_reminders\"' is not assignable to parameter of type '\"is_super_admin\" | \"admin_set_profile_role\" | \"admin_set_sta": 1,
     "src/pages/Admin.tsx TS2322 Type '(id: string) => void' is not assignable to type '(id: string) => Promise<boolean>'.": 1,
     "src/pages/Admin.tsx TS2322 Type '(id: string, service: Partial<Service>) => void' is not assignable to type '(id: string, service: Partial<Service>) => Promise<Service>'.": 1,
