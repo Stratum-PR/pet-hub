@@ -390,3 +390,19 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 **Gates.** tsc 43 · lint 422 · vitest 108/108 · build OK (main 4,016,661 bytes) · `test:security` 23/23 · `test:payments` 24/24 · smoke E2E **15/15**, twice.
 
 **Rollback.** Revert the commit.
+
+---
+
+## 2026-10-08 · P1-03 bug · QR code generation fails on Safari 12 / iOS 12
+
+**Status:** done on `remediation`. Frontend only; ships with the next `dev` deploy.
+
+**Problem** (one of P1-03's 8 "likely real bugs"). `escapeXml` in `src/lib/qrCode.ts` used `String.prototype.replaceAll`. The build targets `safari12`/`ios12`, which don't have it (added in Safari 13.1), and Vite/esbuild lowers syntax but doesn't polyfill methods. On those devices, generating a business portal QR code (SVG or PNG) threw `value.replaceAll is not a function`. It's the only `replaceAll` in `src`.
+
+**Change.** `.replace(/x/g, …)` for the five escapes; same output.
+
+**Tests.** New `src/lib/qrCode.test.ts`: deletes `String.prototype.replaceAll` (as on Safari 12) and generates a branded QR whose logo URL needs escaping. Fails before (`TypeError`), passes after.
+
+**Gates.** tsc **43 → 42** (baseline updated) · lint 422 · vitest 109/109 · build OK (main 4,016,651 bytes) · `test:security` 23/23 · `test:payments` 24/24 · smoke E2E 15/15.
+
+**Rollback.** Revert the commit.
