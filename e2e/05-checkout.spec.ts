@@ -1,10 +1,7 @@
 import { test, expect, loginAsManager, seedData } from './fixtures';
 
-// KNOWN ISSUE (FIX_LOG P1-07, finding E2E-1): "Cobrar" opens QuickChargeDialog, whose useInventory() opens a realtime
-// channel with the same topic as Index's; supabase-js 2.117 returns the already-subscribed channel and `.on()` throws,
-// so the whole app crashes ("App failed to start"). Remove test.fail() when fixed.
-test('5. manager checks out an appointment in cash [known issue E2E-1]', async ({ page }) => {
-  test.fail();
+// "Cobrar" mounts a second copy of the realtime hooks (QuickChargeDialog); before the E2E-1 fix this crashed the app.
+test('5. manager checks out an appointment in cash', async ({ page }) => {
   const s = seedData();
   await loginAsManager(page);
   await page.goto(`/${s.slug}/appt-book`);
@@ -36,4 +33,21 @@ test('5. manager checks out an appointment in cash [known issue E2E-1]', async (
   await page.goto(`/${s.slug}/appt-book`);
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(row).toContainText('Pagado');
+});
+
+test('5b. "Nueva transacción" opens (second copies of the inventory and appointments hooks, E2E-1)', async ({ page }) => {
+  const s = seedData();
+  await loginAsManager(page);
+  await page.goto(`/${s.slug}/transactions/new`);
+  await expect(page.getByRole('heading', { name: 'Resumen' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guardar transacción' })).toBeDisabled();
+  await expect(page.getByText('App failed to start')).toHaveCount(0);
+});
+
+test('5c. header "Cobrar" opens Quick charge over the dashboard (second copy of useTransactions, E2E-1)', async ({ page }) => {
+  await loginAsManager(page);
+  await expect(page.getByRole('heading', { level: 1, name: /Dashboard/ })).toBeVisible();
+  await page.getByRole('banner').getByRole('button', { name: 'Cobrar', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Cobrar' })).toBeVisible();
+  await expect(page.getByText('App failed to start')).toHaveCount(0);
 });

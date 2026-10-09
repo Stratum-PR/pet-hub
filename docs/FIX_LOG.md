@@ -308,3 +308,34 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 | Smoke E2E | — | **10 passed** (8 green + 2 known-failing), 3 fresh runs in a row plus 1 in `CI=1` mode (own server, retries on, none used) |
 
 **Rollback.** Revert the commit (removes the dev dependency and the `e2e/` folder). The seed's rows live only on the local test stack (`npm run test:env:reset` wipes them).
+
+---
+
+## 2026-10-08 · E2E-1 · Realtime channel crash on Cobrar / Quick charge / Nueva transacción
+
+**Status:** done on `remediation`. Frontend only: reaches users with the next deploy of `dev` (dev.grumi.pet is affected today). Nothing to run in production.
+
+**Problem** (found by P1-07). Four hooks subscribe a realtime channel with a fixed name: `useInventory` (`inventory-rt-<business>`), `useTransactions` (`transactions-rt-…`), `useSupabaseData.useAppointments` (`appointments-rt-…`) and `useBusinessData.useAppointments` (`appointments-rt-biz-…`). Since `9ca7835` (realtime-js 2.117.2), `supabase.channel()` returns the existing channel for a topic that's already open, and `.on()` on it throws once it's subscribed. Any screen that mounts a second copy crashed the whole app ("App failed to start"):
+- "Cobrar" on an appointment and the header "Cobrar": `QuickChargeDialog` → second `useInventory` (and `useTransactions` over Dashboard, Clients, Pets, Reports).
+- `/transactions/new`: `TransactionCreate` → second `useInventory` and second `useSupabaseData.useAppointments`.
+
+**Change.**
+- `src/lib/realtimeChannel.ts`: `uniqueChannelName(base)` appends a per-subscription counter.
+- The four hooks call it inside the subscribing effect (one line each). Each instance gets its own channel and removes it on cleanup, as before; the subscription filters are unchanged.
+
+**Tests.**
+- New `src/hooks/realtimeChannels.test.tsx` (dom): a fake Supabase client that reuses channels by topic and throws like realtime-js 2.117; mounting each of the 4 hooks twice. Before: 4/4 fail with the production error. After: 4/4 pass.
+- E2E: flow 5 (checkout) loses its known-issue marker; new 5b (`/transactions/new` opens) and 5c (header "Cobrar" over the dashboard). With the four hook files reverted, 5 and 5b fail; with the fix, all pass.
+
+**Gates.**
+
+| Gate | Before | After |
+|---|---|---|
+| TypeScript errors (ratchet) | 43 | 43 |
+| Lint | 422 | 422 |
+| vitest | 104/104 | 108/108 |
+| Build (main chunk) | 4,016,280 bytes | 4,016,367 bytes (+87: the helper) |
+| `test:security` / `test:payments` | 23/23 / 24/24 | 23/23 / 24/24 |
+| Smoke E2E | 10 passed (8 green + 2 known-failing) | 12 passed (11 green + 1 known-failing: 4b, E2E-2), twice |
+
+**Rollback.** Revert the commit (the crash comes back on `dev`).

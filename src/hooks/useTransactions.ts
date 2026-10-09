@@ -11,6 +11,7 @@ import { buildDefaultDemoTransactionSeed } from '@/lib/demoTransactionSeed';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import { t } from '@/lib/translations';
 import { devConsole } from '@/lib/clientDebug';
+import { uniqueChannelName } from '@/lib/realtimeChannel';
 import type {
   Transaction,
   TransactionLineItem,
@@ -219,7 +220,7 @@ export function useTransactions() {
   useEffect(() => {
     if (!businessId || demoBrowseOnly) return;
     const channel = supabase
-      .channel(`transactions-rt-${businessId}`)
+      .channel(uniqueChannelName(`transactions-rt-${businessId}`))
       .on(
         'postgres_changes',
         {
