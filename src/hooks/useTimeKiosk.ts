@@ -29,6 +29,17 @@ export interface ScheduleCheckResult {
   warning?: string | null;
 }
 
+/**
+ * Columns the kiosk needs after a PIN lookup: name, job title, access label and photo for the
+ * confirmation screen, and `pin`, which `TimeKiosk` passes to the `clock_in_out` RPC.
+ */
+export const KIOSK_STAFF_COLUMNS = 'id, business_id, name, role, access_role, status, photo_url, pin';
+
+export type KioskStaff = Pick<
+  Employee,
+  'id' | 'business_id' | 'name' | 'role' | 'access_role' | 'status' | 'photo_url' | 'pin'
+>;
+
 export function useTimeKiosk() {
   const businessId = useBusinessId();
   const { viewerTier, isSuperAdmin } = useFeatureRollout();
@@ -40,7 +51,7 @@ export function useTimeKiosk() {
    * Get employee by PIN
    */
   const getEmployeeByPin = useCallback(
-    async (pin: string): Promise<Employee | null> => {
+    async (pin: string): Promise<KioskStaff | null> => {
       if (!businessId) {
         setError('Business ID not found');
         return null;
@@ -49,7 +60,7 @@ export function useTimeKiosk() {
       try {
         const { data, error: err } = await supabase
           .from('staff')
-          .select('*')
+          .select(KIOSK_STAFF_COLUMNS)
           .eq('pin', pin)
           .eq('business_id', businessId)
           .eq('status', 'active')
@@ -60,7 +71,7 @@ export function useTimeKiosk() {
           return null;
         }
 
-        return data as Employee;
+        return data as KioskStaff;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to get employee');
         return null;
