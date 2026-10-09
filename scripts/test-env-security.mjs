@@ -458,7 +458,7 @@ async function knownIssues() {
   r = await worker.db.from('staff').delete().eq('id', coworker.id).select();
   check('employee cannot delete a coworker (P2-01 staff)', await exists('staff', coworker.id), r);
 
-  await clientPolicies({ shop: shop.id, bossBiz, worker, boss, hire, cli });
+  await clientPolicies({ shop: shop.id, bossBiz, worker, boss, hire });
 }
 
 /**
@@ -466,7 +466,7 @@ async function knownIssues() {
  * admin, profile role manager/super_admin of that business, or staff access_role admin/manager in it. Employees
  * keep reading, adding and editing their business's clients.
  */
-async function clientPolicies({ shop, bossBiz, worker, boss, hire, cli }) {
+async function clientPolicies({ shop, bossBiz, worker, boss, hire }) {
   console.log('Clients: only managers delete clients; employees still add and edit them (P2-01 clients)');
   const clientRow = async (id) => (await admin.from('clients').select('id, first_name').eq('id', id).maybeSingle()).data;
   const seedClient = async (business_id, first_name) => {
@@ -475,9 +475,12 @@ async function clientPolicies({ shop, bossBiz, worker, boss, hire, cli }) {
     return data.id;
   };
 
+  // Own row, so these checks don't depend on whether the delete attempt above was blocked.
+  const kept = await seedClient(shop, 'Kept');
+
   // Employee paths on the Clients page and in the booking dialogs (useClients add/update, main and dev).
   let r = await worker.db.from('clients').select('id').eq('business_id', shop);
-  check("employee can still read the business's clients", !r.error && (r.data ?? []).some((x) => x.id === cli.id), r);
+  check("employee can still read the business's clients", !r.error && (r.data ?? []).some((x) => x.id === kept), r);
   r = await worker.db
     .from('clients')
     .insert({ id: crypto.randomUUID(), business_id: shop, first_name: 'Walk', last_name: run, email: `walkin-${run}@grumi.test`, phone: '7875550020' })
@@ -485,8 +488,8 @@ async function clientPolicies({ shop, bossBiz, worker, boss, hire, cli }) {
     .single();
   const walkIn = r.data?.id;
   check('employee can still add a client', !r.error && !!walkIn && !!(await clientRow(walkIn)), r);
-  r = await worker.db.from('clients').update({ first_name: 'Edited' }).eq('id', cli.id).eq('business_id', shop).select('id');
-  check('employee can still edit a client', !r.error && (await clientRow(cli.id))?.first_name === 'Edited', r);
+  r = await worker.db.from('clients').update({ first_name: 'Edited' }).eq('id', kept).eq('business_id', shop).select('id');
+  check('employee can still edit a client', !r.error && (await clientRow(kept))?.first_name === 'Edited', r);
   if (walkIn) {
     r = await worker.db.from('clients').delete().eq('id', walkIn).eq('business_id', shop).select();
     check('employee cannot delete a client they just added (P2-01 clients)', !!(await clientRow(walkIn)), r);
@@ -496,8 +499,8 @@ async function clientPolicies({ shop, bossBiz, worker, boss, hire, cli }) {
   const gone = await seedClient(bossBiz, 'Gone');
   r = await boss.db.from('clients').delete().eq('id', gone).eq('business_id', bossBiz);
   check('manager can still delete a client', !r.error && !(await clientRow(gone)), r);
-  r = await boss.db.from('clients').delete().eq('id', cli.id).select();
-  check("another business's manager cannot delete this business's clients", !!(await clientRow(cli.id)), r);
+  r = await boss.db.from('clients').delete().eq('id', kept).select();
+  check("another business's manager cannot delete this business's clients", !!(await clientRow(kept)), r);
 
   // Staff with access_role manager (profile role employee) count as managers (is_business_manager).
   const leadStaffId = hire.id; // access_role 'manager' since the P2-03 manager save above
