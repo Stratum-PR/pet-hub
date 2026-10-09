@@ -339,3 +339,35 @@ Rollback tested: apply → roll back (21/23) → re-apply (23/23); the migration
 | Smoke E2E | 10 passed (8 green + 2 known-failing) | 12 passed (11 green + 1 known-failing: 4b, E2E-2), twice |
 
 **Rollback.** Revert the commit (the crash comes back on `dev`).
+
+---
+
+## 2026-10-08 · E2E-2 · Edit dialog opened on the wrong date (saving rescheduled)
+
+**Status:** done on `remediation`. Frontend only: ships with the next `dev` deploy; nothing to run in production.
+
+**Problem** (found by P1-07). `EditAppointmentDialog` keeps `selectedDate` in state, starting at "now". When it opens, the init effect sets the appointment's date and time, but the auto-jump effect (move to the next day with a free slot) and the slot-fallback effect run in the same commit and still see the old state. Two ways it went wrong:
+- **First open after page load, in the evening:** the stale "now" has no bookable slot left, so auto-jump queued "tomorrow" after the init's real date. The dialog showed tomorrow, and saving even a notes-only change moved the appointment there.
+- **Appointment earlier today** (any open): its own slots are past, so auto-jump always moved it to tomorrow.
+
+**Change** (`src/components/EditAppointmentDialog.tsx`, +20 lines):
+- The init effect records the date/time it set (`pendingInitRef`); auto-jump and slot fallback skip while state hasn't caught up, and the slot-fallback effect clears the marker once both values have landed (also cleared on close).
+- Auto-jump never moves an existing appointment off its own day by itself. The user can still pick any day; past-slot rules are unchanged.
+
+**Tests** (E2E, browser clock pinned so they don't depend on when CI runs):
+- 4b (20:00, first open): opens on the appointment's date with its 2 PM slot selected; a notes-only save keeps it at 2 PM on that day. Now uses its own seeded appointment (`inspect`, day +4): as a known-failing test it had shared flow 4's appointment, which flow 4 moves and cancels, so it was failing for the wrong reason too.
+- 4c (20:00, appointment at 9 AM today): opens on today.
+- With the dialog change reverted, 4b and 4c fail; with it, both pass. Flow 4 (reschedule + cancel at 08:00) unchanged and green.
+
+**Gates.**
+
+| Gate | Before | After |
+|---|---|---|
+| TypeScript errors (ratchet) | 43 | 43 |
+| Lint | 422 | 422 |
+| vitest | 108/108 | 108/108 |
+| Build (main chunk) | 4,016,367 bytes | 4,016,637 bytes |
+| `test:security` / `test:payments` | 23/23 / 24/24 | 23/23 / 24/24 |
+| Smoke E2E | 12 passed (11 green + 1 known-failing) | **13 passed, 0 known-failing**, twice |
+
+**Rollback.** Revert the commit.

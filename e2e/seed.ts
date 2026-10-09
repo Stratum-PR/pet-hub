@@ -16,7 +16,7 @@ export type Seed = {
   client: { id: string; firstName: string; lastName: string };
   pet: { id: string; name: string };
   service: { id: string; name: string; price: number };
-  appointments: Record<'edit' | 'checkout' | 'portal', SeededAppointment>;
+  appointments: Record<'edit' | 'inspect' | 'checkout' | 'portal', SeededAppointment>;
   payroll: { hours: number; gross: number };
 };
 
@@ -255,6 +255,7 @@ export async function seed(apiUrl: string, anonKey: string, serviceKey: string):
     return { id: row.id as string, date, start };
   };
   const editAppt = await appt('appointment to edit', 3, '14:00', client.id, pet.id);
+  const inspectAppt = await appt('appointment to inspect', 4, '14:00', client.id, pet.id);
   const checkoutAppt = await appt('appointment to check out', 0, '09:00', client.id, pet.id);
   const portalAppt = await appt('portal client appointment', 5, '10:00', portalClient.id, portalPetRow.id);
 
@@ -284,7 +285,7 @@ export async function seed(apiUrl: string, anonKey: string, serviceKey: string):
     client: { id: client.id, firstName: client.first_name as string, lastName: client.last_name as string },
     pet: { id: pet.id, name: pet.name as string },
     service: { id: service.id, name: service.name as string, price: Number(service.price) },
-    appointments: { edit: editAppt, checkout: checkoutAppt, portal: portalAppt },
+    appointments: { edit: editAppt, inspect: inspectAppt, checkout: checkoutAppt, portal: portalAppt },
     payroll: { hours: 8, gross: 96 },
   };
 }
