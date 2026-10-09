@@ -2,7 +2,7 @@
 
 Updated 2026-10-08. Branch `remediation` is pushed to `origin` for review (Jovaniel evaluates it before merging into `dev`, then `main`). Read this first when resuming; the plan is [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md), the per-unit record is [FIX_LOG.md](FIX_LOG.md).
 
-Branch `remediation` (from `dev` at `abb6350`; Jovaniel pushes it, Claude never does). **Everything that needs Jovaniel is in [OWNER_ACTIONS.md](OWNER_ACTIONS.md)**; when a unit adds a production step, append it to that file's Part D. Working rules: one unit at a time through the §2 protocol; no push/PR/merge; nothing run against hosted Supabase/Vercel; production steps are prepared for Jovaniel; units run without per-step approval and stop only at phase ends, failing gates or real decisions; production steps never block: they go to OWNER_ACTIONS Part D and work continues (decided by Jovaniel 2026-10-08).
+Branch `remediation` (from `dev` at `abb6350`; Claude pushes it only when Jovaniel asks in that session, as on 2026-10-08 end of day; never PRs or merges). **Everything that needs Jovaniel is in [OWNER_ACTIONS.md](OWNER_ACTIONS.md)**; when a unit adds a production step, append it to that file's Part D. Working rules: one unit at a time through the §2 protocol; no push/PR/merge; nothing run against hosted Supabase/Vercel; production steps are prepared for Jovaniel; units run without per-step approval and stop only at phase ends, failing gates or real decisions; production steps never block: they go to OWNER_ACTIONS Part D and work continues (decided by Jovaniel 2026-10-08).
 
 ## Done (committed on `remediation`)
 
@@ -33,7 +33,7 @@ Gates now: tsc 39 (ratcheted) · lint 421 (ratcheted) · vitest 109/109 · build
 1. **Jovaniel:** works through [OWNER_ACTIONS.md](OWNER_ACTIONS.md) on his own schedule (Part A = production P0 steps). Claude continues with items 2–4 meanwhile; production-dependent work (P1-01 baseline, P1-02, P1-10, P1-12, P1-13 QA business) waits for the matching Part B item.
 2. **Real-bug units found by P1-07** (each flips a known-failing E2E test): ~~E2E-1~~, ~~E2E-2~~, ~~E2E-3~~ done. Details in FIX_LOG → P1-07.
 3. ~~**Real-bug units from P1-03**~~ done (see FIX_LOG); remaining item is decision C5. Was: (one small unit each with a test): Admin.tsx service handlers, TimeKiosk `'clocking'`, Landing/Register props, `qrCode.ts` `replaceAll` on old Safari, missing `dispatch_staff_missing_email_reminders`. List in FIX_LOG → P1-03 stage 2.
-4. ~~P1-11~~, ~~P1-08~~ done. P1-13 dual-frontend gate, P1-04 PR CI workflow (add `npx playwright install --with-deps chromium` + `npm run test:e2e`).
+4. ~~P1-11~~, ~~P1-08~~ done. **Resume here:** P1-13 dual-frontend gate, P1-04 PR CI workflow (add `npx playwright install --with-deps chromium` + `npm run test:e2e`).
 5. Waiting on Jovaniel (OWNER_ACTIONS Parts B and C): P1-01 baseline + reference data, P1-02 secrets, P1-10 branch protection, P1-12 Sentry, P1-13 QA business; decisions on portal booking and TXN numbering.
 
 ## Open findings to schedule
