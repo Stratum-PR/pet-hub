@@ -39,48 +39,8 @@ async function openEditDialog(page: Page, which: 'edit' | 'inspect' | 'checkout'
   return { row, edit, ownDate };
 }
 
-
-// U15 DIAGNOSTIC (temporary, to be reverted): record what the page does around the reloads.
-const diagLog: string[] = [];
-function diagAttach(page: Page) {
-  const t0 = Date.now();
-  const ts = () => `+${((Date.now() - t0) / 1000).toFixed(1)}s`;
-  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') diagLog.push(`${ts()} console.${m.type()}: ${m.text().slice(0, 400)}`); });
-  page.on('pageerror', (e) => diagLog.push(`${ts()} pageerror: ${String(e).slice(0, 400)}`));
-  page.on('request', (r) => { if (/\/rest\/v1\/(profiles|business_client_links)|\/rest\/v1\/businesses\?.*[&?]slug=eq|\/auth\/v1\//.test(r.url())) diagLog.push(`${ts()} start ${r.method()} ${r.url().slice(0, 220)}`); });
-  page.on('requestfailed', (r) => diagLog.push(`${ts()} requestfailed: ${r.method()} ${r.url().slice(0, 200)} ${r.failure()?.errorText}`));
-  page.on('framenavigated', (f) => { if (f === page.mainFrame()) diagLog.push(`${ts()} navigated: ${f.url()}`); });
-  page.on('response', async (r) => {
-    const u = r.url();
-    if (r.status() >= 400 || /\/rest\/v1\/(profiles|business_client_links|feature_)|\/rest\/v1\/businesses\?.*[&?]slug=eq|\/auth\/v1\//.test(u)) {
-      let body = '';
-      if (r.status() >= 400) body = (await r.text().catch(() => '')).slice(0, 300);
-      diagLog.push(`${ts()} ${r.status()} ${r.request().method()} ${u.slice(0, 220)} ${body}`);
-    }
-  });
-}
-async function diagAfterReload(page: Page, label: string) {
-  const tab = page.getByRole('tab', { name: 'Historial' });
-  const ok = await tab.waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false);
-  if (ok) {
-    console.log(`[U15-DIAG] ${label}: tab visible, url=${page.url()}`);
-    for (const l of diagLog.filter((x) => /profiles|business_client_links|businesses|navigated|PATCH|requestfailed|pageerror/.test(x)).slice(-40)) console.log(`[U15-DIAG]   ${l}`);
-    diagLog.length = 0;
-    return;
-  }
-  console.log(`[U15-DIAG] ${label}: tab NOT visible after 20s; url=${page.url()}`);
-  for (const l of diagLog.slice(-120)) console.log(`[U15-DIAG]   ${l}`);
-  const text = await page.locator('body').innerText().catch((e) => `innerText failed: ${e}`);
-  console.log(`[U15-DIAG] body text: ${text.replace(/\s+/g, ' ').slice(0, 1500)}`);
-  const ls = await page.evaluate(() => Object.keys(localStorage).map((k) => `${k}(${(localStorage.getItem(k) ?? '').length})`)).catch(() => []);
-  console.log(`[U15-DIAG] localStorage: ${ls.join(' | ')}`);
-  const now = await page.evaluate(() => new Date().toISOString()).catch(() => '?');
-  console.log(`[U15-DIAG] browser now=${now} real now=${new Date().toISOString()}`);
-}
-
 test('4. manager reschedules an appointment, then cancels it', async ({ page }) => {
   await resetEditAppointment();
-  diagAttach(page);
   await pinBrowserClock(page, '08:00');
   const { row, edit, ownDate } = await openEditDialog(page, 'edit', '2 PM');
   await expect(ownDate).toBeVisible();
@@ -90,7 +50,6 @@ test('4. manager reschedules an appointment, then cancels it', async ({ page }) 
   await edit.getByRole('button', { name: 'Update Appointment' }).click();
   await expect(edit).toBeHidden();
   await page.reload();
-  await diagAfterReload(page, 'after reschedule');
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(row).toContainText('· 3 PM');
 
@@ -104,7 +63,6 @@ test('4. manager reschedules an appointment, then cancels it', async ({ page }) 
   // The status write and the client notice finish before this toast shows; reloading earlier can abort the write.
   await expect(page.getByText(/^Cita cancelada/)).toBeVisible();
   await page.reload();
-  await diagAfterReload(page, 'after cancel');
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(row).toContainText(/Cancelada/);
 });
@@ -130,24 +88,4 @@ test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)
   await pinBrowserClock(page, '20:00');
   const { ownDate } = await openEditDialog(page, 'checkout', '9 AM');
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
-});
-
-// U15 DIAGNOSTIC (temporary, to be reverted): a slow profile load on a hard reload of a business page.
-test('4z. U15 diag: reload appt-book with the profile request delayed 1.5s', async ({ page }) => {
-  const s = seedData();
-  await loginAsManager(page);
-  await page.goto(`/${s.slug}/appt-book/appointments`);
-  await expect(page.getByRole('tab', { name: 'Historial' })).toBeVisible();
-  const seen: string[] = [];
-  page.on('framenavigated', (f) => { if (f === page.mainFrame()) seen.push(f.url()); });
-  await page.route(/\/rest\/v1\/profiles\?/, async (route) => {
-    await new Promise((r) => setTimeout(r, 1500));
-    await route.continue();
-  });
-  await page.reload();
-  await page.waitForTimeout(5000);
-  console.log(`[U15-DIAG] 4z: navigations after reload: ${seen.join(' -> ')}`);
-  console.log(`[U15-DIAG] 4z: final url=${page.url()}`);
-  const text = await page.locator('body').innerText().catch(() => '');
-  console.log(`[U15-DIAG] 4z: body: ${text.replace(/\s+/g, ' ').slice(0, 300)}`);
 });
