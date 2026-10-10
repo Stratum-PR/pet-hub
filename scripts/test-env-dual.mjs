@@ -40,7 +40,9 @@ const FIX_LOG = 'docs/FIX_LOG.md';
 /**
  * Tests expected to FAIL against a ref's frontend, by exact test title. Each needs a reason and a FIX_LOG
  * link, and must also fail on the ref's OWN schema (checked on every run). Remove an entry once that ref gets
- * the fix or feature (the run fails until you do, so the list stays honest). Calibrated 2026-10-09 against
+ * the fix or feature (the run fails until you do, so the list stays honest). `mayPass: true` marks an entry whose
+ * failure depends on the time of day the run happens: it may pass without failing the run (it is still checked
+ * on the ref's own schema like any failure, so a schema regression is still caught). Calibrated 2026-10-09 against
  * main ad0bfd9 and dev c3521c2 (P1-13 in FIX_LOG has the runs).
  */
 const E1 = `${FIX_LOG} → E2E-1`;
@@ -57,6 +59,9 @@ const EXPECTED = {
     { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'same as 4b', link: E2 },
     { title: '5. manager checks out an appointment in cash', reason: 'no "Historial" tab and no per-appointment "Cobrar" (Quick charge) on main', link: P13 },
     { title: '5c. header "Cobrar" opens Quick charge over the dashboard (second copy of useTransactions, E2E-1)', reason: 'main has no header "Cobrar" (Quick charge is dev-only)', link: E1 },
+    // Time-dependent (mayPass): U17 pins flow 7's browser clock to 12:00 Puerto Rico on the seed's day. Before
+    // 12:00 PR (16:00 UTC) that is ahead of real time and main's login hangs on "Entrando…"; after it, it passes.
+    { title: '7. payroll page loads with the right hours and pay', reason: 'main\'s login stays on "Entrando…" (auth.getSession timeout) with the browser clock pinned ahead of real time (U17 pins flow 7 to 12:00 PR); passes when the run is after 12:00 PR', link: P13, mayPass: true },
     { title: '9. public booking page sends a request that reaches the business', reason: 'main has no /<slug>/reservar public booking page (it falls through to the landing page)', link: P13 },
     { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on main: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
   ],
@@ -333,7 +338,8 @@ async function main() {
   const regressions = failed.filter((t) => baseline.get(t.title) === 'pass' && !notReproduced.includes(t));
   const expectedFailures = failed.filter((t) => known.has(t.title) && !regressions.includes(t) && !notReproduced.includes(t));
   const unexpectedFailures = failed.filter((t) => !known.has(t.title) && !regressions.includes(t) && !notReproduced.includes(t));
-  const stale = passed.filter((t) => known.has(t.title));
+  const stale = passed.filter((t) => known.has(t.title) && !known.get(t.title).mayPass);
+  const passedMayPass = passed.filter((t) => known.get(t.title)?.mayPass);
   const missing = expected.filter((x) => !all.some((t) => t.title === x.title));
   const where = (t) =>
     baseline.get(t.title) === 'fail' ? `fails on ${ref}'s own schema too` : baseline.has(t.title) ? `${baseline.get(t.title)} on ${ref}'s own schema` : 'not re-run on its own schema';
@@ -349,6 +355,7 @@ async function main() {
   for (const t of unexpectedFailures) lines.push(`- **UNEXPECTED FAILURE** (${where(t)}): ${t.title} (${t.file}) — ${t.error}`);
   for (const t of notReproduced) lines.push(`- not reproduced (failed, ${where(t)}, then passed on a fresh seed of this branch's schema; not counted): ${t.title} — ${t.error}`);
   for (const t of stale) lines.push(`- **EXPECTED FAILURE PASSED** (remove it from EXPECTED.${ref} in scripts/test-env-dual.mjs): ${t.title}`);
+  for (const t of passedMayPass) lines.push(`- expected failure passed this time (time-dependent, allowed): ${t.title} — ${known.get(t.title).reason}`);
   for (const x of missing) lines.push(`- **EXPECTED-FAILURE ENTRY MATCHES NO TEST** (stale title?): ${x.title}`);
   for (const t of expectedFailures) lines.push(`- expected failure (${where(t)}): ${t.title} — ${known.get(t.title).reason} (${known.get(t.title).link})`);
   for (const t of skipped) lines.push(`- skipped: ${t.title}`);
