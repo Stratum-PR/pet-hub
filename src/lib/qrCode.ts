@@ -59,13 +59,14 @@ type QrBranding = {
   logoUrl?: string | null;
 };
 
+// No String.prototype.replaceAll: the build targets Safari 12 / iOS 12, which lack it.
 function escapeXml(value: string): string {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 function initialsFromName(name: string | null | undefined): string {

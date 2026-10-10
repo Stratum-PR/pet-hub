@@ -308,7 +308,7 @@ export function ClientPortalPublicPage() {
         .eq('client_id', client!.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data as PortalPetRow[] | null) ?? [];
+      return (data as unknown as PortalPetRow[] | null) ?? [];
     },
   });
 
@@ -348,7 +348,7 @@ export function ClientPortalPublicPage() {
       if (txFilterBusinessId) q = q.eq('business_id', txFilterBusinessId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data as TxRow[] | null) ?? [];
+      return (data as unknown as TxRow[] | null) ?? [];
     },
   });
 

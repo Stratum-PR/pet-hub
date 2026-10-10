@@ -52,7 +52,7 @@ export async function syncDemoManagerBirthdayToClientToday(
 
   const { error: upErr } = await supabase
     .from('staff')
-    .update({ birth_month, birth_day, birth_year } as Record<string, unknown>)
+    .update({ birth_month, birth_day, birth_year } as never)
     .eq('business_id', businessId)
     .eq('email', DEMO_MANAGER_EMAIL);
 

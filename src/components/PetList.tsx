@@ -21,7 +21,8 @@ interface PetListProps {
   appointments?: Appointment[] | any[];
   /** Open pet detail (view-only); when set, cards show Eye only and no Edit/Delete */
   onViewPet?: (pet: any) => void;
-  onDelete: (id: string) => void;
+  /** Omit to hide the delete button (employees may not delete pets; REMEDIATION_PLAN §9 decision 9). */
+  onDelete?: (id: string) => void;
   onEdit: (pet: any) => void;
 }
 
@@ -161,7 +162,7 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
   };
 
   const handleConfirmDelete = () => {
-    if (petToDelete) {
+    if (petToDelete && onDelete) {
       onDelete(petToDelete);
       setPetToDelete(null);
     }
@@ -261,9 +262,11 @@ export function PetList({ pets, clients, appointments, onViewPet, onDelete, onEd
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onEdit(pet); }}>
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteClick(pet.id); }}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {onDelete && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteClick(pet.id); }}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>

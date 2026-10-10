@@ -52,3 +52,6 @@ supabase/.temp
 
 # Local payments test stack workdir (scripts/test-env.mjs)
 .test-env/
+
+# Playwright smoke E2E output (seed file holds local-only test credentials)
+test-results/
