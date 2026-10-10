@@ -450,7 +450,7 @@ async function knownIssues() {
     .single();
   if (aptErr) throw new Error(`appointment: ${aptErr.message}`);
   r = await worker.db.from('appointments').delete().eq('id', apt.id).select();
-  known("employee cannot delete the business's appointments (P2-01 appointments)", await exists('appointments', apt.id), r);
+  check("employee cannot delete the business's appointments (P2-01 appointments)", await exists('appointments', apt.id), r);
   r = await worker.db.from('pets').delete().eq('id', pet.id).select();
   check("employee cannot delete the business's pets (P2-01 pets)", await exists('pets', pet.id), r);
   r = await worker.db.from('clients').delete().eq('id', cli.id).select();
@@ -460,6 +460,133 @@ async function knownIssues() {
 
   await clientPolicies({ shop: shop.id, bossBiz, worker, boss, hire });
   await petPolicies({ shop: shop.id, bossBiz, worker, boss, hire });
+  await appointmentPolicies({ shop: shop.id, bossBiz, worker, meStaff, boss, hire });
+}
+
+/**
+ * P2-01 appointments (decision 9): only managers delete appointments. Managers are is_business_manager(business_id):
+ * super admin, profile role manager/super_admin of that business, or staff access_role admin/manager in it.
+ * Employees keep reading, booking, rescheduling and changing the status of their business's appointments.
+ * Cancelling is a status change in every frontend (AppointmentBook / AppointmentDetailsSheet / request decline on
+ * remediation and dev, the EditAppointmentDialog status select on main), so the record stays.
+ * Portal clients keep reading their own appointments.
+ */
+async function appointmentPolicies({ shop, bossBiz, worker, meStaff, boss, hire }) {
+  console.log('Appointments: only managers delete appointments; employees still book, edit and cancel them (P2-01 appointments)');
+  const aptRow = async (id) =>
+    (await admin.from('appointments').select('id, status, appointment_date, start_time, decision_note').eq('id', id).maybeSingle()).data;
+  const seedClient = async (business_id, first_name, extra = {}) => {
+    const { data, error } = await admin.from('clients').insert({ business_id, first_name, last_name: run, ...extra }).select('id').single();
+    if (error) throw new Error(`client ${first_name}: ${error.message}`);
+    return data.id;
+  };
+  const seedPet = async (business_id, client_id, name) => {
+    const { data, error } = await admin.from('pets').insert({ id: crypto.randomUUID(), business_id, client_id, name }).select('id').single();
+    if (error) throw new Error(`pet ${name}: ${error.message}`);
+    return data.id;
+  };
+  const slot = (business_id, client_id, pet_id, day, extra = {}) => ({
+    id: crypto.randomUUID(),
+    business_id,
+    client_id,
+    pet_id,
+    appointment_date: `2030-02-${day}`,
+    start_time: '09:00',
+    end_time: '10:00',
+    scheduled_date: `2030-02-${day}T13:00:00Z`,
+    status: 'scheduled',
+    ...extra,
+  });
+  const seedApt = async (business_id, client_id, pet_id, day, extra = {}) => {
+    const { data, error } = await admin.from('appointments').insert(slot(business_id, client_id, pet_id, day, extra)).select('id').single();
+    if (error) throw new Error(`appointment ${day}: ${error.message}`);
+    return data.id;
+  };
+
+  // Own rows, so these checks don't depend on whether the delete attempt above was blocked.
+  const owner = await seedClient(shop, 'AptOwner');
+  const ownerPet = await seedPet(shop, owner, `AptPet${run}`);
+  const kept = await seedApt(shop, owner, ownerPet, '04', { staff_id: meStaff.id });
+
+  // Employee paths in the appointment book (useAppointments add/update, BookingFormDialog, main and dev).
+  let r = await worker.db.from('appointments').select('id').eq('business_id', shop);
+  check("employee can still read the business's appointments", !r.error && (r.data ?? []).some((x) => x.id === kept), r);
+  r = await worker.db.from('appointments').insert(slot(shop, owner, ownerPet, '05', { staff_id: meStaff.id })).select().single();
+  const booked = r.data?.id;
+  check('employee can still book an appointment', !r.error && !!booked && !!(await aptRow(booked)), r);
+  r = await worker.db
+    .from('appointments')
+    .update({ appointment_date: '2030-02-06', start_time: '11:00', end_time: '12:00', scheduled_date: '2030-02-06T15:00:00Z' })
+    .eq('id', kept)
+    .eq('business_id', shop)
+    .select()
+    .single();
+  let a = await aptRow(kept);
+  check('employee can still reschedule an appointment', !r.error && a?.appointment_date === '2030-02-06' && String(a?.start_time).startsWith('11:00'), { r, a });
+  // AppointmentBook.setStatus (remediation and dev) and the EditAppointmentDialog status select (main).
+  for (const status of ['confirmed', 'in_progress', 'completed', 'no_show', 'scheduled']) {
+    r = await worker.db.from('appointments').update({ status }).eq('id', kept).eq('business_id', shop).select().single();
+    check(`employee can still set an appointment to ${status}`, !r.error && (await aptRow(kept))?.status === status, r);
+  }
+  r = await worker.db.from('appointments').update({ status: 'canceled' }).eq('id', kept).eq('business_id', shop).select().single();
+  a = await aptRow(kept);
+  check("employee can still cancel an appointment (status 'canceled'; the row stays)", !r.error && a?.status === 'canceled', { r, a });
+  r = await worker.db.from('appointments').update({ status: 'cancelled' }).eq('id', kept).eq('business_id', shop).select().single();
+  a = await aptRow(kept);
+  check("employee can still cancel from the edit dialog (status 'cancelled'; the row stays)", !r.error && a?.status === 'cancelled', { r, a });
+  if (booked) {
+    // AppointmentBook request decline: status canceled plus the decision audit fields.
+    r = await worker.db
+      .from('appointments')
+      .update({ status: 'canceled', decision_note: 'No slot', decided_at: new Date().toISOString(), decided_by_staff_id: meStaff.id })
+      .eq('id', booked)
+      .eq('business_id', shop)
+      .select()
+      .single();
+    a = await aptRow(booked);
+    check('employee can still decline a booking request (status canceled; the row stays)', !r.error && a?.status === 'canceled' && a?.decision_note === 'No slot', { r, a });
+    r = await worker.db.from('appointments').delete().eq('id', booked).eq('business_id', shop).select();
+    check('employee cannot delete an appointment they just booked (P2-01 appointments)', !!(await aptRow(booked)), r);
+  }
+
+  // Manager delete, the way useAppointments.deleteAppointment does it (main).
+  const bossOwner = await seedClient(bossBiz, 'BossAptOwner');
+  const bossPet = await seedPet(bossBiz, bossOwner, `BossAptPet${run}`);
+  const gone = await seedApt(bossBiz, bossOwner, bossPet, '10');
+  r = await boss.db.from('appointments').delete().eq('id', gone).eq('business_id', bossBiz);
+  check('manager can still delete an appointment', !r.error && !(await aptRow(gone)), r);
+  r = await boss.db.from('appointments').update({ status: 'canceled' }).eq('id', kept).select();
+  check("another business's manager cannot cancel this business's appointments", (await aptRow(kept))?.status === 'cancelled', r);
+  r = await boss.db.from('appointments').delete().eq('id', kept).select();
+  check("another business's manager cannot delete this business's appointments", !!(await aptRow(kept)), r);
+
+  // Staff with access_role manager (profile role employee) count as managers (is_business_manager).
+  const lead = await newUser('apt-lead', { role: 'employee', business_id: bossBiz, staff_id: hire.id }); // hire: access_role manager
+  const leadGone = await seedApt(bossBiz, bossOwner, bossPet, '11');
+  r = await lead.db.from('appointments').delete().eq('id', leadGone).select();
+  check('staff with access_role manager can still delete an appointment', !r.error && !(await aptRow(leadGone)), r);
+
+  // Super admin (AdminDashboard / support tools).
+  const sa = await newUser(`qa-sa-apts-${run}@stratumpr.com`, null);
+  const saGone = await seedApt(shop, owner, ownerPet, '12');
+  r = await sa.db.from('appointments').delete().eq('id', saGone).select();
+  check('super admin can still delete an appointment', !r.error && !(await aptRow(saGone)), r);
+  // appointments.business_id is nullable; the old "Appointments delete" policy let super admin delete such rows.
+  const saOrphan = await seedApt(null, null, null, '13');
+  r = await sa.db.from('appointments').delete().eq('id', saOrphan).select();
+  check('super admin can still delete an appointment with no business', !r.error && !(await aptRow(saOrphan)), r);
+
+  // Client portal (ClientPortalPublicPage, main and dev): reads its own appointments by client_id.
+  // Public booking (submit_booking_request) is SECURITY DEFINER and only inserts; e2e/09 covers it.
+  const portal = await newUser('apt-portal', { role: 'client' });
+  const portalClient = await seedClient(null, 'AptPortal', { profile_id: portal.id, email: `apt-portal-${run}@grumi.test` });
+  const portalApt = await seedApt(shop, portalClient, null, '14');
+  r = await portal.db.from('appointments').select('id, appointment_date, start_time, status').eq('client_id', portalClient);
+  check('client portal can still read its own appointments', !r.error && (r.data ?? []).some((x) => x.id === portalApt), r);
+  r = await portal.db.from('appointments').delete().eq('id', portalApt).select();
+  check('a portal client cannot delete its own appointment', !!(await aptRow(portalApt)), r);
+  r = await portal.db.from('appointments').delete().eq('id', kept).select();
+  check("a portal client cannot delete a business's appointments", !!(await aptRow(kept)), r);
 }
 
 /**
