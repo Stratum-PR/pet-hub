@@ -514,6 +514,10 @@ async function clientPolicies({ shop, bossBiz, worker, boss, hire }) {
   const saGone = await seedClient(shop, 'SaGone');
   r = await sa.db.from('clients').delete().eq('id', saGone).select();
   check('super admin can still delete a client', !r.error && !(await clientRow(saGone)), r);
+  // Global portal clients have no business (business_id NULL); the old "Clients delete" policy let super admin delete them.
+  const saGlobal = await seedClient(null, 'SaGlobal');
+  r = await sa.db.from('clients').delete().eq('id', saGlobal).select();
+  check('super admin can still delete a client with no business', !r.error && !(await clientRow(saGlobal)), r);
 }
 
 /**
