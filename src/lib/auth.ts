@@ -3,6 +3,7 @@ import { clearAuthContext } from '@/lib/authRouting';
 import { clearSupportSessionMarkers } from '@/lib/supportSession';
 import { broadcastAuthLogout } from '@/lib/authBroadcast';
 import { devConsole } from '@/lib/clientDebug';
+import { BUSINESS_COLUMNS } from '@/lib/businessSlug';
 
 /** True while this tab is executing `signOut` — used to avoid treating same-tab logout as cross-tab session loss. */
 let localSignOutDepth = 0;
@@ -49,6 +50,13 @@ export interface Business {
   updated_at: string;
 }
 
+/** `profiles` columns loaded for the signed-in user (the `Profile` type). Not loaded: `phone`, `is_active`. */
+export const PROFILE_COLUMNS =
+  'id, email, full_name, avatar_url, is_super_admin, business_id, prefer_admin_dashboard_on_login, role, staff_id, created_at, updated_at';
+
+/** `businesses` columns behind the `Business` type; defined next to the slug lookup (no client import there). */
+export { BUSINESS_COLUMNS };
+
 /**
  * Get the current authenticated user
  */
@@ -67,7 +75,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PROFILE_COLUMNS)
     .eq('id', user.id)
     .single();
 
@@ -84,7 +92,7 @@ export async function getCurrentBusiness(): Promise<Business | null> {
 
   const { data, error } = await supabase
     .from('businesses')
-    .select('*')
+    .select(BUSINESS_COLUMNS)
     .eq('id', profile.business_id)
     .single();
 
