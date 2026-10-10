@@ -25,6 +25,8 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 const LOGIN_DEBUG_STORAGE_KEY = 'grumi-login-debug-logs';
 const LOGIN_DEBUG_ATTEMPT_KEY = 'grumi-login-debug-attempt';
+/** How long sign-in waits for the role-based destination before giving up with an error (no guessing). */
+const DESTINATION_LOOKUP_SAFETY_MS = 30_000;
 
 export interface LoginFormProps {
   onLoginSuccess: (destination: string) => void;
@@ -284,14 +286,22 @@ export function LoginForm({
         if (postLoginNavigateTo != null && postLoginNavigateTo !== '') {
           destination = postLoginNavigateTo;
         } else {
-          const redirectResolverPromise = getRedirectForAuthenticatedUser();
-          const redirectTimeoutPromise = new Promise<string>((resolve) =>
-            setTimeout(() => resolve('/portal'), 6000)
+          // Wait for the role-based answer (the button keeps its spinner). Never guess a route on a
+          // slow lookup: a guessed '/portal' sent managers and employees to the client portal.
+          // Past the safety limit, show an error so the person can try again.
+          let safetyTimer: ReturnType<typeof setTimeout> | undefined;
+          const redirectTimeoutPromise = new Promise<null>((resolve) => {
+            safetyTimer = setTimeout(() => resolve(null), DESTINATION_LOOKUP_SAFETY_MS);
+          });
+          const resolved = await Promise.race([getRedirectForAuthenticatedUser(), redirectTimeoutPromise]).finally(
+            () => clearTimeout(safetyTimer)
           );
-          destination = await Promise.race([redirectResolverPromise, redirectTimeoutPromise]);
-          if (destination === '/portal') {
-            pushUiDebug('login:destinationTimeoutFallback', { fallback: '/portal', timeoutMs: 6000 });
+          if (resolved == null) {
+            pushUiDebug('login:destinationTimeout', { timeoutMs: DESTINATION_LOOKUP_SAFETY_MS });
+            toast.error(t('login.errorGeneric') || 'Something went wrong. Please try again.');
+            return;
           }
+          destination = resolved;
         }
         if (businessSlug && destination.startsWith('/portal')) {
           destination = `/portal?business=${encodeURIComponent(businessSlug)}`;
