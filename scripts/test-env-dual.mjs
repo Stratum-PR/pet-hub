@@ -65,14 +65,13 @@ const EXPECTED = {
     { title: '9. public booking page sends a request that reaches the business', reason: 'main has no /<slug>/reservar public booking page (it falls through to the landing page)', link: P13 },
     { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on main: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
   ],
-  // dev = the dev page: has every feature the flows use, misses only the three fixes made on `remediation`.
+  // dev = the dev page: has every feature the flows use and the E2E-1 fix (813eb75), misses only the E2E-2 and
+  // E2E-3 fixes and the U22 ProtectedRoute race fix made on `remediation`.
   dev: [
     // mayPass: a race, so it often passes.
     { title: '4. manager reschedules an appointment, then cancels it', reason: 'ProtectedRoute reload race bounces the manager to /portal ("Cuenta de personal") when the profile loads after the client-link check (U22: fixed on remediation, not on dev)', link: `${P13} / U22`, mayPass: true },
     { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'E2E-2 fix not on dev: the edit dialog opens on the wrong date', link: E2 },
     { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'E2E-2 fix not on dev', link: E2 },
-    { title: '5. manager checks out an appointment in cash', reason: 'E2E-1 fix not on dev: "Cobrar" shows "No se pudo cargar la pantalla de cobro" (realtime channel reuse)', link: E1 },
-    { title: '5b. "Nueva transacción" opens (second copies of the inventory and appointments hooks, E2E-1)', reason: 'E2E-1 fix not on dev: "cannot add postgres_changes callbacks … after subscribe()"', link: E1 },
     { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on dev: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
   ],
 };
