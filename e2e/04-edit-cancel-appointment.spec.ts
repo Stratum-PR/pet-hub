@@ -131,3 +131,23 @@ test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)
   const { ownDate } = await openEditDialog(page, 'checkout', '9 AM');
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
 });
+
+// U15 DIAGNOSTIC (temporary, to be reverted): a slow profile load on a hard reload of a business page.
+test('4z. U15 diag: reload appt-book with the profile request delayed 1.5s', async ({ page }) => {
+  const s = seedData();
+  await loginAsManager(page);
+  await page.goto(`/${s.slug}/appt-book/appointments`);
+  await expect(page.getByRole('tab', { name: 'Historial' })).toBeVisible();
+  const seen: string[] = [];
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) seen.push(f.url()); });
+  await page.route(/\/rest\/v1\/profiles\?/, async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await page.reload();
+  await page.waitForTimeout(5000);
+  console.log(`[U15-DIAG] 4z: navigations after reload: ${seen.join(' -> ')}`);
+  console.log(`[U15-DIAG] 4z: final url=${page.url()}`);
+  const text = await page.locator('body').innerText().catch(() => '');
+  console.log(`[U15-DIAG] 4z: body: ${text.replace(/\s+/g, ' ').slice(0, 300)}`);
+});
