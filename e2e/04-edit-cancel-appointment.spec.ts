@@ -47,12 +47,12 @@ function diagAttach(page: Page) {
   const ts = () => `+${((Date.now() - t0) / 1000).toFixed(1)}s`;
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') diagLog.push(`${ts()} console.${m.type()}: ${m.text().slice(0, 400)}`); });
   page.on('pageerror', (e) => diagLog.push(`${ts()} pageerror: ${String(e).slice(0, 400)}`));
-  page.on('request', (r) => { if (/\/rest\/v1\/(profiles|businesses|business_client_links|rpc)|\/auth\/v1\//.test(r.url())) diagLog.push(`${ts()} start ${r.method()} ${r.url().slice(0, 220)}`); });
+  page.on('request', (r) => { if (/\/rest\/v1\/(profiles|business_client_links)|\/rest\/v1\/businesses\?.*[&?]slug=eq|\/auth\/v1\//.test(r.url())) diagLog.push(`${ts()} start ${r.method()} ${r.url().slice(0, 220)}`); });
   page.on('requestfailed', (r) => diagLog.push(`${ts()} requestfailed: ${r.method()} ${r.url().slice(0, 200)} ${r.failure()?.errorText}`));
   page.on('framenavigated', (f) => { if (f === page.mainFrame()) diagLog.push(`${ts()} navigated: ${f.url()}`); });
   page.on('response', async (r) => {
     const u = r.url();
-    if (r.status() >= 400 || /\/rest\/v1\/(appointments|rpc|profiles|businesses|business_client_links|feature_)|\/auth\/v1\//.test(u)) {
+    if (r.status() >= 400 || /\/rest\/v1\/(profiles|business_client_links|feature_)|\/rest\/v1\/businesses\?.*[&?]slug=eq|\/auth\/v1\//.test(u)) {
       let body = '';
       if (r.status() >= 400) body = (await r.text().catch(() => '')).slice(0, 300);
       diagLog.push(`${ts()} ${r.status()} ${r.request().method()} ${u.slice(0, 220)} ${body}`);
@@ -64,7 +64,7 @@ async function diagAfterReload(page: Page, label: string) {
   const ok = await tab.waitFor({ state: 'visible', timeout: 20_000 }).then(() => true, () => false);
   if (ok) {
     console.log(`[U15-DIAG] ${label}: tab visible, url=${page.url()}`);
-    for (const l of diagLog.filter((x) => /profiles|business_client_links|businesses|navigated|PATCH/.test(x)).slice(-40)) console.log(`[U15-DIAG]   ${l}`);
+    for (const l of diagLog.filter((x) => /profiles|business_client_links|businesses|navigated|PATCH|requestfailed|pageerror/.test(x)).slice(-40)) console.log(`[U15-DIAG]   ${l}`);
     diagLog.length = 0;
     return;
   }
