@@ -108,6 +108,7 @@ test('4y. U15 diag: 20 fresh logins + hard loads of appt-book', async ({ browser
     page.on('request', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0.v}ms start ${k}`); });
     page.on('requestfinished', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0.v}ms done ${k}`); });
     page.on('framenavigated', (f) => { if (f === page.mainFrame()) events.push(`${Date.now() - t0.v}ms nav ${new URL(f.url()).pathname}`); });
+    if (i % 2 === 1) await pinBrowserClock(page, '08:00'); // odd iterations: clock pinned like flow 4
     await loginAsManager(page);
     events.length = 0;
     t0.v = Date.now();
@@ -117,7 +118,7 @@ test('4y. U15 diag: 20 fresh logins + hard loads of appt-book', async ({ browser
       page.waitForURL(/\/portal/, { timeout: 15_000 }).then(() => 'portal', () => 'timeout'),
     ]);
     if (outcome !== 'ok') bounced++;
-    console.log(`[U15-DIAG] 4y #${i}: ${outcome}; ${events.join(', ')}`);
+    console.log(`[U15-DIAG] 4y #${i} ${i % 2 === 1 ? 'pinned' : 'real'}: ${outcome}; ${events.join(', ')}`);
     await ctx.close();
   }
   console.log(`[U15-DIAG] 4y: ${bounced}/20 fresh login + hard loads did not show the appointment book`);
