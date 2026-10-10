@@ -67,6 +67,8 @@ const EXPECTED = {
   ],
   // dev = the dev page: has every feature the flows use, misses only the three fixes made on `remediation`.
   dev: [
+    // mayPass: a race, so it often passes.
+    { title: '4. manager reschedules an appointment, then cancels it', reason: 'ProtectedRoute reload race bounces the manager to /portal ("Cuenta de personal") when the profile loads after the client-link check (U22: fixed on remediation, not on dev)', link: `${P13} / U22`, mayPass: true },
     { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'E2E-2 fix not on dev: the edit dialog opens on the wrong date', link: E2 },
     { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'E2E-2 fix not on dev', link: E2 },
     { title: '5. manager checks out an appointment in cash', reason: 'E2E-1 fix not on dev: "Cobrar" shows "No se pudo cargar la pantalla de cobro" (realtime channel reuse)', link: E1 },
