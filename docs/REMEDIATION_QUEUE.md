@@ -15,7 +15,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 1 | U04 | P2-03 staff column privileges | `supabase/migrations/20261009110000_*.sql`, `supabase/rollbacks/20261009110000_*.down.sql`, `scripts/test-env-security.mjs` | 20261009110000 | U00 | merged |
 | 1 | U05 | Reminder greets with `first_name` when `name` is empty | `supabase/functions/send-appointment-reminder/**` | – | U00 | merged |
 | 1 | U06 | P4-01 lazy-load routes | `src/App.tsx`, new `src/components/RouteFallback.tsx` | – | U00 | merged |
-| 1 | U07 | P1-13 dual-frontend CI gate (main's frontend vs new schema) | `.github/workflows/dual-frontend.yml` (new), `scripts/test-env-dual.mjs` (new) | – | U00 | review (final CI 38023437747 + dual-frontend 38023437745 on 89f2cff were running at stop; check them) |
+| 1 | U07 | P1-13 dual-frontend CI gate (main's frontend vs new schema) | `.github/workflows/dual-frontend.yml` (new), `scripts/test-env-dual.mjs` (new) | – | U00 | merged |
 | 2 | U08 | P2-01 staff RLS | `supabase/migrations/20261009120000_*.sql`, matching rollback, `scripts/test-env-security.mjs` | 20261009120000 | U04 | merged |
 | 2 | U09 | P3-04 explicit column lists on `staff`/`profiles`/`businesses` | the `.from('staff'\|'profiles'\|'businesses')` select call sites (listed by the worker at start) | – | wave 1 | merged |
 | 2 | U10 | P3-08 README + cross-platform scripts | `README.md`, new `scripts/*.sh` / `*.mjs` replacements | – | – | merged |
@@ -63,6 +63,7 @@ Rules learned: one remediation push at a time; trust GitHub API `status: complet
 
 ## Notes
 
+- 2026-10-10 ~16:20 UTC: U07 merged (head 031a1b9: CI 38065120904 ✓, dual-frontend 38065120915 ✓ — main 7 passed + 8 expected + flow 7 mayPass passed; dev 11 passed + 4 expected). Flows 5/5b dropped from EXPECTED.dev (dev has the E2E-1 fix since 813eb75). remediation's previous push e2cde1b: CI 38063842861 ✓. Next: U15.
 - 2026-10-10 ~14:30 UTC: U21 merged (branch CI 38058755289 green; remediation 38058940815 green). Owner OK for U11/U12 after U15. U07 + U15 synced with remediation (cc9ef17 / bf59bd0); U15's CI 38059035682 red, investigating.
 - 2026-10-10 ~14:20 UTC: U19 merged (branch CI 38058522206 green, flow 4 first attempt ×3; remediation 38058432187 green). U21 running. Next: U07, then U15 (update each from remediation, green CI, merge).
 - 2026-10-10 ~14:10 UTC: U20 merged (owner OK to run in parallel with U19; branch CI 38057951694 green; remediation 38057672269 green). U21 queued (needs owner OK).
