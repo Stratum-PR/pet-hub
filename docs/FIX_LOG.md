@@ -982,3 +982,45 @@ Saved anchors, cadence and pay math are unchanged.
 - No page test: it would need heavy mocking. Coverage comes from `src/lib/payrollAnchor.test.ts` plus a grep check (no `toISOString().slice(0, 10)` left in these pages).
 
 **Notes.** The repo's security pre-commit hook flags `dangerouslySetInnerHTML` / `document.write` in `BusinessSettingsPage.tsx` (likely the QR print path). This predates U21 and isn't changed here; it's a candidate for a separate review.
+
+
+---
+
+## 2026-10-10 · P1-13 (CI) · Dual-frontend gate: smoke E2E against main's and dev's frontend
+
+**Status:** done on `remediation` (unit U07, branch `fix/U07-dual-frontend`). CI only; no app or schema change.
+
+**Problem.** One database serves two app versions (PLAN §9): `main` (production) and `dev` (dev page). A migration that breaks the older frontend breaks production with no deploy. Single-database rule 3 asks every migration or edge-function change to run the smoke E2E against both frontends.
+
+**Change.**
+- New `scripts/test-env-dual.mjs <main|dev>`:
+  - fetches the ref, `git archive`s it, deletes its .env files, builds it against the local stack (refuses a bundle that lacks the local URL or still has a hosted one), serves `dist/` on :55440;
+  - runs this branch's Playwright specs against it (`E2E_WEB_COMMAND`, `E2E_JSON_REPORT`);
+  - re-runs every failure on the ref's own schema (`TEST_ENV_MIGRATIONS_DIR` = the ref's migrations on the production snapshot). Fails there too → expected or pre-existing; passes there → **schema regression**;
+  - re-runs anything that would fail the gate on a fresh seed of this branch's schema; only failures that reproduce count ("not reproduced" otherwise);
+  - prints page snapshots and a Playwright-trace digest (URLs, console errors, failed requests) for unexpected failures.
+- Per-ref expected failures, each with title, reason and FIX_LOG reference:
+  - **main: 9 expected** — 3, 4, 4b, 4c, 5, 5c, 9, 10 (April UI lacks the features or the E2E-2/E2E-3 fixes), plus **7 as `mayPass`**.
+  - **dev: 4 expected** — 4b, 4c (E2E-2), 10 (E2E-3), plus **4 as `mayPass`**. Flows 5/5b were dropped: dev got the E2E-1 fix in 813eb75.
+- **`mayPass`** marks an expected failure that is time- or race-dependent: if it passes, the gate reports it and stays green; if it fails, it's still re-checked on the ref's own schema, so a schema regression is still caught. Every other expected failure that passes fails the gate (remove it from the list).
+  - main flow 7: U17 pins flow 7's browser clock to 12:00 PR on the seed's day; before 12:00 PR that is ahead of real time and main's login hangs on "Entrando…" (auth.getSession timeout); after 12:00 PR it passes.
+  - dev flow 4: dev's ProtectedRoute reload race bounces a manager to `/portal` when the profile loads after the client-link check (fixed on `remediation` by U22).
+- The gate fails on: a schema regression, an unlisted failure, a non-`mayPass` expected failure that passed, an entry that matches no test, or an own-schema / confirmation step that couldn't run.
+- New `.github/workflows/dual-frontend.yml`: jobs `dual-main` and `dual-dev`; push to dev, remediation, `fix/**`; PRs to dev/main; workflow_dispatch; path-filtered (migrations, functions, test env, e2e, `playwright.config.ts`). Uploads logs and the Playwright report. No secrets.
+- `playwright.config.ts`: optional `E2E_WEB_COMMAND` / `E2E_JSON_REPORT`. `scripts/test-env.mjs`: exports `stackEnv`; optional `TEST_ENV_MIGRATIONS_DIR`. Defaults unchanged.
+
+**Decision.** A dual-frontend failure counts only if it fails on remediation's schema AND reproduces on a fresh seed. One that passes on the ref's own schema is a schema regression and blocks.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 135/135 · build OK.
+- Final head 031a1b9: CI 38065120904 ✓; dual-frontend 38065120915 ✓:
+  - dual-main (main ad0bfd9): 7 passed · 8 expected failures · flow 7 (`mayPass`) passed · 0 schema regressions · 0 unexpected.
+  - dual-dev (dev 8a60f28): 11 passed · 4 expected failures (flow 4 `mayPass` failed this time) · 0 schema regressions · 0 unexpected.
+- Earlier: run 38021661425 flagged main's flow 7 as a regression; it was the Puerto Rico midnight date edge (fixed by U17), not schema. Run 38063325244 failed dual-dev on flows 5/5b passing (dev gained the E2E-1 fix).
+
+**Notes.**
+- The own-schema comparison swaps migrations only; edge functions always come from this branch, so an edge-function regression shows up as an unlisted failure, not a "schema regression".
+- Path filters mean a required `dual-main`/`dual-dev` check won't report on PRs that don't touch those paths (OWNER_ACTIONS B4).
+- Run locally: `node scripts/test-env-dual.mjs main` (needs Docker).
+
+**Rollback.** Revert the merge commit.
