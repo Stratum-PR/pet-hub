@@ -53,7 +53,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 
 ## Resume here (updated 2026-10-10 ~22:05 UTC)
 
-Update 22:05: U29, U30, U31 merged (remediation f2b7c00: CI 38089467042 ✓, dual-frontend 38089467077 ✓; tsc 28 · lint 400 · vitest 226 · build OK). Next: merge remediation into dev (owner-approved, no `[deploy]`). Still open: S-6a/S-8a (plan drafted below; owner + Genesis), slug CHECK (needs the owner's D12 query result), U31 follow-up (drop main flow 7 `mayPass` after a green dual-main before 16:00 UTC).
+Update 22:05: U29, U30, U31 merged (remediation f2b7c00: CI 38089467042 ✓, dual-frontend 38089467077 ✓; tsc 28 · lint 400 · vitest 226 · build OK). **remediation merged into dev** (dev 6485e9b, no deploy; dev CI 38090598771 ✓, dual-frontend 38090598808 ✓, payments-test-env 38090598799 ✓). Still open: S-6a/S-8a (plan drafted below; owner + Genesis), slug CHECK (needs the owner's D12 query result), U31 follow-up (drop main flow 7 `mayPass` after a green dual-main before 16:00 UTC).
 
 
 State: every queued unit through U28 is **merged** on `remediation` (incl. U07/U07b/U07c dual-frontend gate, U11/U12 PIN hashing, U15, U22–U28), and `remediation` was merged into `dev` twice (428a060, then 64704b0; no deploy). PR #6 (remediation → main) was closed. Gates on the last head: tsc 28 · lint 400 · vitest 223 · build OK; CI + dual-frontend green (dual gate now ~5 min).
@@ -87,6 +87,8 @@ Both touch `supabase/functions/payments/` and the payments tables Genesis is wor
 - [ ] **Delete merged `fix/*` branches** if the coordinator reports the proxy refused it.
 
 ## Notes
+
+- 2026-10-10 ~22:21 UTC: third merge of remediation into dev (6485e9b = remediation 5f1ea4b tree; owner-approved, no `[deploy]`); dev CI, dual-frontend and payments-test-env green. HANDOFF updated for Genesis.
 
 - 2026-10-10 ~22:05 UTC: U30 merged (ac5405e; branch CI 38088998654 ✓, dual 38088998677 ✓; red 38088639011). Also tightens `can_manage_staff_private` (same decision; inactive leads could read staff_private and raise own pay). D13 added.
 - 2026-10-10 ~21:48 UTC: U31 merged (9ba6811; CI 38087820254 ✓, dual 38087820262 ✓). 4b/4c token refreshes 27/20 → 0.
