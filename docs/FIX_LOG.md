@@ -1001,10 +1001,11 @@ Saved anchors, cadence and pay math are unchanged.
   - prints page snapshots and a Playwright-trace digest (URLs, console errors, failed requests) for unexpected failures.
 - Per-ref expected failures, each with title, reason and FIX_LOG reference:
   - **main: 9 expected** — 3, 4, 4b, 4c, 5, 5c, 9, 10 (April UI lacks the features or the E2E-2/E2E-3 fixes), plus **7 as `mayPass`**.
-  - **dev: 4 expected** — 4b, 4c (E2E-2), 10 (E2E-3), plus **4 as `mayPass`**. Flows 5/5b were dropped: dev got the E2E-1 fix in 813eb75.
+  - **dev: 5 expected** — 4b, 4c (E2E-2), 10 (E2E-3), plus **4 and 7 as `mayPass`** (7 added by U07b, below). Flows 5/5b were dropped: dev got the E2E-1 fix in 813eb75.
 - **`mayPass`** marks an expected failure that is time- or race-dependent: if it passes, the gate reports it and stays green; if it fails, it's still re-checked on the ref's own schema, so a schema regression is still caught. Every other expected failure that passes fails the gate (remove it from the list).
   - main flow 7: U17 pins flow 7's browser clock to 12:00 PR on the seed's day; before 12:00 PR that is ahead of real time and main's login hangs on "Entrando…" (auth.getSession timeout); after 12:00 PR it passes.
   - dev flow 4: dev's ProtectedRoute reload race bounces a manager to `/portal` when the profile loads after the client-link check (fixed on `remediation` by U22).
+  - dev flow 7 (U07b, 2026-10-10): the same race on the payroll flow. Run 38066965363 (U15 head 744c8cc) attempt 1 called it a schema regression only because dev's own schema passed by chance; attempt 2 failed it on dev's own schema too. Remove flows 4 and 7 from `EXPECTED.dev` once dev has U22's fix.
 - The gate fails on: a schema regression, an unlisted failure, a non-`mayPass` expected failure that passed, an entry that matches no test, or an own-schema / confirmation step that couldn't run.
 - New `.github/workflows/dual-frontend.yml`: jobs `dual-main` and `dual-dev`; push to dev, remediation, `fix/**`; PRs to dev/main; workflow_dispatch; path-filtered (migrations, functions, test env, e2e, `playwright.config.ts`). Uploads logs and the Playwright report. No secrets.
 - `playwright.config.ts`: optional `E2E_WEB_COMMAND` / `E2E_JSON_REPORT`. `scripts/test-env.mjs`: exports `stackEnv`; optional `TEST_ENV_MIGRATIONS_DIR`. Defaults unchanged.
@@ -1022,5 +1023,22 @@ Saved anchors, cadence and pay math are unchanged.
 - The own-schema comparison swaps migrations only; edge functions always come from this branch, so an edge-function regression shows up as an unlisted failure, not a "schema regression".
 - Path filters mean a required `dual-main`/`dual-dev` check won't report on PRs that don't touch those paths (OWNER_ACTIONS B4).
 - Run locally: `node scripts/test-env-dual.mjs main` (needs Docker).
+
+**Rollback.** Revert the merge commit.
+
+
+---
+
+## 2026-10-10 · P1-13 (CI) follow-up · U07b · Flow 7 is `mayPass` on dev's frontend
+
+**Status:** done on `remediation` (unit U07b, branch `fix/U07b-dual-flow7-maypass`). CI only.
+
+**Problem.** dual-dev on U15 (run 38066965363) failed flow 7 (payroll): the manager landed on `/portal` ("Cuenta de personal"). Attempt 1 labeled it a schema regression because flow 7 passed once on dev's own schema; attempt 2 failed it on dev's own schema too. A diagnosis showed U15 isn't involved (its policy split leaves the SELECT policies on `appointments` identical; nothing in the login/client-link path reads appointments). It is dev's ProtectedRoute reload race (U22), already listed for flow 4.
+
+**Change.** `scripts/test-env-dual.mjs`: flow 7 added to `EXPECTED.dev` with `mayPass: true` and the U22 reason. Failures are still re-checked on dev's own schema, so a real schema regression still fails the gate.
+
+**Gates.** tsc 29 · lint 400 · vitest 135/135 · build OK. Head 72c7110: CI 38071762534 ✓; dual-frontend 38071762429 ✓ (dev: 12 passed + 3 expected, flows 4 and 7 passed as mayPass; main: 7 passed + 8 expected).
+
+**Note.** Possible contributor, unproven: flows 4 and 7 are the only specs that pin the browser clock (`page.clock.setFixedTime`); after 12:00 PR flow 7's frozen clock runs behind real time. Worth a look in U22.
 
 **Rollback.** Revert the merge commit.
