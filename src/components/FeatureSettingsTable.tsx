@@ -297,7 +297,7 @@ export function FeatureSettingsTable() {
       ))}
 
       {changedRows.length > 0 && (
-      <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-end gap-2 border-t bg-card/95 px-6 py-3 backdrop-blur">
+      <div className="sticky bottom-4 flex flex-wrap items-center justify-end gap-2 rounded-lg border bg-card/95 px-4 py-3 shadow-md backdrop-blur">
         <span className="mr-auto text-sm text-muted-foreground">
           {t('admin.features.pendingChanges', { count: changedRows.length })}
         </span>

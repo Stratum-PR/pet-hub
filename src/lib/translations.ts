@@ -12,6 +12,50 @@ export interface Translations {
 
 export const translations: Translations = {
   // Admin dashboard
+  'admin.nav.overview': {
+    en: 'Overview',
+    es: 'Resumen'
+  },
+  'admin.nav.businesses': {
+    en: 'Businesses',
+    es: 'Negocios'
+  },
+  'admin.nav.features': {
+    en: 'Features',
+    es: 'Funciones'
+  },
+  'admin.nav.badge': {
+    en: 'Admin',
+    es: 'Admin'
+  },
+  'admin.nav.myBusiness': {
+    en: 'Back to my business',
+    es: 'Volver a mi negocio'
+  },
+  'admin.nav.openMenu': {
+    en: 'Open menu',
+    es: 'Abrir menú'
+  },
+  'admin.overview.attentionTitle': {
+    en: 'Needs attention',
+    es: 'Necesita atención'
+  },
+  'admin.overview.allGood': {
+    en: 'Nothing needs attention right now.',
+    es: 'Nada requiere atención ahora mismo.'
+  },
+  'admin.overview.pastDue': {
+    en: 'Payment past due',
+    es: 'Pago atrasado'
+  },
+  'admin.overview.noActivity': {
+    en: 'No appointments or sales yet',
+    es: 'Sin citas ni ventas aún'
+  },
+  'admin.overview.quietSince': {
+    en: 'No activity since {when}',
+    es: 'Sin actividad desde {when}'
+  },
   'admin.features.intro': {
     en: 'Live: businesses see it. Dev: only super admins, in the Development preview. Click a feature to see who it applies to.',
     es: 'Live: los negocios la ven. Dev: solo los super admin, en la vista de Desarrollo. Haz clic en una función para ver a quién aplica.'
@@ -184,14 +228,6 @@ export const translations: Translations = {
     en: 'Admin Dashboard',
     es: 'Panel de administración'
   },
-  'admin.subtitle': {
-    en: 'All Grumi businesses',
-    es: 'Todos los negocios de Grumi'
-  },
-  'admin.exitAdminView': {
-    en: 'Exit admin view',
-    es: 'Salir del panel'
-  },
   'admin.logout': {
     en: 'Log out',
     es: 'Cerrar sesión'
@@ -199,10 +235,6 @@ export const translations: Translations = {
   'admin.loading': {
     en: 'Loading admin data',
     es: 'Cargando datos de administración'
-  },
-  'admin.allBusinesses': {
-    en: 'All businesses',
-    es: 'Todos los negocios'
   },
   'admin.searchBusinesses': {
     en: 'Search by name, email or slug…',
@@ -228,10 +260,6 @@ export const translations: Translations = {
     en: 'Business',
     es: 'Negocio'
   },
-  'admin.colOwnerEmail': {
-    en: 'Owner email',
-    es: 'Correo del dueño'
-  },
   'admin.colTier': {
     en: 'Plan',
     es: 'Plan'
@@ -251,10 +279,6 @@ export const translations: Translations = {
   'admin.colCreated': {
     en: 'Created',
     es: 'Creado'
-  },
-  'admin.colActions': {
-    en: 'Actions',
-    es: 'Acciones'
   },
   'admin.lastActivityHint': {
     en: 'Most recent appointment or sale created',
@@ -371,10 +395,6 @@ export const translations: Translations = {
   'admin.signInAs': {
     en: 'Sign in as',
     es: 'Entrar como'
-  },
-  'admin.featureSettings': {
-    en: 'Feature settings',
-    es: 'Configuración de funciones'
   },
   'admin.status.active': {
     en: 'Active',
