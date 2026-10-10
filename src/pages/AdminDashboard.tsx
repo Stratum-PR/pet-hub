@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { Business, type Profile, signOut, setImpersonation } from '@/lib/auth';
 import { format, isValid } from 'date-fns';
-import { Building2, LogOut, ArrowLeft } from 'lucide-react';
+import { Building2, LogOut, ArrowLeft, Users, LogIn, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import {
@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FeatureSettingsTable } from '@/components/FeatureSettingsTable';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { beginSupportUserSession } from '@/lib/supportSession';
 import { devConsole } from '@/lib/clientDebug';
 
 const PROFILE_ROLES = ['client', 'employee', 'manager', 'super_admin'] as const;
@@ -33,6 +35,11 @@ type ListedProfile = Pick<
   Profile,
   'id' | 'email' | 'full_name' | 'role' | 'business_id' | 'is_super_admin'
 >;
+
+type StaffLogin = { id: string; user_id: string; access_role: string; status: string };
+
+/** Which group of users the panel shows: one business, or accounts with no business. */
+type UsersPanelTarget = { kind: 'business'; business: Business } | { kind: 'none' };
 
 function safeFormatDate(value: string | null | undefined): string {
   if (value == null || value === '') return '—';
@@ -54,16 +61,63 @@ export function AdminDashboard() {
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
+  const [usersPanel, setUsersPanel] = useState<UsersPanelTarget | null>(null);
+  const [panelStaff, setPanelStaff] = useState<StaffLogin[]>([]);
+  const [loadingPanelStaff, setLoadingPanelStaff] = useState(false);
+  const [signingInAs, setSigningInAs] = useState<string | null>(null);
 
   const loading = loadingBiz || loadingProfiles;
 
-  const businessNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const b of businesses) {
-      m.set(b.id, b.name ?? '—');
+  const profilesByBusiness = useMemo(() => {
+    const m = new Map<string | null, ListedProfile[]>();
+    for (const p of profiles) {
+      const key = p.business_id ?? null;
+      const list = m.get(key);
+      if (list) list.push(p);
+      else m.set(key, [p]);
     }
     return m;
-  }, [businesses]);
+  }, [profiles]);
+
+  const panelUsers = useMemo(() => {
+    if (!usersPanel) return [];
+    const key = usersPanel.kind === 'business' ? usersPanel.business.id : null;
+    return profilesByBusiness.get(key) ?? [];
+  }, [usersPanel, profilesByBusiness]);
+
+  const staffByUserId = useMemo(() => {
+    const m = new Map<string, StaffLogin>();
+    for (const s of panelStaff) m.set(s.user_id, s);
+    return m;
+  }, [panelStaff]);
+
+  // Staff logins for the open business: needed to offer "Sign in as" (support session).
+  useEffect(() => {
+    if (usersPanel?.kind !== 'business') {
+      setPanelStaff([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingPanelStaff(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id,user_id,access_role,status')
+        .eq('business_id', usersPanel.business.id)
+        .not('user_id', 'is', null);
+      if (cancelled) return;
+      setLoadingPanelStaff(false);
+      if (error) {
+        devConsole.error('[AdminDashboard] staff logins', error);
+        setPanelStaff([]);
+        return;
+      }
+      setPanelStaff((data ?? []) as StaffLogin[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [usersPanel]);
 
   const fetchBusinesses = useCallback(async () => {
     try {
@@ -162,6 +216,26 @@ export function AdminDashboard() {
     }
   };
 
+  const handleSignInAs = async (business: Business, staff: StaffLogin) => {
+    setSigningInAs(staff.id);
+    try {
+      const result = await beginSupportUserSession(supabase, {
+        staffId: staff.id,
+        businessId: business.id,
+        slug: business.slug,
+      });
+      if (result.ok === false) {
+        devConsole.error('[AdminDashboard] support sign-in failed', result.detail);
+        toast.error(t('layout.supportInvokeFailedShort'));
+      }
+    } catch (err: unknown) {
+      devConsole.error('[AdminDashboard] support sign-in error', err);
+      toast.error(t('common.genericError'));
+    } finally {
+      setSigningInAs(null);
+    }
+  };
+
   const handleRoleChange = async (profileId: string, newRole: string) => {
     setRoleUpdatingId(profileId);
     try {
@@ -250,6 +324,7 @@ export function AdminDashboard() {
                         <th className="px-4 py-3 text-left font-medium">Business Owner Email</th>
                         <th className="px-4 py-3 text-left font-medium">Tier</th>
                         <th className="px-4 py-3 text-left font-medium">Status</th>
+                        <th className="px-4 py-3 text-left font-medium">Users</th>
                         <th className="px-4 py-3 text-left font-medium">Created</th>
                         <th className="px-4 py-3 text-left font-medium">Actions</th>
                       </tr>
@@ -268,6 +343,18 @@ export function AdminDashboard() {
                             <Badge variant={getStatusBadgeVariant(business.subscription_status)}>
                               {business.subscription_status}
                             </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="tabular-nums"
+                              onClick={() => setUsersPanel({ kind: 'business', business })}
+                              aria-label={`See users of ${business.name}`}
+                            >
+                              <Users className="mr-2 h-4 w-4" />
+                              {profilesByBusiness.get(business.id)?.length ?? 0}
+                            </Button>
                           </td>
                           <td className="px-4 py-3 text-sm text-muted-foreground">
                             {safeFormatDate(business.created_at)}
@@ -289,69 +376,11 @@ export function AdminDashboard() {
                   </table>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Users</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {profiles.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">No users found</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="px-4 py-3 text-left font-medium">Email</th>
-                        <th className="px-4 py-3 text-left font-medium">Name</th>
-                        <th className="px-4 py-3 text-left font-medium">Business</th>
-                        <th className="px-4 py-3 text-left font-medium">Role</th>
-                        <th className="px-4 py-3 text-left font-medium">Super admin</th>
-                        <th className="px-4 py-3 text-left font-medium">Business ID</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {profiles.map((p) => (
-                        <tr key={p.id} className="border-b hover:bg-muted/50">
-                          <td className="px-4 py-3 text-sm">{p.email}</td>
-                          <td className="px-4 py-3 text-sm">{p.full_name ?? '—'}</td>
-                          <td className="px-4 py-3">
-                            <Select
-                              value={p.role ?? 'client'}
-                              disabled={roleUpdatingId === p.id}
-                              onValueChange={(v) => handleRoleChange(p.id, v)}
-                            >
-                              <SelectTrigger className="w-[180px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {PROFILE_ROLES.map((r) => (
-                                  <SelectItem key={r} value={r}>
-                                    {r}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </td>
-                          <td className="px-4 py-3">
-                            {p.is_super_admin ? (
-                              <Badge variant="default">Yes</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">No</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {p.business_id ? businessNameById.get(p.business_id) ?? '—' : '—'}
-                          </td>
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                            {p.business_id ?? '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {(profilesByBusiness.get(null)?.length ?? 0) > 0 && (
+                <div className="mt-4 flex justify-end">
+                  <Button variant="link" size="sm" onClick={() => setUsersPanel({ kind: 'none' })}>
+                    Accounts with no business ({profilesByBusiness.get(null)?.length})
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -367,6 +396,98 @@ export function AdminDashboard() {
           </Card>
         </main>
       </div>
+
+      <Dialog open={!!usersPanel} onOpenChange={(open) => !open && setUsersPanel(null)}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {usersPanel?.kind === 'business' ? `${usersPanel.business.name}: users` : 'Accounts with no business'}
+            </DialogTitle>
+            <DialogDescription>
+              {usersPanel?.kind === 'business'
+                ? '“Sign in as” opens the app as that person (support session). To look around as yourself, use View Business.'
+                : 'Clients and other accounts not linked to a business.'}
+            </DialogDescription>
+          </DialogHeader>
+          {panelUsers.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">No users</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Name</th>
+                    <th className="px-3 py-2 text-left font-medium">Email</th>
+                    <th className="px-3 py-2 text-left font-medium">Role</th>
+                    {usersPanel?.kind === 'business' && (
+                      <th className="px-3 py-2 text-left font-medium">Staff access</th>
+                    )}
+                    <th className="px-3 py-2 text-left font-medium">Super admin</th>
+                    {usersPanel?.kind === 'business' && <th className="px-3 py-2 text-left font-medium" />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {panelUsers.map((p) => {
+                    const staff = staffByUserId.get(p.id);
+                    const canSignInAs = !!staff && staff.status === 'active' && p.id !== profile?.id;
+                    return (
+                      <tr key={p.id} className="border-t hover:bg-muted/40">
+                        <td className="px-3 py-2">{p.full_name ?? '—'}</td>
+                        <td className="px-3 py-2 break-all">{p.email}</td>
+                        <td className="px-3 py-2">
+                          <Select
+                            value={p.role ?? 'client'}
+                            disabled={roleUpdatingId === p.id}
+                            onValueChange={(v) => handleRoleChange(p.id, v)}
+                          >
+                            <SelectTrigger className="h-8 w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROFILE_ROLES.map((r) => (
+                                <SelectItem key={r} value={r}>
+                                  {r}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        {usersPanel?.kind === 'business' && (
+                          <td className="px-3 py-2 text-muted-foreground capitalize">
+                            {loadingPanelStaff ? '…' : staff ? `${staff.access_role}${staff.status !== 'active' ? ` · ${staff.status}` : ''}` : '—'}
+                          </td>
+                        )}
+                        <td className="px-3 py-2">
+                          {p.is_super_admin ? <Badge variant="default">Yes</Badge> : <span className="text-muted-foreground">No</span>}
+                        </td>
+                        {usersPanel?.kind === 'business' && (
+                          <td className="px-3 py-2 text-right">
+                            {canSignInAs ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={!!signingInAs}
+                                onClick={() => staff && void handleSignInAs(usersPanel.business, staff)}
+                              >
+                                {signingInAs === staff?.id ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <LogIn className="mr-2 h-4 w-4" />
+                                )}
+                                Sign in as
+                              </Button>
+                            ) : null}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </PawLoadedContent>
   );
 }
