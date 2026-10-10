@@ -62,7 +62,11 @@ const Index = lazyRoute(() => import("@/pages/Index"));
 const DemoLegacyRedirect = lazyRoute(() =>
   import("@/components/DemoLegacyRedirect").then(named("DemoLegacyRedirect"))
 );
-const AdminDashboard = lazyRoute(() => import("@/pages/AdminDashboard").then(named("AdminDashboard")));
+const AdminLayout = lazyRoute(() => import("@/components/admin/AdminLayout").then(named("AdminLayout")));
+const AdminOverview = lazyRoute(() => import("@/pages/admin/AdminOverview").then(named("AdminOverview")));
+const AdminBusinesses = lazyRoute(() => import("@/pages/admin/AdminBusinesses").then(named("AdminBusinesses")));
+const AdminFeatures = lazyRoute(() => import("@/pages/admin/AdminFeatures").then(named("AdminFeatures")));
+const AdminAutomations = lazyRoute(() => import("@/pages/admin/AdminAutomations").then(named("AdminAutomations")));
 const ImpersonateHandler = lazyRoute(() => import("@/pages/ImpersonateHandler").then(named("ImpersonateHandler")));
 const PublicBookingPage = lazyRoute(() => import("@/pages/PublicBookingPage").then(named("PublicBookingPage")));
 const ClientPortalPublicPage = lazyRoute(() =>
@@ -199,7 +203,12 @@ const App = () => (
                 element={
                   <ProtectedRoute requireAdmin>
                     <Routes>
-                      <Route path="/" element={<AdminDashboard />} />
+                      <Route element={<AdminLayout />}>
+                        <Route index element={<AdminOverview />} />
+                        <Route path="businesses" element={<AdminBusinesses />} />
+                        <Route path="automations" element={<AdminAutomations />} />
+                        <Route path="features" element={<AdminFeatures />} />
+                      </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </ProtectedRoute>

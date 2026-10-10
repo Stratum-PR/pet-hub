@@ -25,6 +25,8 @@ export interface Pet {
   breed_id?: string | null; // References breeds.id (canonical breed)
   breed?: string | null; // Legacy TEXT field, kept for backward compatibility
   birth_month?: number | null;
+  /** Optional day of the month (pet birthday emails). */
+  birth_day?: number | null;
   birth_year?: number | null;
   weight: number;
   notes?: string;

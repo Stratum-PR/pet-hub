@@ -163,7 +163,7 @@ export function Landing() {
           {/* Static image fallback when video is loading or fails; hidden if image errors so we only show gradient */}
           {!heroFallbackImageError && (
             <img
-              src="/hero_background.png"
+              src="/hero_background.webp"
               alt=""
               className="absolute inset-0 h-full w-full object-cover object-[50%_42%] sm:object-right md:object-center"
               aria-hidden
@@ -180,7 +180,7 @@ export function Landing() {
               controls={false}
               disablePictureInPicture
               preload="auto"
-              poster={heroFallbackImageError ? undefined : '/hero_background.png'}
+              poster={heroFallbackImageError ? undefined : '/hero_background.webp'}
               className="absolute inset-0 h-full w-full object-cover object-[50%_42%] sm:object-right md:object-center"
               aria-hidden
             >
