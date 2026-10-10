@@ -1246,3 +1246,19 @@ No frontend deploy is needed.
 - 5-digit entries are checked by their first 4 digits; a wrong 5th digit fails at the 6th. Rate-limited keypad entries still show "invalid PIN".
 - If production's PostgREST answered an unknown computed field with a code other than 42703/PGRST204, remediation's kiosk gate would show an error instead of falling back before D11 is applied: do one kiosk check on dev.grumi.pet before deploying dev ahead of D11, or apply D10/D11 first.
 - `is_business_manager` also lets staff with access_role admin/manager set the PIN (consistent with S-8a).
+
+---
+
+## 2026-10-10 · U28 (C5) · Drop the dead staff missing-email reminder call
+
+**Status:** done on `remediation` (unit U28, branch `fix/U28-drop-missing-email-reminder`). Frontend only; ships with the next `dev` deploy.
+
+**Problem.** The app called `dispatch_staff_missing_email_reminders` daily, but that function never reached production (P0-05), so the call failed quietly (404 PGRST202) every time and showed up as noise in E2E traces. Owner decision C5 (2026-10-10): drop the call.
+
+**Change.** Removed the `useNotifications` effect that only ran this call (it also refetched notifications at 6am, which the birthday-jobs effect already does) and the `dispatchStaffMissingEmailReminders` helper. Staff birthday dispatch is unchanged. New `src/lib/staffBirthdayDispatch.test.ts` (3 tests: exports, birthday RPC still called, no `src/` code names the dropped RPC).
+
+**Gates.** tsc 29 → **28** (baseline locked in by the coordinator) · lint 400 · vitest 183/183 · build OK. CI 38082169535 ✓.
+
+**Notes.** Migration `20260328103000_staff_missing_email_reminder_rpc.sql` stays in the repo, not applied (archive it with the S-9b baseline). The P0-05 existence check in `scripts/prod-checks/p0-checks.sql` is now informational only.
+
+**Rollback.** Revert the merge commit.
