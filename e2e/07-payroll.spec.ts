@@ -1,7 +1,12 @@
 import { test, expect, loginAsManager, seedData } from './fixtures';
+import { pinBrowserClock } from './clock';
 
 test('7. payroll page loads with the right hours and pay', async ({ page }) => {
   const s = seedData();
+  // The seeded shifts are on the seed's day in Puerto Rico. With no saved pay-schedule anchor the page anchors the
+  // period on today's UTC date, which from 20:00 PR is already tomorrow, so the shifts fall before the period. Pin the
+  // browser to midday on the seed's day so the page's "today" is the shifts' day whenever CI runs.
+  await pinBrowserClock(page, '12:00');
   await loginAsManager(page);
   await page.goto(`/${s.slug}/reports/payroll`);
   await page.getByRole('tab', { name: 'Cálculo de pagos' }).click();
