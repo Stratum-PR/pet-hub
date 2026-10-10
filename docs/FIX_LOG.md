@@ -1129,7 +1129,7 @@ No frontend deploy is needed.
 - Profile fetch that fails: unchanged. Once loading ends, the user is treated as a client and, without an approved link, sent to `/portal`.
 - A logged-out visitor with no session goes to `/` (not `/<slug>/login`); unchanged.
 - `dev` still has the race until remediation is merged into it; then remove flows 4 and 7 from `EXPECTED.dev` in `scripts/test-env-dual.mjs`.
-- Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`.
+- Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`. **Fixed by U31** (shifted `expires_at`).
 
 **Rollback.** Revert the merge commit.
 
@@ -1388,3 +1388,21 @@ No frontend deploy is needed.
 - Not covered: INSERT ("Businesses insert" lets any signed-in user create a business with any plan, unlinked to them); managers can still change `owner_id` and `short_code`.
 
 **Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010230000`. Reopens S-7. Tag `fix/P2-01-businesses` once applied.
+
+---
+
+## 2026-10-10 · U31 · E2E clock pin no longer makes auth-js refresh on every request
+
+**Status:** done on `remediation` (unit U31, branch `fix/U31-e2e-clock-pin`). Tests only (`e2e/clock.ts`).
+
+**Problem.** `pinBrowserClock` freezes the browser's `Date.now()` at hh:mm PR on the seed's day. auth-js keeps the server's real-time `expires_at` (`lib/fetch.js:145`) and treats a session as expired when `expires_at*1000 - Date.now() < 90 s` (`GoTrueClient.js:2540`). With the pin more than ~58 min ahead of real time (local JWT = 1 h), every `getSession()` refreshed the token first: measured on CI 38086643869 (20:00 pin, +166 min) flow 4b made 27 refresh calls, 4c 20. Pins behind real time are harmless (no client `iat` check). This was the amplifier noted under U22.
+
+**Change.** `pinBrowserClock` routes `**/auth/v1/token?*` and shifts the response's `expires_at` by the same offset as the pinned clock, so auth-js sees the session's real remaining lifetime. The JWT the server checks is untouched; `setFixedTime` unchanged. Same assertions; retries unchanged. Playwright's `install`/`setSystemTime` alone can't fix it (same offset from real time).
+
+**Gates.** tsc 28 · lint 400 · vitest 223/223 · build OK. With the fix, 0 refreshes in 4b/4c (CI 38087462117); 4b 9.8 → 7.9 s, 4c 7.1 → 5.2 s. Final head d848dd0: CI 38087820254 ✓ (E2E 15/15); dual-frontend 38087820262 ✓ (main 7 passed + 1 expected, 7 unreachable; dev 15/15).
+
+**Notes.**
+- Not covered: LoginForm's REST fallback (`setSession` reads the JWT's own `exp`); only runs if `signInWithPassword` fails (never in these runs).
+- `scripts/test-env-dual.mjs` EXPECTED.main flow 7 `mayPass` blames the clock pin; that cause should be gone but is unproven (every run today was after 12:00 PR). Can be dropped after a green dual-main run before 16:00 UTC. The 4b/4c reason text on main is stale too (unreachable there anyway).
+
+**Rollback.** Revert the merge commit.
