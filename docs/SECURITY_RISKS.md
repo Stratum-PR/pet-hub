@@ -244,7 +244,7 @@ _(after the review)_
 | S-1c | List current super admins and remove anyone unexpected before the change | | 2026-10-10 | Genesis | |
 | S-1d | Audit log of grants/removals; email other admins on grant; require MFA for super admins | Not chosen: "email change never changes admin status" | 2026-10-10 | Genesis | |
 | S-2a | Other: "test sales created by system can't be reclassified to real" | Covers the test→real direction; real→test (hiding cash sales via `link_transaction`) still needs a follow-up in Plan review | 2026-10-10 | Genesis | |
-| S-3a | Open: Genesis asked to discuss what "test mode for real businesses" means | Explained 2026-10-10; awaiting decision | 2026-10-10 | Genesis | |
+| S-3a | Other: ATH Móvil test mode only for Genesis and Jovaniel to troubleshoot; no business can use it | How to enforce it (separate dev project vs. super-admin-only switch) is asked as a follow-up | 2026-10-10 | Genesis | |
 | S-4a | A daily summary table refreshed by the database; reports read it | Must exclude `is_test` and be scoped per business | 2026-10-10 | Genesis | |
 | S-5a | One server function computes and saves every sale, used by both screens | | 2026-10-10 | Genesis | |
 | S-5b | | | | | |
