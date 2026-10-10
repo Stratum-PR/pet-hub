@@ -928,3 +928,30 @@ No frontend deploy is needed; the hidden button ships with the next remediation 
   - `BusinessSettingsPage.tsx:140`. Saving the pay-schedule form there with the default after 20:00 PR stores tomorrow's date.
 - Candidate unit U21 (one-line change each, using the new helper).
 - Without a saved anchor, the default moves every day, so the current period always starts today. That's existing behavior, unchanged here.
+
+
+---
+
+## 2026-10-10 · U19 · Feature-gated pages bounced to the dashboard on reload
+
+**Status:** done on `remediation` (unit U19, branch `fix/U19-feature-gate-loading`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** `Index.tsx` redirected feature-gated routes to `/<slug>/dashboard` whenever `isFeatureVisible()` was false. That's also the case while the `feature_rollout` / `feature_visibility_rules` queries are still loading. So a reload or deep link to appt-book, inventory, payment, transactions or settings account/booking could permanently bounce to the dashboard (or settings/business). Proven in U17's CI run 38056795579; it was the last cause of the E2E flow 4 flake. The broken relative redirect fixed by E2E-3 had hidden it before.
+
+**Change.**
+- New `src/lib/featureGate.ts`:
+  - `resolveFeatureGate(visible, known)`: render / loading / redirect.
+  - `useFeatureGatesKnown(rolloutLoaded)`: latched once the rules load; falls back after 10 s if they never load.
+- In `Index.tsx`, gated routes show the existing paw loader while the rules are unknown.
+- Once the rules are known, every redirect target is unchanged. Visible features (including the demo bypass) render right away.
+- Unit tests in `src/lib/featureGate.test.tsx`.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 135/135 · build OK.
+- Red test-only run 38057712425.
+- Green: 38057827477 (×2) and 38058522206 (with U17), smoke E2E 15/15, flow 4 on the first attempt every time, flow 10 passing.
+
+**Notes.**
+- If the rules query errors, gates fall back to the old behavior after 10 s.
+- Cleaner follow-up: `useFeatureRollout` exposes a settled/error flag to replace the timeout.
+- The `gate()` wiring in Index isn't unit-tested directly (a router harness mirrors it).
