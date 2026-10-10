@@ -12,6 +12,7 @@ import {
 import { ChevronDown, ChevronLeft, ChevronRight, Clock, Download } from 'lucide-react';
 import { Employee, TimeEntry } from '@/types';
 import { format, differenceInMinutes, parseISO, eachDayOfInterval, startOfDay } from 'date-fns';
+import { defaultPayScheduleAnchorISO, resolvePayScheduleAnchorISO } from '@/lib/payrollAnchor';
 import { t } from '@/lib/translations';
 import { useSettings } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,12 +86,12 @@ export function EmployeeTimesheet({ employees, timeEntries }: EmployeeTimesheetP
 
   const employee = employees.find((emp) => emp.id === staffRecordId);
   const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
-  const anchorDateISO = settings.pay_schedule_anchor_date || new Date().toISOString().slice(0, 10);
+  const anchorDateISO = resolvePayScheduleAnchorISO(settings.pay_schedule_anchor_date);
 
   const { periodStart: payPeriodStart, periodEnd: payPeriodEnd } = useMemo(() => {
     if (settingsLoading) {
       const d = new Date();
-      return getPayPeriodRangeForDate(d, { anchorDateISO: d.toISOString().slice(0, 10), cadenceWeeks: 2 });
+      return getPayPeriodRangeForDate(d, { anchorDateISO: defaultPayScheduleAnchorISO(d), cadenceWeeks: 2 });
     }
     return getPayPeriodRangeForDate(currentPayPeriod, { anchorDateISO, cadenceWeeks });
   }, [currentPayPeriod, anchorDateISO, cadenceWeeks, settingsLoading]);
