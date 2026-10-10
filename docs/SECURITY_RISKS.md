@@ -249,11 +249,11 @@ _(after the review)_
 | S-5a | One server function computes and saves every sale, used by both screens | | 2026-10-10 | Genesis | |
 | S-5b | Other: allow card and "other" with a required reference; cash needs none — "we should always be able to trace each dollar" | Manager approval above an amount not chosen | 2026-10-10 | Genesis | |
 | S-5c | No limit | | 2026-10-10 | Genesis | |
-| S-6a | Other: "prioritize whatever Jovaniel did; discuss anything pending" | Checked `remediation` @ 2026-10-10: it doesn't touch ATH key storage, so S-6 is still open → discuss | 2026-10-10 | Genesis | |
+| S-6a | Other: "prioritize whatever Jovaniel did; discuss anything pending" | Checked `remediation` @ 2026-10-10: it doesn't touch ATH key storage. Then: "leave all security fixes to Jovaniel" → his call (Vault recommended) | 2026-10-10 | Genesis | |
 | S-7a | No preference given | Defer to Jovaniel (REMEDIATION_QUEUE lists P2-01 businesses as waiting on this question) | 2026-10-10 | Genesis | |
 | S-8a | No preference given | Defer to Jovaniel; not covered by `remediation` | 2026-10-10 | Genesis | |
 | S-9a | No preference given | `remediation` already sets a process: CI on every push (U00), branch protection pending (OWNER_ACTIONS B4), Jovaniel applies production changes by hand after a backup, sessions never touch production. Defer to that | 2026-10-10 | Genesis | |
-| S-9b | | | | | |
-| S-10a | | | | | |
-| S-10b | | | | | |
-| S-10c | | | | | |
+| S-9b | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
+| S-10a | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
+| S-10b | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
+| S-10c | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
