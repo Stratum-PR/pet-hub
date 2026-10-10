@@ -1406,3 +1406,28 @@ No frontend deploy is needed.
 - `scripts/test-env-dual.mjs` EXPECTED.main flow 7 `mayPass` blames the clock pin; that cause should be gone but is unproven (every run today was after 12:00 PR). Can be dropped after a green dual-main run before 16:00 UTC. The 4b/4c reason text on main is stale too (unreachable there anyway).
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U30 · Inactive staff with access_role admin/manager lose manager rights
+
+**Status:** done on `remediation` (unit U30, branch `fix/U30-manager-requires-active-staff`). Owner decision 2026-10-10: tighten. **Not applied to production** (OWNER_ACTIONS D13).
+
+**Problem.** `is_business_manager` (20261009120000) and `can_manage_staff_private` (20261006140000) counted staff access_role admin/manager without checking `staff.status`. A deactivated lead could still delete clients/pets/appointments (U13–U15), edit the business (U29), add/edit/delete staff and reset staff and kiosk PINs (U08/U11/U12), read `staff_private` (SSN, bank details), and raise their own pay/access (the P2-03 lock uses `can_manage_staff_private`).
+
+**Change.**
+- `supabase/migrations/20261010240000_manager_requires_active_staff.sql` (requires 20261006140000 and 20261009120000): CREATE OR REPLACE of `is_business_manager` and `can_manage_staff_private`; the staff path now requires the caller's staff row (same row `caller_staff_access_role_for_business` reads: `profiles.staff_id`, else oldest by `user_id`) to have access_role admin/manager **and** `status = 'active'`. Super admin and profile-manager paths unchanged; signature, SECURITY DEFINER, search_path, grants unchanged. `caller_staff_access_role_for_business` unchanged (it is the access_role trigger's only gate for profile managers).
+- Rollback `supabase/rollbacks/20261010240000_manager_requires_active_staff.down.sql` restores both bodies verbatim.
+- `scripts/test-env-security.mjs`: new `inactiveManagerPolicies` (39 checks; manager and admin tiers: active allowed, inactive refused for deletes/business edit/pay edits/staff delete/staff_private read, reactivated allowed again; profile manager with an inactive own staff row unaffected).
+- `src/lib/deletePermissions.ts`, `src/hooks/useCanDeleteClientsAndPets.ts`: client/pet Delete hidden for inactive leads (`useStaff` already loads `status`); 3 new unit tests.
+
+**Compatibility with `main`.** Active staff, profile managers and super admins unaffected. On main an inactive lead who is still signed in still sees the manager buttons; writes are refused or affect 0 rows.
+
+**Gates.** Red 38088639011. Green bd97565: CI 38088998654 ✓ (security all ✓, 3 known open; E2E 15/15), dual-frontend 38088998677 ✓. Migration → rollback → migration on scratch Postgres 16: definitions and ACL identical after rollback; of 42 caller/business cases only the 3 inactive-lead cases changed (true → false). Combined on remediation: tsc 28 · lint 400 · vitest 226/226 · build OK.
+
+**Notes.**
+- Supersedes U23's note that the database doesn't check `staff.status`.
+- Edge: a user with two staff rows in one business whose oldest is an inactive manager and newer an active manager is now refused (same row choice as before; safer reading).
+- Not in scope: inline access_role checks elsewhere (`clock_in_out`'s `v_mgr_tier`).
+
+**Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010240000`.
