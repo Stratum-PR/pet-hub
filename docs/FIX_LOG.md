@@ -1157,3 +1157,49 @@ No frontend deploy is needed.
 - The P1-13 entry's counts above are superseded: main 9 listed (7 unreachable, 10 expected, 7 mayPass); dev 0.
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · P2-02 · Staff kiosk PINs hashed (expand step)
+
+**Status:** done on `remediation` (unit U11, branch `fix/U11-hash-staff-pins`). **Not applied to production** (OWNER_ACTIONS D10). Contract step pending (below).
+
+**Problem.** `staff.pin` held every kiosk PIN in plain text: every member of a business could read all of them, `clock_in_out` compared plain text, and the app selected the PIN column to look staff up.
+
+**Change.**
+- `supabase/migrations/20261010210000_staff_pin_hashes.sql` (requires 20261006130000, 20261009120000 and pgcrypto in `extensions`; stops with a clear message otherwise):
+  - `staff_pin_hashes` (bcrypt via `extensions.crypt`, one salt per business in `staff_pin_salts`): RLS on, no policies, revoked from anon/authenticated, service role only.
+  - Trigger `staff_sync_pin_hash` (AFTER INSERT OR UPDATE OF pin, business_id ON staff) keeps hashes in sync with every writer (main, dev, remediation, `complete_manager_signup`, service role). Blank PIN or no business removes the hash; deleting staff cascades.
+  - `staff_pin_hashes_backfill()` hashes existing PINs in place (nobody needs a reset); safe to re-run.
+  - `clock_in_out_unthrottled` looks staff up by hash (otherwise verbatim). A blank PIN never matches (before, `''` matched a row with pin `''` and `pin_required` false).
+  - RPCs: `kiosk_staff_by_pin` (members; returns no PIN/hash; wrong PINs count in `clock_pin_attempts`, so it shares clock_in_out's limits), `staff_pin_available` (managers only), `generate_staff_pin` (members; random free PIN).
+- `supabase/rollbacks/20261010210000_staff_pin_hashes.down.sql`: restores `clock_in_out_unthrottled` verbatim and drops the new objects (hashes are derived data). Migration + rollback verified to give an identical `pg_dump -s` on a local Postgres 16.
+- Frontend (`src/lib/employeePin.ts`, `useTimeKiosk.ts`, `TimeKiosk.tsx`, `KioskManagerPinSettings.tsx`): the kiosk looks staff up through `kiosk_staff_by_pin` and passes the typed PIN to `clock_in_out`; PIN generation and the manager-PIN prefix check use the RPCs. Each falls back to the old query only when the function is missing (PGRST202/42883), so the frontend works on production's current schema too. `KIOSK_STAFF_COLUMNS` no longer includes `pin`.
+- Types: the 3 RPCs added to `src/integrations/supabase/types.ts` (coordinator).
+- Tests: `scripts/test-env-security.mjs` `pinHashing` (~40 checks), new `src/lib/employeePin.test.ts` (14), `selectColumns.test.ts` (+1).
+
+**Compatibility with `main` (shared database).** Expand-only: `staff.pin`, its unique index and RLS are unchanged. Main's kiosk (`select('*').eq('pin', …)` then `clock_in_out(employee.pin)`), PIN generator, staff form and writes keep working; dual-main ran green with the kiosk flow passing. `known("employee cannot read a coworker's kiosk PIN (P2-02)")` stays known() until the contract step, because main still needs members to read `staff.pin`.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 159/159 · build OK (combined).
+- Red test-only run 38075757971 (db-tests: "16 check(s) FAILED").
+- Final head f2e7f62: CI 38078208163 ✓ (security ✓ + 2 known issues open, payments ✓, smoke E2E 15/15); dual-frontend 38078208125 ✓ (main 7 passed / 1 expected / 7 unreachable; dev 15/15).
+
+**Production steps (Jovaniel; OWNER_ACTIONS D10).** Backup first, then:
+1. `select extnamespace::regnamespace from pg_extension where extname='pgcrypto';` → `extensions`.
+2. `select to_regprocedure('public.is_business_manager(uuid)'), to_regclass('public.clock_pin_attempts');` → both non-null (D6 applied).
+3. Paste `supabase/migrations/20261010210000_staff_pin_hashes.sql` in the SQL editor. **Never `supabase db push`.**
+4. `npx supabase migration repair --status applied 20261010210000`.
+5. Verify: `select count(*) from staff s where s.business_id is not null and btrim(s.pin)<>'' and not exists (select 1 from staff_pin_hashes h where h.staff_id=s.id);` → 0; `select public.staff_pin_hashes_backfill();` → 0 on a second run; `select has_table_privilege('authenticated','public.staff_pin_hashes','select');` → false.
+6. Clock a test employee in and out on production's kiosk (main) and on dev.grumi.pet.
+
+**Rollback (production).** Run `supabase/rollbacks/20261010210000_staff_pin_hashes.down.sql`, then `npx supabase migration repair --status reverted 20261010210000`. The remediation frontend falls back automatically.
+
+**Later contract step (separate unit, once `main` runs the remediation frontend).** Remove the fallbacks; switch the staff form, self-service PIN change and `KioskManagerPinResetDialog` to a `set_staff_pin` RPC that writes only the hash; drop `pin` from `STAFF_MANAGER_COLUMNS`, `Employees.tsx` and the dead `verifyPin`; hash in `complete_manager_signup`; unique `(business_id, pin_hash)`; drop `staff_business_pin_unique` and null/drop `staff.pin`; move the coworker-PIN known() to check().
+
+**Notes.**
+- A 4-digit PIN can be brute-forced from its hash; the protection is that only the service role can read hashes, which prepares for dropping the plain column.
+- `KioskManagerPinResetDialog.tsx` still uses the plaintext helper: the repo's pre-commit hook blocks commits to it (false-positive "hardcoded password" on `password: accountPassword`).
+- `EmployeeManagement`, `useSupabaseData` (`STAFF_MANAGER_COLUMNS`, dead `verifyPin`) and `Employees.tsx` still read `pin` (contract step).
+- Rate limiting in `kiosk_staff_by_pin` raises P0001 `too_many_attempts`; the kiosk shows "invalid PIN" rather than "wait 15 minutes".
+- `generate_staff_pin` is callable by employees, so free PINs can be enumerated slowly (~90k calls) — far weaker than today's direct read; accepted.
