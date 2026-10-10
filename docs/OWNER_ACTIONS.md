@@ -43,10 +43,10 @@ Then tell Claude "Part A done" with A1/A2 results and anything odd.
 
 ## Part C: Decisions (reply in chat; a sentence each is enough)
 
-- [ ] **C1. Client portal booking.** The plan's E2E list said "client portal booking", but the portal has no booking; clients book via the public `/<slug>/reservar` page. Is portal booking a wanted feature (later, outside the remediation), or is the public page enough?
+- [x] **C1. Client portal booking.** **Decided 2026-10-10: the public page is enough; no portal booking.** The plan's E2E list said "client portal booking", but the portal has no booking; clients book via the public `/<slug>/reservar` page. Is portal booking a wanted feature (later, outside the remediation), or is the public page enough?
 - [ ] **C2. Transaction numbers (ask Genesis).** A new business's first sale was `TXN-00009` locally, which suggests numbering is global across businesses and reveals the platform's sale count. Per-business numbering, or fine as is?
-- [ ] **C3. People whose client signup failed.** After A1, look at "client profiles with no clients row" (P0-05) together with Claude: repair their records, or let them re-register?
-- [ ] **C5. "Staff missing email" reminders.** The app calls `dispatch_staff_missing_email_reminders` (a daily notification to managers listing active staff with no email), but that database function never reached production, so the call fails quietly every time. Turn the feature on (Claude re-issues the migration with a security test; you apply it via Part D) or drop the call?
+- [x] **C3. People whose client signup failed.** **Decided 2026-10-10: repair their records** (Claude prepares a reviewed SQL script once you send the A1 results; you run it after A5). After A1, look at "client profiles with no clients row" (P0-05) together with Claude: repair their records, or let them re-register?
+- [x] **C5. "Staff missing email" reminders.** **Decided 2026-10-10: drop the call** (queue U28). The app calls `dispatch_staff_missing_email_reminders` (a daily notification to managers listing active staff with no email), but that database function never reached production, so the call fails quietly every time. Turn the feature on (Claude re-issues the migration with a security test; you apply it via Part D) or drop the call?
 - [ ] **C4. SECURITY_RISKS.md questions** (Genesis's payments decisions) are still pending; Claude skips them when you're the one in session. Schedule a session with Genesis.
 
 ---
