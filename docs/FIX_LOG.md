@@ -710,3 +710,23 @@ Kept: `src/types/index.ts` (it is `@/types`, imported by 10+ files — Appendix 
 **Rollback.** Revert the merge commit (restores `FROM node:22-alpine`).
 
 **Note.** Cloud sessions still can't run the stack locally (the proxy returns 403 for ECR's CloudFront layer downloads); CI stays the DB/E2E gate.
+
+---
+
+## 2026-10-09 · P3-04 · Explicit column lists on `staff`, `profiles`, `businesses`
+
+**Status:** done on `remediation` (unit U09, branch `fix/U09-explicit-columns`). Frontend only; no visible change.
+
+**Change.**
+- No `select('*')` or bare `.select()` left on these three tables in `src`.
+- Column constants: `STAFF_PUBLIC_COLUMNS`, `STAFF_MANAGER_COLUMNS`, `StaffPublicRow` (useSupabaseData); `KIOSK_STAFF_COLUMNS` (useTimeKiosk); `STAFF_PIN_COLUMNS`, `BUSINESS_KIOSK_MANAGER_PIN_COLUMNS` (employeePin); `PROFILE_COLUMNS` (auth); `BUSINESS_COLUMNS` (businessSlug, re-exported by auth); `ADMIN_BUSINESS_LIST_COLUMNS` (AdminDashboard).
+- The auth context, login routing and slug lookups no longer load `businesses.kiosk_manager_pin` (before, every signed-in user received it).
+- New `src/lib/selectColumns.test.ts` (9 tests): every column constant names real columns in the production schema snapshot; public lists exclude `pin` / `kiosk_manager_pin`.
+
+**Readers of `staff.pin` (input for P2-02 / U11).** `STAFF_MANAGER_COLUMNS` via `useEmployees()` (staff list/forms in EmployeeManagement; `Employees.tsx` matches `e.pin`) — **loaded for employees too, so every member still receives coworkers' PINs and the legacy SSN/bank columns**; `KIOSK_STAFF_COLUMNS` (`getEmployeeByPin`; TimeKiosk passes `employee.pin` to `clock_in_out` — could pass the typed PIN); `STAFF_PIN_COLUMNS` (`fetchEmployeePinsForBusiness`: uniqueness + manager-PIN prefix). `verifyPin` in useSupabaseData is dead code.
+
+**Readers of `businesses.kiosk_manager_pin` (input for P2-04 / U12).** `generateUniqueEmployeePin` (reserved prefix), `TimeKiosk.tsx` lock gate and PIN entry (compares in the browser), `KioskManagerPinSettings.tsx` (compares "current PIN" in the browser). Writers: KioskManagerPinSettings, KioskManagerPinResetDialog.
+
+**Gates.** tsc 31 → 29 (baseline tightened) · lint 400 · vitest 119/119 (+9) · build OK (main 1,071,654 B) · CI run 37996504085: `check` ✓, `db-tests` ✓ (payments, security + 5 known issues, smoke E2E all passed). Earlier runs 37989562779 / 37991559656 failed only on Docker Hub 429 (fixed by U16). No manual walkthrough; the no-change claim rests on tracing every consumer plus the schema test.
+
+**Rollback.** Revert the merge commit (previous Vercel deployment for instant rollback).
