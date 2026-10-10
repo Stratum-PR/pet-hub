@@ -28,6 +28,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 5 | U19 | Feature-gated routes redirect to the dashboard before feature rules/tier load (reload or deep link to appt-book etc. bounces to dashboard); found by U17 | `src/pages/Index.tsx`, its new unit test, optional new `src/lib/featureGate.ts` | – | – | merged |
 | 5 | U20 | Payroll default pay-period anchor uses the UTC date (from 20:00 PR the current period starts tomorrow); found by U17 | `src/pages/Payroll.tsx`, `src/hooks/useSupabaseData.ts` (anchor only) | – | – | merged |
 | 5 | U21 | Same UTC-date pay anchor default in `EmployeePayroll.tsx`, `EmployeeTimesheet.tsx`, `BusinessSettingsPage.tsx` (the settings form can save tomorrow's date after 20:00 PR); found by U20 | those 3 files | – | U20 | merged |
+| 6 | U22 | ProtectedRoute reload race: a manager is bounced to `/portal` when the profile loads after the client-link check (found by the U15 worker; makes E2E flow 4 flaky; listed as `mayPass` in dual-dev) | `src/components/ProtectedRoute.tsx` (verify), its new unit test | – | – | todo (owner OK; runs with U11 after the dev sync) |
 | 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261009180000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261009180000 | U09, U15 | todo (owner go-ahead 2026-10-10; starts after U15 merges) |
 | 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261009190000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261009190000 | U11 | todo (owner go-ahead 2026-10-10; starts after U11 merges) |
 
@@ -38,15 +39,19 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 - **Agent work:** every queued row through wave 2 is `merged` (waves 3–4 after the owner's go-ahead), CI is green on `remediation`'s last push, `remediation` still merges cleanly into `dev`, and each unit has a FIX_LOG entry.
 - **Whole remediation:** the above plus every item in OWNER_ACTIONS.md (Parts A–D) and the "Needs you" list below checked off.
 
-## Resume here (updated 2026-10-10 ~13:20 UTC)
+## Resume here (updated 2026-10-10 ~15:30 UTC, owner near usage limit)
 
-Order agreed with the owner today: U17 (+ U18 in parallel, no shared paths) → U07 → U15 → ask owner about U11/U12.
+State: `remediation` has U00–U06, U08–U10, U13, U14, U16–U21 merged, plus `origin/dev` merged in at 0b723a8 (Vercel `ignoreCommand` via `scripts/vercel-ignore-build.sh`: only main/dev deploy; unused media moved to `designs/marketing-assets`). That merge needed one type-only fix in `src/pages/AdminDashboard.tsx`: dev's new users panel used `Business`, but U09 narrowed the list to `ListedBusiness` (id/slug only used).
 
-1. U07's final runs on 89f2cff: CI 38023437747 check ✓, db-tests ✗ only E2E flow 4 (14/15); dual-frontend 38023437745 dual-main ✓, dual-dev ✗ only flow 4 (fails on dev's own schema too). `remediation`'s last push (CI 38023587012, docs only) is also red only on flow 4 → nothing can merge until U17 lands.
-2. U17 running (`fix/U17-e2e-flakes`). Owner approved a one-time waiver of merge rule (c) for U17 (remediation is red on the very test it fixes).
-3. U18 running (`fix/U18-login-slow-redirect`): real app bug confirmed by reading `LoginForm.tsx` (6 s race resolves to `/portal` without knowing the role).
-4. After U17 merges: U07 and U15 each merge `origin/remediation`, push, wait for green, then merge one at a time (reports in `docs/remediation-pending/`).
-5. Rules learned: one remediation push at a time (wait for its CI before the next merge — stacked pushes cancel each other's runs); trust the GitHub API run `status: completed`, not monitor notices; workers stopped by the usage limit leave pushed work on their branch — relaunch from it; job-log blob URLs are blocked by the proxy, use get_job_logs with return_content.
+Order the owner agreed (do in this order, one merge at a time, wait for remediation CI between):
+1. **U07** (`fix/U07-dual-frontend`): needs CI + dual-frontend (dual-main AND dual-dev) green on its latest head (95a05aa, or newer after the remediation sync). Changes since the pending report: `EXPECTED.main` + flow 7 (`mayPass`, U17 clock pin vs main's login hang before 12:00 PR), `EXPECTED.dev` + flow 4 (`mayPass`, ProtectedRoute race = U22). FIX_LOG: main 9 expected, dev 6 expected; describe `mayPass`. Report: `docs/remediation-pending/U07-report.md` (+ B4 addendum, DECISIONS line); delete it in the docs commit.
+2. **U15** (`fix/U15-appointments-no-employee-delete`): a worker proved flow 4's failure there is NOT the migration but an app race in `ProtectedRoute` (reload bounces a manager to `/portal` when the profile loads after the client-link check; CI runs 38060099293, 38060579995, 38060947523, 38061346629). Diagnostics were reverted at 549fdcb (green 38061758672); a later temporary diag commit 395c8ae ("bounce rate of 25 hard loads") must be reverted before merging: check the branch head. Report: `docs/remediation-pending/U15-report.md` (FIX_LOG + OWNER_ACTIONS D9).
+3. **dev sync** before U11 (owner asked): `git merge origin/dev` (never rebase), gates, push, wait for green.
+4. **U11** (P2-02 hash staff PINs, slot 20261009180000) **and U22** (fix the `ProtectedRoute` reload race; owns `src/components/ProtectedRoute.tsx` (verify path) + its test) in parallel. Owner approved both. U11 must keep `main`'s kiosk working on the shared DB (expand-only: e.g. hash alongside plaintext); if impossible, stop and ask the owner. Inputs: FIX_LOG → P3-04 "Readers of `staff.pin`".
+5. **U12** (P2-04 hash `businesses.kiosk_manager_pin`, slot 20261009190000) after U11 merges. Same compatibility rule.
+6. When all of that is merged and remediation CI is green: send the owner a PushNotification ("current work done").
+
+Rules learned: one remediation push at a time; trust GitHub API `status: completed`; job-log blob URLs are blocked (use get_job_logs return_content); lint from a clean worktree (`.claude/worktrees/` inside the repo inflates the lint ratchet); workers stopped by the usage limit leave pushed work on their branch: relaunch from it.
 
 ## Needs you
 

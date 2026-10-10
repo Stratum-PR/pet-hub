@@ -40,7 +40,6 @@ import { BirthdayCelebrationModal } from '@/components/BirthdayCelebrationModal'
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { useFeatureRollout } from '@/hooks/useFeatureRollout';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { SupportImpersonationDialogContent } from '@/components/SupportImpersonationDialog';
 import { SupportSessionBanner } from '@/components/SupportSessionBanner';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import type { SuperAdminViewerTier } from '@/lib/featureRollout';
@@ -142,7 +141,6 @@ export function Layout({ children, settings }: LayoutProps) {
   const [notificationTab, setNotificationTab] = useState<'all' | 'unread'>('all');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
-  const [supportImpersonationOpen, setSupportImpersonationOpen] = useState(false);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
   const [birthdayModalPayload, setBirthdayModalPayload] = useState<{
     firstName: string;
@@ -586,15 +584,6 @@ export function Layout({ children, settings }: LayoutProps) {
                         )}
                       </div>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          setSupportImpersonationOpen(true);
-                        }}
-                      >
-                        {t('layout.supportSignInAsUser')}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
                     </>
                   )}
                   {isSuperAdmin && !onDemoWorkspace && (
@@ -746,11 +735,6 @@ export function Layout({ children, settings }: LayoutProps) {
           />
         </SheetContent>
       </Sheet>
-
-      <SupportImpersonationDialogContent
-        open={supportImpersonationOpen}
-        onOpenChange={setSupportImpersonationOpen}
-      />
 
       <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <DialogContent>

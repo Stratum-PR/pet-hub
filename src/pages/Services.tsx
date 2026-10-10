@@ -32,15 +32,23 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const SERVICE_VIEW_KEY = 'pet-hub-services-view';
+  const SERVICE_VIEW_KEY = 'pet-hub-services-view-v2';
   const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
-    if (typeof window === 'undefined') return 'cards';
-    return window.localStorage.getItem(SERVICE_VIEW_KEY) === 'list' ? 'list' : 'cards';
+    try {
+      if (typeof window === 'undefined') return 'list';
+      return window.localStorage.getItem(SERVICE_VIEW_KEY) === 'cards' ? 'cards' : 'list';
+    } catch {
+      return 'list';
+    }
   });
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(SERVICE_VIEW_KEY, viewMode);
+    try {
+      if (typeof window === 'undefined') return;
+      window.localStorage.setItem(SERVICE_VIEW_KEY, viewMode);
+    } catch {
+      /* storage unavailable */
+    }
   }, [viewMode]);
 
   const filteredServices = useMemo(() => {
@@ -317,170 +325,161 @@ export function Services({ loading, services, onAddService, onUpdateService, onD
               <p className="text-muted-foreground">{t('services.noSearchResults')}</p>
             </CardContent>
           </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">All Services</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {viewMode === 'cards' ? (
-                <div
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                  data-page-cards-grid
-                >
-                  {filteredServices.map((service) => (
-                    <Card key={service.id} className="border hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-lg break-words">{service.name}</h3>
-                            {service.description && (
-                              <p className="text-sm text-muted-foreground mt-1 break-words">{service.description}</p>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(service)}
-                              className="h-8 w-8"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteClick(service.id)}
-                              className="h-8 w-8 text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-1 text-sm mt-3 pt-3 border-t">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Price:</span>
-                            <span className="font-semibold">${service.price.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Duration:</span>
-                            <span className="text-muted-foreground">{service.duration_minutes} min</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <ul className="space-y-3 lg:hidden" data-services-list-mobile>
-                    {filteredServices.map((service) => (
-                      <li
-                        key={service.id}
-                        className="rounded-lg border border-border bg-card p-3 shadow-sm"
+        ) : viewMode === 'cards' ? (
+          <div
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            data-page-cards-grid
+          >
+            {filteredServices.map((service) => (
+              <Card key={service.id} className="border hover:shadow-md transition-shadow">
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold leading-snug break-words">{service.name}</h3>
+                      {service.description && (
+                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2 break-words">
+                          {service.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 -mr-1 -mt-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(service)}
+                        className="h-7 w-7"
+                        aria-label={t('common.edit')}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <p className="font-medium break-words">{service.name}</p>
-                            <p className="text-sm text-muted-foreground break-words">
-                              {service.description?.trim() ? service.description : '—'}
-                            </p>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm text-muted-foreground">
-                              <span>
-                                {t('serviceForm.duration')}: {service.duration_minutes} min
-                              </span>
-                              <span className="font-semibold text-foreground">
-                                {t('serviceForm.price')}: ${service.price.toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(service)}
-                              className="h-8 w-8"
-                              aria-label={t('common.edit')}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteClick(service.id)}
-                              className="h-8 w-8 text-destructive"
-                              aria-label={t('common.delete')}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="hidden min-w-0 overflow-x-auto rounded-lg border-0 bg-card lg:block" data-table-load>
-                    <table className="w-full min-w-0 text-sm table-fixed">
-                      <thead className="bg-muted/60">
-                        <tr>
-                          <th className="w-[22%] px-2 py-2 text-left text-xs font-medium sm:px-3 sm:text-sm">
-                            {t('serviceForm.name')}
-                          </th>
-                          <th className="px-2 py-2 text-left text-xs font-medium sm:px-3 sm:text-sm">
-                            {t('serviceForm.description')}
-                          </th>
-                          <th className="w-[12%] px-2 py-2 text-left text-xs font-medium whitespace-nowrap sm:px-3 sm:text-sm">
-                            {t('serviceForm.duration')}
-                          </th>
-                          <th className="w-[12%] px-2 py-2 text-left text-xs font-medium whitespace-nowrap sm:px-3 sm:text-sm">
-                            {t('serviceForm.price')}
-                          </th>
-                          <th className="w-[100px] px-2 py-2 text-left text-xs font-medium sm:px-3 sm:text-sm">
-                            {t('common.actions')}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredServices.map((service) => (
-                          <tr key={service.id} className="border-t hover:bg-muted/40">
-                            <td className="px-2 py-2 align-top font-medium break-words sm:px-3">{service.name}</td>
-                            <td className="px-2 py-2 align-top text-muted-foreground break-words">
-                              <span className="line-clamp-3">{service.description || '—'}</span>
-                            </td>
-                            <td className="px-2 py-2 align-top text-muted-foreground whitespace-nowrap sm:px-3">
-                              {service.duration_minutes} min
-                            </td>
-                            <td className="px-2 py-2 align-top font-semibold whitespace-nowrap sm:px-3">
-                              ${service.price.toFixed(2)}
-                            </td>
-                            <td className="px-2 py-2 align-top sm:px-3">
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEdit(service)}
-                                  className="h-8 w-8"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteClick(service.id)}
-                                  className="h-8 w-8 text-destructive"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        <Edit className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteClick(service.id)}
+                        className="h-7 w-7 text-destructive"
+                        aria-label={t('common.delete')}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                  <div className="mt-2 flex items-center justify-between border-t pt-2 text-sm">
+                    <span className="text-muted-foreground">{service.duration_minutes} min</span>
+                    <span className="font-semibold">${service.price.toFixed(2)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <>
+            <ul className="space-y-3 lg:hidden" data-services-list-mobile>
+              {filteredServices.map((service) => (
+                <li
+                  key={service.id}
+                  className="rounded-lg border border-border bg-card p-3 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <p className="font-medium break-words">{service.name}</p>
+                      <p className="text-sm text-muted-foreground break-words">
+                        {service.description?.trim() ? service.description : '—'}
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm text-muted-foreground">
+                        <span>
+                          {t('serviceForm.duration')}: {service.duration_minutes} min
+                        </span>
+                        <span className="font-semibold text-foreground">
+                          {t('serviceForm.price')}: ${service.price.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(service)}
+                        className="h-8 w-8"
+                        aria-label={t('common.edit')}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteClick(service.id)}
+                        className="h-8 w-8 text-destructive"
+                        aria-label={t('common.delete')}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden min-w-0 overflow-x-auto rounded-lg border-0 bg-card lg:block" data-table-load>
+              <table className="w-full min-w-0 text-sm table-fixed">
+                <thead className="bg-muted/60">
+                  <tr>
+                    <th className="w-[22%] px-3 py-2 text-left font-medium">
+                      {t('serviceForm.name')}
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      {t('serviceForm.description')}
+                    </th>
+                    <th className="w-[12%] px-3 py-2 text-left font-medium whitespace-nowrap">
+                      {t('serviceForm.duration')}
+                    </th>
+                    <th className="w-[12%] px-3 py-2 text-left font-medium whitespace-nowrap">
+                      {t('serviceForm.price')}
+                    </th>
+                    <th className="w-[100px] px-3 py-2 text-left font-medium">
+                      {t('common.actions')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredServices.map((service) => (
+                    <tr key={service.id} className="border-t hover:bg-muted/40">
+                      <td className="px-3 py-2 align-middle font-medium break-words">{service.name}</td>
+                      <td className="px-3 py-2 align-middle text-muted-foreground break-words">
+                        <span className="line-clamp-2">{service.description || '—'}</span>
+                      </td>
+                      <td className="px-3 py-2 align-middle text-muted-foreground whitespace-nowrap">
+                        {service.duration_minutes} min
+                      </td>
+                      <td className="px-3 py-2 align-middle font-semibold whitespace-nowrap">
+                        ${service.price.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 align-middle">
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(service)}
+                            className="h-8 w-8"
+                            aria-label={t('common.edit')}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteClick(service.id)}
+                            className="h-8 w-8 text-destructive"
+                            aria-label={t('common.delete')}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

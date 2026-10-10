@@ -239,21 +239,21 @@ _(after the review)_
 
 | Question | Choice | Notes | Date | Answered by | Fixed? |
 |---|---|---|---|---|---|
-| S-0 / S-1b | | | | | |
-| S-1a | | | | | |
-| S-1c | | | | | |
-| S-1d | | | | | |
-| S-2a | | | | | |
-| S-3a | | | | | |
-| S-4a | | | | | |
-| S-5a | | | | | |
-| S-5b | | | | | |
-| S-5c | | | | | |
-| S-6a | | | | | |
-| S-7a | | | | | |
-| S-8a | | | | | |
-| S-9a | | | | | |
-| S-9b | | | | | |
-| S-10a | | | | | |
-| S-10b | | | | | |
-| S-10c | | | | | |
+| S-0 / S-1b | Both settings were already ON | Confirm email + Secure email change | 2026-10-10 | Genesis | — |
+| S-1a | Only an existing super admin can add one, and only `@stratumpr.com` accounts can be promoted | Domain rule kept as an extra condition, no auto-grant; at least one must remain | 2026-10-10 | Genesis | |
+| S-1c | List current super admins and remove anyone unexpected before the change | | 2026-10-10 | Genesis | |
+| S-1d | Audit log of grants/removals; email other admins on grant; require MFA for super admins | Not chosen: "email change never changes admin status" | 2026-10-10 | Genesis | |
+| S-2a | Other: "test sales created by system can't be reclassified to real" | Follow-up: lock both ways — only the system sets `is_test`, once, when the sale is created; it never changes afterward in either direction | 2026-10-10 | Genesis | |
+| S-3a | Other: ATH Móvil test mode only for Genesis and Jovaniel to troubleshoot; no business can use it | Follow-up: enforced server-side as super-admin only — Simulator mode allowed only on a Stratum-owned test business and only a super admin can turn it on; businesses never see the option; no separate dev project | 2026-10-10 | Genesis | |
+| S-4a | A daily summary table refreshed by the database; reports read it | Must exclude `is_test` and be scoped per business | 2026-10-10 | Genesis | |
+| S-5a | One server function computes and saves every sale, used by both screens | | 2026-10-10 | Genesis | |
+| S-5b | Other: allow card and "other" with a required reference; cash needs none — "we should always be able to trace each dollar" | Manager approval above an amount not chosen | 2026-10-10 | Genesis | |
+| S-5c | No limit | | 2026-10-10 | Genesis | |
+| S-6a | Other: "prioritize whatever Jovaniel did; discuss anything pending" | Checked `remediation` @ 2026-10-10: it doesn't touch ATH key storage. Then: "leave all security fixes to Jovaniel" → his call (Vault recommended) | 2026-10-10 | Genesis | |
+| S-7a | No preference given | Defer to Jovaniel (REMEDIATION_QUEUE lists P2-01 businesses as waiting on this question) | 2026-10-10 | Genesis | |
+| S-8a | No preference given | Defer to Jovaniel; not covered by `remediation` | 2026-10-10 | Genesis | |
+| S-9a | No preference given | `remediation` already sets a process: CI on every push (U00), branch protection pending (OWNER_ACTIONS B4), Jovaniel applies production changes by hand after a backup, sessions never touch production. Defer to that | 2026-10-10 | Genesis | |
+| S-9b | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
+| S-10a | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
+| S-10b | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
+| S-10c | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
