@@ -1,26 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { t } from '@/lib/translations';
 import {
   FEATURE_ROLES,
   FEATURE_SUBSCRIPTION_TIERS,
-  normalizeFeatureKey,
   normalizeRolloutTierLabel,
   type RolloutTier,
 } from '@/lib/featureRollout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { devConsole } from '@/lib/clientDebug';
 
 type FeatureRow = {
@@ -31,50 +23,88 @@ type FeatureRow = {
   subscription_tiers: string[];
 };
 
-const DEFAULT_FEATURE_ROW = {
-  min_tier: 'development' as RolloutTier,
+/**
+ * The features the app actually checks (isFeatureVisible), grouped by area. Rows in the database that
+ * aren't listed here do nothing, so they aren't shown. Add a key here when code starts checking it.
+ */
+const FEATURE_GROUPS: { id: string; features: string[] }[] = [
+  { id: 'appointments', features: ['appointments', 'appointment_book', 'booking_settings'] },
+  {
+    id: 'sales',
+    features: [
+      'transactions_list',
+      'transaction_create',
+      'transaction_detail',
+      'payments',
+      'payment_configuration',
+      'tax_settings',
+      'receipt_personalization',
+    ],
+  },
+  { id: 'inventory', features: ['inventory', 'barcode_lookup'] },
+  { id: 'staff', features: ['employee_mobile_punch', 'geofencing', 'geofencing_settings'] },
+  { id: 'account', features: ['account_settings'] },
+];
+
+const KNOWN_KEYS = FEATURE_GROUPS.flatMap((g) => g.features);
+
+/** Same defaults the old "Add feature" used: hidden (development, super admin only). */
+const DEFAULT_ROW: Omit<FeatureRow, 'feature_key' | 'display_name'> = {
+  min_tier: 'development',
   roles: ['super_admin'],
   subscription_tiers: ['standard'],
 };
 
-function rolesLabel(roles: string[]): string {
+function featureLabel(key: string, fallback: string): string {
+  const tKey = `admin.features.name.${key}`;
+  const label = t(tKey);
+  return label === tKey ? fallback : label;
+}
+
+function roleLabel(role: string): string {
+  const tKey = `admin.features.role.${role}`;
+  const label = t(tKey);
+  return label === tKey ? role : label;
+}
+
+function tierLabel(tier: string): string {
+  if (tier === 'standard') return t('admin.features.tierStandard');
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+function rolesSummary(roles: string[]): string {
   if (roles.includes('*')) return t('admin.features.allRoles');
-  return roles.join(', ');
+  return roles.map(roleLabel).join(', ');
 }
 
-function tiersLabel(tiers: string[]): string {
+function tiersSummary(tiers: string[]): string {
   if (tiers.includes('*')) return t('admin.features.allTiers');
-  return tiers.map((tier) => tier.charAt(0).toUpperCase() + tier.slice(1)).join(', ');
+  return tiers.map(tierLabel).join(', ');
 }
 
-function roleTagClass(role: string): string {
-  if (role === 'super_admin') return 'bg-amber-100 text-amber-800 border-amber-300';
-  if (role === 'manager') return 'bg-purple-100 text-purple-800 border-purple-300';
-  if (role === 'employee') return 'bg-blue-100 text-blue-800 border-blue-300';
-  if (role === 'client') return 'bg-green-100 text-green-800 border-green-300';
-  return 'bg-muted text-foreground border-border';
+function sameRow(a: FeatureRow, b: FeatureRow): boolean {
+  const key = (r: FeatureRow) =>
+    JSON.stringify([r.min_tier, [...r.roles].sort(), [...r.subscription_tiers].sort()]);
+  return key(a) === key(b);
 }
 
-function normalizedRow(row: FeatureRow): FeatureRow {
-  return {
-    ...row,
-    roles: [...row.roles].sort(),
-    subscription_tiers: [...row.subscription_tiers].sort(),
-  };
+function toggleInList(list: string[], value: string, checked: boolean, fallback: string): string[] {
+  const next = new Set(list);
+  next.delete('*');
+  if (checked) next.add(value);
+  else next.delete(value);
+  return next.size > 0 ? Array.from(next) : [fallback];
 }
 
 export function FeatureSettingsTable() {
   const queryClient = useQueryClient();
-  const [newFeatureName, setNewFeatureName] = useState('');
-  const [draftByKey, setDraftByKey] = useState<Record<string, FeatureRow>>({});
+  const [drafts, setDrafts] = useState<Record<string, FeatureRow>>({});
+  const [openAdvanced, setOpenAdvanced] = useState<string | null>(null);
 
   const featureCatalogQuery = useQuery({
     queryKey: ['feature_catalog'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('feature_catalog')
-        .select('feature_key, display_name')
-        .order('display_name', { ascending: true });
+      const { data, error } = await supabase.from('feature_catalog').select('feature_key, display_name');
       if (error) throw error;
       return data ?? [];
     },
@@ -100,100 +130,72 @@ export function FeatureSettingsTable() {
     },
   });
 
-  const rows = useMemo<FeatureRow[]>(() => {
-    const byKey = new Map<string, FeatureRow>();
-
-    for (const row of featureCatalogQuery.data ?? []) {
-      byKey.set(row.feature_key, {
-        feature_key: row.feature_key,
-        display_name: row.display_name,
-        min_tier: DEFAULT_FEATURE_ROW.min_tier,
-        roles: [...DEFAULT_FEATURE_ROW.roles],
-        subscription_tiers: [...DEFAULT_FEATURE_ROW.subscription_tiers],
-      });
-    }
-    for (const row of featureRolloutQuery.data ?? []) {
-      const existing = byKey.get(row.feature_key);
-      if (!existing) continue;
-      existing.min_tier = normalizeRolloutTierLabel(row.min_tier);
-    }
-    for (const row of featureVisibilityQuery.data ?? []) {
-      const existing = byKey.get(row.feature_key);
-      if (!existing) continue;
-      existing.roles = row.roles ?? [...DEFAULT_FEATURE_ROW.roles];
-      existing.subscription_tiers = row.subscription_tiers ?? [...DEFAULT_FEATURE_ROW.subscription_tiers];
-    }
-
-    return Array.from(byKey.values()).sort((a, b) => a.display_name.localeCompare(b.display_name));
-  }, [featureCatalogQuery.data, featureRolloutQuery.data, featureVisibilityQuery.data]);
-
   const queriesReady =
     featureCatalogQuery.isSuccess && featureRolloutQuery.isSuccess && featureVisibilityQuery.isSuccess;
 
-  useEffect(() => {
-    if (!queriesReady) return;
-    setDraftByKey((prev) => {
-      const next = { ...prev };
-      for (const row of rows) {
-        if (!next[row.feature_key]) next[row.feature_key] = row;
-      }
-      return next;
-    });
-  }, [rows, queriesReady]);
+  /** Saved state of every feature the app uses (defaults if a row is missing in the database). */
+  const savedByKey = useMemo(() => {
+    const m = new Map<string, FeatureRow>();
+    for (const key of KNOWN_KEYS) {
+      m.set(key, { feature_key: key, display_name: key, ...DEFAULT_ROW, roles: [...DEFAULT_ROW.roles], subscription_tiers: [...DEFAULT_ROW.subscription_tiers] });
+    }
+    for (const row of featureCatalogQuery.data ?? []) {
+      const r = m.get(row.feature_key);
+      if (r) r.display_name = row.display_name;
+    }
+    for (const row of featureRolloutQuery.data ?? []) {
+      const r = m.get(row.feature_key);
+      if (r) r.min_tier = normalizeRolloutTierLabel(row.min_tier);
+    }
+    for (const row of featureVisibilityQuery.data ?? []) {
+      const r = m.get(row.feature_key);
+      if (!r) continue;
+      if (row.roles) r.roles = row.roles;
+      if (row.subscription_tiers) r.subscription_tiers = row.subscription_tiers;
+    }
+    return m;
+  }, [featureCatalogQuery.data, featureRolloutQuery.data, featureVisibilityQuery.data]);
 
-  const effectiveRows = useMemo(
-    () => rows.map((row) => draftByKey[row.feature_key] ?? row),
-    [rows, draftByKey]
+  const current = (key: string): FeatureRow => drafts[key] ?? (savedByKey.get(key) as FeatureRow);
+
+  const changedRows = useMemo(
+    () =>
+      Object.values(drafts).filter((d) => {
+        const saved = savedByKey.get(d.feature_key);
+        return saved ? !sameRow(d, saved) : true;
+      }),
+    [drafts, savedByKey]
   );
 
-  const saveOne = async (row: FeatureRow) => {
-    const { error: catalogError } = await supabase
-      .from('feature_catalog')
-      .upsert({ feature_key: row.feature_key, display_name: row.display_name });
-    if (catalogError) {
-      throw catalogError;
-    }
+  const setDraft = (row: FeatureRow) => setDrafts((prev) => ({ ...prev, [row.feature_key]: row }));
 
-    const { error: rolloutError } = await supabase
-      .from('feature_rollout')
-      .upsert({ feature_key: row.feature_key, min_tier: row.min_tier });
-    if (rolloutError) {
-      throw rolloutError;
-    }
-
-    const { error: visibilityError } = await supabase.from('feature_visibility_rules').upsert({
-      feature_key: row.feature_key,
-      roles: row.roles,
-      subscription_tiers: row.subscription_tiers,
-    });
-    if (visibilityError) {
-      throw visibilityError;
-    }
-  };
-
-  const hasUnsavedChanges = useMemo(() => {
-    if (!queriesReady) return false;
-    for (const row of rows) {
-      const draft = draftByKey[row.feature_key];
-      if (!draft) continue;
-      if (JSON.stringify(normalizedRow(draft)) !== JSON.stringify(normalizedRow(row))) {
-        return true;
-      }
-    }
-    return false;
-  }, [rows, draftByKey, queriesReady]);
-
-  const saveAllSettingsMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (rowsToSave: FeatureRow[]) => {
       for (const row of rowsToSave) {
-        await saveOne(row);
+        const { error: catalogError } = await supabase
+          .from('feature_catalog')
+          .upsert({ feature_key: row.feature_key, display_name: row.display_name });
+        if (catalogError) throw catalogError;
+        const { error: rolloutError } = await supabase
+          .from('feature_rollout')
+          .upsert({ feature_key: row.feature_key, min_tier: row.min_tier });
+        if (rolloutError) throw rolloutError;
+        const { error: visibilityError } = await supabase.from('feature_visibility_rules').upsert({
+          feature_key: row.feature_key,
+          roles: row.roles,
+          subscription_tiers: row.subscription_tiers,
+        });
+        if (visibilityError) throw visibilityError;
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success(t('admin.features.saved'));
-      void queryClient.invalidateQueries({ queryKey: ['feature_catalog'] });
-      void queryClient.invalidateQueries({ queryKey: ['feature_rollout_v2'] });
-      void queryClient.invalidateQueries({ queryKey: ['feature_visibility_rules'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['feature_catalog'] }),
+        queryClient.invalidateQueries({ queryKey: ['feature_rollout_v2'] }),
+        queryClient.invalidateQueries({ queryKey: ['feature_visibility_rules'] }),
+      ]);
+      setDrafts({});
     },
     onError: (error) => {
       devConsole.error('Save feature settings error', error);
@@ -201,263 +203,154 @@ export function FeatureSettingsTable() {
     },
   });
 
-  const addFeatureMutation = useMutation({
-    mutationFn: async (displayName: string) => {
-      const featureKey = normalizeFeatureKey(displayName);
-      if (!featureKey) throw new Error('Feature name is required');
-
-      const { error: catalogError } = await supabase.from('feature_catalog').insert({
-        feature_key: featureKey,
-        display_name: displayName.trim(),
-      });
-      if (catalogError) throw catalogError;
-
-      const { error: rolloutError } = await supabase.from('feature_rollout').insert({
-        feature_key: featureKey,
-        min_tier: 'development',
-      });
-      if (rolloutError) throw rolloutError;
-
-      const { error: visibilityError } = await supabase.from('feature_visibility_rules').insert({
-        feature_key: featureKey,
-        roles: ['super_admin'],
-        subscription_tiers: ['standard'],
-      });
-      if (visibilityError) throw visibilityError;
-    },
-    onSuccess: () => {
-      setNewFeatureName('');
-      toast.success(t('admin.features.added'));
-      void queryClient.invalidateQueries({ queryKey: ['feature_catalog'] });
-      void queryClient.invalidateQueries({ queryKey: ['feature_rollout_v2'] });
-      void queryClient.invalidateQueries({ queryKey: ['feature_visibility_rules'] });
-    },
-    onError: (error) => {
-      devConsole.error('Add feature error', error);
-      toast.error(t('admin.features.addError'));
-    },
-  });
-
-  const toggleRole = (row: FeatureRow, role: string, checked: boolean): FeatureRow => {
-    const next = new Set(row.roles);
-    next.delete('*');
-    if (checked) next.add(role);
-    else next.delete(role);
-    const roles = Array.from(next);
-    return { ...row, roles: roles.length > 0 ? roles : ['super_admin'] };
-  };
-
-  const toggleAllRoles = (row: FeatureRow, checked: boolean): FeatureRow => {
-    return { ...row, roles: checked ? ['*'] : ['super_admin'] };
-  };
-
-  const toggleTier = (row: FeatureRow, tier: string, checked: boolean): FeatureRow => {
-    const next = new Set(row.subscription_tiers);
-    next.delete('*');
-    if (checked) next.add(tier);
-    else next.delete(tier);
-    const tiers = Array.from(next);
-    return { ...row, subscription_tiers: tiers.length > 0 ? tiers : ['standard'] };
-  };
-
-  const toggleAllTiers = (row: FeatureRow, checked: boolean): FeatureRow => {
-    return { ...row, subscription_tiers: checked ? ['*'] : ['standard'] };
-  };
-
-  const loading =
-    featureCatalogQuery.isLoading || featureRolloutQuery.isLoading || featureVisibilityQuery.isLoading;
+  if (!queriesReady) {
+    return <p className="text-sm text-muted-foreground">{t('admin.features.loading')}</p>;
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={newFeatureName}
-          placeholder={t('admin.features.newName')}
-          onChange={(e) => setNewFeatureName(e.target.value)}
-          className="max-w-sm"
-        />
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">{t('admin.features.intro')}</p>
+
+      {FEATURE_GROUPS.map((group) => (
+        <section key={group.id} className="space-y-1">
+          <h3 className="text-sm font-semibold text-muted-foreground">{t(`admin.features.group.${group.id}`)}</h3>
+          <ul className="divide-y rounded-lg border">
+            {group.features.map((key) => {
+              const row = current(key);
+              const live = row.min_tier === 'production';
+              const isOpen = openAdvanced === key;
+              const changed = !!drafts[key] && !sameRow(drafts[key], savedByKey.get(key) as FeatureRow);
+              const switchId = `feature-live-${key}`;
+              return (
+                <Fragment key={key}>
+                  <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">
+                        {featureLabel(key, row.display_name)}
+                        {changed && (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            {t('admin.features.unsaved')}
+                          </span>
+                        )}
+                      </p>
+                      <button
+                        type="button"
+                        className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setOpenAdvanced(isOpen ? null : key)}
+                        aria-expanded={isOpen}
+                      >
+                        {t('admin.features.advanced')}: {rolesSummary(row.roles)} · {tiersSummary(row.subscription_tiers)}
+                        <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+                    <label htmlFor={switchId} className="flex shrink-0 items-center gap-3 text-sm">
+                      <span className={live ? 'font-medium' : 'text-muted-foreground'}>
+                        {live ? t('admin.features.live') : t('admin.features.devOnly')}
+                      </span>
+                      <Switch
+                        id={switchId}
+                        checked={live}
+                        onCheckedChange={(on) => setDraft({ ...row, min_tier: on ? 'production' : 'development' })}
+                      />
+                    </label>
+                  </li>
+                  {isOpen && (
+                    <li className="grid gap-4 bg-muted/30 px-4 py-3 text-sm sm:grid-cols-2">
+                      <fieldset className="space-y-2">
+                        <legend className="mb-1 font-medium">{t('admin.features.colRoles')}</legend>
+                        <CheckRow
+                          id={`${key}-roles-all`}
+                          label={t('admin.features.allRoles')}
+                          checked={row.roles.includes('*')}
+                          onChange={(c) => setDraft({ ...row, roles: c ? ['*'] : ['super_admin'] })}
+                        />
+                        {FEATURE_ROLES.map((role) => (
+                          <CheckRow
+                            key={role}
+                            id={`${key}-role-${role}`}
+                            label={roleLabel(role)}
+                            disabled={row.roles.includes('*')}
+                            checked={row.roles.includes('*') || row.roles.includes(role)}
+                            onChange={(c) => setDraft({ ...row, roles: toggleInList(row.roles, role, c, 'super_admin') })}
+                          />
+                        ))}
+                      </fieldset>
+                      <fieldset className="space-y-2">
+                        <legend className="mb-1 font-medium">{t('admin.features.colTiers')}</legend>
+                        <CheckRow
+                          id={`${key}-tiers-all`}
+                          label={t('admin.features.allTiers')}
+                          checked={row.subscription_tiers.includes('*')}
+                          onChange={(c) => setDraft({ ...row, subscription_tiers: c ? ['*'] : ['standard'] })}
+                        />
+                        {FEATURE_SUBSCRIPTION_TIERS.map((tier) => (
+                          <CheckRow
+                            key={tier}
+                            id={`${key}-tier-${tier}`}
+                            label={tierLabel(tier)}
+                            disabled={row.subscription_tiers.includes('*')}
+                            checked={row.subscription_tiers.includes('*') || row.subscription_tiers.includes(tier)}
+                            onChange={(c) =>
+                              setDraft({
+                                ...row,
+                                subscription_tiers: toggleInList(row.subscription_tiers, tier, c, 'standard'),
+                              })
+                            }
+                          />
+                        ))}
+                      </fieldset>
+                    </li>
+                  )}
+                </Fragment>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+
+      {changedRows.length > 0 && (
+      <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-end gap-2 border-t bg-card/95 px-6 py-3 backdrop-blur">
+        <span className="mr-auto text-sm text-muted-foreground">
+          {t('admin.features.pendingChanges', { count: changedRows.length })}
+        </span>
         <Button
-          onClick={() => addFeatureMutation.mutate(newFeatureName)}
-          disabled={!newFeatureName.trim() || addFeatureMutation.isPending}
+          variant="outline"
+          onClick={() => setDrafts({})}
+          disabled={saveMutation.isPending}
         >
-          {t('admin.features.add')}
+          {t('admin.features.discard')}
         </Button>
         <Button
-          onClick={() => saveAllSettingsMutation.mutate(effectiveRows)}
-          disabled={!queriesReady || !hasUnsavedChanges || saveAllSettingsMutation.isPending}
+          onClick={() => saveMutation.mutate(changedRows)}
+          disabled={saveMutation.isPending}
         >
           {t('admin.features.saveAll')}
         </Button>
       </div>
-
-      {!queriesReady || loading ? (
-        <p className="text-sm text-muted-foreground">{t('admin.features.loading')}</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('admin.features.empty')}</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colFeature')}</th>
-                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colRoles')}</th>
-                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colTiers')}</th>
-                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colEnvironment')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {effectiveRows.map((row) => (
-                <FeatureSettingsTableRow
-                  key={row.feature_key}
-                  row={row}
-                  onChange={(next) => setDraftByKey((prev) => ({ ...prev, [next.feature_key]: next }))}
-                  toggleRole={toggleRole}
-                  toggleAllRoles={toggleAllRoles}
-                  toggleTier={toggleTier}
-                  toggleAllTiers={toggleAllTiers}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
     </div>
   );
 }
 
-function FeatureSettingsTableRow({
-  row,
+function CheckRow({
+  id,
+  label,
+  checked,
+  disabled,
   onChange,
-  toggleRole,
-  toggleAllRoles,
-  toggleTier,
-  toggleAllTiers,
 }: {
-  row: FeatureRow;
-  onChange: (row: FeatureRow) => void;
-  toggleRole: (row: FeatureRow, role: string, checked: boolean) => FeatureRow;
-  toggleAllRoles: (row: FeatureRow, checked: boolean) => FeatureRow;
-  toggleTier: (row: FeatureRow, tier: string, checked: boolean) => FeatureRow;
-  toggleAllTiers: (row: FeatureRow, checked: boolean) => FeatureRow;
+  id: string;
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
 }) {
-  const draft = row;
-
-  const setDraft = (next: FeatureRow) => onChange(next);
-  const visibleRoleTags = draft.roles.includes('*') ? ['all_roles'] : draft.roles.slice(0, 2);
-  const extraRoles = draft.roles.includes('*') ? 0 : Math.max(0, draft.roles.length - visibleRoleTags.length);
-
   return (
-    <tr className="border-b align-top hover:bg-muted/50">
-      <td className="px-4 py-3">
-        <div className="font-medium">{draft.display_name}</div>
-        <div className="font-mono text-xs text-muted-foreground">{draft.feature_key}</div>
-      </td>
-      <td className="px-4 py-3">
-        <div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-[260px] justify-between gap-2">
-                <span className="flex min-w-0 flex-wrap gap-1">
-                  {visibleRoleTags.map((role) =>
-                    role === 'all_roles' ? (
-                      <Badge
-                        key="all_roles"
-                        variant="outline"
-                        className="border-gray-300 bg-white text-[10px] text-gray-700"
-                      >
-                        {t('admin.features.allRoles')}
-                      </Badge>
-                    ) : (
-                      <Badge
-                        key={role}
-                        variant="outline"
-                        className={`text-[10px] capitalize ${roleTagClass(role)}`}
-                      >
-                        {role.replace('_', ' ')}
-                      </Badge>
-                    )
-                  )}
-                  {extraRoles > 0 ? (
-                    <Badge variant="outline" className="text-[10px]">
-                      +{extraRoles}
-                    </Badge>
-                  ) : null}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[230px]">
-              <DropdownMenuCheckboxItem
-                checked={draft.roles.includes('*')}
-                onSelect={(e) => e.preventDefault()}
-                onCheckedChange={(checked) => setDraft(toggleAllRoles(draft, checked))}
-              >
-                {t('admin.features.allRoles')}
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              {FEATURE_ROLES.map((role) => (
-                <DropdownMenuCheckboxItem
-                  key={role}
-                  checked={draft.roles.includes(role)}
-                  disabled={draft.roles.includes('*')}
-                  onSelect={(e) => e.preventDefault()}
-                  onCheckedChange={(checked) => {
-                    const next = toggleRole(draft, role, checked);
-                    setDraft(next);
-                  }}
-                >
-                  {role.replace('_', ' ')}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-[230px] justify-between text-xs">
-                <span className="truncate">{tiersLabel(draft.subscription_tiers)}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[240px]">
-              <DropdownMenuCheckboxItem
-                checked={draft.subscription_tiers.includes('*')}
-                onSelect={(e) => e.preventDefault()}
-                onCheckedChange={(checked) => setDraft(toggleAllTiers(draft, checked))}
-              >
-                {t('admin.features.allTiers')}
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              {FEATURE_SUBSCRIPTION_TIERS.map((tier) => (
-                <DropdownMenuCheckboxItem
-                  key={tier}
-                  checked={draft.subscription_tiers.includes(tier)}
-                  disabled={draft.subscription_tiers.includes('*')}
-                  onSelect={(e) => e.preventDefault()}
-                  onCheckedChange={(checked) => setDraft(toggleTier(draft, tier, checked))}
-                >
-                  {tier.charAt(0).toUpperCase() + tier.slice(1)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <Select
-          value={draft.min_tier === 'staged' ? 'development' : draft.min_tier}
-          onValueChange={(value) => setDraft({ ...draft, min_tier: normalizeRolloutTierLabel(value) })}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="development">{t('admin.features.envDevelopment')}</SelectItem>
-            <SelectItem value="production">{t('admin.features.envProduction')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </td>
-    </tr>
+    <div className="flex items-center gap-2">
+      <Checkbox id={id} checked={checked} disabled={disabled} onCheckedChange={(c) => onChange(c === true)} />
+      <label htmlFor={id} className={disabled ? 'text-muted-foreground' : undefined}>
+        {label}
+      </label>
+    </div>
   );
 }

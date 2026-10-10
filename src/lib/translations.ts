@@ -12,6 +12,142 @@ export interface Translations {
 
 export const translations: Translations = {
   // Admin dashboard
+  'admin.features.intro': {
+    en: 'Switch a feature on to make it live for businesses. Off means only super admins see it, in the Development preview.',
+    es: 'Activa una función para que esté en vivo para los negocios. Apagada, solo la ven los super admin en la vista de Desarrollo.'
+  },
+  'admin.features.live': {
+    en: 'Live for businesses',
+    es: 'En vivo para negocios'
+  },
+  'admin.features.devOnly': {
+    en: 'Only us (development)',
+    es: 'Solo nosotros (desarrollo)'
+  },
+  'admin.features.advanced': {
+    en: 'Who sees it',
+    es: 'Quién la ve'
+  },
+  'admin.features.unsaved': {
+    en: '· not saved',
+    es: '· sin guardar'
+  },
+  'admin.features.pendingChanges': {
+    en: '{count} unsaved change(s)',
+    es: '{count} cambio(s) sin guardar'
+  },
+  'admin.features.discard': {
+    en: 'Discard',
+    es: 'Descartar'
+  },
+  'admin.features.saveAll': {
+    en: 'Save changes',
+    es: 'Guardar cambios'
+  },
+  'admin.features.tierStandard': {
+    en: 'Standard (every plan)',
+    es: 'Estándar (todos los planes)'
+  },
+  'admin.features.group.appointments': {
+    en: 'Appointments',
+    es: 'Citas'
+  },
+  'admin.features.group.sales': {
+    en: 'Sales & payments',
+    es: 'Ventas y pagos'
+  },
+  'admin.features.group.inventory': {
+    en: 'Inventory',
+    es: 'Inventario'
+  },
+  'admin.features.group.staff': {
+    en: 'Staff',
+    es: 'Empleados'
+  },
+  'admin.features.group.account': {
+    en: 'Account',
+    es: 'Cuenta'
+  },
+  'admin.features.role.client': {
+    en: 'Client',
+    es: 'Cliente'
+  },
+  'admin.features.role.employee': {
+    en: 'Employee',
+    es: 'Empleado'
+  },
+  'admin.features.role.manager': {
+    en: 'Manager',
+    es: 'Gerente'
+  },
+  'admin.features.role.super_admin': {
+    en: 'Super admin',
+    es: 'Super admin'
+  },
+  'admin.features.name.appointments': {
+    en: 'Appointments',
+    es: 'Citas'
+  },
+  'admin.features.name.appointment_book': {
+    en: 'Appointment book',
+    es: 'Libro de citas'
+  },
+  'admin.features.name.booking_settings': {
+    en: 'Online booking settings',
+    es: 'Configuración de reservas en línea'
+  },
+  'admin.features.name.transactions_list': {
+    en: 'Transactions list',
+    es: 'Lista de transacciones'
+  },
+  'admin.features.name.transaction_create': {
+    en: 'New sale / Quick charge',
+    es: 'Nueva venta / Cobro rápido'
+  },
+  'admin.features.name.transaction_detail': {
+    en: 'Transaction detail',
+    es: 'Detalle de transacción'
+  },
+  'admin.features.name.payments': {
+    en: 'Payments (ATH Móvil)',
+    es: 'Pagos (ATH Móvil)'
+  },
+  'admin.features.name.payment_configuration': {
+    en: 'Payment settings',
+    es: 'Configuración de pagos'
+  },
+  'admin.features.name.tax_settings': {
+    en: 'Tax settings',
+    es: 'Configuración de impuestos'
+  },
+  'admin.features.name.receipt_personalization': {
+    en: 'Receipt personalization',
+    es: 'Personalización de recibos'
+  },
+  'admin.features.name.inventory': {
+    en: 'Inventory',
+    es: 'Inventario'
+  },
+  'admin.features.name.barcode_lookup': {
+    en: 'Barcode lookup',
+    es: 'Búsqueda por código de barras'
+  },
+  'admin.features.name.employee_mobile_punch': {
+    en: 'Clock in from phone',
+    es: 'Ponchar desde el teléfono'
+  },
+  'admin.features.name.geofencing': {
+    en: 'Geofencing',
+    es: 'Geocerca'
+  },
+  'admin.features.name.geofencing_settings': {
+    en: 'Geofencing settings',
+    es: 'Configuración de geocerca'
+  },
+  'admin.features.name.account_settings': {
+    en: 'Account settings',
+    es: 'Configuración de cuenta'
+  },
   'admin.growthMoreThanLastMonth': {
     en: '{count} more than last month',
     es: '{count} más que el mes pasado'
@@ -252,29 +388,9 @@ export const translations: Translations = {
     en: 'Canceled',
     es: 'Cancelado'
   },
-  'admin.features.newName': {
-    en: 'New feature name',
-    es: 'Nombre de la nueva función'
-  },
-  'admin.features.add': {
-    en: 'Add feature',
-    es: 'Añadir función'
-  },
-  'admin.features.saveAll': {
-    en: 'Save all settings',
-    es: 'Guardar todo'
-  },
   'admin.features.loading': {
     en: 'Loading feature settings…',
     es: 'Cargando configuración de funciones…'
-  },
-  'admin.features.empty': {
-    en: 'No feature rows found.',
-    es: 'No hay funciones.'
-  },
-  'admin.features.colFeature': {
-    en: 'Feature',
-    es: 'Función'
   },
   'admin.features.colRoles': {
     en: 'Roles',
@@ -283,10 +399,6 @@ export const translations: Translations = {
   'admin.features.colTiers': {
     en: 'Subscription plans',
     es: 'Planes de suscripción'
-  },
-  'admin.features.colEnvironment': {
-    en: 'Environment',
-    es: 'Ambiente'
   },
   'admin.features.allRoles': {
     en: 'All roles',
@@ -303,22 +415,6 @@ export const translations: Translations = {
   'admin.features.saveError': {
     en: 'Could not save feature settings',
     es: 'No se pudo guardar la configuración de funciones'
-  },
-  'admin.features.added': {
-    en: 'Feature added with defaults',
-    es: 'Función añadida con valores por defecto'
-  },
-  'admin.features.addError': {
-    en: 'Could not add feature',
-    es: 'No se pudo añadir la función'
-  },
-  'admin.features.envDevelopment': {
-    en: 'Development',
-    es: 'Desarrollo'
-  },
-  'admin.features.envProduction': {
-    en: 'Production',
-    es: 'Producción'
   },
   // Landing / Home
   'landing.title': {
