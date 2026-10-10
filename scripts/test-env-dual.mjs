@@ -157,16 +157,15 @@ function results(report) {
   const visit = (suite) => {
     for (const spec of suite.specs ?? []) {
       for (const t of spec.tests ?? []) {
-        const last = t.results?.[t.results.length - 1];
-        const err = last?.error?.message ?? last?.errors?.[0]?.message ?? '';
-        const ctx = (last?.attachments ?? []).find((a) => a.name === 'error-context' && a.path && existsSync(a.path));
-        out.push({
-          title: spec.title,
-          file: spec.file,
-          status: t.status,
-          error: err.replace(/\x1b\[[0-9;]*m/g, '').split('\n')[0],
-          context: ctx ? readFileSync(ctx.path, 'utf8') : '',
+        const firstLine = (r) => (r?.error?.message ?? r?.errors?.[0]?.message ?? '').replace(/\x1b\[[0-9;]*m/g, '').split('\n')[0];
+        // Every attempt (first run and retries): a retry can fail for a different reason than the first run
+        // (e.g. on data the first attempt already changed), so the first attempt's page is often the telling one.
+        const attempts = (t.results ?? []).map((r, i) => {
+          const ctx = (r.attachments ?? []).find((a) => a.name === 'error-context' && a.path && existsSync(a.path));
+          return { label: i === 0 ? 'first run' : `retry #${i}`, status: r.status, error: firstLine(r), context: ctx ? readFileSync(ctx.path, 'utf8') : '' };
         });
+        const last = t.results?.[t.results.length - 1];
+        out.push({ title: spec.title, file: spec.file, status: t.status, error: firstLine(last), attempts });
       }
     }
     for (const s of suite.suites ?? []) visit(s);
@@ -251,6 +250,7 @@ async function main() {
   //    feature/fix it doesn't have yet). Passes there → THIS branch's schema broke it: a schema regression,
   //    never acceptable as an expected failure.
   const baseline = new Map(); // title → 'fail' | 'pass' | 'skipped'
+  const baselineRuns = new Map(); // title → that test's result on the ref's own schema
   let baselineNote = '';
   if (failed.length && ref !== 'HEAD' && !noBaseline) {
     const migrations = join(dir, 'supabase', 'migrations');
@@ -268,7 +268,10 @@ async function main() {
         const env2 = { ...pwEnv, TEST_API_URL: e2.apiUrl, TEST_ANON_KEY: e2.anonKey, TEST_SERVICE_KEY: e2.serviceKey };
         const base = runSuite(join(ROOT, 'test-results', `dual-${safe}-own-schema.json`), ['--grep', grep], env2, `${ref}'s frontend on its own schema`, { allowEmpty: true });
         keepArtifacts(`dual-${safe}-own-schema`);
-        for (const t of base) baseline.set(t.title, t.status === 'unexpected' ? 'fail' : t.status === 'skipped' ? 'skipped' : 'pass');
+        for (const t of base) {
+          baseline.set(t.title, t.status === 'unexpected' ? 'fail' : t.status === 'skipped' ? 'skipped' : 'pass');
+          baselineRuns.set(t.title, t);
+        }
         if (!base.length) baselineNote = `The re-run on ${ref}'s own schema ran no tests; see the log.`;
       }
       if (!process.env.CI) {
@@ -306,7 +309,13 @@ async function main() {
   // For anything that needs a human: the page as Playwright saw it when the test failed (its error context).
   // Printed before the summary, so the summary stays at the end of the log.
   for (const t of [...regressions, ...unexpectedFailures]) {
-    if (t.context) console.log(`\n── page at failure: ${t.title} ──\n${pageGist(t.context)}`);
+    const runs = [['this branch\'s schema', t], [`${ref}'s own schema`, baselineRuns.get(t.title)]];
+    for (const [schema, run] of runs) {
+      for (const a of run?.attempts ?? []) {
+        if (a.status === 'passed') continue;
+        console.log(`\n── ${t.title} · ${schema} · ${a.label} (${a.status}): ${a.error} ──${a.context ? `\n${pageGist(a.context)}` : ' (no page snapshot)'}`);
+      }
+    }
   }
   console.log(`\n${text.replace(/\*\*/g, '')}\n`);
   summary(text);
@@ -336,7 +345,7 @@ function runSuite(report, args, env, what, { allowEmpty = false } = {}) {
 function pageGist(context) {
   const telling = /heading|dialog|alert|button "|tab "|paragraph|text:|Error|textbox/;
   const lines = context.split('\n').filter((l) => telling.test(l)).map((l) => `  ${l.trim().slice(0, 200)}`);
-  return (lines.length ? lines : context.split('\n')).slice(0, 30).join('\n');
+  return (lines.length ? lines : context.split('\n')).slice(0, 40).join('\n');
 }
 
 /** Moves a run's HTML report and traces aside (the next run would wipe them); the workflow uploads them. */
