@@ -9,3 +9,4 @@ test('1. manager logs in and lands on the dashboard', async ({ page }) => {
   // The seeded team: the owner's staff row (from signup) plus two hourly employees.
   await expect(page.getByRole('link', { name: /Personal Activo 3/ })).toBeVisible();
 });
+// TEMP U24 proof (2), will be reverted
