@@ -1222,7 +1222,7 @@ No frontend deploy is needed.
   - `generate_staff_pin` also skips the manager prefix server-side.
 - `supabase/rollbacks/20261010220000_kiosk_manager_pin_hashes.down.sql`: restores `generate_staff_pin` verbatim and drops the rest (identical `pg_dump -s` verified locally).
 - Frontend (`employeePin.ts`, `TimeKiosk.tsx`, `KioskManagerPinSettings.tsx`, `KioskManagerPinResetDialog.tsx`): never reads the plain manager PIN on a migrated database; falls back to today's path only on 42703 / PGRST202 / 42883. The reset dialog no longer loads every employee PIN (U11 follow-up done).
-- `scripts/pre-commit`: the "Hardcoded password" rule now flags only quoted literals (`password: "abcdef"`), not identifiers (`password: accountPassword`); checked against 9 sample lines (owner decision 2026-10-10).
+- `scripts/pre-commit`: the "Hardcoded password" rule now flags only quoted literals (a password key followed by a quoted string literal), not identifiers (`password: accountPassword`); checked against 9 sample lines (owner decision 2026-10-10).
 - Types: 3 functions added to `src/integrations/supabase/types.ts` (coordinator).
 - Tests: `scripts/test-env-security.mjs` `managerPinHashing` (34 checks, 2 new known()); `src/lib/employeePin.test.ts` (+27).
 
@@ -1361,3 +1361,30 @@ No frontend deploy is needed.
 **Notes.** The PR-event path (names, merge-commit diff) was simulated locally only; the first real PR into `dev`/`main` confirms it. Edge case: the same commit heading two open PRs gives two PR runs named `dual-main` on that commit.
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · P2-01 businesses (U29) · Only managers edit the business; billing columns service-role only (S-7a)
+
+**Status:** done on `remediation` (unit U29, branch `fix/U29-businesses-update-managers`). **Not applied to production** (OWNER_ACTIONS D12).
+
+**Problem.** "Businesses update" let any profile linked to the business (employees, and client profiles with a business_id) update the row: name, slug, `qr_code` (root cause of U25's stored XSS), geofencing, kiosk manager PIN, and the billing columns `subscription_tier`, `subscription_status`, `stripe_*`, `trial_ends_at`.
+
+**Change.**
+- `supabase/migrations/20261010230000_businesses_update_managers_only.sql` (requires 20261009120000; stops with a message otherwise): drops "Businesses update"; creates `businesses_update_managers` FOR UPDATE TO authenticated with `is_business_manager(id)` in USING and WITH CHECK; trigger `businesses_lock_billing_columns` (BEFORE UPDATE) raises 42501 when `subscription_tier`, `subscription_status`, `trial_ends_at`, `subscription_ends_at` or any `stripe_*` column changes, unless the request's JWT role is `service_role` or there is no API request (SQL editor, migrations, cron). Repeating the current value is allowed; INSERT is untouched. The JWT role is used rather than `current_user`, so a user calling a SECURITY DEFINER function is still blocked.
+- Rollback `supabase/rollbacks/20261010230000_businesses_update_managers_only.down.sql` recreates "Businesses update" verbatim from the production snapshot.
+- `scripts/test-env-security.mjs`: S-7 `known()` → `check()`; new `businessPolicies` (25 checks: employee/client-member/other business's manager can't edit; every manager writer on main and dev still works — Register post-signup QR, Settings save, QR, geofencing, logo; managers, access_role managers and super admins can't change billing; unchanged billing values still save; `complete_manager_signup` keeps the chosen plan; service role can change billing).
+
+**Compatibility with `main`.** Every writer on main/dev/remediation is a manager-only screen, a definer RPC (`set_kiosk_manager_pin`) or the service role; none writes billing columns. Admin portal is read-only on businesses. No Stripe webhook exists.
+
+**Gates.** Red test-only run 38086768419 (only the new checks failed). Final head 049a5bd: CI 38087717084 ✓ (security all ✓, **3 known open, was 4**; E2E 15/15), dual-frontend 38087717141 ✓. Migration → rollback → migration on scratch Postgres 16: schema identical after rollback, both idempotent. Combined on remediation: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.**
+- `subscription_ends_at` locked too (billing; nothing writes it).
+- Super admins can no longer change billing columns through the API (no screen does). If wanted, add `OR public.is_super_admin()` to the trigger.
+- Edge: a profile with role null/'client' linked to a business that isn't a manager would still see Settings on main and its save would now do nothing.
+- Unsure: whether hosted Supabase's new secret-key format (`sb_secret_…`) always sends `role=service_role` in `request.jwt.claims`; the local stack does. If a future billing function gets 42501, check this first.
+- **No slug CHECK:** the snapshot has no business rows. The format (`isValidPublicSlugFormat`) is `^[a-z0-9]+(-[a-z0-9]+)*$`; the owner's read-only query is in OWNER_ACTIONS D12. If it returns 0 rows, a later unit can add `CHECK (slug IS NULL OR slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')` (regex only; signup can produce slugs outside 2–80 chars).
+- Not covered: INSERT ("Businesses insert" lets any signed-in user create a business with any plan, unlinked to them); managers can still change `owner_id` and `short_code`.
+
+**Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010230000`. Reopens S-7. Tag `fix/P2-01-businesses` once applied.
