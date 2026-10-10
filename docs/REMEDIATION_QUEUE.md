@@ -39,6 +39,10 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 8 | U26 | `useFeatureRollout` exposes a settled/error flag; replaces U19's 10 s fallback — owner OK 2026-10-10 | `src/hooks/useFeatureRollout*`, `src/lib/featureGate.ts`, their tests | – | U19 | merged |
 | 8 | U27 | Client sign-up: Enter on step 1/2 submits the whole form early — owner OK 2026-10-10 | `src/pages/Register.tsx` (+ its test) | – | U01 | merged |
 | 8 | U28 | C5: drop the dead `dispatch_staff_missing_email_reminders` call (owner decision 2026-10-10) | the caller (listed by the worker) | – | – | merged |
+| 9 | U29 | P2-01 businesses / S-7a: only managers/admins update the business; trigger blocks billing columns (subscription_tier/status, stripe_*, trial_ends_at) unless service role; slug format CHECK only if every existing slug passes. Expand-only for main and remediation's frontend — owner OK 2026-10-10 | `supabase/migrations/20261010230000_*.sql`, rollback, `scripts/test-env-security.mjs` (owner this wave), minimal frontend if needed | 20261010230000 | – | running |
+| 9 | U30 | `is_business_manager` also requires `staff.status = 'active'` (inactive admin/manager staff can't delete); frontend delete helper mirrors it — owner: tighten (2026-10-10) | new migration, rollback, `src/lib/deletePermissions.ts` (+test), `scripts/test-env-security.mjs` | 20261010240000 | U29 (shares the security suite and `is_business_manager`) | queued |
+| 9 | U31 | E2E clock pin: `pinBrowserClock` (`setFixedTime`) can make auth-js treat sessions as expired when pinned ahead of real time (U22 note); tests only, same assertions — owner OK 2026-10-10 | `e2e/clock.ts`, clock calls in e2e flows 4 and 7 | – | – | running |
+| – | S-6a/S-8a | Payments (Genesis's area): **plan only, not started** — see "Draft: S-6a / S-8a" below; owner coordinates with Genesis | – | – | owner + Genesis | needs owner |
 
 **Not queued** (blocked on a person or deferred): P2-01 businesses (SECURITY_RISKS S-7, Genesis) · P2-05 demo workspace · P2-06 (production row counts) · P2-08, C4 (Genesis) · C5 (decision) · P3-03, P3-05, P3-06 (wide/high-risk, later run) · npm audit (lockfile) · P1-01, P1-02, P1-10, P1-12 (OWNER_ACTIONS Part B).
 
@@ -62,6 +66,14 @@ Not queued yet (candidates; ask the owner first):
 - Genesis's open questions: S-10a/b/c, C2, P2-08 (HANDOFF).
 
 Working rules (learned): one remediation push at a time (CI cancels in-progress runs); merge `origin/dev` in before each round (never rebase); every unit's frontend must work before and after its own migration (remediation runs on `dev` before Part D is applied); migration slots after every file on `dev`; lint from a clean worktree outside `.claude/worktrees`; GitHub job-log blob URLs are blocked (use get_job_logs return_content).
+
+## Draft: S-6a / S-8a (payments; NOT started — owner coordinates with Genesis)
+
+Both touch `supabase/functions/payments/` and the payments tables Genesis is working on directly on `dev` (ATH Móvil). Proposed as two separate units, each after a fresh `origin/dev` sync, run only once the owner and Genesis say go (and after Genesis answers P2-08: which payment secrets table is live).
+
+**S-8a (smaller, do first).** `payments/index.ts` ~269–272 authorizes by `profiles.role` (`manager`/`employee`) and `is_super_admin`. Change: resolve the caller's staff row for the business (same rule as `caller_staff_access_role_for_business` / `is_business_manager`, incl. U30's active-status check): charges/cancels need access_role staff or above and `status = 'active'` (contractors and inactive staff refused); settings (mode, keys, webhook) need admin or manager; profile managers and super admins keep today's access. Tests: `npm run test:payments` cases per tier (contractor charge → 403, inactive staff → 403, admin-tier employee settings → 200). No migration expected (maybe a helper SQL function, expand-only). Behavior change staff would notice: contractors lose Cobrar with ATH, admin-tier employees gain payment settings → owner/Genesis confirm wording.
+
+**S-6a (larger).** ATH public/private tokens in `business_payment_secrets` (and per-payment auth tokens in `payment_secrets`) move to Supabase Vault: expand migration adds `*_secret_id uuid` columns + SECURITY DEFINER functions callable only by `service_role` (`payments_store_secret`, `payments_read_secret`) wrapping `vault.create_secret`/`vault.decrypted_secrets`; the function writes both (dual-write) and reads Vault first, falling back to the plain column; a later contract step (after backfill and once main runs the new function) nulls and drops the plain columns. Needs: Vault enabled on production (check `vault` schema), a backfill script the owner runs in the SQL editor after a backup, test-env Vault support in CI (verify the local stack has `supabase_vault`), payments tests for store/read/rotate, and an Edge Function deploy (owner, D-row). Open questions for Genesis: P2-08 (live table), simulator tokens in Vault too or not (S-3a: simulator is super-admin-only), and timing vs her ATH work.
 
 ## Needs you
 
