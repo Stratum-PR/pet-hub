@@ -162,7 +162,14 @@ function results(report) {
         // (e.g. on data the first attempt already changed), so the first attempt's page is often the telling one.
         const attempts = (t.results ?? []).map((r, i) => {
           const ctx = (r.attachments ?? []).find((a) => a.name === 'error-context' && a.path && existsSync(a.path));
-          return { label: i === 0 ? 'first run' : `retry #${i}`, status: r.status, error: firstLine(r), context: ctx ? readFileSync(ctx.path, 'utf8') : '' };
+          const trace = (r.attachments ?? []).find((a) => a.name === 'trace' && a.path && existsSync(a.path));
+          return {
+            label: i === 0 ? 'first run' : `retry #${i}`,
+            status: r.status,
+            error: firstLine(r),
+            context: ctx ? readFileSync(ctx.path, 'utf8') : '',
+            trace: r.status !== 'passed' && trace ? traceGist(trace.path) : '', // read now: the files move after the run
+          };
         });
         const last = t.results?.[t.results.length - 1];
         out.push({ title: spec.title, file: spec.file, status: t.status, error: firstLine(last), attempts });
@@ -281,6 +288,13 @@ async function main() {
     }
   }
 
+  // A failure that has no pass/fail result on the ref's own schema (not re-run, skipped there) can't be told
+  // from a schema regression either.
+  if (failed.length && ref !== 'HEAD' && !noBaseline && !baselineNote) {
+    const unchecked = failed.filter((t) => !['fail', 'pass'].includes(baseline.get(t.title)));
+    if (unchecked.length) baselineNote = `no pass/fail result on ${ref}'s own schema for: ${unchecked.map((t) => t.title).join('; ')}.`;
+  }
+
   // 6. Classify against EXPECTED.
   const regressions = failed.filter((t) => baseline.get(t.title) === 'pass');
   const expectedFailures = failed.filter((t) => known.has(t.title) && !regressions.includes(t));
@@ -314,6 +328,7 @@ async function main() {
       for (const a of run?.attempts ?? []) {
         if (a.status === 'passed') continue;
         console.log(`\n── ${t.title} · ${schema} · ${a.label} (${a.status}): ${a.error} ──${a.context ? `\n${pageGist(a.context)}` : ' (no page snapshot)'}`);
+        if (a.trace) console.log(a.trace);
       }
     }
   }
@@ -346,6 +361,52 @@ function pageGist(context) {
   const telling = /heading|dialog|alert|button "|tab "|paragraph|text:|Error|textbox/;
   const lines = context.split('\n').filter((l) => telling.test(l)).map((l) => `  ${l.trim().slice(0, 200)}`);
   return (lines.length ? lines : context.split('\n')).slice(0, 40).join('\n');
+}
+
+/**
+ * What the browser did, from a Playwright trace: page URLs, console warnings/errors, uncaught page errors and
+ * failed requests (status >= 400). The traces themselves are in the uploaded artifact; this makes the log
+ * readable on its own. Best effort: any problem reading the trace is reported, never fatal.
+ */
+function traceGist(zip) {
+  const read = (entry) => {
+    const r = spawnSync('unzip', ['-p', zip, entry], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+    return r.status === 0 ? r.stdout : '';
+  };
+  const events = [];
+  const parse = (text) => {
+    for (const line of text.split('\n')) {
+      if (!line) continue;
+      try {
+        events.push(JSON.parse(line));
+      } catch {
+        /* skip partial lines */
+      }
+    }
+  };
+  const listing = spawnSync('unzip', ['-Z1', zip], { encoding: 'utf8' });
+  if (listing.status !== 0) return `  (trace: could not list ${zip})`;
+  for (const entry of listing.stdout.split('\n').filter((x) => /\.(trace|network)$/.test(x))) parse(read(entry));
+  const out = [];
+  let lastUrl = '';
+  for (const e of events) {
+    const url = e.type === 'frame-snapshot' ? e.snapshot?.frameUrl : null;
+    if (url && url !== lastUrl && !url.startsWith('about:')) {
+      out.push(`  url: ${url}`);
+      lastUrl = url;
+    }
+    if (e.type === 'console' && /^(error|warning)$/.test(e.messageType ?? '')) out.push(`  console.${e.messageType}: ${String(e.text ?? '').slice(0, 300)}`);
+    if (e.type === 'event' && e.method === 'pageError') out.push(`  pageerror: ${String(e.params?.error?.error?.message ?? JSON.stringify(e.params)).slice(0, 300)}`);
+    if (e.type === 'resource-snapshot') {
+      const status = e.snapshot?.response?.status ?? 0;
+      const u = e.snapshot?.request?.url ?? '';
+      if ((status >= 400 || status === -1) && !/\.(png|jpe?g|svg|ico|woff2?)(\?|$)/.test(u)) {
+        out.push(`  http ${status}: ${e.snapshot?.request?.method ?? ''} ${u.slice(0, 200)}`);
+      }
+    }
+  }
+  const dedup = out.filter((l, i) => l !== out[i - 1]);
+  return dedup.length ? `  trace (${dedup.length} lines):\n${dedup.slice(0, 80).join('\n')}` : '  trace: no navigations, console errors or failed requests recorded';
 }
 
 /** Moves a run's HTML report and traces aside (the next run would wipe them); the workflow uploads them. */
