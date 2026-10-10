@@ -2,8 +2,8 @@ import { createContext, useContext, useRef, useEffect, useLayoutEffect, useState
 import { useLocation } from 'react-router-dom';
 
 // Keep transitions fast so users perceive navigation as intentional (not a "glitch").
-// Note: cover animation duration is also defined in tailwind.config.ts (page-cover-down).
-const COVER_DURATION_MS = 500;
+// Fade-out of the old page; must match the transition in PageTransition.css (.page-transition-content).
+const COVER_DURATION_MS = 160;
 const REVEAL_DURATION_MS = 900;
 
 /** Last URL segment `dashboard`. */
