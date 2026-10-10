@@ -33,6 +33,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminOverview } from "@/pages/admin/AdminOverview";
 import { AdminBusinesses } from "@/pages/admin/AdminBusinesses";
 import { AdminFeatures } from "@/pages/admin/AdminFeatures";
+import { AdminAutomations } from "@/pages/admin/AdminAutomations";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
@@ -161,6 +162,7 @@ const App = () => (
                       <Route element={<AdminLayout />}>
                         <Route index element={<AdminOverview />} />
                         <Route path="businesses" element={<AdminBusinesses />} />
+                        <Route path="automations" element={<AdminAutomations />} />
                         <Route path="features" element={<AdminFeatures />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />

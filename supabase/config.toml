@@ -52,3 +52,6 @@ verify_jwt = false
 [functions.athm-simulator]
 # Test-mode ATH Móvil API (public like the real one, simulator tokens only); controls check the JWT in code.
 verify_jwt = false
+
+[functions.run-automations]
+verify_jwt = false

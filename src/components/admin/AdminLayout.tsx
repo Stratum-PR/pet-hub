@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
-import { ArrowLeft, Building2, LayoutDashboard, LogOut, Menu, Moon, SlidersHorizontal, Sun } from 'lucide-react';
+import { ArrowLeft, Building2, LayoutDashboard, LogOut, Menu, Moon, SlidersHorizontal, Sun, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 const NAV = [
   { to: '/admin', end: true, labelKey: 'admin.nav.overview', icon: LayoutDashboard },
   { to: '/admin/businesses', end: false, labelKey: 'admin.nav.businesses', icon: Building2 },
+  { to: '/admin/automations', end: false, labelKey: 'admin.nav.automations', icon: Zap },
   { to: '/admin/features', end: false, labelKey: 'admin.nav.features', icon: SlidersHorizontal },
 ] as const;
 
