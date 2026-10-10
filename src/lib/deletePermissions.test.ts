@@ -89,4 +89,19 @@ describe('canDeleteClientsAndPets (mirrors is_business_manager)', () => {
   it('allows the public demo workspace (deletes stay local there)', () => {
     expect(canDeleteClientsAndPets({ ...base, role: undefined, demoBrowseOnly: true })).toBe(true);
   });
+
+  it('refuses staff with access_role manager or admin whose staff row is inactive (U30)', () => {
+    expect(canDeleteClientsAndPets({ ...base, staffAccessRole: 'manager', staffStatus: 'inactive' })).toBe(false);
+    expect(canDeleteClientsAndPets({ ...base, staffAccessRole: 'admin', staffStatus: 'inactive' })).toBe(false);
+  });
+
+  it('allows active staff with access_role manager or admin (U30)', () => {
+    expect(canDeleteClientsAndPets({ ...base, staffAccessRole: 'manager', staffStatus: 'active' })).toBe(true);
+    expect(canDeleteClientsAndPets({ ...base, staffAccessRole: 'admin', staffStatus: 'active' })).toBe(true);
+  });
+
+  it('keeps profile managers and super admins whose own staff row is inactive (U30)', () => {
+    expect(canDeleteClientsAndPets({ ...base, role: 'manager', staffAccessRole: 'admin', staffStatus: 'inactive' })).toBe(true);
+    expect(canDeleteClientsAndPets({ ...base, isSuperAdmin: true, staffAccessRole: 'staff', staffStatus: 'inactive' })).toBe(true);
+  });
 });
