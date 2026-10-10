@@ -24,7 +24,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 4 | U14 | P2-01 pets: employees can't delete pets (decision 9) | `supabase/migrations/20261009160000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for pets | 20261009160000 | U13 | merged |
 | 5 | U15 | P2-01 appointments: employees can't delete, may still cancel (decision 9) | `supabase/migrations/20261009170000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for appointments | 20261009170000 | U14 | review (code done, security ✓ 2 known; CI red only on flaky E2E flow 4 → waits on U17, then re-run) |
 | 5 | U17 | E2E flakes: flow 4 (cancel confirm not awaited; retry not idempotent; sometimes lands on client portal after login) and flow 7 (PR-midnight date edge) made deterministic, same assertions (owner-approved 2026-10-10) | `e2e/04-edit-cancel-appointment.spec.ts`, `e2e/07-payroll.spec.ts`, new `e2e/` helper | – | – | running (relaunched 2026-10-10 13:20 UTC, branch `fix/U17-e2e-flakes`) |
-| 5 | U18 | Login misroute: a destination lookup slower than 6 s sends every user (staff included) to `/portal` (`LoginForm.tsx` timeout fallback); found via E2E flow 4 | `src/components/LoginForm.tsx`, its new unit test | – | – | running (branch `fix/U18-login-slow-redirect`) |
+| 5 | U18 | Login misroute: a destination lookup slower than 6 s sends every user (staff included) to `/portal` (`LoginForm.tsx` timeout fallback); found via E2E flow 4 | `src/components/LoginForm.tsx`, its new unit test | – | – | merged |
 | 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261009180000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261009180000 | U09, U15 | todo (stop before: owner review) |
 | 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261009190000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261009190000 | U11 | todo (stop before: owner review) |
 
@@ -55,6 +55,7 @@ Order agreed with the owner today: U17 (+ U18 in parallel, no shared paths) → 
 
 ## Notes
 
+- 2026-10-10: U18 merged (branch CI 38054885116 green; remediation's previous push 38054673577 green). Merged before U17 because rule (c) was met.
 - 2026-10-10 13:20 UTC: U07 and remediation red only on flaky flow 4; plan reordered (U17 first, rule (c) waived once for U17, owner OK). U18 added (login slow-redirect bug). U17 + U18 started.
 - Shared files (coordinator only): FIX_LOG, OWNER_ACTIONS, REMEDIATION_STATUS, this queue, CLAUDE.md/AGENTS.md, `src/lib/translations.ts`, package.json/package-lock.json, `src/integrations/supabase/types.ts`, `scripts/typecheck-baseline.json`, `scripts/lint-baseline.json`. `scripts/test-env-security.mjs` has one owner per wave (listed above).
 - No local DB stack in cloud sessions (Docker images can't be pulled), so CI on each `fix/*` branch is the DB/E2E gate. Until U00 merges, no branch has CI.
