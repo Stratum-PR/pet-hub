@@ -89,3 +89,10 @@ test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)
   const { ownDate } = await openEditDialog(page, 'checkout', '9 AM');
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
 });
+
+// TEMP DIAGNOSTICS (U17): print where a failed flow 4 ended up. Removed before hand-off.
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus) return;
+  const snap = await page.locator('body').ariaSnapshot({ timeout: 5_000 }).catch((e) => `ariaSnapshot failed: ${e}`);
+  console.log(`[U17-diag] url=${page.url()}\n${snap.slice(0, 6000)}`);
+});
