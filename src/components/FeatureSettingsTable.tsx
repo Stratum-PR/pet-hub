@@ -446,7 +446,7 @@ function FeatureSettingsTableRow({
       </td>
       <td className="px-4 py-3">
         <Select
-          value={draft.min_tier}
+          value={draft.min_tier === 'staged' ? 'development' : draft.min_tier}
           onValueChange={(value) => setDraft({ ...draft, min_tier: normalizeRolloutTierLabel(value) })}
         >
           <SelectTrigger className="w-[140px]">
@@ -454,7 +454,6 @@ function FeatureSettingsTableRow({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="development">{t('admin.features.envDevelopment')}</SelectItem>
-            <SelectItem value="staged">{t('admin.features.envStaged')}</SelectItem>
             <SelectItem value="production">{t('admin.features.envProduction')}</SelectItem>
           </SelectContent>
         </Select>
