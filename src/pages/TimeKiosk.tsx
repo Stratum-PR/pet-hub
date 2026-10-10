@@ -28,6 +28,7 @@ import type { TimeEntry } from '@/types';
 import { setKioskLocked } from '@/lib/kioskLock';
 import { useTheme } from 'next-themes';
 import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
+import { BUSINESS_KIOSK_MANAGER_PIN_COLUMNS } from '@/lib/employeePin';
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
 import { devConsole } from '@/lib/clientDebug';
 import { useAuth } from '@/contexts/AuthContext';
@@ -105,7 +106,7 @@ export function TimeKiosk() {
       try {
         const { data, error } = await supabase
           .from('businesses')
-          .select('kiosk_manager_pin')
+          .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
           .eq('id', businessId)
           .maybeSingle();
 
@@ -251,7 +252,7 @@ export function TimeKiosk() {
       const managerPin = businessId
         ? await supabase
             .from('businesses')
-            .select('kiosk_manager_pin')
+            .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
             .eq('id', businessId)
             .single()
             .then(({ data }) => data?.kiosk_manager_pin ?? null)
