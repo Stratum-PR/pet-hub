@@ -1042,3 +1042,67 @@ Saved anchors, cadence and pay math are unchanged.
 **Note.** Possible contributor, unproven: flows 4 and 7 are the only specs that pin the browser clock (`page.clock.setFixedTime`); after 12:00 PR flow 7's frozen clock runs behind real time. Worth a look in U22.
 
 **Rollback.** Revert the merge commit.
+
+
+---
+
+## 2026-10-10 · P2-01 appointments · Only managers can delete appointments; employees still cancel (decision 9)
+
+**Status:** done on `remediation` (unit U15, branch `fix/U15-appointments-no-employee-delete`). **Not applied to production** (OWNER_ACTIONS D9).
+
+**Problem.** Two permissive policies on `appointments` allowed DELETE and were OR-ed together. "Appointments delete" allowed any profile linked to the business, so every employee could delete any appointment of their business. Decision 9 (2026-10-09): employees may not delete appointments; they may cancel one (status change), which keeps the record; managers keep delete.
+
+**Cancel paths.** Every frontend cancels by UPDATE, never by DELETE: remediation/dev AppointmentBook → AppointmentDetailsSheet "Cancelar cita" (`status 'canceled'`) and request decline (`'canceled'` + decision fields); main EditAppointmentDialog status select (`'cancelled'`). Main's separate trash button on Appointments.tsx is a real delete ("Delete Appointment"). Client portal only reads; public booking is SECURITY DEFINER insert-only; no edge function deletes appointments.
+
+**Change.**
+- `supabase/migrations/20261009170000_appointments_delete_managers_only.sql`.
+  - Requires 20261009120000 (`is_business_manager`).
+  - Drops "Appointments delete".
+  - Creates `appointments_delete_business_managers`: FOR DELETE TO authenticated, `is_business_manager(business_id)` OR super admin. The super admin clause keeps delete on appointments with no business (business_id is nullable).
+  - Splits the FOR ALL "Users can manage appointments from their business" into "Users can read/insert/update appointments from their business", with identical expressions.
+  - Every other policy is unchanged, including "Appointments update", so employees keep booking, rescheduling and every status change (confirmed, in_progress, completed, no_show, canceled/cancelled).
+- `supabase/rollbacks/20261009170000_appointments_delete_managers_only.down.sql`: recreates the 2 old policies verbatim from the production snapshot.
+- `scripts/test-env-security.mjs`:
+  - "employee cannot delete the business's appointments" moved from known() to check().
+  - New regression checks: employee read/book/reschedule; every status the app sets; cancel ('canceled' and 'cancelled') and request decline keep the row; employee cannot delete an appointment they booked; manager delete; cross-business manager can't cancel or delete; staff access_role manager delete; super admin delete, with and without a business; portal client reads its own appointments and cannot delete them or a business's.
+- No frontend change: remediation has no appointment delete control (the hooks' `deleteAppointment` is unused).
+
+**Compatibility with `main` (shared database).**
+- Expand-only for every flow either frontend uses except an employee's delete.
+- On main an employee still sees the trash button on Appointments. Confirming it deletes nothing and shows no error (the "Appointment deleted successfully" toast still appears). The appointment vanishes from the list until a reload, with its status unchanged.
+- Cancelling (edit dialog → Cancelled) keeps working for employees. Managers, staff with access_role manager/admin, super admins and portal clients are unaffected.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 135/135 (combined) · build OK.
+- Red test-only run 38021930702: only the 2 employee appointment-delete checks failed.
+- Final head b7c64f2: CI 38072272882 ✓ (`check`; `db-tests`: payments, security all ✓ + **2 known issues open** (was 3), smoke E2E incl. flows 4 and 7). dual-frontend 38072272864 ✓: dual-main and dual-dev, 0 schema regressions.
+- Earlier red runs on this branch were not this migration: E2E flow 4 (spec races fixed by U17; ProtectedRoute race found by the U15 worker, CI 38060099293–38061346629, fix queued as U22) and dual-dev flow 7 on 744c8cc (run 38066965363: the same race in dev's frontend; attempt 2 failed it on dev's own schema too; handled by U07b). The split keeps the SELECT policies on `appointments` identical in count and expressions.
+- Migration → rollback → migration verified on a scratch Postgres 16: policies and behavior identical after the rollback, both scripts idempotent, split expressions identical to the FOR ALL policy, the only behavior change is DELETE by non-manager business profiles.
+
+**Production steps (Jovaniel; OWNER_ACTIONS D9).**
+1. Confirm D6 (20261009120000, `is_business_manager`) is applied; the migration stops with an error otherwise. Apply after D8.
+2. Backup (A3) and note its folder name: `__________`.
+3. Paste the whole migration file into the Supabase SQL editor and run it. **Never `supabase db push`.**
+4. `npx supabase migration repair --status applied 20261009170000`.
+5. Verify (read-only): `select policyname, cmd from pg_policies where schemaname='public' and tablename='appointments' order by 1;`
+   - Expect 10 rows.
+   - Exactly one DELETE row: `appointments_delete_business_managers`.
+   - Neither "Appointments delete" nor "Users can manage appointments from their business".
+6. Smoke test on the dev page with the QA business:
+   - as a manager: book, reschedule, cancel and (on main) delete an appointment;
+   - as an employee: book, reschedule, confirm and cancel an appointment (it stays, shown as cancelled);
+   - as a client: open the portal and see your appointments;
+   - send a public booking request;
+   - then, on the production app, cancel an appointment as a manager.
+7. Watch for RLS errors on `appointments` for 24 h.
+
+No frontend deploy is needed.
+
+**Rollback (production).** Run `supabase/rollbacks/20261009170000_appointments_delete_managers_only.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261009170000`. This reopens "employees can delete any appointment of their business". The helpers belong to 20261009120000 and are not touched.
+
+**Tag:** `fix/P2-01-appointments` once applied to production.
+
+**Notes.**
+- Main shows employees a trash button that now silently does nothing, with a success toast. Hiding it would need a main-side change (not in scope).
+- A profile with role client and a business_id set also loses delete on that business's appointments; it keeps the old SELECT/INSERT/UPDATE via "Appointments select/insert/update" (not changed here).
+- Owner decision 2026-10-10: leave main's employee trash button as is until `main` gets the remediation frontend.
