@@ -14,6 +14,7 @@ import {
   tierVisibleForViewer,
 } from '@/lib/featureRollout';
 import { DEMO_WORKSPACE_BUSINESS_ID, isPublicDemoPath } from '@/lib/demoWorkspace';
+import { featureRulesStatus } from '@/lib/featureGate';
 
 /** Public demo URL or logged-in profile on the seeded demo tenant — bypass subscription/role gates for these tabs. */
 const DEMO_WORKSPACE_NAV_FEATURE_KEYS = new Set<FeatureKey>([
@@ -153,7 +154,8 @@ export function useFeatureRollout() {
     setViewerTier,
     isFeatureVisible,
     isSuperAdmin,
-    rolloutLoaded: rolloutQuery.isSuccess && visibilityQuery.isSuccess,
+    /** U26: 'loading' until both rule queries settle, then 'loaded' or 'error' (see featureGate.ts). */
+    featureRulesStatus: featureRulesStatus(rolloutQuery, visibilityQuery),
     featureConfigs: configByKey,
   };
 }
