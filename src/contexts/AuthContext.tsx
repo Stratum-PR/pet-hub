@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback, u
 import { User } from '@supabase/supabase-js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isSupabaseConfigured, supabase } from '@/integrations/supabase/client';
-import { type Profile, type Business, isAuthLocalSignOutInProgress } from '@/lib/auth';
+import { type Profile, type Business, BUSINESS_COLUMNS, PROFILE_COLUMNS, isAuthLocalSignOutInProgress } from '@/lib/auth';
 import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/authRouting';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { subscribeAuthBroadcast } from '@/lib/authBroadcast';
@@ -43,7 +43,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 async function fetchProfile(userId: string): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PROFILE_COLUMNS)
     .eq('id', userId)
     .single();
   if (error || !data) throw error ?? new Error('Profile not found');
@@ -57,7 +57,7 @@ async function fetchProfile(userId: string): Promise<Profile> {
 async function fetchBusiness(businessId: string): Promise<Business> {
   const { data, error } = await supabase
     .from('businesses')
-    .select('*')
+    .select(BUSINESS_COLUMNS)
     .eq('id', businessId)
     .single();
   if (error || !data) throw error ?? new Error('Business not found');
