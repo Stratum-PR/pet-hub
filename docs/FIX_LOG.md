@@ -898,3 +898,33 @@ No frontend deploy is needed; the hidden button ships with the next remediation 
 **Notes (app bugs found, not worked around).**
 - **U19:** gated routes in `src/pages/Index.tsx` redirect to the dashboard before the feature rules and the business tier load, so a reload or deep link to `/appt-book` (or inventory, payment, transactions) can bounce to `/dashboard`. Proved in CI 38056795579 by delaying the feature rules on purpose.
 - **U20 candidate:** payroll's default pay-schedule anchor uses the UTC date (`Payroll.tsx:149`, `useSupabaseData.ts:2098`). From 20:00 PR time, the current period starts tomorrow and today's shifts are hidden.
+
+
+---
+
+## 2026-10-10 · U20 · Payroll default pay-period anchor uses the local date, not UTC
+
+**Status:** done on `remediation` (unit U20, branch `fix/U20-payroll-local-anchor`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** With no saved `pay_schedule_anchor_date`, Payroll (`Payroll.tsx:149`, `:154`) and `useSettings` (`useSupabaseData.ts:2098`) defaulted the anchor to the UTC date. In Puerto Rico (UTC−4) that's already tomorrow from 20:00, so between 20:00 and midnight the "current" pay period flipped back to the previous one (ending today). Found by U17 (E2E flow 7).
+
+**Change.**
+- New `src/lib/payrollAnchor.ts`:
+  - `defaultPayScheduleAnchorISO` returns today's local calendar day, using date-fns `format(now, 'yyyy-MM-dd')`, which the app already uses for "today".
+  - `resolvePayScheduleAnchorISO` returns the saved anchor, or that default when there isn't one.
+- The three spots above now use it.
+- Saved anchors, cadence and pay math are unchanged.
+- New unit test `src/lib/payrollAnchor.test.ts`: TZ America/Puerto_Rico, clock pinned to 2026-10-10 21:00.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 127/127 · build OK.
+- Red test-only run 38057815819 (only the new tests failed).
+- Green run 38057951694: `check` ✓, `db-tests` ✓ (payments, security, smoke E2E incl. flows 4 and 7).
+
+**Notes.**
+- The same UTC-date default remains in:
+  - `EmployeePayroll.tsx:44/49`;
+  - `EmployeeTimesheet.tsx:88/93`;
+  - `BusinessSettingsPage.tsx:140`. Saving the pay-schedule form there with the default after 20:00 PR stores tomorrow's date.
+- Candidate unit U21 (one-line change each, using the new helper).
+- Without a saved anchor, the default moves every day, so the current period always starts today. That's existing behavior, unchanged here.
