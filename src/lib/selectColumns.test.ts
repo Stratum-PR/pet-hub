@@ -47,6 +47,10 @@ describe('explicit column lists (P3-04)', () => {
     expect(list(STAFF_PUBLIC_COLUMNS)).not.toContain('pin');
   });
 
+  it('the kiosk staff lookup does not select the PIN (P2-02)', () => {
+    expect(list(KIOSK_STAFF_COLUMNS)).not.toContain('pin');
+  });
+
   it('the business list behind the auth context does not include the kiosk manager PIN', () => {
     expect(list(BUSINESS_COLUMNS)).not.toContain('kiosk_manager_pin');
   });

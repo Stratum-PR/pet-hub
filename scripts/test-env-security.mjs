@@ -424,6 +424,8 @@ async function knownIssues() {
   check('service role can still change a pay rate', !svcRateErr && Number((await staffOf(coworker.id)).hourly_rate) === 13, svcRateErr);
 
   await staffPolicies({ shop: shop.id, bossBiz, worker, meStaff, coworker, boss, hire });
+  await pinHashing({ shop: shop.id, bossBiz, worker, meStaff, workerPin: newPin, coworker, boss, hire, hirePin, hirePin2 });
+  await managerPinHashing({ shop: shop.id, bossBiz, worker, coworker, boss, hirePin2 });
 
   r = await worker.db.from('businesses').update({ subscription_tier: 'pro' }).eq('id', shop.id).select();
   const tier = (await admin.from('businesses').select('subscription_tier').eq('id', shop.id).single()).data?.subscription_tier;
@@ -834,6 +836,317 @@ async function staffPolicies({ shop, bossBiz, worker, meStaff, coworker, boss, h
   check('staff with access_role manager can still edit a staff member', !r.error && (await rowOf(leadHireId))?.first_name === 'Edited', r);
   r = await lead.db.from('staff').delete().eq('id', leadHireId).select();
   check('staff with access_role manager can still remove a staff member', !r.error && !(await rowOf(leadHireId)), r);
+}
+
+/**
+ * P2-02: kiosk PINs are also stored as bcrypt hashes (pgcrypto crypt, one salt per business) in staff_pin_hashes,
+ * kept in sync by a trigger on staff, and every PIN check compares hashes. Expand-only: the plain staff.pin column
+ * stays (main's frontend still reads and writes it), so the known() coworker-PIN read above stays open until the
+ * contract step. Here: hashes are written for every write path, nobody but the service role reads them, main's and
+ * dev's lookups and clock_in_out keep working, and the remediation frontend's RPCs find staff without the plain PIN.
+ */
+async function pinHashing({ shop, bossBiz, worker, meStaff, workerPin, coworker, boss, hire, hirePin, hirePin2 }) {
+  console.log('Staff PINs: hashed alongside the plain PIN, checked by hash (P2-02)');
+  const anon = createClient(API, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
+  const hashOf = async (staffId) =>
+    (await admin.from('staff_pin_hashes').select('pin_hash, business_id').eq('staff_id', staffId).maybeSingle()).data;
+  const isBcrypt = (h, pin) => typeof h === 'string' && /^\$2[abxy]\$\d\d\$/.test(h) && h.length === 60 && !h.includes(pin);
+  const lookup = async (who, businessId, pin) => who.rpc('kiosk_staff_by_pin', { p_business_id: businessId, p_pin: pin });
+  const found = (r) => (Array.isArray(r.data) ? r.data : r.data ? [r.data] : []);
+
+  // Hashes exist for rows written by the service role, a manager (main's EmployeeManagement) and the employee's
+  // own self-service PIN change; none of them holds the plain PIN.
+  let h = await hashOf(coworker.id);
+  check('a staff PIN written by the service role gets a bcrypt hash', isBcrypt(h?.pin_hash, coworker.pin) && h.business_id === shop, h);
+  h = await hashOf(meStaff.id);
+  const workerHash = h?.pin_hash;
+  check("an employee's own self-service PIN change is hashed (trigger on update)", isBcrypt(workerHash, workerPin), h);
+  h = await hashOf(hire.id);
+  check("a manager's PIN change is hashed (trigger on update)", isBcrypt(h?.pin_hash, hirePin2) && h.business_id === bossBiz, h);
+
+  // main and dev (useTimeKiosk.getEmployeeByPin): select('*') ... eq('pin', typed PIN). Must keep working.
+  let r = await worker.db.from('staff').select('*').eq('pin', coworker.pin).eq('business_id', shop).eq('status', 'active').single();
+  check("main's kiosk lookup by plain PIN still works", !r.error && r.data?.id === coworker.id, r);
+
+  // remediation (useTimeKiosk.getEmployeeByPin): kiosk_staff_by_pin compares hashes and never returns the PIN.
+  r = await lookup(worker.db, shop, coworker.pin);
+  check(
+    'kiosk_staff_by_pin finds the staff member by hash, without returning a PIN',
+    !r.error && found(r).length === 1 && found(r)[0].id === coworker.id && !('pin' in found(r)[0]) && !('pin_hash' in found(r)[0]),
+    r
+  );
+  r = await lookup(worker.db, shop, workerPin);
+  check('kiosk_staff_by_pin finds the new PIN after a self-service change', !r.error && found(r)[0]?.id === meStaff.id, r);
+  r = await lookup(worker.db, shop, meStaff.pin);
+  check('the old PIN no longer finds anyone after a PIN change', !r.error && found(r).length === 0, r);
+  r = await lookup(boss.db, bossBiz, hirePin2);
+  check("kiosk_staff_by_pin finds a manager-changed PIN", !r.error && found(r)[0]?.id === hire.id, r);
+  r = await lookup(boss.db, bossBiz, hirePin);
+  check("a manager-replaced PIN no longer finds anyone", !r.error && found(r).length === 0, r);
+  r = await lookup(boss.db, shop, coworker.pin);
+  check("another business's manager cannot look up this business's PINs", !!r.error || found(r).length === 0, r);
+  r = await lookup(anon, shop, coworker.pin);
+  check('an anonymous visitor cannot call kiosk_staff_by_pin', !!r.error || found(r).length === 0, r);
+
+  // clock_in_out (main, dev and remediation pass the typed PIN) compares hashes.
+  r = await worker.db.rpc('clock_in_out', { p_employee_pin: coworker.pin, p_business_id: shop });
+  check('clock in by PIN still works (hash compare)', !r.error && r.data?.success === true && r.data?.action === 'clock_in', r);
+  r = await worker.db.rpc('clock_in_out', { p_employee_pin: coworker.pin, p_business_id: shop });
+  check('clock out by PIN still works (hash compare)', !r.error && r.data?.success === true && r.data?.action === 'clock_out', r);
+  r = await worker.db.rpc('clock_in_out', { p_employee_pin: workerPin, p_business_id: shop });
+  check('clock in with a self-service-changed PIN works', !r.error && r.data?.success === true, r);
+  r = await worker.db.rpc('clock_in_out', { p_employee_pin: meStaff.pin, p_business_id: shop });
+  check('clock in with a replaced PIN is refused (invalid_pin)', r.data?.success === false && r.data?.error === 'invalid_pin', r);
+  r = await worker.db.rpc('clock_in_out', { p_employee_pin: '', p_business_id: shop });
+  check('clock in with an empty PIN is refused', r.data?.success === false && r.data?.error === 'invalid_pin', r);
+
+  // A PIN cleared to '' (main's form allows it) drops the hash; deleting the staff row removes it too.
+  const tempPin = ['7001', '7002', '7003'].find((p) => p !== coworker.pin && p !== workerPin);
+  const { data: temp, error: tempErr } = await admin
+    .from('staff')
+    .insert({ business_id: shop, name: 'Temp', first_name: 'Temp', last_name: run, email: `temp-${run}@grumi.test`, phone: '7875550013', pin: tempPin, hourly_rate: 10, access_role: 'staff' })
+    .select('id')
+    .single();
+  if (tempErr) throw new Error(`temp staff: ${tempErr.message}`);
+  check('an inserted staff PIN is hashed (trigger on insert)', isBcrypt((await hashOf(temp.id))?.pin_hash, tempPin));
+  await admin.from('staff').update({ pin: '' }).eq('id', temp.id);
+  r = await lookup(worker.db, shop, tempPin);
+  check('clearing a PIN removes its hash', !(await hashOf(temp.id)) && !r.error && found(r).length === 0, r);
+  await admin.from('staff').update({ pin: tempPin }).eq('id', temp.id);
+  await admin.from('staff').delete().eq('id', temp.id);
+  check("deleting a staff member removes the PIN hash", !(await hashOf(temp.id)));
+
+  // Backfill: existing PINs are migrated in place (the migration calls this; the owner can re-run it).
+  await admin.from('staff_pin_hashes').delete().eq('staff_id', coworker.id);
+  r = await admin.rpc('staff_pin_hashes_backfill');
+  r = await lookup(worker.db, shop, coworker.pin);
+  check('staff_pin_hashes_backfill restores missing hashes from the plain PINs', found(r)[0]?.id === coworker.id && isBcrypt((await hashOf(coworker.id))?.pin_hash, coworker.pin), r);
+
+  // Uniqueness: still one PIN per staff member in a business.
+  r = await boss.db
+    .from('staff')
+    .insert({ business_id: bossBiz, name: 'Dup', first_name: 'Dup', last_name: run, email: `dup-${run}@grumi.test`, phone: '7875550014', pin: hirePin2, access_role: 'staff' })
+    .select();
+  check('a duplicate PIN in the same business is still refused', !!r.error, r);
+  r = await boss.db.rpc('staff_pin_available', { p_business_id: bossBiz, p_pin: hirePin2 });
+  check('staff_pin_available: a PIN in use is not available', !r.error && r.data === false, r);
+  r = await boss.db.rpc('staff_pin_available', { p_business_id: bossBiz, p_pin: hirePin2, p_exclude_staff_id: hire.id });
+  check("staff_pin_available: a staff member's own PIN is available to them", !r.error && r.data === true, r);
+  r = await boss.db.rpc('staff_pin_available', { p_business_id: bossBiz, p_pin: hirePin });
+  check('staff_pin_available: an unused PIN is available', !r.error && r.data === true, r);
+  r = await worker.db.rpc('staff_pin_available', { p_business_id: shop, p_pin: coworker.pin });
+  check('an employee cannot probe which PINs are in use (staff_pin_available is manager-only)', !!r.error, r);
+  r = await worker.db.rpc('generate_staff_pin', { p_business_id: shop, p_exclude_staff_id: meStaff.id, p_reserved: '0000' });
+  const shopPins = ((await admin.from('staff').select('pin').eq('business_id', shop)).data ?? []).map((x) => x.pin);
+  check(
+    'generate_staff_pin returns a free 4-digit PIN',
+    !r.error && /^\d{4}$/.test(r.data) && r.data !== '0000' && !shopPins.filter((p) => p !== workerPin).includes(r.data),
+    r
+  );
+  r = await boss.db.rpc('generate_staff_pin', { p_business_id: shop });
+  check("another business's manager cannot generate PINs for this business", !!r.error, r);
+
+  // Nobody but the service role reads hashes or salts, or calls the internal helpers.
+  for (const [who, db] of [
+    ['an employee', worker.db],
+    ['a manager', boss.db],
+    ['an anonymous visitor', anon],
+  ]) {
+    r = await db.from('staff_pin_hashes').select('*');
+    check(`${who} cannot read staff_pin_hashes`, !!r.error || (r.data ?? []).length === 0, r);
+    r = await db.from('staff_pin_salts').select('*');
+    check(`${who} cannot read staff_pin_salts`, !!r.error || (r.data ?? []).length === 0, r);
+  }
+  r = await worker.db.rpc('staff_pin_hash', { p_business_id: shop, p_pin: coworker.pin });
+  check('an employee cannot call the internal staff_pin_hash', !!r.error, r);
+  r = await worker.db.rpc('staff_pin_hashes_backfill');
+  check('an employee cannot call staff_pin_hashes_backfill', !!r.error, r);
+  r = await worker.db.from('staff_pin_hashes').insert({ staff_id: meStaff.id, business_id: shop, pin_hash: workerHash });
+  check('an employee cannot write staff_pin_hashes', !!r.error, r);
+
+  // kiosk_staff_by_pin shares clock_in_out's wrong-PIN limit (40 per business per 15 minutes from anywhere).
+  const { data: tb, error: tbErr } = await admin
+    .from('businesses')
+    .insert({ name: `Throttle ${run}`, email: `throttle-${run}@grumi.test`, short_code: `T${run}`.toUpperCase().slice(0, 6), slug: `throttle-${run}`, subscription_tier: 'basic' })
+    .select('id')
+    .single();
+  if (tbErr) throw new Error(`throttle business: ${tbErr.message}`);
+  const { error: tsErr } = await admin
+    .from('staff')
+    .insert({ business_id: tb.id, name: 'Tess', first_name: 'Tess', last_name: run, email: `tess-${run}@grumi.test`, phone: '7875550015', pin: '2468', hourly_rate: 10, access_role: 'staff' });
+  if (tsErr) throw new Error(`throttle staff: ${tsErr.message}`);
+  const tm = await newUser('throttler', { role: 'manager', business_id: tb.id });
+  for (let i = 0; i < 40; i++) await lookup(tm.db, tb.id, String(3000 + i));
+  r = await lookup(tm.db, tb.id, '2468');
+  check('kiosk_staff_by_pin stops answering after 40 wrong PINs (even a right one)', !!r.error || found(r).length === 0, r);
+  r = await tm.db.rpc('clock_in_out', { p_employee_pin: '2468', p_business_id: tb.id });
+  check('wrong PINs at kiosk_staff_by_pin count toward clock_in_out\'s limit', r.data?.error === 'too_many_attempts', r);
+}
+
+/**
+ * P2-04: the kiosk manager PIN (businesses.kiosk_manager_pin) is also stored as a bcrypt hash (plus the hash of its
+ * first 4 digits) in kiosk_manager_pin_hashes, kept in sync by a trigger on businesses, and the remediation frontend
+ * checks and sets it through RPCs that compare hashes. Expand-only: the plain column stays (main reads and writes it),
+ * so the known() manager-PIN reads below stay open until the contract step.
+ */
+async function managerPinHashing({ shop, bossBiz, worker, coworker, boss, hirePin2 }) {
+  console.log('Kiosk manager PIN: hashed alongside the plain PIN, checked and set by hash (P2-04)');
+  const anon = createClient(API, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
+  const hashRow = async (businessId) =>
+    (await admin.from('kiosk_manager_pin_hashes').select('pin_hash, prefix_hash, pin_length').eq('business_id', businessId).maybeSingle()).data;
+  const plainPin = async (businessId) =>
+    (await admin.from('businesses').select('kiosk_manager_pin').eq('id', businessId).single()).data?.kiosk_manager_pin;
+  const isBcrypt = (h, pin) => typeof h === 'string' && /^\$2[abxy]\$\d\d\$/.test(h) && h.length === 60 && !h.includes(pin);
+  const entry = async (who, businessId, pin) => who.rpc('kiosk_pin_entry', { p_business_id: businessId, p_pin: pin });
+  const setPin = async (who, businessId, newPin, currentPin) =>
+    who.rpc('set_kiosk_manager_pin', { p_business_id: businessId, p_new_pin: newPin, p_current_pin: currentPin ?? null });
+  const status = async (who, businessId) =>
+    who.from('businesses').select('kiosk_manager_pin_set').eq('id', businessId).maybeSingle();
+
+  // Staff PINs are 1000-9999 or 4321-4323 here, so a 0-prefixed manager PIN never collides.
+  const shopPin = '013579';
+  let r = await admin.from('businesses').update({ kiosk_manager_pin: shopPin }).eq('id', shop);
+  if (r.error) throw new Error(`shop manager PIN: ${r.error.message}`);
+  let h = await hashRow(shop);
+  check(
+    'a manager PIN written by the service role gets a bcrypt hash (and a prefix hash)',
+    isBcrypt(h?.pin_hash, shopPin) && isBcrypt(h?.prefix_hash, shopPin.slice(0, 4)) && h.pin_length === 6,
+    h
+  );
+
+  // main: KioskManagerPinSettings / KioskManagerAccess / the reset dialog write the plain column directly.
+  const bossPin1 = '024680';
+  r = await boss.db.from('businesses').update({ kiosk_manager_pin: bossPin1 }).eq('id', bossBiz).select('id');
+  check("main's direct manager-PIN write still works", !r.error && (await plainPin(bossBiz)) === bossPin1, r);
+  check("main's direct write is hashed (trigger on businesses)", isBcrypt((await hashRow(bossBiz))?.pin_hash, bossPin1));
+  // main: the kiosk lock gate and PIN entry read the plain column and compare in the browser.
+  r = await boss.db.from('businesses').select('kiosk_manager_pin').eq('id', bossBiz).single();
+  check("main's kiosk can still read the manager PIN it compares", !r.error && r.data?.kiosk_manager_pin === bossPin1, r);
+
+  // remediation: kiosk_manager_pin_set (computed field) says whether a PIN is set, never the PIN.
+  r = await status(worker.db, shop);
+  check('kiosk_manager_pin_set tells a member a 6-digit manager PIN is set', !r.error && r.data?.kiosk_manager_pin_set === true, r);
+  r = await status(worker.db, bossBiz);
+  check("kiosk_manager_pin_set tells nothing about another business", !!r.error || r.data === null || r.data.kiosk_manager_pin_set === null, r);
+  r = await anon.from('businesses').select('kiosk_manager_pin_set').eq('id', shop).maybeSingle();
+  check('an anonymous visitor cannot read kiosk_manager_pin_set', !!r.error || r.data === null || r.data.kiosk_manager_pin_set == null, r);
+
+  // remediation: kiosk_pin_entry decides at the keypad (hash compare).
+  r = await entry(worker.db, shop, coworker.pin);
+  check(
+    'kiosk_pin_entry finds a staff member by PIN, without returning a PIN',
+    !r.error && r.data?.result === 'staff' && r.data.staff?.id === coworker.id && !('pin' in r.data.staff) && !JSON.stringify(r.data).includes(shopPin),
+    r
+  );
+  r = await entry(worker.db, shop, shopPin.slice(0, 4));
+  check('kiosk_pin_entry: the first 4 digits of the manager PIN say "keep typing"', !r.error && r.data?.result === 'manager_prefix', r);
+  r = await entry(worker.db, shop, shopPin.slice(0, 5));
+  check('kiosk_pin_entry: 5 digits starting the manager PIN say "keep typing"', !r.error && r.data?.result === 'manager_prefix', r);
+  r = await entry(worker.db, shop, shopPin);
+  check('kiosk_pin_entry recognises the manager PIN by hash', !r.error && r.data?.result === 'manager' && !JSON.stringify(r.data).includes(shopPin), r);
+  r = await entry(worker.db, shop, '013570');
+  check('kiosk_pin_entry refuses a wrong manager PIN', !r.error && r.data?.result === 'invalid', r);
+  r = await entry(boss.db, shop, shopPin);
+  check("another business's manager cannot check this business's manager PIN", !!r.error || r.data?.result !== 'manager', r);
+  r = await entry(anon, shop, shopPin);
+  check('an anonymous visitor cannot call kiosk_pin_entry', !!r.error || r.data?.result !== 'manager', r);
+
+  // remediation: set_kiosk_manager_pin (KioskManagerPinSettings with the current PIN, the reset dialog after the password).
+  r = await setPin(worker.db, shop, '097531', shopPin);
+  check('an employee cannot change the manager PIN through set_kiosk_manager_pin', !!r.error && (await plainPin(shop)) === shopPin, r);
+  r = await setPin(boss.db, shop, '097531', shopPin);
+  check("another business's manager cannot change this business's manager PIN", !!r.error && (await plainPin(shop)) === shopPin, r);
+  r = await setPin(boss.db, bossBiz, '086420');
+  check('changing the manager PIN needs the current PIN (or a fresh password sign-in)', !r.error && r.data?.error === 'current_pin_required' && (await plainPin(bossBiz)) === bossPin1, r);
+  r = await setPin(boss.db, bossBiz, '086420', '111111');
+  check('a wrong current manager PIN is refused', !r.error && r.data?.error === 'current_pin_incorrect' && (await plainPin(bossBiz)) === bossPin1, r);
+  r = await setPin(boss.db, bossBiz, `${hirePin2}00`, bossPin1);
+  check("a manager PIN starting with an employee's PIN is refused", !r.error && r.data?.error === 'pin_prefix_in_use' && (await plainPin(bossBiz)) === bossPin1, r);
+  r = await setPin(boss.db, bossBiz, '08642', bossPin1);
+  check('a manager PIN that is not 6 digits is refused', !r.error && r.data?.error === 'invalid_pin', r);
+  r = await setPin(boss.db, bossBiz, '086420', bossPin1);
+  check(
+    'set_kiosk_manager_pin with the current PIN saves the plain column too (main sees it; a rollback loses nothing)',
+    !r.error && r.data?.ok === true && (await plainPin(bossBiz)) === '086420',
+    r
+  );
+  r = await entry(boss.db, bossBiz, '086420');
+  const oldPin = await entry(boss.db, bossBiz, bossPin1);
+  check('the new manager PIN works by hash and the old one no longer does', r.data?.result === 'manager' && oldPin.data?.result === 'invalid', { r, oldPin });
+
+  // The reset dialog: the account password, then the new PIN without the current one (password sign-in < 10 min).
+  const resetEmail = `pinreset-${run}@grumi.test`;
+  const pass = `Pw-${run}-r7!`; // throwaway, per run, local stack only
+  const { data: ru, error: ruErr } = await admin.auth.admin.createUser({ email: resetEmail, password: pass, email_confirm: true });
+  if (ruErr) throw new Error(`reset manager: ${ruErr.message}`);
+  const { error: rpErr } = await admin.from('profiles').upsert({ id: ru.user.id, email: resetEmail, role: 'manager', business_id: bossBiz }, { onConflict: 'id' });
+  if (rpErr) throw new Error(`reset manager profile: ${rpErr.message}`);
+  const resetter = createClient(API, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { error: siErr } = await resetter.auth.signInWithPassword({ email: resetEmail, password: pass });
+  if (siErr) throw new Error(`reset manager sign-in: ${siErr.message}`);
+  r = await setPin(resetter, bossBiz, '075319');
+  check('a manager who just signed in with their password can reset the manager PIN', !r.error && r.data?.ok === true && (await plainPin(bossBiz)) === '075319', r);
+
+  // Clearing the PIN (main's KioskManagerAccess allows it) removes the hash; the backfill restores drifted hashes.
+  await admin.from('businesses').update({ kiosk_manager_pin: null }).eq('id', bossBiz);
+  r = await status(boss.db, bossBiz);
+  check('clearing the manager PIN removes its hash', !(await hashRow(bossBiz)) && r.data?.kiosk_manager_pin_set === false, r);
+  r = await setPin(boss.db, bossBiz, '086421');
+  check('with no manager PIN set, a manager sets the first one without a current PIN', !r.error && r.data?.ok === true, r);
+  await admin.from('kiosk_manager_pin_hashes').delete().eq('business_id', bossBiz);
+  await admin.rpc('kiosk_manager_pin_hashes_backfill');
+  r = await entry(boss.db, bossBiz, '086421');
+  check('kiosk_manager_pin_hashes_backfill restores a missing hash from the plain PIN', r.data?.result === 'manager', r);
+
+  // Nobody but the service role reads the hashes or calls the internal helpers.
+  for (const [who, db] of [
+    ['an employee', worker.db],
+    ['a manager', boss.db],
+    ['an anonymous visitor', anon],
+  ]) {
+    r = await db.from('kiosk_manager_pin_hashes').select('*');
+    check(`${who} cannot read kiosk_manager_pin_hashes`, !!r.error || (r.data ?? []).length === 0, r);
+  }
+  r = await boss.db.from('kiosk_manager_pin_hashes').update({ pin_hash: 'x' }).eq('business_id', bossBiz).select();
+  check('a manager cannot write kiosk_manager_pin_hashes', !!r.error || (r.data ?? []).length === 0, r);
+  for (const [fn, args] of [
+    ['kiosk_manager_pin_hashes_backfill', {}],
+    ['kiosk_pin_throttle', { p_business_id: shop }],
+    ['caller_recent_password_sign_in', { p_max_age_seconds: 600 }],
+  ]) {
+    r = await worker.db.rpc(fn, args);
+    check(`an employee cannot call the internal ${fn}`, !!r.error, r);
+  }
+
+  // Wrong PINs at kiosk_pin_entry and wrong current PINs share clock_in_out's limit (40 per business per 15 minutes).
+  const { data: tb, error: tbErr } = await admin
+    .from('businesses')
+    .insert({ name: `MgrThrottle ${run}`, email: `mthrottle-${run}@grumi.test`, short_code: `M${run}`.toUpperCase().slice(0, 6), slug: `mthrottle-${run}`, subscription_tier: 'basic', kiosk_manager_pin: '013579' })
+    .select('id')
+    .single();
+  if (tbErr) throw new Error(`manager throttle business: ${tbErr.message}`);
+  const tm = await newUser('mthrottler', { role: 'manager', business_id: tb.id });
+  r = await setPin(tm.db, tb.id, '097531', '000000');
+  check('a wrong current manager PIN is refused and counted', !r.error && r.data?.error === 'current_pin_incorrect', r);
+  r = await admin.from('clock_pin_attempts').select('business_id').eq('business_id', tb.id);
+  check('the wrong current manager PIN was recorded in clock_pin_attempts', (r.data ?? []).length === 1, r);
+  for (let i = 0; i < 39; i++) await entry(tm.db, tb.id, String(500000 + i));
+  r = await entry(tm.db, tb.id, '013579');
+  check('kiosk_pin_entry stops answering after 40 wrong PINs (even the right manager PIN)', !!r.error && r.data?.result !== 'manager', r);
+  r = await setPin(tm.db, tb.id, '097531', '013579');
+  check('set_kiosk_manager_pin stops checking current PINs after 40 wrong PINs', !!r.error && (await plainPin(tb.id)) === '013579', r);
+  r = await tm.db.rpc('clock_in_out', { p_employee_pin: '1111', p_business_id: tb.id });
+  check("wrong manager PINs count toward clock_in_out's limit", r.data?.error === 'too_many_attempts', r);
+
+  // Expand step: the plain column stays readable while main compares it in the browser (contract step closes these).
+  r = await worker.db.from('businesses').select('kiosk_manager_pin').eq('id', shop).maybeSingle();
+  known('employee cannot read the kiosk manager PIN (P2-04, contract step)', r.data?.kiosk_manager_pin !== shopPin, r);
+  r = await anon.from('businesses').select('kiosk_manager_pin').eq('id', shop).maybeSingle();
+  known(
+    "an anonymous visitor cannot read a business's kiosk manager PIN (directory policy; P2-04 contract step)",
+    r.data?.kiosk_manager_pin !== shopPin,
+    r
+  );
 }
 
 main().catch((e) => {
