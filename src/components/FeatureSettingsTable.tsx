@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { t } from '@/lib/translations';
 import {
@@ -70,16 +70,6 @@ function roleLabel(role: string): string {
 function tierLabel(tier: string): string {
   if (tier === 'standard') return t('admin.features.tierStandard');
   return tier.charAt(0).toUpperCase() + tier.slice(1);
-}
-
-function rolesSummary(roles: string[]): string {
-  if (roles.includes('*')) return t('admin.features.allRoles');
-  return roles.map(roleLabel).join(', ');
-}
-
-function tiersSummary(tiers: string[]): string {
-  if (tiers.includes('*')) return t('admin.features.allTiers');
-  return tiers.map(tierLabel).join(', ');
 }
 
 function sameRow(a: FeatureRow, b: FeatureRow): boolean {
@@ -224,25 +214,23 @@ export function FeatureSettingsTable() {
               return (
                 <Fragment key={key}>
                   <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">
-                        {featureLabel(key, row.display_name)}
-                        {changed && (
-                          <span className="ml-2 text-xs font-normal text-muted-foreground">
-                            {t('admin.features.unsaved')}
-                          </span>
-                        )}
-                      </p>
-                      <button
-                        type="button"
-                        className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => setOpenAdvanced(isOpen ? null : key)}
-                        aria-expanded={isOpen}
-                      >
-                        {t('admin.features.advanced')}: {rolesSummary(row.roles)} · {tiersSummary(row.subscription_tiers)}
-                        <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      onClick={() => setOpenAdvanced(isOpen ? null : key)}
+                      aria-expanded={isOpen}
+                      aria-label={`${featureLabel(key, row.display_name)}: ${isOpen ? t('admin.features.hideDetails') : t('admin.features.showDetails')}`}
+                      title={isOpen ? t('admin.features.hideDetails') : t('admin.features.showDetails')}
+                    >
+                      <ChevronRight
+                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                        aria-hidden
+                      />
+                      <span className="font-medium">{featureLabel(key, row.display_name)}</span>
+                      {changed && (
+                        <span className="text-xs font-normal text-muted-foreground">{t('admin.features.unsaved')}</span>
+                      )}
+                    </button>
                     <label htmlFor={switchId} className="flex shrink-0 items-center gap-3 text-sm">
                       <span className={live ? 'font-medium' : 'text-muted-foreground'}>
                         {live ? t('admin.features.live') : t('admin.features.devOnly')}
@@ -255,7 +243,7 @@ export function FeatureSettingsTable() {
                     </label>
                   </li>
                   {isOpen && (
-                    <li className="grid gap-4 bg-muted/30 px-4 py-3 text-sm sm:grid-cols-2">
+                    <li className="grid gap-4 bg-muted/30 py-3 pl-10 pr-4 text-sm sm:grid-cols-2">
                       <fieldset className="space-y-2">
                         <legend className="mb-1 font-medium">{t('admin.features.colRoles')}</legend>
                         <CheckRow

@@ -13,20 +13,24 @@ export interface Translations {
 export const translations: Translations = {
   // Admin dashboard
   'admin.features.intro': {
-    en: 'Switch a feature on to make it live for businesses. Off means only super admins see it, in the Development preview.',
-    es: 'Activa una función para que esté en vivo para los negocios. Apagada, solo la ven los super admin en la vista de Desarrollo.'
+    en: 'Live: businesses see it. Dev: only super admins, in the Development preview. Click a feature to see who it applies to.',
+    es: 'Live: los negocios la ven. Dev: solo los super admin, en la vista de Desarrollo. Haz clic en una función para ver a quién aplica.'
   },
   'admin.features.live': {
-    en: 'Live for businesses',
-    es: 'En vivo para negocios'
+    en: 'Live',
+    es: 'Live'
   },
   'admin.features.devOnly': {
-    en: 'Only us (development)',
-    es: 'Solo nosotros (desarrollo)'
+    en: 'Dev',
+    es: 'Dev'
   },
-  'admin.features.advanced': {
-    en: 'Who sees it',
-    es: 'Quién la ve'
+  'admin.features.showDetails': {
+    en: 'Show who sees it (roles and plans)',
+    es: 'Ver quién la ve (roles y planes)'
+  },
+  'admin.features.hideDetails': {
+    en: 'Hide details',
+    es: 'Ocultar detalles'
   },
   'admin.features.unsaved': {
     en: '· not saved',
