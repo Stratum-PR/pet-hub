@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { normalizeTaxLabelForStorage } from '@/lib/taxLabels';
+import { defaultPayScheduleAnchorISO } from '@/lib/payrollAnchor';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   isPublicSlugTakenByOtherBusiness,
@@ -137,7 +138,7 @@ export function BusinessSettingsPage() {
   const [qrCodeSvg, setQrCodeSvg] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrBusy, setQrBusy] = useState(false);
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = defaultPayScheduleAnchorISO();
 
   // Pay schedule settings (pay periods used by payroll reports).
   const [payScheduleAnchorDate, setPayScheduleAnchorDate] = useState(settings.pay_schedule_anchor_date || todayIso);
