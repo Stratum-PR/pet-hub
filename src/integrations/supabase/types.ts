@@ -2633,6 +2633,14 @@ export type Database = {
       }
       is_stratumpr_email: { Args: { email: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      kiosk_manager_pin_set: {
+        Args: { b: Database["public"]["Tables"]["businesses"]["Row"] }
+        Returns: boolean
+      }
+      kiosk_pin_entry: {
+        Args: { p_business_id: string; p_pin: string }
+        Returns: Json
+      }
       kiosk_staff_by_pin: {
         Args: { p_business_id: string; p_pin: string }
         Returns: {
@@ -2669,6 +2677,14 @@ export type Database = {
       round_time_to_interval: {
         Args: { p_interval_minutes?: number; p_timestamp: string }
         Returns: string
+      }
+      set_kiosk_manager_pin: {
+        Args: {
+          p_business_id: string
+          p_current_pin?: string
+          p_new_pin: string
+        }
+        Returns: Json
       }
       set_profile_business_id: {
         Args: { p_business_id: string; p_uid: string }
