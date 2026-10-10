@@ -19,8 +19,7 @@ import { KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
 import { devConsole } from '@/lib/clientDebug';
 import {
   BUSINESS_KIOSK_MANAGER_PIN_COLUMNS,
-  fetchEmployeePinsForBusiness,
-  managerPinPrefixCollidesWithEmployeePins,
+  managerPinPrefixInUse,
 } from '@/lib/employeePin';
 
 export function KioskManagerPinSettings() {
@@ -82,8 +81,7 @@ export function KioskManagerPinSettings() {
     }
 
     try {
-      const employeePins = await fetchEmployeePinsForBusiness(supabase, businessId);
-      if (managerPinPrefixCollidesWithEmployeePins(newPin, employeePins)) {
+      if (await managerPinPrefixInUse(supabase, businessId, newPin)) {
         setError(t('kioskManagerPinSettings.errors.prefixMatchesEmployee'));
         return;
       }
