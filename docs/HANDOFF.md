@@ -1,4 +1,4 @@
-# Handoff: Genesis's work on dev (updated 2026-10-10)
+# Handoff: Genesis's work on dev (updated 2026-10-10, night)
 
 Read this at the start of a session with Genesis. It records how she works, what was built on `dev`, and what is still pending. Security decisions live in [SECURITY_RISKS.md](SECURITY_RISKS.md) and belong to Jovaniel (see "Not ours" below).
 
@@ -71,11 +71,16 @@ Jovaniel's `remediation` branch was merged into `dev` (no deploy). It is the cle
 - **Routes are lazy-loaded** (`src/App.tsx` `lazyRoute`): add new pages the same way. Selects on `staff`/`profiles`/`businesses` use explicit column lists (`STAFF_PUBLIC_COLUMNS` etc.); don't add `select('*')` there.
 - **The database parts of remediation are not applied to production yet** (OWNER_ACTIONS Part A and D5–D9, Jovaniel's). The frontend works with or without them.
 - Second merge (2026-10-10 evening) added: staff and kiosk-manager PIN hashing (U11/U12, migrations 20261010210000/220000, **not applied to production**; the kiosk falls back to today's behavior until they are), the ProtectedRoute reload fix (U22), a faster dual-frontend gate whose checks now always report (U07c/U24), the QR print stored-XSS fix (U25), sign-up Enter key (U27), Delete for staff with access_role manager/admin (U23), feature-gate loading (U26) and the dead missing-email reminder call removed (U28).
+- Third merge (2026-10-10 night) added, **database parts not applied to production** (Jovaniel's OWNER_ACTIONS D12/D13):
+  - **Business settings are manager-only** (U29, migration 20261010230000): only managers/admins (and super admins) can update the `businesses` row, and a trigger blocks changes to billing columns (`subscription_tier`, `subscription_status`, `trial_ends_at`, `subscription_ends_at`, `stripe_*`) unless the request uses the **service role** (or comes from the SQL editor/cron). A future Stripe/billing Edge Function must use the service-role key; super admins can't change plans from the browser.
+  - **Deactivated managers lose manager rights** (U30, migration 20261010240000): staff with access_role admin/manager need `status = 'active'` to delete clients/pets/appointments, edit the business, manage staff/PINs or read staff private data. Owners (profile role manager) are unaffected.
+  - E2E clock pin fix (U31, tests only): pinned-clock flows no longer refresh the auth token on every request.
+  - New migration slots on `dev` must be later than `20261010240000`.
 - The pre-commit hook's "Hardcoded password" rule now flags only quoted literals.
 - Jovaniel keeps working on `remediation` and merges it into `dev` again later. Remediation pulls `dev` in before each round, so Genesis's ATH work flows over.
 - Branch protection (OWNER_ACTIONS B4) may soon require PRs on `dev`; if so, Genesis needs a bypass or PRs.
 
 ## Not ours (Jovaniel)
 
-- Security decisions: [SECURITY_RISKS.md](SECURITY_RISKS.md). Genesis answered S-1 to S-5; Jovaniel answered S-6 to S-9 on 2026-10-10. **S-10a/b/c (which payment items go first) are back with Genesis** (Jovaniel: payments are her call): ask her at the start of her next session. Also hers: C2 (per-business transaction numbers) and which payment secrets table is live (P2-08). Don't implement other security fixes unless she asks.
+- Security decisions: [SECURITY_RISKS.md](SECURITY_RISKS.md). Genesis answered S-1 to S-5; Jovaniel answered S-6 to S-9 on 2026-10-10. **S-10a/b/c (which payment items go first) are back with Genesis** (Jovaniel: payments are her call): ask her at the start of her next session. Also hers: C2 (per-business transaction numbers) and which payment secrets table is live (P2-08). Don't implement other security fixes unless she asks. Jovaniel's S-6a (ATH keys to Supabase Vault) and S-8a (payments function uses staff access tier + active status) touch her payments area: a draft plan is in [REMEDIATION_QUEUE.md](REMEDIATION_QUEUE.md) ("Draft: S-6a / S-8a"); nothing started, he will coordinate with her.
 - The `remediation` branch and Jovaniel's to-do list (`docs/OWNER_ACTIONS.md`), including a live hole: any signed-up user can make themselves manager of any business (P0-01), fix ready but not applied.

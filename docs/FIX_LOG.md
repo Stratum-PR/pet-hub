@@ -1129,7 +1129,7 @@ No frontend deploy is needed.
 - Profile fetch that fails: unchanged. Once loading ends, the user is treated as a client and, without an approved link, sent to `/portal`.
 - A logged-out visitor with no session goes to `/` (not `/<slug>/login`); unchanged.
 - `dev` still has the race until remediation is merged into it; then remove flows 4 and 7 from `EXPECTED.dev` in `scripts/test-env-dual.mjs`.
-- Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`.
+- Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`. **Fixed by U31** (shifted `expires_at`).
 
 **Rollback.** Revert the merge commit.
 
@@ -1222,7 +1222,7 @@ No frontend deploy is needed.
   - `generate_staff_pin` also skips the manager prefix server-side.
 - `supabase/rollbacks/20261010220000_kiosk_manager_pin_hashes.down.sql`: restores `generate_staff_pin` verbatim and drops the rest (identical `pg_dump -s` verified locally).
 - Frontend (`employeePin.ts`, `TimeKiosk.tsx`, `KioskManagerPinSettings.tsx`, `KioskManagerPinResetDialog.tsx`): never reads the plain manager PIN on a migrated database; falls back to today's path only on 42703 / PGRST202 / 42883. The reset dialog no longer loads every employee PIN (U11 follow-up done).
-- `scripts/pre-commit`: the "Hardcoded password" rule now flags only quoted literals (`password: "abcdef"`), not identifiers (`password: accountPassword`); checked against 9 sample lines (owner decision 2026-10-10).
+- `scripts/pre-commit`: the "Hardcoded password" rule now flags only quoted literals (a password key followed by a quoted string literal), not identifiers (`password: accountPassword`); checked against 9 sample lines (owner decision 2026-10-10).
 - Types: 3 functions added to `src/integrations/supabase/types.ts` (coordinator).
 - Tests: `scripts/test-env-security.mjs` `managerPinHashing` (34 checks, 2 new known()); `src/lib/employeePin.test.ts` (+27).
 
@@ -1361,3 +1361,73 @@ No frontend deploy is needed.
 **Notes.** The PR-event path (names, merge-commit diff) was simulated locally only; the first real PR into `dev`/`main` confirms it. Edge case: the same commit heading two open PRs gives two PR runs named `dual-main` on that commit.
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · P2-01 businesses (U29) · Only managers edit the business; billing columns service-role only (S-7a)
+
+**Status:** done on `remediation` (unit U29, branch `fix/U29-businesses-update-managers`). **Not applied to production** (OWNER_ACTIONS D12).
+
+**Problem.** "Businesses update" let any profile linked to the business (employees, and client profiles with a business_id) update the row: name, slug, `qr_code` (root cause of U25's stored XSS), geofencing, kiosk manager PIN, and the billing columns `subscription_tier`, `subscription_status`, `stripe_*`, `trial_ends_at`.
+
+**Change.**
+- `supabase/migrations/20261010230000_businesses_update_managers_only.sql` (requires 20261009120000; stops with a message otherwise): drops "Businesses update"; creates `businesses_update_managers` FOR UPDATE TO authenticated with `is_business_manager(id)` in USING and WITH CHECK; trigger `businesses_lock_billing_columns` (BEFORE UPDATE) raises 42501 when `subscription_tier`, `subscription_status`, `trial_ends_at`, `subscription_ends_at` or any `stripe_*` column changes, unless the request's JWT role is `service_role` or there is no API request (SQL editor, migrations, cron). Repeating the current value is allowed; INSERT is untouched. The JWT role is used rather than `current_user`, so a user calling a SECURITY DEFINER function is still blocked.
+- Rollback `supabase/rollbacks/20261010230000_businesses_update_managers_only.down.sql` recreates "Businesses update" verbatim from the production snapshot.
+- `scripts/test-env-security.mjs`: S-7 `known()` → `check()`; new `businessPolicies` (25 checks: employee/client-member/other business's manager can't edit; every manager writer on main and dev still works — Register post-signup QR, Settings save, QR, geofencing, logo; managers, access_role managers and super admins can't change billing; unchanged billing values still save; `complete_manager_signup` keeps the chosen plan; service role can change billing).
+
+**Compatibility with `main`.** Every writer on main/dev/remediation is a manager-only screen, a definer RPC (`set_kiosk_manager_pin`) or the service role; none writes billing columns. Admin portal is read-only on businesses. No Stripe webhook exists.
+
+**Gates.** Red test-only run 38086768419 (only the new checks failed). Final head 049a5bd: CI 38087717084 ✓ (security all ✓, **3 known open, was 4**; E2E 15/15), dual-frontend 38087717141 ✓. Migration → rollback → migration on scratch Postgres 16: schema identical after rollback, both idempotent. Combined on remediation: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.**
+- `subscription_ends_at` locked too (billing; nothing writes it).
+- Super admins can no longer change billing columns through the API (no screen does). If wanted, add `OR public.is_super_admin()` to the trigger.
+- Edge: a profile with role null/'client' linked to a business that isn't a manager would still see Settings on main and its save would now do nothing.
+- Unsure: whether hosted Supabase's new secret-key format (`sb_secret_…`) always sends `role=service_role` in `request.jwt.claims`; the local stack does. If a future billing function gets 42501, check this first.
+- **No slug CHECK:** the snapshot has no business rows. The format (`isValidPublicSlugFormat`) is `^[a-z0-9]+(-[a-z0-9]+)*$`; the owner's read-only query is in OWNER_ACTIONS D12. If it returns 0 rows, a later unit can add `CHECK (slug IS NULL OR slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')` (regex only; signup can produce slugs outside 2–80 chars).
+- Not covered: INSERT ("Businesses insert" lets any signed-in user create a business with any plan, unlinked to them); managers can still change `owner_id` and `short_code`.
+
+**Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010230000`. Reopens S-7. Tag `fix/P2-01-businesses` once applied.
+
+---
+
+## 2026-10-10 · U31 · E2E clock pin no longer makes auth-js refresh on every request
+
+**Status:** done on `remediation` (unit U31, branch `fix/U31-e2e-clock-pin`). Tests only (`e2e/clock.ts`).
+
+**Problem.** `pinBrowserClock` freezes the browser's `Date.now()` at hh:mm PR on the seed's day. auth-js keeps the server's real-time `expires_at` (`lib/fetch.js:145`) and treats a session as expired when `expires_at*1000 - Date.now() < 90 s` (`GoTrueClient.js:2540`). With the pin more than ~58 min ahead of real time (local JWT = 1 h), every `getSession()` refreshed the token first: measured on CI 38086643869 (20:00 pin, +166 min) flow 4b made 27 refresh calls, 4c 20. Pins behind real time are harmless (no client `iat` check). This was the amplifier noted under U22.
+
+**Change.** `pinBrowserClock` routes `**/auth/v1/token?*` and shifts the response's `expires_at` by the same offset as the pinned clock, so auth-js sees the session's real remaining lifetime. The JWT the server checks is untouched; `setFixedTime` unchanged. Same assertions; retries unchanged. Playwright's `install`/`setSystemTime` alone can't fix it (same offset from real time).
+
+**Gates.** tsc 28 · lint 400 · vitest 223/223 · build OK. With the fix, 0 refreshes in 4b/4c (CI 38087462117); 4b 9.8 → 7.9 s, 4c 7.1 → 5.2 s. Final head d848dd0: CI 38087820254 ✓ (E2E 15/15); dual-frontend 38087820262 ✓ (main 7 passed + 1 expected, 7 unreachable; dev 15/15).
+
+**Notes.**
+- Not covered: LoginForm's REST fallback (`setSession` reads the JWT's own `exp`); only runs if `signInWithPassword` fails (never in these runs).
+- `scripts/test-env-dual.mjs` EXPECTED.main flow 7 `mayPass` blames the clock pin; that cause should be gone but is unproven (every run today was after 12:00 PR). Can be dropped after a green dual-main run before 16:00 UTC. The 4b/4c reason text on main is stale too (unreachable there anyway).
+
+**Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U30 · Inactive staff with access_role admin/manager lose manager rights
+
+**Status:** done on `remediation` (unit U30, branch `fix/U30-manager-requires-active-staff`). Owner decision 2026-10-10: tighten. **Not applied to production** (OWNER_ACTIONS D13).
+
+**Problem.** `is_business_manager` (20261009120000) and `can_manage_staff_private` (20261006140000) counted staff access_role admin/manager without checking `staff.status`. A deactivated lead could still delete clients/pets/appointments (U13–U15), edit the business (U29), add/edit/delete staff and reset staff and kiosk PINs (U08/U11/U12), read `staff_private` (SSN, bank details), and raise their own pay/access (the P2-03 lock uses `can_manage_staff_private`).
+
+**Change.**
+- `supabase/migrations/20261010240000_manager_requires_active_staff.sql` (requires 20261006140000 and 20261009120000): CREATE OR REPLACE of `is_business_manager` and `can_manage_staff_private`; the staff path now requires the caller's staff row (same row `caller_staff_access_role_for_business` reads: `profiles.staff_id`, else oldest by `user_id`) to have access_role admin/manager **and** `status = 'active'`. Super admin and profile-manager paths unchanged; signature, SECURITY DEFINER, search_path, grants unchanged. `caller_staff_access_role_for_business` unchanged (it is the access_role trigger's only gate for profile managers).
+- Rollback `supabase/rollbacks/20261010240000_manager_requires_active_staff.down.sql` restores both bodies verbatim.
+- `scripts/test-env-security.mjs`: new `inactiveManagerPolicies` (39 checks; manager and admin tiers: active allowed, inactive refused for deletes/business edit/pay edits/staff delete/staff_private read, reactivated allowed again; profile manager with an inactive own staff row unaffected).
+- `src/lib/deletePermissions.ts`, `src/hooks/useCanDeleteClientsAndPets.ts`: client/pet Delete hidden for inactive leads (`useStaff` already loads `status`); 3 new unit tests.
+
+**Compatibility with `main`.** Active staff, profile managers and super admins unaffected. On main an inactive lead who is still signed in still sees the manager buttons; writes are refused or affect 0 rows.
+
+**Gates.** Red 38088639011. Green bd97565: CI 38088998654 ✓ (security all ✓, 3 known open; E2E 15/15), dual-frontend 38088998677 ✓. Migration → rollback → migration on scratch Postgres 16: definitions and ACL identical after rollback; of 42 caller/business cases only the 3 inactive-lead cases changed (true → false). Combined on remediation: tsc 28 · lint 400 · vitest 226/226 · build OK.
+
+**Notes.**
+- Supersedes U23's note that the database doesn't check `staff.status`.
+- Edge: a user with two staff rows in one business whose oldest is an inactive manager and newer an active manager is now refused (same row choice as before; safer reading).
+- Not in scope: inline access_role checks elsewhere (`clock_in_out`'s `v_mgr_tier`).
+
+**Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010240000`.

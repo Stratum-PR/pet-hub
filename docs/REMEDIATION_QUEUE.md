@@ -39,6 +39,10 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 8 | U26 | `useFeatureRollout` exposes a settled/error flag; replaces U19's 10 s fallback — owner OK 2026-10-10 | `src/hooks/useFeatureRollout*`, `src/lib/featureGate.ts`, their tests | – | U19 | merged |
 | 8 | U27 | Client sign-up: Enter on step 1/2 submits the whole form early — owner OK 2026-10-10 | `src/pages/Register.tsx` (+ its test) | – | U01 | merged |
 | 8 | U28 | C5: drop the dead `dispatch_staff_missing_email_reminders` call (owner decision 2026-10-10) | the caller (listed by the worker) | – | – | merged |
+| 9 | U29 | P2-01 businesses / S-7a: only managers/admins update the business; trigger blocks billing columns (subscription_tier/status, stripe_*, trial_ends_at) unless service role; slug format CHECK only if every existing slug passes. Expand-only for main and remediation's frontend — owner OK 2026-10-10 | `supabase/migrations/20261010230000_*.sql`, rollback, `scripts/test-env-security.mjs` (owner this wave), minimal frontend if needed | 20261010230000 | – | merged |
+| 9 | U30 | `is_business_manager` also requires `staff.status = 'active'` (inactive admin/manager staff can't delete); frontend delete helper mirrors it — owner: tighten (2026-10-10) | new migration, rollback, `src/lib/deletePermissions.ts` (+test), `scripts/test-env-security.mjs` | 20261010240000 | U29 (shares the security suite and `is_business_manager`) | merged |
+| 9 | U31 | E2E clock pin: `pinBrowserClock` (`setFixedTime`) can make auth-js treat sessions as expired when pinned ahead of real time (U22 note); tests only, same assertions — owner OK 2026-10-10 | `e2e/clock.ts`, clock calls in e2e flows 4 and 7 | – | – | merged |
+| – | S-6a/S-8a | Payments (Genesis's area): **plan only, not started** — see "Draft: S-6a / S-8a" below; owner coordinates with Genesis | – | – | owner + Genesis | needs owner |
 
 **Not queued** (blocked on a person or deferred): P2-01 businesses (SECURITY_RISKS S-7, Genesis) · P2-05 demo workspace · P2-06 (production row counts) · P2-08, C4 (Genesis) · C5 (decision) · P3-03, P3-05, P3-06 (wide/high-risk, later run) · npm audit (lockfile) · P1-01, P1-02, P1-10, P1-12 (OWNER_ACTIONS Part B).
 
@@ -47,19 +51,32 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 - **Agent work:** every queued row through wave 2 is `merged` (waves 3–4 after the owner's go-ahead), CI is green on `remediation`'s last push, `remediation` still merges cleanly into `dev`, and each unit has a FIX_LOG entry.
 - **Whole remediation:** the above plus every item in OWNER_ACTIONS.md (Parts A–D) and the "Needs you" list below checked off.
 
-## Resume here (updated 2026-10-10 ~15:30 UTC, owner near usage limit)
+## Resume here (updated 2026-10-10 ~22:05 UTC)
 
-State: `remediation` has U00–U06, U08–U10, U13, U14, U16–U21 merged, plus `origin/dev` merged in at 0b723a8 (Vercel `ignoreCommand` via `scripts/vercel-ignore-build.sh`: only main/dev deploy; unused media moved to `designs/marketing-assets`). That merge needed one type-only fix in `src/pages/AdminDashboard.tsx`: dev's new users panel used `Business`, but U09 narrowed the list to `ListedBusiness` (id/slug only used).
+Update 22:05: U29, U30, U31 merged (remediation f2b7c00: CI 38089467042 ✓, dual-frontend 38089467077 ✓; tsc 28 · lint 400 · vitest 226 · build OK). Next: merge remediation into dev (owner-approved, no `[deploy]`). Still open: S-6a/S-8a (plan drafted below; owner + Genesis), slug CHECK (needs the owner's D12 query result), U31 follow-up (drop main flow 7 `mayPass` after a green dual-main before 16:00 UTC).
 
-Order the owner agreed (do in this order, one merge at a time, wait for remediation CI between):
-1. **U07** (`fix/U07-dual-frontend`): needs CI + dual-frontend (dual-main AND dual-dev) green on its latest head (95a05aa, or newer after the remediation sync). Changes since the pending report: `EXPECTED.main` + flow 7 (`mayPass`, U17 clock pin vs main's login hang before 12:00 PR), `EXPECTED.dev` + flow 4 (`mayPass`, ProtectedRoute race = U22). FIX_LOG: main 9 expected, dev 6 expected; describe `mayPass`. Report: `docs/remediation-pending/U07-report.md` (+ B4 addendum, DECISIONS line); delete it in the docs commit.
-2. **U15** (`fix/U15-appointments-no-employee-delete`): a worker proved flow 4's failure there is NOT the migration but an app race in `ProtectedRoute` (reload bounces a manager to `/portal` when the profile loads after the client-link check; CI runs 38060099293, 38060579995, 38060947523, 38061346629). Diagnostics were reverted at 549fdcb (green 38061758672); a later temporary diag commit 395c8ae ("bounce rate of 25 hard loads") must be reverted before merging: check the branch head. Report: `docs/remediation-pending/U15-report.md` (FIX_LOG + OWNER_ACTIONS D9).
-3. **dev sync** before U11 (owner asked): `git merge origin/dev` (never rebase), gates, push, wait for green.
-4. **U11** (P2-02 hash staff PINs, slot 20261009180000) **and U22** (fix the `ProtectedRoute` reload race; owns `src/components/ProtectedRoute.tsx` (verify path) + its test) in parallel. Owner approved both. U11 must keep `main`'s kiosk working on the shared DB (expand-only: e.g. hash alongside plaintext); if impossible, stop and ask the owner. Inputs: FIX_LOG → P3-04 "Readers of `staff.pin`".
-5. **U12** (P2-04 hash `businesses.kiosk_manager_pin`, slot 20261009190000) after U11 merges. Same compatibility rule.
-6. When all of that is merged and remediation CI is green: send the owner a PushNotification ("current work done").
 
-Rules learned: one remediation push at a time; trust GitHub API `status: completed`; job-log blob URLs are blocked (use get_job_logs return_content); lint from a clean worktree (`.claude/worktrees/` inside the repo inflates the lint ratchet); workers stopped by the usage limit leave pushed work on their branch: relaunch from it.
+State: every queued unit through U28 is **merged** on `remediation` (incl. U07/U07b/U07c dual-frontend gate, U11/U12 PIN hashing, U15, U22–U28), and `remediation` was merged into `dev` twice (428a060, then 64704b0; no deploy). PR #6 (remediation → main) was closed. Gates on the last head: tsc 28 · lint 400 · vitest 223 · build OK; CI + dual-frontend green (dual gate now ~5 min).
+
+Not queued yet (candidates; ask the owner first):
+- **P2-01 businesses / S-7a** (owner answered 2026-10-10: only managers/admins update the business; trigger blocks billing columns except service role). Also closes the root cause of U25's stored XSS (member-writable `qr_code`/`name`/`slug`); consider a slug format CHECK.
+- **S-6a** ATH keys to Supabase Vault (owner: Vault) and **S-8a** payments function uses staff access tier + active status — payments area: coordinate with Genesis's ATH work on `dev`.
+- **P2-02 / P2-04 contract steps** (drop plaintext PINs, close the public read of `kiosk_manager_pin`) — only after `main` runs the remediation frontend.
+- Inactive staff with access_role admin/manager can still delete clients/pets (`is_business_manager` ignores `staff.status`) — owner decision.
+- E2E clock pin (`page.clock.setFixedTime`) may slow auth when pinned ahead of real time (U22 note).
+- S-9b baseline after Parts A and D (needs B2).
+- Unused npm packages / translation keys (owner: not now).
+- Genesis's open questions: S-10a/b/c, C2, P2-08 (HANDOFF).
+
+Working rules (learned): one remediation push at a time (CI cancels in-progress runs); merge `origin/dev` in before each round (never rebase); every unit's frontend must work before and after its own migration (remediation runs on `dev` before Part D is applied); migration slots after every file on `dev`; lint from a clean worktree outside `.claude/worktrees`; GitHub job-log blob URLs are blocked (use get_job_logs return_content).
+
+## Draft: S-6a / S-8a (payments; NOT started — owner coordinates with Genesis)
+
+Both touch `supabase/functions/payments/` and the payments tables Genesis is working on directly on `dev` (ATH Móvil). Proposed as two separate units, each after a fresh `origin/dev` sync, run only once the owner and Genesis say go (and after Genesis answers P2-08: which payment secrets table is live).
+
+**S-8a (smaller, do first).** `payments/index.ts` ~269–272 authorizes by `profiles.role` (`manager`/`employee`) and `is_super_admin`. Change: resolve the caller's staff row for the business (same rule as `caller_staff_access_role_for_business` / `is_business_manager`, incl. U30's active-status check): charges/cancels need access_role staff or above and `status = 'active'` (contractors and inactive staff refused); settings (mode, keys, webhook) need admin or manager; profile managers and super admins keep today's access. Tests: `npm run test:payments` cases per tier (contractor charge → 403, inactive staff → 403, admin-tier employee settings → 200). No migration expected (maybe a helper SQL function, expand-only). Behavior change staff would notice: contractors lose Cobrar with ATH, admin-tier employees gain payment settings → owner/Genesis confirm wording.
+
+**S-6a (larger).** ATH public/private tokens in `business_payment_secrets` (and per-payment auth tokens in `payment_secrets`) move to Supabase Vault: expand migration adds `*_secret_id uuid` columns + SECURITY DEFINER functions callable only by `service_role` (`payments_store_secret`, `payments_read_secret`) wrapping `vault.create_secret`/`vault.decrypted_secrets`; the function writes both (dual-write) and reads Vault first, falling back to the plain column; a later contract step (after backfill and once main runs the new function) nulls and drops the plain columns. Needs: Vault enabled on production (check `vault` schema), a backfill script the owner runs in the SQL editor after a backup, test-env Vault support in CI (verify the local stack has `supabase_vault`), payments tests for store/read/rotate, and an Edge Function deploy (owner, D-row). Open questions for Genesis: P2-08 (live table), simulator tokens in Vault too or not (S-3a: simulator is super-admin-only), and timing vs her ATH work.
 
 ## Needs you
 
@@ -70,6 +87,11 @@ Rules learned: one remediation push at a time; trust GitHub API `status: complet
 - [ ] **Delete merged `fix/*` branches** if the coordinator reports the proxy refused it.
 
 ## Notes
+
+- 2026-10-10 ~22:05 UTC: U30 merged (ac5405e; branch CI 38088998654 ✓, dual 38088998677 ✓; red 38088639011). Also tightens `can_manage_staff_private` (same decision; inactive leads could read staff_private and raise own pay). D13 added.
+- 2026-10-10 ~21:48 UTC: U31 merged (9ba6811; CI 38087820254 ✓, dual 38087820262 ✓). 4b/4c token refreshes 27/20 → 0.
+- 2026-10-10 ~21:37 UTC: U29 merged (eeb07e4; CI 38087717084 ✓, dual 38087717141 ✓; red 38086768419). Slug CHECK not added (no slug data in the snapshot; query in D12). D12 added. Pre-commit hook false positive on an old FIX_LOG example line reworded (not bypassed).
+- 2026-10-10 ~21:10 UTC: dev sync 478743a (no file changes). Owner: U30 tighten; S-6a/S-8a plan only.
 
 - 2026-10-10 ~20:30 UTC: U24 merged (60ad0f3: CI 38083129726 ✓, dual-frontend 38083129679 ✓). **U23–U28 all merged.** Next: merge remediation into dev again (no deploy tag).
 - 2026-10-10 ~20:25 UTC: U26, U27, U23, U25 merged (each CI green on its branch; combined gates tsc 28, lint 400, vitest 223/223, build OK). U25 found and fixed a stored XSS (QR preview/print). U24 still running.
