@@ -61,7 +61,18 @@ Until step 1 runs, `/admin/automations` shows a load-error toast and the pet for
 - The admin-side "who sees it" roles/plans and the feature list are hard-coded in `FeatureSettingsTable.tsx` (`FEATURE_GROUPS`); add a key there when code starts checking a new feature.
 - Possible next steps for size: five decorative SVGs in `public/brand` (~7.5 MB).
 
+## Remediation merged into dev (2026-10-10)
+
+Jovaniel's `remediation` branch was merged into `dev` (no deploy). It is the cleanup and security-fix work tracked in [REMEDIATION_QUEUE.md](REMEDIATION_QUEUE.md) and [FIX_LOG.md](FIX_LOG.md). For Genesis's work on `dev` this means:
+
+- **CI runs on every push to `dev`** (`.github/workflows/ci.yml`): `check` (typecheck and lint ratchets, so new type/lint errors fail; vitest) and `db-tests` (payments, security/RLS suite and smoke E2E on a local Supabase stack). Run `npm run check` before pushing. Gates: `npm run check`, `npm run build`.
+- **dual-frontend** (`.github/workflows/dual-frontend.yml`) runs the smoke E2E against `main`'s and `dev`'s frontend whenever migrations, Edge Functions, test env or e2e change. A migration that breaks `main` (production) fails it.
+- **Migrations must stay expand-only** while `main` and `dev` differ (one shared database): add, don't rename/drop/tighten. New migration timestamps must be later than every file in `supabase/migrations/`. Production's migration history is incomplete: never `supabase db push`; apply via the SQL editor + `migration repair` (see OWNER_ACTIONS).
+- **Routes are lazy-loaded** (`src/App.tsx` `lazyRoute`): add new pages the same way. Selects on `staff`/`profiles`/`businesses` use explicit column lists (`STAFF_PUBLIC_COLUMNS` etc.); don't add `select('*')` there.
+- **The database parts of remediation are not applied to production yet** (OWNER_ACTIONS Part A and D5–D9, Jovaniel's). The frontend works with or without them.
+- Jovaniel keeps working on `remediation` (staff PIN hashing U11, kiosk manager PIN U12, small follow-ups) and merges it into `dev` again when done. Remediation also pulls `dev` in before each round, so Genesis's ATH work flows over.
+
 ## Not ours (Jovaniel)
 
-- Security decisions: [SECURITY_RISKS.md](SECURITY_RISKS.md). Genesis answered S-1 to S-5 and deferred the rest ("leave all security fixes to Jovaniel"). Don't re-ask; don't implement security fixes unless she asks.
-- The `remediation` branch (Jovaniel's fixes, not merged into dev yet). His to-do list (`docs/OWNER_ACTIONS.md` on that branch) includes a live hole: any signed-up user can make themselves manager of any business (P0-01), fix ready but not applied as of 2026-10-08. When it merges, dev.grumi.pet only redeploys with `[deploy]` in the commit message.
+- Security decisions: [SECURITY_RISKS.md](SECURITY_RISKS.md). Genesis answered S-1 to S-5; Jovaniel answered S-6 to S-9 on 2026-10-10. **S-10a/b/c (which payment items go first) are back with Genesis** (Jovaniel: payments are her call): ask her at the start of her next session. Also hers: C2 (per-business transaction numbers) and which payment secrets table is live (P2-08). Don't implement other security fixes unless she asks.
+- The `remediation` branch and Jovaniel's to-do list (`docs/OWNER_ACTIONS.md`), including a live hole: any signed-up user can make themselves manager of any business (P0-01), fix ready but not applied.

@@ -58,7 +58,7 @@ const PET_SPECIES_CHOICES: {
   id: PetSpeciesChoice;
   label: string;
   species: PetDraft['species'];
-  icon: React.ComponentType;
+  icon: React.ComponentType<{ className?: string }>;
 }[] = [
   { id: 'dogs', label: 'dogs', species: 'dog', icon: Dog },
   { id: 'cats', label: 'cats', species: 'cat', icon: Cat },
@@ -480,10 +480,10 @@ export function Register() {
         if (data.user) {
           const nameParts = splitClientName(fullName);
           let globalClientId: string | null = null;
+          // The role is set server-side (handle_new_user creates the profile as 'client'; P0-01 locks it).
           await supabase
             .from('profiles')
             .update({
-              role: 'client',
               full_name: fullName || null,
             } as never)
             .eq('id', data.user.id);

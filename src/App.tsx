@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -5,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { DEMO_WORKSPACE_SLUG } from "@/lib/demoWorkspace";
-import { DemoLegacyRedirect } from "@/components/DemoLegacyRedirect";
 import { DemoAwareThemeProvider } from "@/components/DemoAwareThemeProvider";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
@@ -14,39 +14,82 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BusinessLayout } from "@/components/BusinessLayout";
 import { Landing } from "@/pages/Landing";
-import { Pricing } from "@/pages/Pricing";
-import { WhyGrumi } from "@/pages/WhyGrumi";
-import { Contact } from "@/pages/Contact";
-import { TermsOfService } from "@/pages/legal/TermsOfService";
-import { WebsiteTerms } from "@/pages/legal/WebsiteTerms";
-import { PrivacyPolicy } from "@/pages/legal/PrivacyPolicy";
-import { CookieNotice } from "@/pages/legal/CookieNotice";
 import { Login } from "@/pages/Login";
-import { Register } from "@/pages/Register";
-import { AuthCallback } from "@/pages/AuthCallback";
-import { ResetPassword } from "@/pages/ResetPassword";
-import { SignupSuccess } from "@/pages/SignupSuccess";
-import { WaitlistConfirmed } from "@/pages/WaitlistConfirmed";
-import Index from "@/pages/Index";
-import { PublicBookingPage } from "@/pages/PublicBookingPage";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import { AdminOverview } from "@/pages/admin/AdminOverview";
-import { AdminBusinesses } from "@/pages/admin/AdminBusinesses";
-import { AdminFeatures } from "@/pages/admin/AdminFeatures";
-import { AdminAutomations } from "@/pages/admin/AdminAutomations";
-import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
 import { NoIndexForProtectedRoutes } from "@/components/NoIndexForProtectedRoutes";
-import AcceptInvitation from "@/pages/employee/AcceptInvitation";
-import EmployeeProfile from "@/pages/employee/EmployeeProfile";
-import { EmployeeLegacyRedirect } from "@/pages/employee/EmployeeLegacyRedirect";
 import { EmployeePortalRoute } from "@/components/employee/EmployeePortalRoute";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
 import { CookieConsentBar } from "@/components/cookies/CookieConsentBar";
-import { ClientPortalPublicPage } from "@/pages/ClientPortalPublicPage";
-import { ClientDirectoryPage } from "@/pages/ClientDirectoryPage";
 import { useAuth } from "@/contexts/AuthContext";
+import { RouteFallback } from "@/components/RouteFallback";
+
+/**
+ * P4-01: route code splitting. After a redeploy, a tab still running the old index.html asks for
+ * old hashed chunk names that no longer exist. On a failed chunk import, reload the page once so
+ * the browser picks up the new build; if it fails again within a minute (offline, or a real
+ * error), the error reaches GlobalErrorBoundary as it did before.
+ */
+const CHUNK_RELOAD_KEY = "grumi:chunk-reload-at";
+const CHUNK_RELOAD_WINDOW_MS = 60_000;
+
+function lazyRoute<T extends ComponentType<object>>(load: () => Promise<{ default: T }>) {
+  return lazy(() =>
+    load().catch((err: unknown) => {
+      let lastReload = 0;
+      try {
+        lastReload = Number(window.sessionStorage.getItem(CHUNK_RELOAD_KEY)) || 0;
+        if (Date.now() - lastReload <= CHUNK_RELOAD_WINDOW_MS) throw err;
+        window.sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+      } catch {
+        // Already reloaded recently, or storage is blocked (can't detect a reload loop): give up.
+        throw err;
+      }
+      window.location.reload();
+      // Keep the fallback on screen until the reload replaces the page.
+      return new Promise<{ default: T }>(() => {});
+    })
+  );
+}
+
+const named = <K extends string, T extends ComponentType<object>>(key: K) => (m: Record<K, T>) => ({ default: m[key] });
+
+// Eager (first paint and shell): Landing ("/"), Login (staff entry point), NotFound, the redirect
+// components and route guards. Every other page loads on demand; the whole business app (Index and
+// everything it imports) is one lazy chunk until Index.tsx itself splits its routes.
+const Index = lazyRoute(() => import("@/pages/Index"));
+// Lazy because it statically imports Index (an eager import here would pull Index back into main).
+const DemoLegacyRedirect = lazyRoute(() =>
+  import("@/components/DemoLegacyRedirect").then(named("DemoLegacyRedirect"))
+);
+const AdminLayout = lazyRoute(() => import("@/components/admin/AdminLayout").then(named("AdminLayout")));
+const AdminOverview = lazyRoute(() => import("@/pages/admin/AdminOverview").then(named("AdminOverview")));
+const AdminBusinesses = lazyRoute(() => import("@/pages/admin/AdminBusinesses").then(named("AdminBusinesses")));
+const AdminFeatures = lazyRoute(() => import("@/pages/admin/AdminFeatures").then(named("AdminFeatures")));
+const AdminAutomations = lazyRoute(() => import("@/pages/admin/AdminAutomations").then(named("AdminAutomations")));
+const ImpersonateHandler = lazyRoute(() => import("@/pages/ImpersonateHandler").then(named("ImpersonateHandler")));
+const PublicBookingPage = lazyRoute(() => import("@/pages/PublicBookingPage").then(named("PublicBookingPage")));
+const ClientPortalPublicPage = lazyRoute(() =>
+  import("@/pages/ClientPortalPublicPage").then(named("ClientPortalPublicPage"))
+);
+const ClientDirectoryPage = lazyRoute(() => import("@/pages/ClientDirectoryPage").then(named("ClientDirectoryPage")));
+const Register = lazyRoute(() => import("@/pages/Register").then(named("Register")));
+const AuthCallback = lazyRoute(() => import("@/pages/AuthCallback").then(named("AuthCallback")));
+const ResetPasswordPage = lazyRoute(() => import("@/pages/ResetPassword").then(named("ResetPassword")));
+const SignupSuccess = lazyRoute(() => import("@/pages/SignupSuccess").then(named("SignupSuccess")));
+const WaitlistConfirmed = lazyRoute(() => import("@/pages/WaitlistConfirmed").then(named("WaitlistConfirmed")));
+const AcceptInvitation = lazyRoute(() => import("@/pages/employee/AcceptInvitation"));
+const EmployeeProfile = lazyRoute(() => import("@/pages/employee/EmployeeProfile"));
+const EmployeeLegacyRedirect = lazyRoute(() =>
+  import("@/pages/employee/EmployeeLegacyRedirect").then(named("EmployeeLegacyRedirect"))
+);
+const Pricing = lazyRoute(() => import("@/pages/Pricing").then(named("Pricing")));
+const WhyGrumi = lazyRoute(() => import("@/pages/WhyGrumi").then(named("WhyGrumi")));
+const Contact = lazyRoute(() => import("@/pages/Contact").then(named("Contact")));
+const TermsOfService = lazyRoute(() => import("@/pages/legal/TermsOfService").then(named("TermsOfService")));
+const WebsiteTerms = lazyRoute(() => import("@/pages/legal/WebsiteTerms").then(named("WebsiteTerms")));
+const PrivacyPolicy = lazyRoute(() => import("@/pages/legal/PrivacyPolicy").then(named("PrivacyPolicy")));
+const CookieNotice = lazyRoute(() => import("@/pages/legal/CookieNotice").then(named("CookieNotice")));
 
 const queryClient = new QueryClient();
 const isLocalHostSignupEnabled =
@@ -95,6 +138,7 @@ const App = () => (
                 <Sonner />
             <NoIndexForProtectedRoutes />
             <ThemeGuard />
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
@@ -108,7 +152,7 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/registrarse" element={isLocalHostSignupEnabled ? <Register /> : <Navigate to="/" replace />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/portal" element={<ClientPortalPublicPage />} />
               <Route path="/cliente" element={<Navigate to="/portal" replace />} />
               <Route path="/signup/success" element={<SignupSuccess />} />
@@ -174,6 +218,7 @@ const App = () => (
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
             </TooltipProvider>
             <CookieConsentBar />
           </DemoAwareThemeProvider>

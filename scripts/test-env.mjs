@@ -3,17 +3,20 @@
 //
 //   node scripts/test-env.mjs up      start: local Supabase (ports 55420-55429) + ATH Móvil simulator (55430)
 //   node scripts/test-env.mjs test    run the payments end-to-end tests against it
+//   node scripts/test-env.mjs test security   run the access-control (RLS) tests against it
+//   node scripts/test-env.mjs e2e     run the Playwright smoke E2E (the app on :55440 against it)
 //   node scripts/test-env.mjs reset   wipe the test database and re-apply every migration
 //   node scripts/test-env.mjs status  show URLs
 //   node scripts/test-env.mjs down    stop and remove everything (keeps nothing)
+//   node scripts/test-env-dual.mjs main|dev   the smoke E2E against another ref's frontend (P1-13, see that file)
 //
 // It never touches the hosted project: it runs from its own folder (.test-env/) with project_id "grumi-test",
 // so `supabase link`, supabase/config.toml and the default local ports (54320-54329) stay untouched.
 // Needs Docker Desktop (or Docker Engine) running, Node 20+, and `npm install` done.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WORKDIR = join(ROOT, '.test-env');
@@ -50,10 +53,13 @@ function prepareWorkdir() {
   // production's schema and applies only repo migrations newer than it.
   mkdirSync(join(sb, 'migrations'), { recursive: true });
   cpSync(join(ROOT, 'test-env', 'supabase', 'prod-schema-snapshot.sql'), join(sb, 'migrations', `${SNAPSHOT_VERSION}_prod_schema_snapshot.sql`));
-  for (const f of readdirSync(join(ROOT, 'supabase', 'migrations'))) {
+  // TEST_ENV_MIGRATIONS_DIR (scripts/test-env-dual.mjs only): take the migrations from another ref's tree, to
+  // compare against the schema that ref runs on. Unset (the default): this checkout's supabase/migrations.
+  const migrations = process.env.TEST_ENV_MIGRATIONS_DIR ? resolve(process.env.TEST_ENV_MIGRATIONS_DIR) : join(ROOT, 'supabase', 'migrations');
+  for (const f of readdirSync(migrations)) {
     const version = f.split('_')[0];
     if (f.endsWith('.sql') && /^\d{14}$/.test(version) && version > SNAPSHOT_VERSION) {
-      cpSync(join(ROOT, 'supabase', 'migrations', f), join(sb, 'migrations', f));
+      cpSync(join(migrations, f), join(sb, 'migrations', f));
     }
   }
   cpSync(join(ROOT, 'supabase', 'functions'), join(sb, 'functions'), { recursive: true });
@@ -99,8 +105,12 @@ function printStatus() {
 Run the payments tests with: npm run test:payments\n`);
 }
 
-const cmd = process.argv[2] ?? 'status';
+// Only run the CLI when executed directly (scripts/test-env-dual.mjs imports stackEnv()).
+const isMain = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const cmd = isMain ? process.argv[2] ?? 'status' : null;
 switch (cmd) {
+  case null:
+    break;
   case 'up': {
     checkDocker();
     prepareWorkdir();
@@ -134,14 +144,29 @@ switch (cmd) {
       console.error('✗ Test stack is not running. Start it with: npm run test:env:up');
       process.exit(1);
     }
-    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', 'test-env-payments.mjs')], {
+    const suite = process.argv[3] === 'security' ? 'test-env-security.mjs' : 'test-env-payments.mjs';
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', suite)], {
       cwd: ROOT,
       stdio: 'inherit',
       env: { ...process.env, TEST_API_URL: e.apiUrl, TEST_ANON_KEY: e.anonKey, TEST_SERVICE_KEY: e.serviceKey, TEST_ATH_SIM_URL: 'http://localhost:55430' },
     });
     process.exit(r.status ?? 1);
   }
+  case 'e2e': {
+    const e = stackEnv();
+    if (!e?.apiUrl || !e.anonKey || !e.serviceKey) {
+      console.error('✗ Test stack is not running. Start it with: npm run test:env:up');
+      process.exit(1);
+    }
+    const r = spawnSync(join(ROOT, 'node_modules', '.bin', WIN ? 'playwright.cmd' : 'playwright'), ['test', ...process.argv.slice(3)], {
+      cwd: ROOT,
+      stdio: 'inherit',
+      shell: WIN,
+      env: { ...process.env, TEST_API_URL: e.apiUrl, TEST_ANON_KEY: e.anonKey, TEST_SERVICE_KEY: e.serviceKey },
+    });
+    process.exit(r.status ?? 1);
+  }
   default:
-    console.error(`Unknown command "${cmd}". Use: up | test | reset | status | down`);
+    console.error(`Unknown command "${cmd}". Use: up | test | e2e | reset | status | down`);
     process.exit(1);
 }

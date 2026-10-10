@@ -323,7 +323,7 @@ export function FeaturesMarketingSection() {
   useEffect(() => {
     if (prefersReducedMotion) return undefined;
     const desktopMq = window.matchMedia('(min-width: 768px)');
-    const runInterval = (): ReturnType<typeof setInterval> | undefined => {
+    const runInterval = (): number | undefined => {
       if (!desktopMq.matches) return undefined;
       return window.setInterval(() => {
         setActiveFeatureId((current) => {

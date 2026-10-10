@@ -41,7 +41,8 @@ interface PetProfileDialogProps {
   transactions: Transaction[];
   onOpenChange: (open: boolean) => void;
   onEdit: () => void;
-  onDelete: () => void;
+  /** Omit to hide the delete button (employees may not delete pets; REMEDIATION_PLAN §9 decision 9). */
+  onDelete?: () => void;
   onViewOwner: (clientId: string) => void;
 }
 

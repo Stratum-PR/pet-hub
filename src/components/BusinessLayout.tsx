@@ -41,7 +41,8 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
     if (!businessId) return;
 
     let isMounted = true;
-    supabase
+    // The query builder's then() returns a native Promise at runtime; its type only says PromiseLike.
+    (supabase
       .from('settings')
       .select('business_logo_url, business_logo_url_light, business_logo_url_dark')
       .eq('business_id', businessId)
@@ -50,7 +51,7 @@ export function BusinessLayout({ children }: BusinessLayoutProps) {
         if (!isMounted) return;
         setSettingsLogoLightUrl(data?.business_logo_url_light ?? data?.business_logo_url ?? null);
         setSettingsLogoDarkUrl(data?.business_logo_url_dark ?? data?.business_logo_url_light ?? data?.business_logo_url ?? null);
-      })
+      }) as Promise<void>)
       .catch(() => {
         if (!isMounted) return;
         setSettingsLogoLightUrl(null);

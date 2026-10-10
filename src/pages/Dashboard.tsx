@@ -755,7 +755,7 @@ export function Dashboard({
               numberOfMonths={2}
               className="min-w-[280px]"
               defaultMonth={rangeSelect.from ?? periodStart ?? new Date()}
-              selected={rangeSelect}
+              selected={rangeSelect as { from: Date | undefined; to?: Date }}
               onSelect={(range) => setRangeSelect(range ?? {})}
               locale={dateLocale}
             />

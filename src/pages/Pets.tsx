@@ -16,6 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { format, parseISO, isWithinInterval, subDays, differenceInDays } from 'date-fns';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 import { useMinWidthSm } from '@/hooks/useMinWidthSm';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PetsProps {
   clients: Client[];
@@ -52,6 +53,9 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
   const displayViewMode = isWide ? viewMode : 'cards';
   const pageLoadRef = usePageLoadRef();
   const { transactions } = useTransactions();
+  const { role, profile } = useAuth();
+  // Only managers may delete pets (decision 9, P2-01 pets); the database refuses an employee's delete.
+  const canDeletePets = role !== 'employee' || !!profile?.is_super_admin;
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(PET_VIEW_KEY, viewMode);
@@ -382,7 +386,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
             clients={clients as any}
             appointments={appointments}
             onViewPet={setPetDetailOpen}
-            onDelete={onDeletePet}
+            onDelete={canDeletePets ? onDeletePet : undefined}
             onEdit={handleEdit}
           />
         </div>
@@ -540,7 +544,7 @@ export function Pets({ clients, pets, appointments = [], onAddPet, onUpdatePet, 
           leavePetDeepLink({ returnToClientIfPresent: false });
           handleEdit(petDetailOpen);
         }}
-        onDelete={() => setPetDeleteConfirmOpen(true)}
+        onDelete={canDeletePets ? () => setPetDeleteConfirmOpen(true) : undefined}
         onViewOwner={(clientId) => {
           setPetDetailOpen(null);
           leavePetDeepLink({ returnToClientIfPresent: false });

@@ -141,6 +141,10 @@ export function EditAppointmentDialog({
 
   const editAutoJumpRef = useRef(0);
 
+  // Date/time the init effect below just set. Effects running in the same commit still see the previous state
+  // (on first open: "now"), so they must wait until it lands, or they "correct" a stale date (E2E-2).
+  const pendingInitRef = useRef<{ date: Date; time: string } | null>(null);
+
   // Initialize form data when appointment changes
   useEffect(() => {
     if (appointment && open && appointment.pet_id) {
@@ -196,6 +200,7 @@ export function EditAppointmentDialog({
           price: Number(appointment.total_price ?? appointment.price ?? 0) || 0,
           notes: appointment.notes || '',
         });
+        pendingInitRef.current = { date: appointmentDate, time: timeStr };
         setSelectedDate(appointmentDate);
         setSelectedTime(timeStr);
       } catch (error) {
@@ -242,7 +247,10 @@ export function EditAppointmentDialog({
   }, [selectedDate, existingAppointments]);
 
   useEffect(() => {
-    if (!open) editAutoJumpRef.current = 0;
+    if (!open) {
+      editAutoJumpRef.current = 0;
+      pendingInitRef.current = null;
+    }
   }, [open]);
 
   useEffect(() => {
@@ -250,6 +258,10 @@ export function EditAppointmentDialog({
     if (resolvedDurationMin <= 0) return;
     if (!selectedDate) return;
     if (editAutoJumpRef.current > 90) return;
+    if (pendingInitRef.current && selectedDate !== pendingInitRef.current.date) return;
+    // Never move an existing appointment off its own day by itself (e.g. earlier today, now past); the user can still pick another day.
+    const ownDate = parseAppointmentDate(appointment);
+    if (ownDate && isSameDay(selectedDate, ownDate)) return;
 
     const closed = Boolean(dayHoursEdit?.closed);
     const hasGrid = editableTimeSlots.length > 0;
@@ -293,7 +305,13 @@ export function EditAppointmentDialog({
   ]);
 
   useEffect(() => {
-    if (!open || !selectedTime || editableTimeSlots.length === 0) return;
+    if (!open) return;
+    const pending = pendingInitRef.current;
+    if (pending) {
+      if (selectedDate !== pending.date || selectedTime !== pending.time) return;
+      pendingInitRef.current = null; // the init values have landed; normal rules apply from here
+    }
+    if (!selectedTime || editableTimeSlots.length === 0) return;
     if (editableTimeSlots.includes(selectedTime)) return;
     const first = editableTimeSlots.find((time24) => {
       const isBooked = getBookedTimes.includes(time24);

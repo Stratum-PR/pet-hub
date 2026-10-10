@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { StaffMember } from '@/types';
+import { STAFF_PUBLIC_COLUMNS, type StaffPublicRow } from '@/hooks/useSupabaseData';
 import { devConsole } from '@/lib/clientDebug';
 
-export type StaffWithBusiness = StaffMember & {
+/** The signed-in employee's own staff row (public columns: no PIN, pay or bank fields) plus its business. */
+export type StaffWithBusiness = StaffPublicRow & {
   businesses?: { slug: string | null; name: string } | null;
 };
+
+const OWN_STAFF_COLUMNS = `${STAFF_PUBLIC_COLUMNS}, businesses (slug, name)`;
 
 export function useStaff() {
   const { user } = useAuth();
@@ -24,7 +27,7 @@ export function useStaff() {
       try {
         const { data, error: queryError } = await supabase
           .from('staff')
-          .select('*, businesses (slug, name)')
+          .select(OWN_STAFF_COLUMNS)
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -37,7 +40,7 @@ export function useStaff() {
         const biz = row.businesses as { slug: string | null; name: string } | { slug: string | null; name: string }[] | null | undefined;
         const businesses = Array.isArray(biz) ? biz[0] ?? null : biz ?? null;
         const { businesses: _b, ...rest } = row;
-        setStaffMember({ ...(rest as StaffMember), businesses });
+        setStaffMember({ ...(rest as unknown as StaffPublicRow), businesses });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Error loading staff';
         devConsole.error('useStaff:', err);

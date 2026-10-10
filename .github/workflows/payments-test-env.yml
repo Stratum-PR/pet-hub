@@ -13,6 +13,7 @@ on:
       - "supabase/migrations/**"
       - "test-env/**"
       - "scripts/test-env*.mjs"
+      - "src/pages/Register.tsx"
       - ".github/workflows/payments-test-env.yml"
 jobs:
   payments-e2e:
@@ -33,6 +34,10 @@ jobs:
         run: |
           set -o pipefail
           npm run test:payments 2>&1 | tee test-payments.log
+      - name: Access-control (RLS) tests
+        run: |
+          set -o pipefail
+          npm run test:security 2>&1 | tee test-security.log
       - name: Show the test results as an annotation (readable without opening the log)
         if: success()
         run: |
@@ -41,7 +46,7 @@ jobs:
       - name: Show the failure as an annotation (readable without opening the log)
         if: failure()
         run: |
-          for f in test-env-up.log test-payments.log; do
+          for f in test-env-up.log test-payments.log test-security.log; do
             [ -f "$f" ] || continue
             msg=$(tail -n 60 "$f" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
             echo "::error title=$f::$msg"
