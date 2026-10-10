@@ -63,3 +63,56 @@ export async function exitSupportUserSession(client: SupabaseClient): Promise<vo
   }
   window.location.href = '/admin';
 }
+
+export type BeginSupportSessionResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Super admin only: sign in as a business staff member (support-begin-user-session issues a one-time login).
+ * Saves the admin's own session first so the support banner can restore it. On success the page reloads into
+ * the business dashboard; on failure the detail is for the admin's eyes in the UI (never written to the site).
+ */
+export async function beginSupportUserSession(
+  client: SupabaseClient,
+  args: { staffId: string; businessId: string; slug: string | null | undefined }
+): Promise<BeginSupportSessionResult> {
+  const { data: sessionData, error: sessErr } = await client.auth.getSession();
+  if (sessErr || !sessionData.session) {
+    return { ok: false, detail: sessErr?.message ?? 'No session' };
+  }
+  const { data: refreshed } = await client.auth.refreshSession();
+  const session = refreshed?.session ?? sessionData.session;
+
+  saveSupportAdminSnapshot({ access_token: session.access_token, refresh_token: session.refresh_token });
+
+  const { data, error } = await client.functions.invoke<{ token_hash?: string; error?: string }>(
+    'support-begin-user-session',
+    {
+      body: { target_staff_id: args.staffId, business_id: args.businessId },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    }
+  );
+  if (error || !data?.token_hash) {
+    clearSupportAdminSnapshotOnly();
+    let detail = error?.message ?? data?.error ?? 'No token_hash in response';
+    const ctx = (error as { context?: Response } | null)?.context;
+    if (ctx && typeof ctx.clone === 'function') {
+      try {
+        detail += `\n${await ctx.clone().text()}`;
+      } catch {
+        /* ignore */
+      }
+    }
+    return { ok: false, detail };
+  }
+
+  const { error: verifyErr } = await client.auth.verifyOtp({ token_hash: data.token_hash, type: 'email' });
+  if (verifyErr) {
+    clearSupportAdminSnapshotOnly();
+    return { ok: false, detail: verifyErr.message };
+  }
+
+  markSupportUserSessionActive();
+  const slug = args.slug?.trim();
+  window.location.href = slug ? `/${slug}/dashboard` : '/';
+  return { ok: true };
+}
