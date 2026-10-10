@@ -72,6 +72,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       return;
     }
 
+    // While auth is still hydrating, a null profile means "not loaded yet", not "no business".
+    // Checking now would send staff (whose profile arrives later) to /portal on reload (U22).
+    if (loading) return;
+
     if (!userId || !businessSlug || profile?.business_id != null || requireAdmin) {
       if (businessSlug && userId && !profile?.business_id && !requireAdmin) setClientLinkAllowed(true);
       return;
@@ -101,10 +105,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       }
     })();
     return () => { cancelled = true; };
-  }, [userId, businessSlug, profile?.business_id, requireAdmin, isPublicBusinessRoute]);
+  }, [loading, userId, businessSlug, profile?.business_id, requireAdmin, isPublicBusinessRoute]);
 
   useEffect(() => {
-    if (isPublicBusinessRoute) return;
+    if (isPublicBusinessRoute || loading) return;
     if (clientLinkChecked && clientLinkAllowed === false && businessSlug) {
       if (user?.id) {
         navigate(`/portal?business=${encodeURIComponent(businessSlug)}`, { replace: true });
@@ -112,7 +116,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
       }
       navigate(`/${businessSlug}/login`, { replace: true });
     }
-  }, [clientLinkChecked, clientLinkAllowed, businessSlug, navigate, isPublicBusinessRoute, user?.id]);
+  }, [loading, clientLinkChecked, clientLinkAllowed, businessSlug, navigate, isPublicBusinessRoute, user?.id]);
 
   // Show post-login loading screen if user is logged in but data is still loading
   // CRITICAL: This useEffect must be called before any conditional returns to maintain hooks order
