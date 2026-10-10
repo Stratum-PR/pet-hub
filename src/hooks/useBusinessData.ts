@@ -10,6 +10,7 @@ import {
 } from '@/lib/businessValidation';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { devConsole } from '@/lib/clientDebug';
+import { uniqueChannelName } from '@/lib/realtimeChannel';
 import { getDemoStaffSeed, isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import {
   buildDemoApptBookSeedAppointments,
@@ -742,7 +743,7 @@ export function useAppointments() {
   useEffect(() => {
     if (!businessId || demoBrowseOnly) return;
     const channel = supabase
-      .channel(`appointments-rt-biz-${businessId}`)
+      .channel(uniqueChannelName(`appointments-rt-biz-${businessId}`))
       .on(
         'postgres_changes',
         {

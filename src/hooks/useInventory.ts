@@ -4,6 +4,7 @@ import { useBusinessId } from './useBusinessId';
 import { useDemoBrowseOnly } from '@/hooks/useDemoBrowseOnly';
 import { supabase } from '@/integrations/supabase/client';
 import { devConsole } from '@/lib/clientDebug';
+import { uniqueChannelName } from '@/lib/realtimeChannel';
 
 function uuidv4(): string {
   if (typeof crypto !== 'undefined') {
@@ -101,7 +102,7 @@ export function useInventory() {
   useEffect(() => {
     if (!businessId || demoBrowseOnly) return;
     const channel = supabase
-      .channel(`inventory-rt-${businessId}`)
+      .channel(uniqueChannelName(`inventory-rt-${businessId}`))
       .on(
         'postgres_changes',
         {
