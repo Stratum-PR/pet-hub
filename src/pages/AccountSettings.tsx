@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Settings } from '@/hooks/useSupabaseData';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { ClientEmailAutomationsCard } from '@/components/ClientEmailAutomationsCard';
 import { useBusinessId } from '@/hooks/useBusinessId';
 import { clearPetHubBirthdayJobLocalKey } from '@/lib/demoManagerBirthdaySync';
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
@@ -369,6 +370,10 @@ export function AccountSettings({ settings, onSaveSettings }: AccountSettingsPro
           </Button>
         </CardContent>
       </Card>
+
+      {businessId && !demoBrowseOnly && (profile?.role === 'manager' || profile?.is_super_admin) ? (
+        <ClientEmailAutomationsCard businessId={businessId} />
+      ) : null}
 
       {user ? (
         <Card>

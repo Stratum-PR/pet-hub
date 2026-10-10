@@ -11,6 +11,596 @@ export interface Translations {
 }
 
 export const translations: Translations = {
+  // Client email automations (business settings)
+  'clientEmails.title': {
+    en: 'Automatic emails to clients',
+    es: 'Correos automáticos a clientes'
+  },
+  'clientEmails.description': {
+    en: 'Emails Grumi sends to your clients on your behalf, only to clients who accepted emails. Replies go to your business email.',
+    es: 'Correos que Grumi envía a tus clientes en tu nombre, solo a quienes aceptaron recibir correos. Las respuestas llegan al correo de tu negocio.'
+  },
+  'clientEmails.desc.pet_birthday': {
+    en: 'A birthday greeting on each pet\'s birthday (or in its birth month).',
+    es: 'Una felicitación en el cumpleaños de cada mascota (o en su mes de nacimiento).'
+  },
+  'clientEmails.saved': {
+    en: 'Saved',
+    es: 'Guardado'
+  },
+  // Admin dashboard
+  'admin.nav.automations': {
+    en: 'Automations',
+    es: 'Automatizaciones'
+  },
+  'admin.automations.loadError': {
+    en: 'Could not load automations',
+    es: 'No se pudieron cargar las automatizaciones'
+  },
+  'admin.automations.serverNotReady': {
+    en: 'Could not reach the automations server',
+    es: 'No se pudo contactar el servidor de automatizaciones'
+  },
+  'admin.automations.on': {
+    en: 'On',
+    es: 'Activa'
+  },
+  'admin.automations.off': {
+    en: 'Off',
+    es: 'Apagada'
+  },
+  'admin.automations.edit': {
+    en: 'Edit',
+    es: 'Editar'
+  },
+  'admin.automations.whoToday': {
+    en: 'Who gets it today?',
+    es: '¿Quién lo recibe hoy?'
+  },
+  'admin.automations.whoTodayDesc': {
+    en: 'Owners who would get this email if it ran today. Nothing is sent.',
+    es: 'Dueños que recibirían este correo si corriera hoy. No se envía nada.'
+  },
+  'admin.automations.nobodyToday': {
+    en: 'Nobody today.',
+    es: 'Nadie hoy.'
+  },
+  'admin.automations.sendTest': {
+    en: 'Send me a test',
+    es: 'Enviarme una prueba'
+  },
+  'admin.automations.testSent': {
+    en: 'Test sent to {email}',
+    es: 'Prueba enviada a {email}'
+  },
+  'admin.automations.history': {
+    en: 'Recent activity',
+    es: 'Actividad reciente'
+  },
+  'admin.automations.noHistory': {
+    en: 'Nothing sent yet.',
+    es: 'Aún no se ha enviado nada.'
+  },
+  'admin.automations.testLabel': {
+    en: 'Test',
+    es: 'Prueba'
+  },
+  'admin.automations.status.sent': {
+    en: 'Sent',
+    es: 'Enviado'
+  },
+  'admin.automations.status.failed': {
+    en: 'Failed',
+    es: 'Falló'
+  },
+  'admin.automations.status.test': {
+    en: 'Test',
+    es: 'Prueba'
+  },
+  'admin.automations.when': {
+    en: 'When',
+    es: 'Cuando'
+  },
+  'admin.automations.then': {
+    en: 'Then',
+    es: 'Entonces'
+  },
+  'admin.automations.trigger.pet_birthday': {
+    en: 'It\'s a pet\'s birthday',
+    es: 'Es el cumpleaños de una mascota'
+  },
+  'admin.automations.triggerHelp.pet_birthday': {
+    en: 'On the birthday if the pet has a birth day; if it only has a month, in the first week of that month. Once a year per pet, at 9:00 AM.',
+    es: 'El día del cumpleaños si la mascota tiene día; si solo tiene mes, en la primera semana de ese mes. Una vez al año por mascota, a las 9:00 AM.'
+  },
+  'admin.automations.action.email_owner': {
+    en: 'Email the owner',
+    es: 'Enviar correo al dueño'
+  },
+  'admin.automations.actionHelp.email_owner': {
+    en: 'Only to clients who accepted emails. Businesses can turn this off in their settings.',
+    es: 'Solo a clientes que aceptaron recibir correos. Cada negocio puede apagarlo en su configuración.'
+  },
+  'admin.automations.editorDesc': {
+    en: 'Write the email; fields in braces are filled in for each pet.',
+    es: 'Escribe el correo; los campos entre llaves se llenan para cada mascota.'
+  },
+  'admin.automations.name': {
+    en: 'Name',
+    es: 'Nombre'
+  },
+  'admin.automations.subject': {
+    en: 'Subject',
+    es: 'Asunto'
+  },
+  'admin.automations.message': {
+    en: 'Message',
+    es: 'Mensaje'
+  },
+  'admin.automations.insertField': {
+    en: 'Insert a field:',
+    es: 'Insertar un campo:'
+  },
+  'admin.automations.field.pet_name': {
+    en: 'Pet name',
+    es: 'Nombre de la mascota'
+  },
+  'admin.automations.field.owner_first_name': {
+    en: 'Owner\'s first name',
+    es: 'Nombre del dueño'
+  },
+  'admin.automations.field.owner_name': {
+    en: 'Owner\'s full name',
+    es: 'Nombre completo del dueño'
+  },
+  'admin.automations.field.business_name': {
+    en: 'Business name',
+    es: 'Nombre del negocio'
+  },
+  'admin.automations.field.pet_age': {
+    en: 'Pet age',
+    es: 'Edad de la mascota'
+  },
+  'admin.automations.preview': {
+    en: 'Preview',
+    es: 'Vista previa'
+  },
+  'admin.automations.previewNote': {
+    en: 'Sample data. The real email adds a line saying why the client gets it and how to stop.',
+    es: 'Datos de ejemplo. El correo real añade una línea de por qué lo recibe y cómo dejar de recibirlo.'
+  },
+  'admin.automations.save': {
+    en: 'Save',
+    es: 'Guardar'
+  },
+  'admin.automations.saved': {
+    en: 'Automation saved',
+    es: 'Automatización guardada'
+  },
+  'admin.nav.overview': {
+    en: 'Overview',
+    es: 'Resumen'
+  },
+  'admin.nav.businesses': {
+    en: 'Businesses',
+    es: 'Negocios'
+  },
+  'admin.nav.features': {
+    en: 'Features',
+    es: 'Funciones'
+  },
+  'admin.nav.badge': {
+    en: 'Admin',
+    es: 'Admin'
+  },
+  'admin.nav.myBusiness': {
+    en: 'Back to my business',
+    es: 'Volver a mi negocio'
+  },
+  'admin.nav.openMenu': {
+    en: 'Open menu',
+    es: 'Abrir menú'
+  },
+  'admin.overview.attentionTitle': {
+    en: 'Needs attention',
+    es: 'Necesita atención'
+  },
+  'admin.overview.allGood': {
+    en: 'Nothing needs attention right now.',
+    es: 'Nada requiere atención ahora mismo.'
+  },
+  'admin.overview.pastDue': {
+    en: 'Payment past due',
+    es: 'Pago atrasado'
+  },
+  'admin.overview.noActivity': {
+    en: 'No appointments or sales yet',
+    es: 'Sin citas ni ventas aún'
+  },
+  'admin.overview.quietSince': {
+    en: 'No activity since {when}',
+    es: 'Sin actividad desde {when}'
+  },
+  'admin.features.live': {
+    en: 'Live',
+    es: 'Live'
+  },
+  'admin.features.devOnly': {
+    en: 'Dev',
+    es: 'Dev'
+  },
+  'admin.features.showDetails': {
+    en: 'Show who sees it (roles and plans)',
+    es: 'Ver quién la ve (roles y planes)'
+  },
+  'admin.features.hideDetails': {
+    en: 'Hide details',
+    es: 'Ocultar detalles'
+  },
+  'admin.features.unsaved': {
+    en: '· not saved',
+    es: '· sin guardar'
+  },
+  'admin.features.pendingChanges': {
+    en: '{count} unsaved change(s)',
+    es: '{count} cambio(s) sin guardar'
+  },
+  'admin.features.discard': {
+    en: 'Discard',
+    es: 'Descartar'
+  },
+  'admin.features.saveAll': {
+    en: 'Save changes',
+    es: 'Guardar cambios'
+  },
+  'admin.features.tierStandard': {
+    en: 'Standard (every plan)',
+    es: 'Estándar (todos los planes)'
+  },
+  'admin.features.group.appointments': {
+    en: 'Appointments',
+    es: 'Citas'
+  },
+  'admin.features.group.sales': {
+    en: 'Sales & payments',
+    es: 'Ventas y pagos'
+  },
+  'admin.features.group.inventory': {
+    en: 'Inventory',
+    es: 'Inventario'
+  },
+  'admin.features.group.staff': {
+    en: 'Staff',
+    es: 'Empleados'
+  },
+  'admin.features.group.account': {
+    en: 'Account',
+    es: 'Cuenta'
+  },
+  'admin.features.role.client': {
+    en: 'Client',
+    es: 'Cliente'
+  },
+  'admin.features.role.employee': {
+    en: 'Employee',
+    es: 'Empleado'
+  },
+  'admin.features.role.manager': {
+    en: 'Manager',
+    es: 'Gerente'
+  },
+  'admin.features.role.super_admin': {
+    en: 'Super admin',
+    es: 'Super admin'
+  },
+  'admin.features.name.appointments': {
+    en: 'Appointments',
+    es: 'Citas'
+  },
+  'admin.features.name.appointment_book': {
+    en: 'Appointment book',
+    es: 'Libro de citas'
+  },
+  'admin.features.name.booking_settings': {
+    en: 'Online booking settings',
+    es: 'Configuración de reservas en línea'
+  },
+  'admin.features.name.transactions_list': {
+    en: 'Transactions list',
+    es: 'Lista de transacciones'
+  },
+  'admin.features.name.transaction_create': {
+    en: 'New sale / Quick charge',
+    es: 'Nueva venta / Cobro rápido'
+  },
+  'admin.features.name.transaction_detail': {
+    en: 'Transaction detail',
+    es: 'Detalle de transacción'
+  },
+  'admin.features.name.payments': {
+    en: 'Payments (ATH Móvil)',
+    es: 'Pagos (ATH Móvil)'
+  },
+  'admin.features.name.payment_configuration': {
+    en: 'Payment settings',
+    es: 'Configuración de pagos'
+  },
+  'admin.features.name.tax_settings': {
+    en: 'Tax settings',
+    es: 'Configuración de impuestos'
+  },
+  'admin.features.name.receipt_personalization': {
+    en: 'Receipt personalization',
+    es: 'Personalización de recibos'
+  },
+  'admin.features.name.inventory': {
+    en: 'Inventory',
+    es: 'Inventario'
+  },
+  'admin.features.name.barcode_lookup': {
+    en: 'Barcode lookup',
+    es: 'Búsqueda por código de barras'
+  },
+  'admin.features.name.employee_mobile_punch': {
+    en: 'Clock in from phone',
+    es: 'Ponchar desde el teléfono'
+  },
+  'admin.features.name.geofencing': {
+    en: 'Geofencing',
+    es: 'Geocerca'
+  },
+  'admin.features.name.geofencing_settings': {
+    en: 'Geofencing settings',
+    es: 'Configuración de geocerca'
+  },
+  'admin.features.name.account_settings': {
+    en: 'Account settings',
+    es: 'Configuración de cuenta'
+  },
+  'admin.growthMoreThanLastMonth': {
+    en: '{count} more than last month',
+    es: '{count} más que el mes pasado'
+  },
+  'admin.growthOneMoreThanLastMonth': {
+    en: '1 more than last month',
+    es: '1 más que el mes pasado'
+  },
+  'admin.growthSameAsLastMonth': {
+    en: 'Same as last month',
+    es: 'Igual que el mes pasado'
+  },
+  'admin.growthTitle': {
+    en: 'Client businesses',
+    es: 'Negocios clientes'
+  },
+  'admin.growthChartLabel': {
+    en: 'Client businesses at the end of each month, last {months} months',
+    es: 'Negocios clientes al final de cada mes, últimos {months} meses'
+  },
+  'admin.growthTooltip': {
+    en: '{count} businesses',
+    es: '{count} negocios'
+  },
+  'admin.growthNew': {
+    en: '{count} new',
+    es: '{count} nuevos'
+  },
+  'admin.title': {
+    en: 'Admin Dashboard',
+    es: 'Panel de administración'
+  },
+  'admin.logout': {
+    en: 'Log out',
+    es: 'Cerrar sesión'
+  },
+  'admin.loading': {
+    en: 'Loading admin data',
+    es: 'Cargando datos de administración'
+  },
+  'admin.searchBusinesses': {
+    en: 'Search by name, email or slug…',
+    es: 'Buscar por nombre, correo o slug…'
+  },
+  'admin.filterAllStatuses': {
+    en: 'All statuses',
+    es: 'Todos los estados'
+  },
+  'admin.filterAllTiers': {
+    en: 'All plans',
+    es: 'Todos los planes'
+  },
+  'admin.noBusinesses': {
+    en: 'No businesses found',
+    es: 'No se encontraron negocios'
+  },
+  'admin.noBusinessesMatch': {
+    en: 'No businesses match these filters',
+    es: 'Ningún negocio coincide con estos filtros'
+  },
+  'admin.colBusiness': {
+    en: 'Business',
+    es: 'Negocio'
+  },
+  'admin.colTier': {
+    en: 'Plan',
+    es: 'Plan'
+  },
+  'admin.colStatus': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'admin.colUsers': {
+    en: 'Users',
+    es: 'Usuarios'
+  },
+  'admin.colLastActivity': {
+    en: 'Last activity',
+    es: 'Última actividad'
+  },
+  'admin.colCreated': {
+    en: 'Created',
+    es: 'Creado'
+  },
+  'admin.lastActivityHint': {
+    en: 'Most recent appointment or sale created',
+    es: 'Cita o venta más reciente creada'
+  },
+  'admin.lastActivityNone': {
+    en: 'None yet',
+    es: 'Ninguna aún'
+  },
+  'admin.today': {
+    en: 'Today',
+    es: 'Hoy'
+  },
+  'admin.daysAgo': {
+    en: '{count} days ago',
+    es: 'hace {count} días'
+  },
+  'admin.oneDayAgo': {
+    en: 'Yesterday',
+    es: 'Ayer'
+  },
+  'admin.trialEndsIn': {
+    en: 'Trial ends in {count} days',
+    es: 'La prueba termina en {count} días'
+  },
+  'admin.trialEnded': {
+    en: 'Trial ended',
+    es: 'Prueba terminada'
+  },
+  'admin.seeUsersOf': {
+    en: 'See users of {name}',
+    es: 'Ver usuarios de {name}'
+  },
+  'admin.viewBusiness': {
+    en: 'View business',
+    es: 'Ver negocio'
+  },
+  'admin.opening': {
+    en: 'Opening…',
+    es: 'Abriendo…'
+  },
+  'admin.noSlug': {
+    en: 'This business has no slug; assign a slug before opening the app.',
+    es: 'Este negocio no tiene slug; asígnale uno antes de abrir la app.'
+  },
+  'admin.openingBusiness': {
+    en: 'Opening {name}',
+    es: 'Abriendo {name}'
+  },
+  'admin.loadBusinessesError': {
+    en: 'Could not load businesses',
+    es: 'No se pudieron cargar los negocios'
+  },
+  'admin.loadUsersError': {
+    en: 'Could not load users',
+    es: 'No se pudieron cargar los usuarios'
+  },
+  'admin.roleUpdated': {
+    en: 'Role updated',
+    es: 'Rol actualizado'
+  },
+  'admin.accountsNoBusiness': {
+    en: 'Accounts with no business ({count})',
+    es: 'Cuentas sin negocio ({count})'
+  },
+  'admin.accountsNoBusinessTitle': {
+    en: 'Accounts with no business',
+    es: 'Cuentas sin negocio'
+  },
+  'admin.accountsNoBusinessDesc': {
+    en: 'Clients and other accounts not linked to a business.',
+    es: 'Clientes y otras cuentas no vinculadas a un negocio.'
+  },
+  'admin.usersOf': {
+    en: '{name}: users',
+    es: '{name}: usuarios'
+  },
+  'admin.usersDesc': {
+    en: '“Sign in as” opens the app as that person (support session). To look around as yourself, use “View business”.',
+    es: '“Entrar como” abre la app como esa persona (sesión de soporte). Para verla como tú, usa “Ver negocio”.'
+  },
+  'admin.noUsers': {
+    en: 'No users',
+    es: 'No hay usuarios'
+  },
+  'admin.colName': {
+    en: 'Name',
+    es: 'Nombre'
+  },
+  'admin.colEmail': {
+    en: 'Email',
+    es: 'Correo'
+  },
+  'admin.colRole': {
+    en: 'Role',
+    es: 'Rol'
+  },
+  'admin.colStaffAccess': {
+    en: 'Staff access',
+    es: 'Acceso de empleado'
+  },
+  'admin.colSuperAdmin': {
+    en: 'Super admin',
+    es: 'Super admin'
+  },
+  'admin.yes': {
+    en: 'Yes',
+    es: 'Sí'
+  },
+  'admin.no': {
+    en: 'No',
+    es: 'No'
+  },
+  'admin.signInAs': {
+    en: 'Sign in as',
+    es: 'Entrar como'
+  },
+  'admin.status.active': {
+    en: 'Active',
+    es: 'Activo'
+  },
+  'admin.status.trialing': {
+    en: 'Trial',
+    es: 'Prueba'
+  },
+  'admin.status.past_due': {
+    en: 'Past due',
+    es: 'Pago atrasado'
+  },
+  'admin.status.canceled': {
+    en: 'Canceled',
+    es: 'Cancelado'
+  },
+  'admin.features.loading': {
+    en: 'Loading feature settings…',
+    es: 'Cargando configuración de funciones…'
+  },
+  'admin.features.colRoles': {
+    en: 'Roles',
+    es: 'Roles'
+  },
+  'admin.features.colTiers': {
+    en: 'Subscription plans',
+    es: 'Planes de suscripción'
+  },
+  'admin.features.allRoles': {
+    en: 'All roles',
+    es: 'Todos los roles'
+  },
+  'admin.features.allTiers': {
+    en: 'All plans',
+    es: 'Todos los planes'
+  },
+  'admin.features.saved': {
+    en: 'All feature settings saved',
+    es: 'Configuración de funciones guardada'
+  },
+  'admin.features.saveError': {
+    en: 'Could not save feature settings',
+    es: 'No se pudo guardar la configuración de funciones'
+  },
   // Landing / Home
   'landing.title': {
     en: 'Professional Pet Grooming',
