@@ -870,3 +870,31 @@ No frontend deploy is needed; the hidden button ships with the next remediation 
 - A neutral fallback route (`/`) was rejected: for clients it would skip the `businessSlug` link checks.
 - Past 30 s the user is already signed in, so the Login page's own redirect hook may still take them to the right page once the lookup finishes.
 - This also removes one cause of the E2E flow 4 flake (U17 fixes the others).
+
+
+---
+
+## 2026-10-10 · U17 · E2E flows 4 and 7 made deterministic
+
+**Status:** done on `remediation` (unit U17, branch `fix/U17-e2e-flakes`). Tests only. Flow 4 still has one app-side flake, fixed separately by U19.
+
+**Problem.**
+- Flow 4's retry started from what attempt 1 left behind (already moved to 3 PM or canceled), because the seed runs once per run, not once per attempt.
+- Flow 4's cancel step raced the confirmation dialog with `isVisible()`, so the confirm click was usually skipped. It also reloaded before the status write finished.
+- Flow 7 failed from 20:00 PR time: with no saved anchor, payroll anchors the pay period on the UTC date, which is already tomorrow by then.
+
+**Change.**
+- Flow 4: `resetEditAppointment()` puts the seeded 'edit' row back to how the seed wrote it (scheduled, 14:00–15:00, no notes) using the service-role `adminDb()`. Then the test waits for the confirmation dialog, clicks it, waits for it to close, and waits for the "Cita cancelada" toast before reloading.
+- Flow 7: pins the browser clock to 12:00 PR on the seed's day.
+- New `e2e/clock.ts` (`seedToday`, `pinBrowserClock`); flows 4/4b/4c use it too.
+- Same assertions; retries unchanged.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 122/122 · build OK.
+- CI on the branch: 38054885344 attempt 1, 38056128057, 38056472343, 38056795579 and 38057194260 green, with flows 4 and 7 passing on the first attempt.
+- 38054885344 attempt 2 failed on flow 4 because of the app bug below.
+- Merged with merge rule (c) waived once by the owner: `remediation` was red on this very test.
+
+**Notes (app bugs found, not worked around).**
+- **U19:** gated routes in `src/pages/Index.tsx` redirect to the dashboard before the feature rules and the business tier load, so a reload or deep link to `/appt-book` (or inventory, payment, transactions) can bounce to `/dashboard`. Proved in CI 38056795579 by delaying the feature rules on purpose.
+- **U20 candidate:** payroll's default pay-schedule anchor uses the UTC date (`Payroll.tsx:149`, `useSupabaseData.ts:2098`). From 20:00 PR time, the current period starts tomorrow and today's shifts are hidden.
