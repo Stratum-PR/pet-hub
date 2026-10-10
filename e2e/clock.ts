@@ -25,16 +25,6 @@ export function seedToday(): string {
 export async function pinBrowserClock(page: Page, hhmm: string) {
   const pinned = new Date(`${seedToday()}T${hhmm}:00${PR_OFFSET}`);
   const skewSeconds = Math.round((pinned.getTime() - Date.now()) / 1000);
-  // TEMP U31 instrumentation (removed before the final head): count token refreshes per test.
-  const started = Date.now();
-  let refreshes = 0;
-  let tokenCalls = 0;
-  page.on('request', (r) => {
-    if (!r.url().includes('/auth/v1/token') || r.method() !== 'POST') return;
-    tokenCalls++;
-    if (r.url().includes('grant_type=refresh_token')) refreshes++;
-  });
-  page.on('close', () => console.log(`[U31] pin ${hhmm} (fixed): token calls=${tokenCalls} refreshes=${refreshes} skew=${Math.round(skewSeconds / 60)}min page-life=${Date.now() - started}ms`));
   await page.route('**/auth/v1/token?*', async (route) => {
     const response = await route.fetch();
     const body = response.ok() ? await response.json().catch(() => null) : null;
