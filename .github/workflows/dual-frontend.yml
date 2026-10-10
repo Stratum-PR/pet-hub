@@ -1,0 +1,91 @@
+# Dual-frontend gate (remediation plan P1-13, §9 rule 3). Production (`main`) and the dev page (`dev`) share ONE
+# Supabase project, so a migration or Edge Function change must keep both frontends working. Each job starts the
+# local test stack from THIS commit's migrations and functions, builds the other ref's frontend against it and runs
+# THIS commit's smoke E2E (scripts/test-env-dual.mjs; per-ref expected failures are listed there).
+#
+# Job names are stable on purpose, so they can be made required status checks: `dual-main` and `dual-dev`.
+# Path filters: only changes that can affect the shared database/functions (or this gate) run it. No secrets.
+name: dual-frontend
+on:
+  push:
+    branches: [dev, remediation, "fix/**"]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/**"
+      - "test-env/**"
+      - "scripts/test-env*.mjs"
+      - "e2e/**"
+      - "playwright.config.ts"
+      - ".github/workflows/dual-frontend.yml"
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/functions/**"
+      - "test-env/**"
+      - "scripts/test-env*.mjs"
+      - "e2e/**"
+      - "playwright.config.ts"
+      - ".github/workflows/dual-frontend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: dual-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dual:
+    name: dual-${{ matrix.ref }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [main, dev]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start test stack (this commit's migrations and functions)
+        id: up
+        run: |
+          set -o pipefail
+          npm run test:env:up 2>&1 | tee test-env-up.log
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Smoke E2E against ${{ matrix.ref }}'s frontend
+        run: |
+          set -o pipefail
+          node scripts/test-env-dual.mjs ${{ matrix.ref }} 2>&1 | tee test-dual-${{ matrix.ref }}.log
+        env:
+          DUAL_WORKDIR: ${{ runner.temp }}/grumi-dual
+      - name: Show the failure as an annotation (readable without opening the log)
+        if: failure()
+        run: |
+          for f in test-env-up.log test-dual-${{ matrix.ref }}.log; do
+            [ -f "$f" ] || continue
+            msg=$(tail -n 60 "$f" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$f::$msg"
+          done
+      - name: Upload logs and Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dual-${{ matrix.ref }}-report
+          path: |
+            test-env-up.log
+            test-dual-${{ matrix.ref }}.log
+            test-results/dual-${{ matrix.ref }}*.json
+            reports/e2e-dual-*
+            test-results/e2e-dual-*
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Stop test stack
+        if: always()
+        run: npm run test:env:down
