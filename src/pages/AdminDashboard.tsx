@@ -29,6 +29,14 @@ import { devConsole } from '@/lib/clientDebug';
 
 const PROFILE_ROLES = ['client', 'employee', 'manager', 'super_admin'] as const;
 
+/** Columns of the super-admin business list (table + "View business"). */
+const ADMIN_BUSINESS_LIST_COLUMNS = 'id, name, email, slug, subscription_tier, subscription_status, created_at';
+
+type ListedBusiness = Pick<
+  Business,
+  'id' | 'name' | 'email' | 'slug' | 'subscription_tier' | 'subscription_status' | 'created_at'
+>;
+
 type ListedProfile = Pick<
   Profile,
   'id' | 'email' | 'full_name' | 'role' | 'business_id' | 'is_super_admin'
@@ -48,7 +56,7 @@ export function AdminDashboard() {
     if (!profile?.business_id || !myBusiness) return null;
     return getBusinessDashboardPath(myBusiness);
   }, [profile?.business_id, myBusiness]);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [businesses, setBusinesses] = useState<ListedBusiness[]>([]);
   const [profiles, setProfiles] = useState<ListedProfile[]>([]);
   const [loadingBiz, setLoadingBiz] = useState(true);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
@@ -69,11 +77,11 @@ export function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('businesses')
-        .select('*')
+        .select(ADMIN_BUSINESS_LIST_COLUMNS)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setBusinesses((data as Business[]) || []);
+      setBusinesses((data as ListedBusiness[]) || []);
     } catch (error) {
       devConsole.error('Error fetching businesses:', error);
       toast.error('Failed to load businesses');
@@ -120,7 +128,7 @@ export function AdminDashboard() {
     navigate(exitToMainBusinessPath);
   };
 
-  const handleViewBusiness = async (business: Business) => {
+  const handleViewBusiness = async (business: ListedBusiness) => {
     const slug = business.slug?.trim();
     if (!slug) {
       toast.error('This business has no slug; assign a slug before opening the app.');
