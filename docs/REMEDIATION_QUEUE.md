@@ -51,7 +51,10 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 - **Agent work:** every queued row through wave 2 is `merged` (waves 3–4 after the owner's go-ahead), CI is green on `remediation`'s last push, `remediation` still merges cleanly into `dev`, and each unit has a FIX_LOG entry.
 - **Whole remediation:** the above plus every item in OWNER_ACTIONS.md (Parts A–D) and the "Needs you" list below checked off.
 
-## Resume here (updated 2026-10-10 ~20:40 UTC)
+## Resume here (updated 2026-10-10 ~22:05 UTC)
+
+Update 22:05: U29, U30, U31 merged (remediation f2b7c00: CI 38089467042 ✓, dual-frontend 38089467077 ✓; tsc 28 · lint 400 · vitest 226 · build OK). Next: merge remediation into dev (owner-approved, no `[deploy]`). Still open: S-6a/S-8a (plan drafted below; owner + Genesis), slug CHECK (needs the owner's D12 query result), U31 follow-up (drop main flow 7 `mayPass` after a green dual-main before 16:00 UTC).
+
 
 State: every queued unit through U28 is **merged** on `remediation` (incl. U07/U07b/U07c dual-frontend gate, U11/U12 PIN hashing, U15, U22–U28), and `remediation` was merged into `dev` twice (428a060, then 64704b0; no deploy). PR #6 (remediation → main) was closed. Gates on the last head: tsc 28 · lint 400 · vitest 223 · build OK; CI + dual-frontend green (dual gate now ~5 min).
 
@@ -84,6 +87,11 @@ Both touch `supabase/functions/payments/` and the payments tables Genesis is wor
 - [ ] **Delete merged `fix/*` branches** if the coordinator reports the proxy refused it.
 
 ## Notes
+
+- 2026-10-10 ~22:05 UTC: U30 merged (ac5405e; branch CI 38088998654 ✓, dual 38088998677 ✓; red 38088639011). Also tightens `can_manage_staff_private` (same decision; inactive leads could read staff_private and raise own pay). D13 added.
+- 2026-10-10 ~21:48 UTC: U31 merged (9ba6811; CI 38087820254 ✓, dual 38087820262 ✓). 4b/4c token refreshes 27/20 → 0.
+- 2026-10-10 ~21:37 UTC: U29 merged (eeb07e4; CI 38087717084 ✓, dual 38087717141 ✓; red 38086768419). Slug CHECK not added (no slug data in the snapshot; query in D12). D12 added. Pre-commit hook false positive on an old FIX_LOG example line reworded (not bypassed).
+- 2026-10-10 ~21:10 UTC: dev sync 478743a (no file changes). Owner: U30 tighten; S-6a/S-8a plan only.
 
 - 2026-10-10 ~20:30 UTC: U24 merged (60ad0f3: CI 38083129726 ✓, dual-frontend 38083129679 ✓). **U23–U28 all merged.** Next: merge remediation into dev again (no deploy tag).
 - 2026-10-10 ~20:25 UTC: U26, U27, U23, U25 merged (each CI green on its branch; combined gates tsc 28, lint 400, vitest 223/223, build OK). U25 found and fixed a stored XSS (QR preview/print). U24 still running.
