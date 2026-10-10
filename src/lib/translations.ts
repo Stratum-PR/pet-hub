@@ -11,6 +11,315 @@ export interface Translations {
 }
 
 export const translations: Translations = {
+  // Admin dashboard
+  'admin.title': {
+    en: 'Admin Dashboard',
+    es: 'Panel de administración'
+  },
+  'admin.subtitle': {
+    en: 'All Grumi businesses',
+    es: 'Todos los negocios de Grumi'
+  },
+  'admin.exitAdminView': {
+    en: 'Exit admin view',
+    es: 'Salir del panel'
+  },
+  'admin.logout': {
+    en: 'Log out',
+    es: 'Cerrar sesión'
+  },
+  'admin.loading': {
+    en: 'Loading admin data',
+    es: 'Cargando datos de administración'
+  },
+  'admin.statBusinesses': {
+    en: 'Businesses',
+    es: 'Negocios'
+  },
+  'admin.statActive': {
+    en: 'Active',
+    es: 'Activos'
+  },
+  'admin.statTrialing': {
+    en: 'On trial',
+    es: 'En prueba'
+  },
+  'admin.statTrialEndingSoon': {
+    en: '{count} trial(s) end within 7 days',
+    es: '{count} prueba(s) terminan en 7 días'
+  },
+  'admin.statNewThisMonth': {
+    en: 'New this month',
+    es: 'Nuevos este mes'
+  },
+  'admin.statUsers': {
+    en: 'Users',
+    es: 'Usuarios'
+  },
+  'admin.allBusinesses': {
+    en: 'All businesses',
+    es: 'Todos los negocios'
+  },
+  'admin.searchBusinesses': {
+    en: 'Search by name, email or slug…',
+    es: 'Buscar por nombre, correo o slug…'
+  },
+  'admin.filterAllStatuses': {
+    en: 'All statuses',
+    es: 'Todos los estados'
+  },
+  'admin.filterAllTiers': {
+    en: 'All plans',
+    es: 'Todos los planes'
+  },
+  'admin.noBusinesses': {
+    en: 'No businesses found',
+    es: 'No se encontraron negocios'
+  },
+  'admin.noBusinessesMatch': {
+    en: 'No businesses match these filters',
+    es: 'Ningún negocio coincide con estos filtros'
+  },
+  'admin.colBusiness': {
+    en: 'Business',
+    es: 'Negocio'
+  },
+  'admin.colOwnerEmail': {
+    en: 'Owner email',
+    es: 'Correo del dueño'
+  },
+  'admin.colTier': {
+    en: 'Plan',
+    es: 'Plan'
+  },
+  'admin.colStatus': {
+    en: 'Status',
+    es: 'Estado'
+  },
+  'admin.colUsers': {
+    en: 'Users',
+    es: 'Usuarios'
+  },
+  'admin.colLastActivity': {
+    en: 'Last activity',
+    es: 'Última actividad'
+  },
+  'admin.colCreated': {
+    en: 'Created',
+    es: 'Creado'
+  },
+  'admin.colActions': {
+    en: 'Actions',
+    es: 'Acciones'
+  },
+  'admin.lastActivityHint': {
+    en: 'Most recent appointment or sale created',
+    es: 'Cita o venta más reciente creada'
+  },
+  'admin.lastActivityNone': {
+    en: 'None yet',
+    es: 'Ninguna aún'
+  },
+  'admin.today': {
+    en: 'Today',
+    es: 'Hoy'
+  },
+  'admin.daysAgo': {
+    en: '{count} days ago',
+    es: 'hace {count} días'
+  },
+  'admin.oneDayAgo': {
+    en: 'Yesterday',
+    es: 'Ayer'
+  },
+  'admin.trialEndsIn': {
+    en: 'Trial ends in {count} days',
+    es: 'La prueba termina en {count} días'
+  },
+  'admin.trialEnded': {
+    en: 'Trial ended',
+    es: 'Prueba terminada'
+  },
+  'admin.seeUsersOf': {
+    en: 'See users of {name}',
+    es: 'Ver usuarios de {name}'
+  },
+  'admin.viewBusiness': {
+    en: 'View business',
+    es: 'Ver negocio'
+  },
+  'admin.opening': {
+    en: 'Opening…',
+    es: 'Abriendo…'
+  },
+  'admin.noSlug': {
+    en: 'This business has no slug; assign a slug before opening the app.',
+    es: 'Este negocio no tiene slug; asígnale uno antes de abrir la app.'
+  },
+  'admin.openingBusiness': {
+    en: 'Opening {name}',
+    es: 'Abriendo {name}'
+  },
+  'admin.loadBusinessesError': {
+    en: 'Could not load businesses',
+    es: 'No se pudieron cargar los negocios'
+  },
+  'admin.loadUsersError': {
+    en: 'Could not load users',
+    es: 'No se pudieron cargar los usuarios'
+  },
+  'admin.roleUpdated': {
+    en: 'Role updated',
+    es: 'Rol actualizado'
+  },
+  'admin.accountsNoBusiness': {
+    en: 'Accounts with no business ({count})',
+    es: 'Cuentas sin negocio ({count})'
+  },
+  'admin.accountsNoBusinessTitle': {
+    en: 'Accounts with no business',
+    es: 'Cuentas sin negocio'
+  },
+  'admin.accountsNoBusinessDesc': {
+    en: 'Clients and other accounts not linked to a business.',
+    es: 'Clientes y otras cuentas no vinculadas a un negocio.'
+  },
+  'admin.usersOf': {
+    en: '{name}: users',
+    es: '{name}: usuarios'
+  },
+  'admin.usersDesc': {
+    en: '“Sign in as” opens the app as that person (support session). To look around as yourself, use “View business”.',
+    es: '“Entrar como” abre la app como esa persona (sesión de soporte). Para verla como tú, usa “Ver negocio”.'
+  },
+  'admin.noUsers': {
+    en: 'No users',
+    es: 'No hay usuarios'
+  },
+  'admin.colName': {
+    en: 'Name',
+    es: 'Nombre'
+  },
+  'admin.colEmail': {
+    en: 'Email',
+    es: 'Correo'
+  },
+  'admin.colRole': {
+    en: 'Role',
+    es: 'Rol'
+  },
+  'admin.colStaffAccess': {
+    en: 'Staff access',
+    es: 'Acceso de empleado'
+  },
+  'admin.colSuperAdmin': {
+    en: 'Super admin',
+    es: 'Super admin'
+  },
+  'admin.yes': {
+    en: 'Yes',
+    es: 'Sí'
+  },
+  'admin.no': {
+    en: 'No',
+    es: 'No'
+  },
+  'admin.signInAs': {
+    en: 'Sign in as',
+    es: 'Entrar como'
+  },
+  'admin.featureSettings': {
+    en: 'Feature settings',
+    es: 'Configuración de funciones'
+  },
+  'admin.status.active': {
+    en: 'Active',
+    es: 'Activo'
+  },
+  'admin.status.trialing': {
+    en: 'Trial',
+    es: 'Prueba'
+  },
+  'admin.status.past_due': {
+    en: 'Past due',
+    es: 'Pago atrasado'
+  },
+  'admin.status.canceled': {
+    en: 'Canceled',
+    es: 'Cancelado'
+  },
+  'admin.features.newName': {
+    en: 'New feature name',
+    es: 'Nombre de la nueva función'
+  },
+  'admin.features.add': {
+    en: 'Add feature',
+    es: 'Añadir función'
+  },
+  'admin.features.saveAll': {
+    en: 'Save all settings',
+    es: 'Guardar todo'
+  },
+  'admin.features.loading': {
+    en: 'Loading feature settings…',
+    es: 'Cargando configuración de funciones…'
+  },
+  'admin.features.empty': {
+    en: 'No feature rows found.',
+    es: 'No hay funciones.'
+  },
+  'admin.features.colFeature': {
+    en: 'Feature',
+    es: 'Función'
+  },
+  'admin.features.colRoles': {
+    en: 'Roles',
+    es: 'Roles'
+  },
+  'admin.features.colTiers': {
+    en: 'Subscription plans',
+    es: 'Planes de suscripción'
+  },
+  'admin.features.colEnvironment': {
+    en: 'Environment',
+    es: 'Ambiente'
+  },
+  'admin.features.allRoles': {
+    en: 'All roles',
+    es: 'Todos los roles'
+  },
+  'admin.features.allTiers': {
+    en: 'All plans',
+    es: 'Todos los planes'
+  },
+  'admin.features.saved': {
+    en: 'All feature settings saved',
+    es: 'Configuración de funciones guardada'
+  },
+  'admin.features.saveError': {
+    en: 'Could not save feature settings',
+    es: 'No se pudo guardar la configuración de funciones'
+  },
+  'admin.features.added': {
+    en: 'Feature added with defaults',
+    es: 'Función añadida con valores por defecto'
+  },
+  'admin.features.addError': {
+    en: 'Could not add feature',
+    es: 'No se pudo añadir la función'
+  },
+  'admin.features.envDevelopment': {
+    en: 'Development',
+    es: 'Desarrollo'
+  },
+  'admin.features.envStaged': {
+    en: 'Staged',
+    es: 'Pruebas'
+  },
+  'admin.features.envProduction': {
+    en: 'Production',
+    es: 'Producción'
+  },
   // Landing / Home
   'landing.title': {
     en: 'Professional Pet Grooming',

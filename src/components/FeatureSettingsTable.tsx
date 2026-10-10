@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { t } from '@/lib/translations';
 import {
   FEATURE_ROLES,
   FEATURE_SUBSCRIPTION_TIERS,
@@ -37,12 +38,12 @@ const DEFAULT_FEATURE_ROW = {
 };
 
 function rolesLabel(roles: string[]): string {
-  if (roles.includes('*')) return 'All roles';
+  if (roles.includes('*')) return t('admin.features.allRoles');
   return roles.join(', ');
 }
 
 function tiersLabel(tiers: string[]): string {
-  if (tiers.includes('*')) return 'All tiers';
+  if (tiers.includes('*')) return t('admin.features.allTiers');
   return tiers.map((tier) => tier.charAt(0).toUpperCase() + tier.slice(1)).join(', ');
 }
 
@@ -189,14 +190,14 @@ export function FeatureSettingsTable() {
       }
     },
     onSuccess: () => {
-      toast.success('All feature settings saved');
+      toast.success(t('admin.features.saved'));
       void queryClient.invalidateQueries({ queryKey: ['feature_catalog'] });
       void queryClient.invalidateQueries({ queryKey: ['feature_rollout_v2'] });
       void queryClient.invalidateQueries({ queryKey: ['feature_visibility_rules'] });
     },
     onError: (error) => {
       devConsole.error('Save feature settings error', error);
-      toast.error('Failed to save feature settings');
+      toast.error(t('admin.features.saveError'));
     },
   });
 
@@ -226,14 +227,14 @@ export function FeatureSettingsTable() {
     },
     onSuccess: () => {
       setNewFeatureName('');
-      toast.success('Feature added with defaults');
+      toast.success(t('admin.features.added'));
       void queryClient.invalidateQueries({ queryKey: ['feature_catalog'] });
       void queryClient.invalidateQueries({ queryKey: ['feature_rollout_v2'] });
       void queryClient.invalidateQueries({ queryKey: ['feature_visibility_rules'] });
     },
     onError: (error) => {
       devConsole.error('Add feature error', error);
-      toast.error('Failed to add feature');
+      toast.error(t('admin.features.addError'));
     },
   });
 
@@ -271,7 +272,7 @@ export function FeatureSettingsTable() {
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={newFeatureName}
-          placeholder="New feature name"
+          placeholder={t('admin.features.newName')}
           onChange={(e) => setNewFeatureName(e.target.value)}
           className="max-w-sm"
         />
@@ -279,29 +280,29 @@ export function FeatureSettingsTable() {
           onClick={() => addFeatureMutation.mutate(newFeatureName)}
           disabled={!newFeatureName.trim() || addFeatureMutation.isPending}
         >
-          Add Feature
+          {t('admin.features.add')}
         </Button>
         <Button
           onClick={() => saveAllSettingsMutation.mutate(effectiveRows)}
           disabled={!queriesReady || !hasUnsavedChanges || saveAllSettingsMutation.isPending}
         >
-          Save all settings
+          {t('admin.features.saveAll')}
         </Button>
       </div>
 
       {!queriesReady || loading ? (
-        <p className="text-sm text-muted-foreground">Loading feature settings...</p>
+        <p className="text-sm text-muted-foreground">{t('admin.features.loading')}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No feature rows found.</p>
+        <p className="text-sm text-muted-foreground">{t('admin.features.empty')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="px-4 py-3 text-left font-medium">Feature</th>
-                <th className="px-4 py-3 text-left font-medium">Roles</th>
-                <th className="px-4 py-3 text-left font-medium">Subscription tiers</th>
-                <th className="px-4 py-3 text-left font-medium">Environment</th>
+                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colFeature')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colRoles')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colTiers')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('admin.features.colEnvironment')}</th>
               </tr>
             </thead>
             <tbody>
@@ -364,7 +365,7 @@ function FeatureSettingsTableRow({
                         variant="outline"
                         className="border-gray-300 bg-white text-[10px] text-gray-700"
                       >
-                        All roles
+                        {t('admin.features.allRoles')}
                       </Badge>
                     ) : (
                       <Badge
@@ -390,7 +391,7 @@ function FeatureSettingsTableRow({
                 onSelect={(e) => e.preventDefault()}
                 onCheckedChange={(checked) => setDraft(toggleAllRoles(draft, checked))}
               >
-                All roles
+                {t('admin.features.allRoles')}
               </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               {FEATURE_ROLES.map((role) => (
@@ -425,7 +426,7 @@ function FeatureSettingsTableRow({
                 onSelect={(e) => e.preventDefault()}
                 onCheckedChange={(checked) => setDraft(toggleAllTiers(draft, checked))}
               >
-                All tiers
+                {t('admin.features.allTiers')}
               </DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               {FEATURE_SUBSCRIPTION_TIERS.map((tier) => (
@@ -452,9 +453,9 @@ function FeatureSettingsTableRow({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="development">Development</SelectItem>
-            <SelectItem value="staged">Staged</SelectItem>
-            <SelectItem value="production">Production</SelectItem>
+            <SelectItem value="development">{t('admin.features.envDevelopment')}</SelectItem>
+            <SelectItem value="staged">{t('admin.features.envStaged')}</SelectItem>
+            <SelectItem value="production">{t('admin.features.envProduction')}</SelectItem>
           </SelectContent>
         </Select>
       </td>
