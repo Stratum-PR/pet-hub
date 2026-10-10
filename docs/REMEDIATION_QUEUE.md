@@ -27,9 +27,9 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 5 | U18 | Login misroute: a destination lookup slower than 6 s sends every user (staff included) to `/portal` (`LoginForm.tsx` timeout fallback); found via E2E flow 4 | `src/components/LoginForm.tsx`, its new unit test | – | – | merged |
 | 5 | U19 | Feature-gated routes redirect to the dashboard before feature rules/tier load (reload or deep link to appt-book etc. bounces to dashboard); found by U17 | `src/pages/Index.tsx`, its new unit test, optional new `src/lib/featureGate.ts` | – | – | merged |
 | 5 | U20 | Payroll default pay-period anchor uses the UTC date (from 20:00 PR the current period starts tomorrow); found by U17 | `src/pages/Payroll.tsx`, `src/hooks/useSupabaseData.ts` (anchor only) | – | – | merged |
-| 5 | U21 | Same UTC-date pay anchor default in `EmployeePayroll.tsx`, `EmployeeTimesheet.tsx`, `BusinessSettingsPage.tsx` (the settings form can save tomorrow's date after 20:00 PR); found by U20 | those 3 files | – | U20 | running (owner OK; branch `fix/U21-payroll-anchor-pages`) |
-| 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261009180000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261009180000 | U09, U15 | todo (stop before: owner review) |
-| 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261009190000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261009190000 | U11 | todo (stop before: owner review) |
+| 5 | U21 | Same UTC-date pay anchor default in `EmployeePayroll.tsx`, `EmployeeTimesheet.tsx`, `BusinessSettingsPage.tsx` (the settings form can save tomorrow's date after 20:00 PR); found by U20 | those 3 files | – | U20 | merged |
+| 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261009180000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261009180000 | U09, U15 | todo (owner go-ahead 2026-10-10; starts after U15 merges) |
+| 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261009190000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261009190000 | U11 | todo (owner go-ahead 2026-10-10; starts after U11 merges) |
 
 **Not queued** (blocked on a person or deferred): P2-01 businesses (SECURITY_RISKS S-7, Genesis) · P2-05 demo workspace · P2-06 (production row counts) · P2-08, C4 (Genesis) · C5 (decision) · P3-03, P3-05, P3-06 (wide/high-risk, later run) · npm audit (lockfile) · P1-01, P1-02, P1-10, P1-12 (OWNER_ACTIONS Part B).
 
@@ -50,7 +50,7 @@ Order agreed with the owner today: U17 (+ U18 in parallel, no shared paths) → 
 
 ## Needs you
 
-- [ ] **Before waves 6–7 (U11, U12):** go/no-go on PIN hashing; it changes what `main`'s kiosk can read on the shared database.
+- [x] **Before waves 6–7 (U11, U12):** go/no-go on PIN hashing — go (2026-10-10, after U15 merges); it changes what `main`'s kiosk can read on the shared database.
 - [ ] **B4 addendum:** also require `dual-main`/`dual-dev` (workflow "dual-frontend") once U07 merges — note they are path-filtered, so a required check won't report on PRs that don't touch migrations/functions/tests (U07 can add a no-op twin workflow if you want them required everywhere).
 - [ ] **Decision (optional):** hide `main`'s employee-visible appointment trash button (after D9 it silently does nothing, with a success toast), or leave it until `main` gets the remediation frontend.
 - [ ] **Decision (optional):** should the hidden client/pet Delete buttons also show for staff with access_role manager whose profile role is employee? (Database allows them; UI hides by profile role.)
@@ -58,6 +58,7 @@ Order agreed with the owner today: U17 (+ U18 in parallel, no shared paths) → 
 
 ## Notes
 
+- 2026-10-10 ~14:30 UTC: U21 merged (branch CI 38058755289 green; remediation 38058940815 green). Owner OK for U11/U12 after U15. U07 + U15 synced with remediation (cc9ef17 / bf59bd0); U15's CI 38059035682 red, investigating.
 - 2026-10-10 ~14:20 UTC: U19 merged (branch CI 38058522206 green, flow 4 first attempt ×3; remediation 38058432187 green). U21 running. Next: U07, then U15 (update each from remediation, green CI, merge).
 - 2026-10-10 ~14:10 UTC: U20 merged (owner OK to run in parallel with U19; branch CI 38057951694 green; remediation 38057672269 green). U21 queued (needs owner OK).
 - 2026-10-10 ~14:00 UTC: U17 merged (branch CI 38057194260 green; rule (c) waived by owner). U19 (feature-gate redirect race, the remaining flow 4 flake) started. U20 (payroll UTC anchor) queued, needs owner OK. U07/U15 wait for U19.
