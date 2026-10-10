@@ -4,6 +4,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
+/** Staff columns for PIN uniqueness checks (reads every employee PIN of a business; manager screens only). */
+export const STAFF_PIN_COLUMNS = 'id, pin';
+
+/** The business's kiosk manager PIN (kiosk lock/unlock, manager PIN settings and reset). */
+export const BUSINESS_KIOSK_MANAGER_PIN_COLUMNS = 'kiosk_manager_pin';
+
 function randomFourDigitPin(): string {
   return Math.floor(Math.random() * 10000)
     .toString()
@@ -15,7 +21,7 @@ export async function fetchEmployeePinsForBusiness(
   businessId: string,
   options?: { excludeEmployeeId?: string }
 ): Promise<Set<string>> {
-  const { data, error } = await client.from('staff').select('id, pin').eq('business_id', businessId);
+  const { data, error } = await client.from('staff').select(STAFF_PIN_COLUMNS).eq('business_id', businessId);
   if (error) throw error;
   const pins = new Set<string>();
   for (const row of data ?? []) {
@@ -44,7 +50,7 @@ export async function generateUniqueEmployeePin(
 ): Promise<string> {
   const { data: biz, error: bizErr } = await client
     .from('businesses')
-    .select('kiosk_manager_pin')
+    .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
     .eq('id', businessId)
     .maybeSingle();
   if (bizErr) throw bizErr;

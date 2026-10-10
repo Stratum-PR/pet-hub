@@ -18,6 +18,7 @@ import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/compon
 import { KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
 import { devConsole } from '@/lib/clientDebug';
 import {
+  BUSINESS_KIOSK_MANAGER_PIN_COLUMNS,
   fetchEmployeePinsForBusiness,
   managerPinPrefixCollidesWithEmployeePins,
 } from '@/lib/employeePin';
@@ -47,7 +48,7 @@ export function KioskManagerPinSettings() {
     try {
       const { data, error: err } = await supabase
         .from('businesses')
-        .select('kiosk_manager_pin')
+        .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
         .eq('id', businessId)
         .single();
 
@@ -101,7 +102,7 @@ export function KioskManagerPinSettings() {
       // Verify current PIN
       const { data: business, error: bizErr } = await supabase
         .from('businesses')
-        .select('kiosk_manager_pin')
+        .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
         .eq('id', businessId)
         .single();
 
