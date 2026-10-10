@@ -90,6 +90,22 @@ test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
 });
 
+// TEMP DIAGNOSTICS (U17): does a slow feature_rollout response bounce a hard load of appt-book to the dashboard?
+test('4z. TEMP diag: appt-book hard load with slow feature rules', async ({ page }) => {
+  const s = seedData();
+  await loginAsManager(page);
+  await page.route('**/rest/v1/feature_*', async (route) => {
+    await new Promise((r) => setTimeout(r, 3_000));
+    await route.continue();
+  });
+  const seen: string[] = [];
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) seen.push(f.url()); });
+  await page.goto(`/${s.slug}/appt-book/list`);
+  await page.waitForTimeout(8_000);
+  const tab = await page.getByRole('tab', { name: 'Historial' }).count();
+  console.log(`[U17-diag-4z] final=${page.url()} historialTabs=${tab} navs=${JSON.stringify(seen)}`);
+});
+
 // TEMP DIAGNOSTICS (U17): print where a failed flow 4 ended up. Removed before hand-off.
 test.afterEach(async ({ page }, info) => {
   if (info.status === info.expectedStatus) return;
