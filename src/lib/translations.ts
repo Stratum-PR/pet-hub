@@ -12,6 +12,30 @@ export interface Translations {
 
 export const translations: Translations = {
   // Admin dashboard
+  'admin.growthTitle': {
+    en: 'Client businesses',
+    es: 'Negocios clientes'
+  },
+  'admin.growthThisMonth': {
+    en: '{sign}{count} this month',
+    es: '{sign}{count} este mes'
+  },
+  'admin.growthVsLastMonth': {
+    en: '{count} last month',
+    es: '{count} el mes pasado'
+  },
+  'admin.growthChartLabel': {
+    en: 'Client businesses at the end of each month, last {months} months',
+    es: 'Negocios clientes al final de cada mes, últimos {months} meses'
+  },
+  'admin.growthTooltip': {
+    en: '{count} businesses',
+    es: '{count} negocios'
+  },
+  'admin.growthNew': {
+    en: '{count} new',
+    es: '{count} nuevos'
+  },
   'admin.title': {
     en: 'Admin Dashboard',
     es: 'Panel de administración'
@@ -31,30 +55,6 @@ export const translations: Translations = {
   'admin.loading': {
     en: 'Loading admin data',
     es: 'Cargando datos de administración'
-  },
-  'admin.statBusinesses': {
-    en: 'Businesses',
-    es: 'Negocios'
-  },
-  'admin.statActive': {
-    en: 'Active',
-    es: 'Activos'
-  },
-  'admin.statTrialing': {
-    en: 'On trial',
-    es: 'En prueba'
-  },
-  'admin.statTrialEndingSoon': {
-    en: '{count} trial(s) end within 7 days',
-    es: '{count} prueba(s) terminan en 7 días'
-  },
-  'admin.statNewThisMonth': {
-    en: 'New this month',
-    es: 'Nuevos este mes'
-  },
-  'admin.statUsers': {
-    en: 'Users',
-    es: 'Usuarios'
   },
   'admin.allBusinesses': {
     en: 'All businesses',

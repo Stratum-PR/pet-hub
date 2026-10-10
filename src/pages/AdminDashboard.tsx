@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { Business, type Profile, signOut, setImpersonation } from '@/lib/auth';
-import { differenceInCalendarDays, format, isValid, startOfMonth, type Locale } from 'date-fns';
+import { differenceInCalendarDays, format, isValid, type Locale } from 'date-fns';
+import { AdminGrowthPanel } from '@/components/AdminGrowthPanel';
 import { enUS, es as esLocale } from 'date-fns/locale';
 import { Building2, LogOut, ArrowLeft, Users, LogIn, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -195,27 +196,7 @@ export function AdminDashboard() {
     return m;
   }, [profiles]);
 
-  const stats = useMemo(() => {
-    const monthStart = startOfMonth(new Date());
-    let active = 0;
-    let trialing = 0;
-    let trialEndingSoon = 0;
-    let newThisMonth = 0;
-    for (const b of businesses) {
-      if (b.subscription_status === 'active') active += 1;
-      if (b.subscription_status === 'trialing') {
-        trialing += 1;
-        const ends = parseDate(b.trial_ends_at);
-        if (ends) {
-          const left = differenceInCalendarDays(ends, new Date());
-          if (left >= 0 && left <= TRIAL_WARNING_DAYS) trialEndingSoon += 1;
-        }
-      }
-      const created = parseDate(b.created_at);
-      if (created && created >= monthStart) newThisMonth += 1;
-    }
-    return { total: businesses.length, active, trialing, trialEndingSoon, newThisMonth, users: profiles.length };
-  }, [businesses, profiles.length]);
+  const createdDates = useMemo(() => businesses.map((b) => b.created_at), [businesses]);
 
   const filteredBusinesses = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -368,18 +349,6 @@ export function AdminDashboard() {
 
   const noBusinessCount = profilesByBusiness.get(null)?.length ?? 0;
 
-  const statTiles: { label: string; value: number; note?: string }[] = [
-    { label: t('admin.statBusinesses'), value: stats.total },
-    { label: t('admin.statActive'), value: stats.active },
-    {
-      label: t('admin.statTrialing'),
-      value: stats.trialing,
-      note: stats.trialEndingSoon > 0 ? t('admin.statTrialEndingSoon', { count: stats.trialEndingSoon }) : undefined,
-    },
-    { label: t('admin.statNewThisMonth'), value: stats.newThisMonth },
-    { label: t('admin.statUsers'), value: stats.users },
-  ];
-
   return (
     <PawLoadedContent loading={loading} loaderLabel={t('admin.loading')}>
       <div className="min-h-screen bg-background">
@@ -406,17 +375,7 @@ export function AdminDashboard() {
         </header>
 
         <main className="container mx-auto space-y-8 px-4 py-8">
-          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label={t('admin.title')}>
-            {statTiles.map((s) => (
-              <Card key={s.label}>
-                <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground">{s.label}</p>
-                  <p className="mt-1 text-2xl font-semibold tabular-nums">{s.value}</p>
-                  {s.note && <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{s.note}</p>}
-                </CardContent>
-              </Card>
-            ))}
-          </section>
+          <AdminGrowthPanel createdDates={createdDates} />
 
           <Card>
             <CardHeader className="space-y-4">
