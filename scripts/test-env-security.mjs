@@ -464,6 +464,7 @@ async function knownIssues() {
   await petPolicies({ shop: shop.id, bossBiz, worker, boss, hire });
   await appointmentPolicies({ shop: shop.id, bossBiz, worker, meStaff, boss, hire });
   await businessPolicies({ shop: shop.id, bossBiz, worker, boss });
+  await inactiveManagerPolicies({ bossBiz, boss });
 }
 
 /**
@@ -1317,6 +1318,159 @@ async function managerPinHashing({ shop, bossBiz, worker, coworker, boss, hirePi
     "an anonymous visitor cannot read a business's kiosk manager PIN (directory policy; P2-04 contract step)",
     r.data?.kiosk_manager_pin !== shopPin,
     r
+  );
+}
+
+/**
+ * U30 (owner decision 2026-10-10): only ACTIVE staff with access_role admin/manager get manager rights.
+ * is_business_manager and can_manage_staff_private ignored staff.status, so a deactivated lead kept deleting clients,
+ * pets and appointments, editing the business, managing staff and reading staff_private. Profile managers
+ * (profiles.role manager) and super admins keep their rights whatever their own staff row's status is.
+ * The rows are created as access_role staff by the service role and promoted by the owner, the way EmployeeManagement
+ * does it (staff_enforce_access_role_mutations refuses a service-role insert with access_role manager/admin).
+ */
+async function inactiveManagerPolicies({ bossBiz, boss }) {
+  console.log('Inactive staff: access_role admin/manager gives manager rights only while the staff row is active (U30)');
+  const usedPins = new Set(((await admin.from('staff').select('pin').eq('business_id', bossBiz)).data ?? []).map((x) => x.pin));
+  const freePin = () => {
+    let pin;
+    do pin = String(1000 + Math.floor(Math.random() * 8999));
+    while (usedPins.has(pin));
+    usedPins.add(pin);
+    return pin;
+  };
+  const staffRow = async (biz, label) => {
+    const { data, error } = await admin
+      .from('staff')
+      .insert({
+        business_id: biz,
+        name: label,
+        first_name: label,
+        last_name: run,
+        email: `${label.toLowerCase()}-${run}@grumi.test`,
+        phone: '7875550120',
+        pin: freePin(),
+        hourly_rate: 12,
+        role: 'groomer',
+        access_role: 'staff',
+      })
+      .select('id')
+      .single();
+    if (error) throw new Error(`staff ${label}: ${error.message}`);
+    return data.id;
+  };
+  const setStatus = async (id, status) => {
+    const { error } = await admin.from('staff').update({ status }).eq('id', id);
+    if (error) throw new Error(`staff status ${status}: ${error.message}`);
+  };
+  const exists = async (table, id) => ((await admin.from(table).select('id').eq('id', id)).data ?? []).length === 1;
+  const seed = async (biz, tag) => {
+    const { data: c, error: cErr } = await admin.from('clients').insert({ business_id: biz, first_name: `In${tag}`, last_name: run }).select('id').single();
+    if (cErr) throw new Error(`client ${tag}: ${cErr.message}`);
+    const { data: p, error: pErr } = await admin.from('pets').insert({ business_id: biz, client_id: c.id, name: `In${tag}${run}` }).select('id').single();
+    if (pErr) throw new Error(`pet ${tag}: ${pErr.message}`);
+    const { data: a, error: aErr } = await admin
+      .from('appointments')
+      .insert({
+        business_id: biz,
+        client_id: c.id,
+        pet_id: p.id,
+        appointment_date: '2030-03-04',
+        start_time: '10:00:00',
+        end_time: '11:00:00',
+        scheduled_date: '2030-03-04T14:00:00Z',
+        status: 'scheduled',
+      })
+      .select('id')
+      .single();
+    if (aErr) throw new Error(`appointment ${tag}: ${aErr.message}`);
+    return { client: c.id, pet: p.id, apt: a.id };
+  };
+  const phoneOf = async (biz) => (await admin.from('businesses').select('phone').eq('id', biz).single()).data?.phone;
+  const rateOf = async (id) => Number((await admin.from('staff').select('hourly_rate').eq('id', id).single()).data?.hourly_rate);
+  let r;
+
+  // A coworker with private details, to see who can still manage staff.
+  const coworker = await staffRow(bossBiz, 'InCoworker');
+  const { error: privErr } = await admin.from('staff_private').upsert({ staff_id: coworker, business_id: bossBiz, payment_notes: `secret-${run}` });
+  if (privErr) throw new Error(`staff_private: ${privErr.message}`);
+
+  for (const accessRole of ['manager', 'admin']) {
+    const staffId = await staffRow(bossBiz, `InLead${accessRole}`);
+    const { error: promoteErr } = await boss.db.from('staff').update({ access_role: accessRole }).eq('id', staffId);
+    if (promoteErr) throw new Error(`promote ${accessRole}: ${promoteErr.message}`);
+    const lead = await newUser(`inactive-${accessRole}`, { role: 'employee', business_id: bossBiz, staff_id: staffId });
+    const { error: linkErr } = await admin.from('staff').update({ user_id: lead.id }).eq('id', staffId);
+    if (linkErr) throw new Error(`link ${accessRole}: ${linkErr.message}`);
+
+    // Active: a manager.
+    r = await lead.db.rpc('is_business_manager', { p_business_id: bossBiz });
+    check(`active staff with access_role ${accessRole}: is_business_manager is true`, !r.error && r.data === true, r);
+    const live = await seed(bossBiz, `Live${accessRole}`);
+    r = await lead.db.from('appointments').delete().eq('id', live.apt).select();
+    check(`active staff with access_role ${accessRole} can still delete an appointment`, !r.error && !(await exists('appointments', live.apt)), r);
+    r = await lead.db.from('pets').delete().eq('id', live.pet).select();
+    check(`active staff with access_role ${accessRole} can still delete a pet`, !r.error && !(await exists('pets', live.pet)), r);
+    r = await lead.db.from('clients').delete().eq('id', live.client).select();
+    check(`active staff with access_role ${accessRole} can still delete a client`, !r.error && !(await exists('clients', live.client)), r);
+    r = await lead.db.from('staff_private').select('staff_id').eq('staff_id', coworker);
+    check(`active staff with access_role ${accessRole} can still read staff private details`, !r.error && (r.data ?? []).length === 1, r);
+
+    // Deactivated (EmployeeManagement sets status inactive): no manager rights left.
+    await setStatus(staffId, 'inactive');
+    r = await lead.db.rpc('is_business_manager', { p_business_id: bossBiz });
+    check(`inactive staff with access_role ${accessRole}: is_business_manager is false (U30)`, !r.error && r.data === false, r);
+    r = await lead.db.rpc('can_manage_staff_private', { p_business_id: bossBiz });
+    check(`inactive staff with access_role ${accessRole}: can_manage_staff_private is false (U30)`, !r.error && r.data === false, r);
+    const dead = await seed(bossBiz, `Dead${accessRole}`);
+    r = await lead.db.from('appointments').delete().eq('id', dead.apt).select();
+    check(`inactive staff with access_role ${accessRole} cannot delete an appointment (U30)`, await exists('appointments', dead.apt), r);
+    r = await lead.db.from('pets').delete().eq('id', dead.pet).select();
+    check(`inactive staff with access_role ${accessRole} cannot delete a pet (U30)`, await exists('pets', dead.pet), r);
+    r = await lead.db.from('clients').delete().eq('id', dead.client).select();
+    check(`inactive staff with access_role ${accessRole} cannot delete a client (U30)`, await exists('clients', dead.client), r);
+    const phone = await phoneOf(bossBiz);
+    r = await lead.db.from('businesses').update({ phone: accessRole === 'admin' ? '7875550123' : '7875550121' }).eq('id', bossBiz).select('id');
+    check(`inactive staff with access_role ${accessRole} cannot edit the business (U30)`, (await phoneOf(bossBiz)) === phone, r);
+    r = await lead.db.from('staff').update({ hourly_rate: 44 }).eq('id', coworker).select('id');
+    check(`inactive staff with access_role ${accessRole} cannot change a coworker's pay (U30)`, (await rateOf(coworker)) === 12, r);
+    r = await lead.db.from('staff').update({ hourly_rate: 45 }).eq('id', staffId).select('id');
+    check(`inactive staff with access_role ${accessRole} cannot raise their own pay (U30)`, (await rateOf(staffId)) === 12, r);
+    r = await lead.db.from('staff').delete().eq('id', coworker).select('id');
+    check(`inactive staff with access_role ${accessRole} cannot delete a coworker (U30)`, await exists('staff', coworker), r);
+    r = await lead.db.from('staff_private').select('staff_id').eq('staff_id', coworker);
+    check(`inactive staff with access_role ${accessRole} cannot read staff private details (U30)`, (r.data ?? []).length === 0, r);
+
+    // Reactivated: manager again.
+    await setStatus(staffId, 'active');
+    r = await lead.db.from('clients').delete().eq('id', dead.client).select();
+    check(`reactivated staff with access_role ${accessRole} can delete a client again`, !r.error && !(await exists('clients', dead.client)), r);
+  }
+
+  // A profile manager (business owner) whose own staff row is inactive keeps every manager right.
+  const owner = await newUser('inactive-owner', null, { role: 'manager', full_name: 'Inactive Owner' });
+  r = await owner.db.rpc('complete_manager_signup', { p_business_name: `Owner Inactive ${run}`, p_subscription_tier: 'basic' });
+  const ownerBiz = (await profileOf(owner.id))?.business_id;
+  if (r.error || !ownerBiz) throw new Error(`owner signup: ${r.error?.message ?? 'no business'}`);
+  const ownerStaff = (await admin.from('staff').select('id').eq('business_id', ownerBiz).eq('user_id', owner.id).single()).data?.id;
+  if (!ownerStaff) throw new Error('owner staff row missing');
+  await setStatus(ownerStaff, 'inactive');
+  r = await owner.db.rpc('is_business_manager', { p_business_id: ownerBiz });
+  check('profile manager with an inactive own staff row: is_business_manager stays true', !r.error && r.data === true, r);
+  const kept = await seed(ownerBiz, 'Owner');
+  r = await owner.db.from('appointments').delete().eq('id', kept.apt).select();
+  check('profile manager with an inactive own staff row can still delete an appointment', !r.error && !(await exists('appointments', kept.apt)), r);
+  r = await owner.db.from('clients').delete().eq('id', kept.client).select();
+  check('profile manager with an inactive own staff row can still delete a client', !r.error && !(await exists('clients', kept.client)), r);
+  r = await owner.db.from('businesses').update({ phone: '7875550122' }).eq('id', ownerBiz).select('id');
+  check('profile manager with an inactive own staff row can still edit the business', !r.error && (await phoneOf(ownerBiz)) === '7875550122', r);
+  const ownerHire = await staffRow(ownerBiz, 'OwnerHire');
+  r = await owner.db.from('staff').update({ hourly_rate: 18, access_role: 'manager' }).eq('id', ownerHire).select('id');
+  const hireRow = (await admin.from('staff').select('hourly_rate, access_role').eq('id', ownerHire).single()).data;
+  check(
+    'profile manager with an inactive own staff row can still change pay and access of an employee',
+    !r.error && Number(hireRow?.hourly_rate) === 18 && hireRow?.access_role === 'manager',
+    { r, hireRow }
   );
 }
 
