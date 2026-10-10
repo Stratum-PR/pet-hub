@@ -65,6 +65,8 @@ export interface Pet {
   breed_id?: string | null;
   breed: string | null;
   birth_month: number | null;
+  /** Optional day of the month (pet birthday emails). */
+  birth_day?: number | null;
   birth_year: number | null;
   weight: number | null;
   color: string | null;

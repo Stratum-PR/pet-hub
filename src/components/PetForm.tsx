@@ -84,6 +84,7 @@ export function PetForm({
     species: '' as 'dog' | 'cat' | 'other',
     breed_id: '' as string | null, // CRITICAL: Use breed_id (references breeds.id)
     birth_month: null as number | null,
+    birth_day: null as number | null,
     birth_year: null as number | null,
     weight: 0,
     notes: '',
@@ -150,6 +151,7 @@ export function PetForm({
         species: species || '' as 'dog' | 'cat' | 'other',
         breed_id: breedId || null, // CRITICAL: Use breed_id from Supabase (canonical breed reference)
         birth_month: initialData.birth_month ?? null,
+        birth_day: initialData.birth_day ?? null,
         birth_year: initialData.birth_year ?? null,
         weight: initialData.weight || 0,
         notes: initialData.notes || '',
@@ -188,6 +190,7 @@ export function PetForm({
         species: '' as 'dog' | 'cat' | 'other',
         breed_id: null, // CRITICAL: Use breed_id
         birth_month: null,
+        birth_day: null,
         birth_year: null,
         weight: 0,
         notes: '',
@@ -267,6 +270,14 @@ export function PetForm({
     }
 
     const currentYear = new Date().getFullYear();
+    if (formData.birth_day !== null) {
+      if (formData.birth_month === null) {
+        newErrors.birth_day = 'Elige también el mes';
+      } else if (formData.birth_day > new Date(2024, formData.birth_month, 0).getDate()) {
+        newErrors.birth_day = 'Ese mes no tiene ese día';
+      }
+    }
+
     if (formData.birth_year !== null && (formData.birth_year < 1990 || formData.birth_year > currentYear)) {
       newErrors.birth_year = `El año debe estar entre 1990 y ${currentYear}`;
     }
@@ -621,12 +632,14 @@ export function PetForm({
       // Calculate vaccination status from date
       const vaccination_status = calculateVaccinationStatus(formData.last_vaccination_date);
 
-      const petData = {
+      const petData: Record<string, unknown> = {
         ...formData,
         photo_url: finalPhotoUrl,
         vaccination_status,
         ...(!isPortal ? { staff_notes_business: staffNotes.trim() || null } : {}),
       };
+      // birth_day is a newer column: only send it when it has a value (or is being cleared).
+      if (petData.birth_day == null && !initialData?.birth_day) delete petData.birth_day;
 
       onSubmit(petData as any);
       setUploading(false);
@@ -650,6 +663,7 @@ export function PetForm({
           species: '' as 'dog' | 'cat' | 'other',
           breed_id: null, // CRITICAL: Use breed_id
           birth_month: null,
+          birth_day: null,
           birth_year: null,
           weight: 0,
           notes: '',
@@ -910,6 +924,29 @@ export function PetForm({
               {errors.breed_id && (
                 <p className="text-sm text-destructive">{errors.breed_id}</p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="birth_day">Día de Nacimiento <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+              <Select
+                value={formData.birth_day?.toString() || '__none__'}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, birth_day: value === '__none__' ? null : parseInt(value) });
+                  setErrors({ ...errors, birth_day: '' });
+                }}
+              >
+                <SelectTrigger id="birth_day" className={errors.birth_day ? 'border-destructive' : ''}>
+                  <SelectValue placeholder="Seleccionar día" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  <SelectItem value="__none__">No especificado</SelectItem>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                    <SelectItem key={day} value={day.toString()}>
+                      {day}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.birth_day && <p className="text-sm text-destructive">{errors.birth_day}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="birth_month">Mes de Nacimiento</Label>

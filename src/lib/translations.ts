@@ -11,7 +11,172 @@ export interface Translations {
 }
 
 export const translations: Translations = {
+  // Client email automations (business settings)
+  'clientEmails.title': {
+    en: 'Automatic emails to clients',
+    es: 'Correos automáticos a clientes'
+  },
+  'clientEmails.description': {
+    en: 'Emails Grumi sends to your clients on your behalf, only to clients who accepted emails. Replies go to your business email.',
+    es: 'Correos que Grumi envía a tus clientes en tu nombre, solo a quienes aceptaron recibir correos. Las respuestas llegan al correo de tu negocio.'
+  },
+  'clientEmails.desc.pet_birthday': {
+    en: 'A birthday greeting on each pet\'s birthday (or in its birth month).',
+    es: 'Una felicitación en el cumpleaños de cada mascota (o en su mes de nacimiento).'
+  },
+  'clientEmails.saved': {
+    en: 'Saved',
+    es: 'Guardado'
+  },
   // Admin dashboard
+  'admin.nav.automations': {
+    en: 'Automations',
+    es: 'Automatizaciones'
+  },
+  'admin.automations.loadError': {
+    en: 'Could not load automations',
+    es: 'No se pudieron cargar las automatizaciones'
+  },
+  'admin.automations.serverNotReady': {
+    en: 'Could not reach the automations server',
+    es: 'No se pudo contactar el servidor de automatizaciones'
+  },
+  'admin.automations.on': {
+    en: 'On',
+    es: 'Activa'
+  },
+  'admin.automations.off': {
+    en: 'Off',
+    es: 'Apagada'
+  },
+  'admin.automations.edit': {
+    en: 'Edit',
+    es: 'Editar'
+  },
+  'admin.automations.whoToday': {
+    en: 'Who gets it today?',
+    es: '¿Quién lo recibe hoy?'
+  },
+  'admin.automations.whoTodayDesc': {
+    en: 'Owners who would get this email if it ran today. Nothing is sent.',
+    es: 'Dueños que recibirían este correo si corriera hoy. No se envía nada.'
+  },
+  'admin.automations.nobodyToday': {
+    en: 'Nobody today.',
+    es: 'Nadie hoy.'
+  },
+  'admin.automations.sendTest': {
+    en: 'Send me a test',
+    es: 'Enviarme una prueba'
+  },
+  'admin.automations.testSent': {
+    en: 'Test sent to {email}',
+    es: 'Prueba enviada a {email}'
+  },
+  'admin.automations.history': {
+    en: 'Recent activity',
+    es: 'Actividad reciente'
+  },
+  'admin.automations.noHistory': {
+    en: 'Nothing sent yet.',
+    es: 'Aún no se ha enviado nada.'
+  },
+  'admin.automations.testLabel': {
+    en: 'Test',
+    es: 'Prueba'
+  },
+  'admin.automations.status.sent': {
+    en: 'Sent',
+    es: 'Enviado'
+  },
+  'admin.automations.status.failed': {
+    en: 'Failed',
+    es: 'Falló'
+  },
+  'admin.automations.status.test': {
+    en: 'Test',
+    es: 'Prueba'
+  },
+  'admin.automations.when': {
+    en: 'When',
+    es: 'Cuando'
+  },
+  'admin.automations.then': {
+    en: 'Then',
+    es: 'Entonces'
+  },
+  'admin.automations.trigger.pet_birthday': {
+    en: 'It\'s a pet\'s birthday',
+    es: 'Es el cumpleaños de una mascota'
+  },
+  'admin.automations.triggerHelp.pet_birthday': {
+    en: 'On the birthday if the pet has a birth day; if it only has a month, in the first week of that month. Once a year per pet, at 9:00 AM.',
+    es: 'El día del cumpleaños si la mascota tiene día; si solo tiene mes, en la primera semana de ese mes. Una vez al año por mascota, a las 9:00 AM.'
+  },
+  'admin.automations.action.email_owner': {
+    en: 'Email the owner',
+    es: 'Enviar correo al dueño'
+  },
+  'admin.automations.actionHelp.email_owner': {
+    en: 'Only to clients who accepted emails. Businesses can turn this off in their settings.',
+    es: 'Solo a clientes que aceptaron recibir correos. Cada negocio puede apagarlo en su configuración.'
+  },
+  'admin.automations.editorDesc': {
+    en: 'Write the email; fields in braces are filled in for each pet.',
+    es: 'Escribe el correo; los campos entre llaves se llenan para cada mascota.'
+  },
+  'admin.automations.name': {
+    en: 'Name',
+    es: 'Nombre'
+  },
+  'admin.automations.subject': {
+    en: 'Subject',
+    es: 'Asunto'
+  },
+  'admin.automations.message': {
+    en: 'Message',
+    es: 'Mensaje'
+  },
+  'admin.automations.insertField': {
+    en: 'Insert a field:',
+    es: 'Insertar un campo:'
+  },
+  'admin.automations.field.pet_name': {
+    en: 'Pet name',
+    es: 'Nombre de la mascota'
+  },
+  'admin.automations.field.owner_first_name': {
+    en: 'Owner\'s first name',
+    es: 'Nombre del dueño'
+  },
+  'admin.automations.field.owner_name': {
+    en: 'Owner\'s full name',
+    es: 'Nombre completo del dueño'
+  },
+  'admin.automations.field.business_name': {
+    en: 'Business name',
+    es: 'Nombre del negocio'
+  },
+  'admin.automations.field.pet_age': {
+    en: 'Pet age',
+    es: 'Edad de la mascota'
+  },
+  'admin.automations.preview': {
+    en: 'Preview',
+    es: 'Vista previa'
+  },
+  'admin.automations.previewNote': {
+    en: 'Sample data. The real email adds a line saying why the client gets it and how to stop.',
+    es: 'Datos de ejemplo. El correo real añade una línea de por qué lo recibe y cómo dejar de recibirlo.'
+  },
+  'admin.automations.save': {
+    en: 'Save',
+    es: 'Guardar'
+  },
+  'admin.automations.saved': {
+    en: 'Automation saved',
+    es: 'Automatización guardada'
+  },
   'admin.nav.overview': {
     en: 'Overview',
     es: 'Resumen'
