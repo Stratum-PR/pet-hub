@@ -66,12 +66,14 @@ const EXPECTED = {
     { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on main: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
   ],
   // dev = the dev page: has every feature the flows use and the E2E-1 fix (813eb75), misses only the E2E-2 and
-  // E2E-3 fixes and the U22 ProtectedRoute race fix made on `remediation`.
+  // E2E-3 fixes and the U22 ProtectedRoute race fix made on `remediation` (flows 4 and 7 hit that race on dev).
   dev: [
     // mayPass: a race, so it often passes.
     { title: '4. manager reschedules an appointment, then cancels it', reason: 'ProtectedRoute reload race bounces the manager to /portal ("Cuenta de personal") when the profile loads after the client-link check (U22: fixed on remediation, not on dev)', link: `${P13} / U22`, mayPass: true },
     { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'E2E-2 fix not on dev: the edit dialog opens on the wrong date', link: E2 },
     { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'E2E-2 fix not on dev', link: E2 },
+    // mayPass: a race, so it often passes.
+    { title: '7. payroll page loads with the right hours and pay', reason: 'same ProtectedRoute reload race as flow 4: bounces the manager to /portal ("Cuenta de personal") when the profile loads after the client-link check (U22: fixed on remediation, not on dev)', link: `${P13} / U22`, mayPass: true },
     { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on dev: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
   ],
 };
