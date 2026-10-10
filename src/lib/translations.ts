@@ -316,10 +316,6 @@ export const translations: Translations = {
     en: 'Development',
     es: 'Desarrollo'
   },
-  'admin.features.envStaged': {
-    en: 'Staged',
-    es: 'Pruebas'
-  },
   'admin.features.envProduction': {
     en: 'Production',
     es: 'Producción'
