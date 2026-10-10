@@ -6,6 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 55440;
 const apiUrl = process.env.TEST_API_URL ?? '';
 const anonKey = process.env.TEST_ANON_KEY ?? '';
+// Dual-frontend gate (P1-13, scripts/test-env-dual.mjs): serve another ref's built frontend instead of this
+// branch's dev server, and also write a JSON report it can read. Unset (the default), nothing changes.
+const webCommand = process.env.E2E_WEB_COMMAND;
+const jsonReport = process.env.E2E_JSON_REPORT;
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,7 +21,11 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   timeout: 60_000,
   expect: { timeout: 15_000 },
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'reports/e2e' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'reports/e2e' }],
+    ...(jsonReport ? [['json', { outputFile: jsonReport }] as const] : []),
+  ],
   outputDir: 'test-results/e2e',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
@@ -28,7 +36,7 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: `npx vite --port ${PORT} --strictPort --host 127.0.0.1`,
+    command: webCommand ?? `npx vite --port ${PORT} --strictPort --host 127.0.0.1`,
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
