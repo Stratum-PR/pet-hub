@@ -12,7 +12,7 @@ function suppressPageTransitionRevealStagger(pathname: string): boolean {
   return parts.includes('appt-book') || parts.includes('transactions') || parts.includes('time-kiosk');
 }
 
-/** Cover rolls down over old page (on top, z-index high). New page content reveals after with left-to-right, top-to-bottom stagger. */
+/** Old page fades out briefly; new page content then reveals with a left-to-right, top-to-bottom stagger. */
 export function PageTransition({ children }: PageTransitionProps) {
   const { pathname } = useLocation();
   const ctx = usePageTransition();
@@ -27,21 +27,14 @@ export function PageTransition({ children }: PageTransitionProps) {
 
   return (
     <div className="relative flex-1 min-h-0 flex flex-col print:min-h-0 print:h-auto print:overflow-visible">
-      {/* Main content (old page while covering, new page after) — behind the cover when isCovering */}
+      {/* Old page fades out quickly while leaving (no colored overlay), then the new page reveals. */}
       <div
-        className={`${contentClass} print:min-h-0 print:overflow-visible`.trim()}
+        className={`${contentClass} page-transition-content print:min-h-0 print:overflow-visible`.trim()}
         data-active={dataActive}
+        data-leaving={isCovering ? '' : undefined}
       >
         {children}
       </div>
-      {/* Cover: on TOP of main content so it visibly rolls down over current page; gives time for next page to load */}
-      {isCovering && (
-        <div
-          // Use a subtle primary-tinted overlay so the transition feels intentional.
-          className="absolute inset-0 top-0 z-20 h-0 min-h-0 bg-primary/15 animate-page-cover-down pointer-events-none"
-          aria-hidden
-        />
-      )}
     </div>
   );
 }
