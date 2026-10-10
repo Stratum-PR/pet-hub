@@ -1262,3 +1262,26 @@ No frontend deploy is needed.
 **Notes.** Migration `20260328103000_staff_missing_email_reminder_rpc.sql` stays in the repo, not applied (archive it with the S-9b baseline). The P0-05 existence check in `scripts/prod-checks/p0-checks.sql` is now informational only.
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U26 · Feature gate waits for "rules loaded or failed" instead of a 10 s timeout
+
+**Status:** done on `remediation` (unit U26, branch `fix/U26-feature-rules-settled`). Frontend only; ships with the next `dev` deploy.
+
+**Problem.** U19 made gated routes wait for the feature rules, with a 10 s fallback if they never loaded. A cleaner signal was available: whether the rule queries have settled.
+
+**Change.**
+- `useFeatureRollout` returns `featureRulesStatus` (`'loading' | 'loaded' | 'error'`) instead of `rolloutLoaded` (its only consumer was `Index.tsx`). A query with data counts as loaded, so a failed background refetch keeps the page.
+- `src/lib/featureGate.ts`: `useFeatureGatesKnown` and `FEATURE_GATE_LOAD_TIMEOUT_MS` removed; `featureRulesStatus(...)` and `featureGatesKnown(status)` (true unless loading) added. `Index.tsx` uses them.
+- Redirect targets and immediate rendering of visible features (incl. demo bypass) unchanged.
+- Tests: `src/lib/featureGate.test.tsx` (rewritten), new `src/hooks/useFeatureRollout.test.tsx`.
+
+**Gates.** tsc 28 · lint 400 · vitest green · build OK. Red 38082170187 (`check`: 4 new type errors for the missing exports; `db-tests` cancelled by the next push). Green 38082364279 (`check` ✓, `db-tests` ✓ incl. E2E flows 10/10b).
+
+**Notes.**
+- On a rules-query error the redirect happens after react-query's default 3 retries (~7 s), not instantly.
+- No timeout any more: a request that hangs forever (never errors) keeps the paw loader up. U19's 10 s timer covered that case.
+- If one query fails while the other hangs, the gate keeps waiting.
+
+**Rollback.** Revert the merge commit.
