@@ -44,7 +44,7 @@ import { TransactionCreate } from '@/pages/TransactionCreate';
 import { TransactionDetail } from '@/pages/TransactionDetail';
 import { isKioskLocked } from '@/lib/kioskLock';
 import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
-import { resolveFeatureGate, useFeatureGatesKnown } from '@/lib/featureGate';
+import { featureGatesKnown as isFeatureGatesKnown, resolveFeatureGate } from '@/lib/featureGate';
 import { t } from '@/lib/translations';
 
 /** Old bookmarks / notifications used /employee-management; canonical URL is /staff-management. */
@@ -135,10 +135,10 @@ const Index = () => {
 
   const location = useLocation();
   const workspaceDemoReadOnly = useDemoBrowseOnly();
-  const { isFeatureVisible, rolloutLoaded } = useFeatureRollout();
-  // U19: isFeatureVisible() is false until the feature rules load; a gated route waits (loader)
-  // instead of redirecting, so a reload / deep link to a gated page does not end on the dashboard.
-  const featureGatesKnown = useFeatureGatesKnown(rolloutLoaded);
+  const { isFeatureVisible, featureRulesStatus } = useFeatureRollout();
+  // U19/U26: isFeatureVisible() is false until the feature rules load; a gated route waits (loader)
+  // until they have loaded or failed, so a reload / deep link to a gated page does not end on the dashboard.
+  const featureGatesKnown = isFeatureGatesKnown(featureRulesStatus);
   const gate = (
     visible: boolean,
     element: React.ReactNode,
