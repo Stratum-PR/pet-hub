@@ -90,33 +90,35 @@ test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
 });
 
-// U15 DIAGNOSTIC (temporary, to be reverted): how often a hard load of the appointment book bounces a manager to /portal.
-test('4y. U15 diag: 25 hard loads of appt-book', async ({ page }) => {
-  test.setTimeout(240_000);
+// U15 DIAGNOSTIC (temporary, to be reverted): how often login + a hard load of the appointment book bounces to /portal.
+test('4y. U15 diag: 20 fresh logins + hard loads of appt-book', async ({ browser }) => {
+  test.setTimeout(400_000);
   const s = seedData();
-  await loginAsManager(page);
-  let t0 = Date.now();
-  let events: string[] = [];
-  const key = (u: string) =>
-    /\/rest\/v1\/profiles\?/.test(u) ? 'profiles' : /\/rest\/v1\/business_client_links\?/.test(u) ? 'client_link' : /\/rest\/v1\/businesses\?.*[&?]slug=eq/.test(u) ? 'biz_by_slug' : '';
-  page.on('request', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0}ms start ${k}`); });
-  page.on('requestfinished', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0}ms done ${k}`); });
-  page.on('requestfailed', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0}ms FAILED ${k} ${r.failure()?.errorText}`); });
-  page.on('framenavigated', (f) => { if (f === page.mainFrame()) events.push(`${Date.now() - t0}ms nav ${new URL(f.url()).pathname}`); });
   let bounced = 0;
-  for (let i = 1; i <= 25; i++) {
-    events = [];
-    t0 = Date.now();
-    await page.goto(`/${s.slug}/appt-book/appointments`);
-    const tab = page.getByRole('tab', { name: 'Historial' });
+  for (let i = 1; i <= 20; i++) {
+    const ctx = await browser.newContext({ baseURL: test.info().project.use.baseURL, locale: 'es-PR', timezoneId: 'America/Puerto_Rico' });
+    const page = await ctx.newPage();
+    await page.addLocatorHandler(page.getByRole('dialog', { name: 'Política de cookies' }), async (d) => {
+      await d.getByRole('button', { name: 'Rechazar todas' }).click();
+    });
+    const t0 = { v: Date.now() };
+    const events: string[] = [];
+    const key = (u: string) =>
+      /\/rest\/v1\/profiles\?/.test(u) ? 'profiles' : /\/rest\/v1\/business_client_links\?/.test(u) ? 'client_link' : '';
+    page.on('request', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0.v}ms start ${k}`); });
+    page.on('requestfinished', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0.v}ms done ${k}`); });
+    page.on('framenavigated', (f) => { if (f === page.mainFrame()) events.push(`${Date.now() - t0.v}ms nav ${new URL(f.url()).pathname}`); });
+    await loginAsManager(page);
+    events.length = 0;
+    t0.v = Date.now();
+    await page.goto(`/${s.slug}/appt-book`);
     const outcome = await Promise.race([
-      tab.waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'ok', () => 'timeout'),
+      page.getByRole('tab', { name: 'Historial' }).waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'ok', () => 'timeout'),
       page.waitForURL(/\/portal/, { timeout: 15_000 }).then(() => 'portal', () => 'timeout'),
     ]);
-    const firstProfiles = events.filter((e) => /profiles/.test(e)).slice(0, 2).join(', ');
-    const firstLink = events.filter((e) => /client_link|biz_by_slug/.test(e)).slice(0, 4).join(', ');
-    console.log(`[U15-DIAG] 4y #${i}: ${outcome}; slug lookups=${events.filter((e) => /start biz_by_slug/.test(e)).length}; profiles: ${firstProfiles}; link: ${firstLink}`);
-    if (outcome !== 'ok') { bounced++; for (const e of events.slice(0, 60)) console.log(`[U15-DIAG]     ${e}`); }
+    if (outcome !== 'ok') bounced++;
+    console.log(`[U15-DIAG] 4y #${i}: ${outcome}; ${events.join(', ')}`);
+    await ctx.close();
   }
-  console.log(`[U15-DIAG] 4y: ${bounced}/25 hard loads did not show the appointment book`);
+  console.log(`[U15-DIAG] 4y: ${bounced}/20 fresh login + hard loads did not show the appointment book`);
 });
