@@ -44,6 +44,7 @@ import { TransactionCreate } from '@/pages/TransactionCreate';
 import { TransactionDetail } from '@/pages/TransactionDetail';
 import { isKioskLocked } from '@/lib/kioskLock';
 import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
+import { resolveFeatureGate, useFeatureGatesKnown } from '@/lib/featureGate';
 import { t } from '@/lib/translations';
 
 /** Old bookmarks / notifications used /employee-management; canonical URL is /staff-management. */
@@ -134,7 +135,20 @@ const Index = () => {
 
   const location = useLocation();
   const workspaceDemoReadOnly = useDemoBrowseOnly();
-  const { isFeatureVisible } = useFeatureRollout();
+  const { isFeatureVisible, rolloutLoaded } = useFeatureRollout();
+  // U19: isFeatureVisible() is false until the feature rules load; a gated route waits (loader)
+  // instead of redirecting, so a reload / deep link to a gated page does not end on the dashboard.
+  const featureGatesKnown = useFeatureGatesKnown(rolloutLoaded);
+  const gate = (
+    visible: boolean,
+    element: React.ReactNode,
+    hidden: React.ReactNode = <Navigate to="../dashboard" replace />,
+  ) => {
+    const decision = resolveFeatureGate(visible, featureGatesKnown);
+    if (decision === 'render') return element;
+    if (decision === 'loading') return <PawStagedLoadingFullscreen label={t('common.loading')} />;
+    return hidden;
+  };
   const accountSettingsVisible = isFeatureVisible('account_settings');
   const appointmentsVisible = isFeatureVisible('appointments');
   const appointmentBookVisible = isFeatureVisible('appointment_book');
@@ -400,49 +414,34 @@ const Index = () => {
             />
             <Route
               path="appointments"
-              element={
-                appointmentBookVisible || appointmentsVisible ? (
-                  <RedirectLegacyAppointments />
-                ) : (
-                  <Navigate to="../dashboard" replace />
-                )
-              }
+              element={gate(appointmentBookVisible || appointmentsVisible, <RedirectLegacyAppointments />)}
             />
             <Route
               path="calendar"
-              element={
-                appointmentBookVisible ? (
-                  <RedirectApptBookCalendarAlias />
-                ) : (
-                  <Navigate to="../dashboard" replace />
-                )
-              }
+              element={gate(appointmentBookVisible, <RedirectApptBookCalendarAlias />)}
             />
             {/* Single element so calendar ↔ list does not remount AppointmentBook (avoids PawReveal / staged loaders replaying). */}
             <Route
               path="appt-book/*"
-              element={appointmentBookVisible ? <AppointmentBook /> : <Navigate to="../dashboard" replace />}
+              element={gate(appointmentBookVisible, <AppointmentBook />)}
             />
             <Route
               path="inventory"
-              element={
-                inventoryVisible ? (
-                  <Inventory
-                    loading={inventoryLoading}
-                    readOnly={workspaceDemoReadOnly}
-                    products={products}
-                    defaultLowStockThreshold={parseInt(settings.default_low_stock_threshold || '5', 10) || 5}
-                    stockMovements={stockMovements}
-                    onAddProduct={addProduct}
-                    onUpdateProduct={updateProductWithNotification}
-                    onDeleteProduct={deleteProduct}
-                    onAdjustStock={adjustStock}
-                    onUploadProductPhoto={uploadProductPhoto}
-                  />
-                ) : (
-                  <Navigate to="../dashboard" replace />
-                )
-              }
+              element={gate(
+                inventoryVisible,
+                <Inventory
+                  loading={inventoryLoading}
+                  readOnly={workspaceDemoReadOnly}
+                  products={products}
+                  defaultLowStockThreshold={parseInt(settings.default_low_stock_threshold || '5', 10) || 5}
+                  stockMovements={stockMovements}
+                  onAddProduct={addProduct}
+                  onUpdateProduct={updateProductWithNotification}
+                  onDeleteProduct={deleteProduct}
+                  onAdjustStock={adjustStock}
+                  onUploadProductPhoto={uploadProductPhoto}
+                />,
+              )}
             />
             <Route
               path="time-tracking"
@@ -567,7 +566,7 @@ const Index = () => {
             />
             <Route
               path="payment"
-              element={paymentsVisible ? <Payment /> : <Navigate to="../dashboard" replace />}
+              element={gate(paymentsVisible, <Payment />)}
             />
             <Route
               path="ath-simulador"
@@ -575,45 +574,32 @@ const Index = () => {
             />
             <Route
               path="transactions"
-              element={transactionsListVisible ? <Transactions /> : <Navigate to="../dashboard" replace />}
+              element={gate(transactionsListVisible, <Transactions />)}
             />
             <Route
               path="transactions/new"
-              element={transactionCreateVisible ? <TransactionCreate /> : <Navigate to="../dashboard" replace />}
+              element={gate(transactionCreateVisible, <TransactionCreate />)}
             />
             <Route
               path="transactions/:transactionId"
-              element={transactionDetailVisible ? <TransactionDetail /> : <Navigate to="../dashboard" replace />}
+              element={gate(transactionDetailVisible, <TransactionDetail />)}
             />
             <Route path="settings" element={<SettingsLayout />}>
               <Route
                 index
-                element={
-                  <Navigate
-                    to={
-                      role === 'employee'
-                        ? accountSettingsVisible
-                          ? 'account'
-                          : '../clients'
-                        : accountSettingsVisible
-                          ? 'account'
-                          : 'business'
-                    }
-                    replace
-                  />
-                }
+                element={gate(
+                  accountSettingsVisible,
+                  <Navigate to="account" replace />,
+                  <Navigate to={role === 'employee' ? '../clients' : 'business'} replace />,
+                )}
               />
               <Route
                 path="account"
-                element={
-                  accountSettingsVisible ? (
-                    <AccountSettings settings={settings} onSaveSettings={saveAllSettings} />
-                  ) : role === 'employee' ? (
-                    <Navigate to="../clients" replace />
-                  ) : (
-                    <Navigate to="../business" replace />
-                  )
-                }
+                element={gate(
+                  accountSettingsVisible,
+                  <AccountSettings settings={settings} onSaveSettings={saveAllSettings} />,
+                  <Navigate to={role === 'employee' ? '../clients' : '../business'} replace />,
+                )}
               />
               <Route
                 path="business"
@@ -628,10 +614,8 @@ const Index = () => {
                 element={
                   role === 'employee' ? (
                     <Navigate to="../clients" replace />
-                  ) : bookingSettingsVisible ? (
-                    <BookingSettings />
                   ) : (
-                    <Navigate to="../business" replace />
+                    gate(bookingSettingsVisible, <BookingSettings />, <Navigate to="../business" replace />)
                   )
                 }
               />

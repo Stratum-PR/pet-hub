@@ -1,9 +1,25 @@
-import { localDateKey } from './seed';
-import { test, expect, loginAsManager, seedData, type Page } from './fixtures';
+import { test, expect, loginAsManager, seedData, adminDb, type Page } from './fixtures';
+import { pinBrowserClock } from './clock';
 
-/** Pins the browser clock to `hh:mm` today in Puerto Rico (timers keep running), so slot rules don't depend on when CI runs. */
-async function browserTimeToday(page: Page, hhmm: string) {
-  await page.clock.setFixedTime(new Date(`${localDateKey(0)}T${hhmm}:00-04:00`));
+/**
+ * Puts the 'edit' appointment back the way the seed wrote it (scheduled, 2 PM - 3 PM, no notes). The seed runs once per
+ * run (global-setup), not per attempt, so a retry of flow 4 would otherwise start from what the failed attempt left
+ * behind (already moved to 3 PM, maybe already canceled).
+ */
+async function resetEditAppointment() {
+  const a = seedData().appointments.edit;
+  const { error } = await adminDb()
+    .from('appointments')
+    .update({
+      status: 'scheduled',
+      appointment_date: a.date,
+      start_time: '14:00:00',
+      end_time: '15:00:00',
+      scheduled_date: `${a.date}T14:00:00-04:00`,
+      notes: null,
+    })
+    .eq('id', a.id);
+  if (error) throw new Error(`reset 'edit' appointment: ${error.message}`);
 }
 
 /** Opens "Editar / reprogramar" for a seeded appointment from the history list. */
@@ -24,7 +40,8 @@ async function openEditDialog(page: Page, which: 'edit' | 'inspect' | 'checkout'
 }
 
 test('4. manager reschedules an appointment, then cancels it', async ({ page }) => {
-  await browserTimeToday(page, '08:00');
+  await resetEditAppointment();
+  await pinBrowserClock(page, '08:00');
   const { row, edit, ownDate } = await openEditDialog(page, 'edit', '2 PM');
   await expect(ownDate).toBeVisible();
 
@@ -38,8 +55,13 @@ test('4. manager reschedules an appointment, then cancels it', async ({ page }) 
 
   await row.click();
   await page.getByRole('button', { name: 'Cancelar cita' }).click();
+  // The confirmation always opens; wait for it instead of racing its open animation.
   const confirm = page.getByRole('alertdialog');
-  if (await confirm.isVisible().catch(() => false)) await confirm.getByRole('button').last().click();
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button').last().click();
+  await expect(confirm).toBeHidden();
+  // The status write and the client notice finish before this toast shows; reloading earlier can abort the write.
+  await expect(page.getByText(/^Cita cancelada/)).toBeVisible();
   await page.reload();
   await page.getByRole('tab', { name: 'Historial' }).click();
   await expect(row).toContainText(/Cancelada/);
@@ -48,7 +70,7 @@ test('4. manager reschedules an appointment, then cancels it', async ({ page }) 
 // E2E-2 (FIX_LOG): the edit dialog used to start at "now" and its auto-jump effect moved it to tomorrow when today had
 // no bookable slot left, so saving silently rescheduled the appointment.
 test('4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', async ({ page }) => {
-  await browserTimeToday(page, '20:00');
+  await pinBrowserClock(page, '20:00');
   const { row, edit, ownDate } = await openEditDialog(page, 'inspect', '2 PM');
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
   await expect(edit.locator('#edit-appt-slot-14-00')).toHaveClass(/bg-primary/);
@@ -63,7 +85,7 @@ test('4b. in the evening, the edit dialog opens on the appointment date (E2E-2)'
 });
 
 test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', async ({ page }) => {
-  await browserTimeToday(page, '20:00');
+  await pinBrowserClock(page, '20:00');
   const { ownDate } = await openEditDialog(page, 'checkout', '9 AM');
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
 });
