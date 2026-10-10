@@ -56,10 +56,6 @@ export const translations: Translations = {
     en: 'No activity since {when}',
     es: 'Sin actividad desde {when}'
   },
-  'admin.features.intro': {
-    en: 'Live: businesses see it. Dev: only super admins, in the Development preview. Click a feature to see who it applies to.',
-    es: 'Live: los negocios la ven. Dev: solo los super admin, en la vista de Desarrollo. Haz clic en una función para ver a quién aplica.'
-  },
   'admin.features.live': {
     en: 'Live',
     es: 'Live'

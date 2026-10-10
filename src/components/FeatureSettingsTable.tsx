@@ -199,8 +199,6 @@ export function FeatureSettingsTable() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">{t('admin.features.intro')}</p>
-
       {FEATURE_GROUPS.map((group) => (
         <section key={group.id} className="space-y-1">
           <h3 className="text-sm font-semibold text-muted-foreground">{t(`admin.features.group.${group.id}`)}</h3>
