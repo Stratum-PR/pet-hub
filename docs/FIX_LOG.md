@@ -955,3 +955,30 @@ No frontend deploy is needed; the hidden button ships with the next remediation 
 - If the rules query errors, gates fall back to the old behavior after 10 s.
 - Cleaner follow-up: `useFeatureRollout` exposes a settled/error flag to replace the timeout.
 - The `gate()` wiring in Index isn't unit-tested directly (a router harness mirrors it).
+
+
+---
+
+## 2026-10-10 · U21 · Local-date default pay anchor on the employee and settings pages
+
+**Status:** done on `remediation` (unit U21, branch `fix/U21-payroll-anchor-pages`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** EmployeePayroll, EmployeeTimesheet and BusinessSettingsPage still defaulted the pay-schedule anchor to the UTC date. From 20:00 PR time:
+- the employee pages bucketed pay periods off tomorrow when no anchor was saved;
+- the Business Settings pay-schedule form showed tomorrow as the default, so saving it then stored tomorrow's date.
+
+Found by U20.
+
+**Change.** Those defaults now use U20's `resolvePayScheduleAnchorISO` / `defaultPayScheduleAnchorISO`:
+- `EmployeePayroll.tsx:45,50`;
+- `EmployeeTimesheet.tsx:89,94`;
+- `BusinessSettingsPage.tsx:141`.
+
+Saved anchors, cadence and pay math are unchanged.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 135/135 (combined) · build OK.
+- CI run 38058755289 green (check + db-tests incl. smoke E2E).
+- No page test: it would need heavy mocking. Coverage comes from `src/lib/payrollAnchor.test.ts` plus a grep check (no `toISOString().slice(0, 10)` left in these pages).
+
+**Notes.** The repo's security pre-commit hook flags `dangerouslySetInnerHTML` / `document.write` in `BusinessSettingsPage.tsx` (likely the QR print path). This predates U21 and isn't changed here; it's a candidate for a separate review.
