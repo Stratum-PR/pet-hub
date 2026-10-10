@@ -1345,3 +1345,19 @@ No frontend deploy is needed.
 - The preview now renders the re-serialized SVG (XMLSerializer); structure identical, formatting may differ; checked in jsdom only.
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U24 (P1-10 follow-up) · dual-frontend checks can be required
+
+**Status:** done on `remediation` (unit U24, branch `fix/U24-dual-required-twin`). CI only.
+
+**Problem.** `dual-frontend.yml` used `paths:` filters, so on PRs that don't touch migrations/functions/test env/e2e the `dual-main`/`dual-dev` checks never reported, and a required check would wait forever.
+
+**Change.** `.github/workflows/dual-frontend.yml` has no path filter. Each job always runs; its first step ("Decide") diffs the PR merge commit against its base (or the pushed range) and, if no relevant path changed (same regex as the old filter), succeeds in seconds with "no migration/function/e2e change; dual-frontend not needed"; otherwise the full gate runs. No same-named twin workflow, so a quick success can't stand next to a real failure. Unknown diffs (new branch, force push, manual run) run the full gate. Jobs are never skipped as a whole. PR runs are named `dual-main`/`dual-dev`; push and manual runs `dual-<ref> (push)` / `(workflow_dispatch)`, so they can't satisfy a PR's required check.
+
+**Gates.** YAML parses; `npm run check` ✓. Proof: run 38082394189 (README-only push: both jobs ~8 s, gate skipped); run 38082458385 (e2e push: full gate ran; attempt 1 `dual-dev` failed on a runner port conflict → check red, attempt 2 green). Final head 60ad0f3: CI 38083129726 ✓, dual-frontend 38083129679 ✓.
+
+**Notes.** The PR-event path (names, merge-commit diff) was simulated locally only; the first real PR into `dev`/`main` confirms it. Edge case: the same commit heading two open PRs gives two PR runs named `dual-main` on that commit.
+
+**Rollback.** Revert the merge commit.

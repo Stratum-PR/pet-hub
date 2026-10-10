@@ -34,7 +34,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261010210000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261010210000 (was 20261009180000; renumbered after dev's 20261010200000_automations) | U09, U15 | merged |
 | 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261010220000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261010220000 (was 20261009190000) | U11 | merged |
 | 8 | U23 | Show the client/pet Delete buttons to staff with access_role manager (the database already allows them; UI hides by profile role) — owner OK 2026-10-10 | client/pet delete controls (listed by the worker) + unit test | – | U22 | merged |
-| 8 | U24 | B4: no-op twin of `dual-frontend` for PRs outside its paths, so `dual-main`/`dual-dev` can be required checks — owner OK 2026-10-10 | `.github/workflows/dual-frontend-skip.yml` (new) | – | U07 | running |
+| 8 | U24 | B4: no-op twin of `dual-frontend` for PRs outside its paths, so `dual-main`/`dual-dev` can be required checks — owner OK 2026-10-10 | `.github/workflows/dual-frontend-skip.yml` (new) | – | U07 | merged |
 | 8 | U25 | Review `dangerouslySetInnerHTML` / `document.write` in `BusinessSettingsPage.tsx` (QR print path; possible XSS) — owner OK 2026-10-10 | `src/pages/BusinessSettingsPage.tsx` (QR print only), new test | – | U21 | merged |
 | 8 | U26 | `useFeatureRollout` exposes a settled/error flag; replaces U19's 10 s fallback — owner OK 2026-10-10 | `src/hooks/useFeatureRollout*`, `src/lib/featureGate.ts`, their tests | – | U19 | merged |
 | 8 | U27 | Client sign-up: Enter on step 1/2 submits the whole form early — owner OK 2026-10-10 | `src/pages/Register.tsx` (+ its test) | – | U01 | merged |
@@ -64,13 +64,14 @@ Rules learned: one remediation push at a time; trust GitHub API `status: complet
 ## Needs you
 
 - [x] **Before waves 6–7 (U11, U12):** go/no-go on PIN hashing — go (2026-10-10, after U15 merges); it changes what `main`'s kiosk can read on the shared database.
-- [ ] **B4 addendum** (owner chose: require + no-op twin → U24; after U24 merges, add the checks in branch protection): also require `dual-main`/`dual-dev` (workflow "dual-frontend") once U07 merges — note they are path-filtered, so a required check won't report on PRs that don't touch migrations/functions/tests (U07 can add a no-op twin workflow if you want them required everywhere).
+- [ ] **B4 addendum** (U24 merged 2026-10-10: in-job decision instead of a twin; add `dual-main`/`dual-dev` in branch protection, see OWNER_ACTIONS B4 incl. the Genesis direct-push heads-up): also require `dual-main`/`dual-dev` (workflow "dual-frontend") once U07 merges — note they are path-filtered, so a required check won't report on PRs that don't touch migrations/functions/tests (U07 can add a no-op twin workflow if you want them required everywhere).
 - [x] **Decision:** main's employee trash button after D9 — **leave it** until `main` gets the remediation frontend (2026-10-10).
 - [x] **Decision:** show client/pet Delete to staff with access_role manager — **yes** (2026-10-10) → U23.
 - [ ] **Delete merged `fix/*` branches** if the coordinator reports the proxy refused it.
 
 ## Notes
 
+- 2026-10-10 ~20:30 UTC: U24 merged (60ad0f3: CI 38083129726 ✓, dual-frontend 38083129679 ✓). **U23–U28 all merged.** Next: merge remediation into dev again (no deploy tag).
 - 2026-10-10 ~20:25 UTC: U26, U27, U23, U25 merged (each CI green on its branch; combined gates tsc 28, lint 400, vitest 223/223, build OK). U25 found and fixed a stored XSS (QR preview/print). U24 still running.
 - 2026-10-10 ~20:15 UTC: U23–U28 started in parallel (no shared Owns). U28 merged (CI 38082169535 ✓); typecheck baseline 29 → 28.
 - 2026-10-10 ~20:05 UTC: U12 merged (9d5c533: CI 38081115484 ✓, dual-frontend 38081115397 ✓; red 38080738121). pre-commit password rule narrowed (owner OK). types.ts: 3 functions. Finding: anon can read every slugged business's kiosk_manager_pin (directory policy) until the P2-04 contract step. **All units the owner listed today are merged.** Next (owner-approved): U23–U28, then merge remediation into dev again.
