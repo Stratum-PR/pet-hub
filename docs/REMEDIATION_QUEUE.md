@@ -33,11 +33,11 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 6 | U22 | ProtectedRoute reload race: a manager is bounced to `/portal` when the profile loads after the client-link check (found by the U15 worker; makes E2E flow 4 flaky; listed as `mayPass` in dual-dev) | `src/components/ProtectedRoute.tsx` (verify), its new unit test | – | – | merged |
 | 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261010210000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261010210000 (was 20261009180000; renumbered after dev's 20261010200000_automations) | U09, U15 | merged |
 | 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261010220000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261010220000 (was 20261009190000) | U11 | merged |
-| 8 | U23 | Show the client/pet Delete buttons to staff with access_role manager (the database already allows them; UI hides by profile role) — owner OK 2026-10-10 | client/pet delete controls (listed by the worker) + unit test | – | U22 | running |
+| 8 | U23 | Show the client/pet Delete buttons to staff with access_role manager (the database already allows them; UI hides by profile role) — owner OK 2026-10-10 | client/pet delete controls (listed by the worker) + unit test | – | U22 | merged |
 | 8 | U24 | B4: no-op twin of `dual-frontend` for PRs outside its paths, so `dual-main`/`dual-dev` can be required checks — owner OK 2026-10-10 | `.github/workflows/dual-frontend-skip.yml` (new) | – | U07 | running |
-| 8 | U25 | Review `dangerouslySetInnerHTML` / `document.write` in `BusinessSettingsPage.tsx` (QR print path; possible XSS) — owner OK 2026-10-10 | `src/pages/BusinessSettingsPage.tsx` (QR print only), new test | – | U21 | running |
+| 8 | U25 | Review `dangerouslySetInnerHTML` / `document.write` in `BusinessSettingsPage.tsx` (QR print path; possible XSS) — owner OK 2026-10-10 | `src/pages/BusinessSettingsPage.tsx` (QR print only), new test | – | U21 | merged |
 | 8 | U26 | `useFeatureRollout` exposes a settled/error flag; replaces U19's 10 s fallback — owner OK 2026-10-10 | `src/hooks/useFeatureRollout*`, `src/lib/featureGate.ts`, their tests | – | U19 | merged |
-| 8 | U27 | Client sign-up: Enter on step 1/2 submits the whole form early — owner OK 2026-10-10 | `src/pages/Register.tsx` (+ its test) | – | U01 | running |
+| 8 | U27 | Client sign-up: Enter on step 1/2 submits the whole form early — owner OK 2026-10-10 | `src/pages/Register.tsx` (+ its test) | – | U01 | merged |
 | 8 | U28 | C5: drop the dead `dispatch_staff_missing_email_reminders` call (owner decision 2026-10-10) | the caller (listed by the worker) | – | – | merged |
 
 **Not queued** (blocked on a person or deferred): P2-01 businesses (SECURITY_RISKS S-7, Genesis) · P2-05 demo workspace · P2-06 (production row counts) · P2-08, C4 (Genesis) · C5 (decision) · P3-03, P3-05, P3-06 (wide/high-risk, later run) · npm audit (lockfile) · P1-01, P1-02, P1-10, P1-12 (OWNER_ACTIONS Part B).
@@ -71,6 +71,7 @@ Rules learned: one remediation push at a time; trust GitHub API `status: complet
 
 ## Notes
 
+- 2026-10-10 ~20:25 UTC: U26, U27, U23, U25 merged (each CI green on its branch; combined gates tsc 28, lint 400, vitest 223/223, build OK). U25 found and fixed a stored XSS (QR preview/print). U24 still running.
 - 2026-10-10 ~20:15 UTC: U23–U28 started in parallel (no shared Owns). U28 merged (CI 38082169535 ✓); typecheck baseline 29 → 28.
 - 2026-10-10 ~20:05 UTC: U12 merged (9d5c533: CI 38081115484 ✓, dual-frontend 38081115397 ✓; red 38080738121). pre-commit password rule narrowed (owner OK). types.ts: 3 functions. Finding: anon can read every slugged business's kiosk_manager_pin (directory policy) until the P2-04 contract step. **All units the owner listed today are merged.** Next (owner-approved): U23–U28, then merge remediation into dev again.
 - 2026-10-10 ~19:25 UTC: U11 merged (f2e7f62: CI 38078208163 ✓, dual-frontend 38078208125 ✓; red 38075757971). types.ts: 3 RPCs added by the coordinator. Open: KioskManagerPinResetDialog blocked by the pre-commit hook's false positive (needs owner call before U12, which owns that file). U12 next.

@@ -1285,3 +1285,63 @@ No frontend deploy is needed.
 - If one query fails while the other hangs, the gate keeps waiting.
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U27 · Client sign-up: Enter on step 1/2 submitted the whole form
+
+**Status:** done on `remediation` (unit U27, branch `fix/U27-signup-enter-key`). Frontend only; ships with the next `dev` deploy.
+
+**Problem.** One `<form onSubmit>` spans all three client sign-up steps in `src/pages/Register.tsx`, so pressing Enter in a field on step 1 or 2 (implicit submission) ran `handleClientSubmit` and created the account with no name and no pets. Found during U01.
+
+**Change.** `handleClientSubmit` advances one step on steps 1–2 using the same checks as each step's "Next" button (shared helpers `advanceFromClientStep1/2`, also used by the buttons); only step 3 signs up. Manager sign-up is not affected (its steps 1–2 aren't in a form). Role handling unchanged (P0-01 / U01 / P2-07). 4 new tests in `Register.test.tsx` (existing assertions untouched).
+
+**Gates.** Red 38082140704 (`check`: 2 failed). Green 38082449186. Combined: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.** jsdom doesn't do implicit submission, so tests fire the submit event the browser would; not checked by hand in a browser. Password strength is still checked only at the final submit, as before.
+
+**Rollback.** Revert the merge commit.
+
+
+---
+
+## 2026-10-10 · U23 · Client/pet Delete shown to staff with access_role manager/admin
+
+**Status:** done on `remediation` (unit U23, branch `fix/U23-staff-manager-delete`). Frontend only; owner decision 2026-10-10.
+
+**Problem.** Clients and Pets hid Delete from every profile with role employee (`role !== 'employee' || is_super_admin`), but the database (decision 9; U13/U14 policies use `is_business_manager`) allows the delete for staff whose access_role is admin or manager.
+
+**Change.** New `src/lib/deletePermissions.ts` mirrors `is_business_manager` / `caller_staff_access_role_for_business`; new `src/hooks/useCanDeleteClientsAndPets.ts` reads the user's own staff row through the existing `useStaff`; `Clients.tsx` and `Pets.tsx` use it. 11 unit tests.
+
+**Gates.** Red 38082141766 (`check`: TS2307, helper missing). Green 38082456149. Combined: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.**
+- Profile role `client` or no role yet (profile loading) no longer sees Delete (before: shown, but the database refused).
+- The database doesn't check `staff.status`, so inactive staff with access_role admin/manager can still delete; the frontend matches. Changing that is a database decision.
+- Fail-closed edge: if `profiles.staff_id` points to a staff row whose `user_id` isn't the caller, the button is hidden although the database would allow it.
+
+**Rollback.** Revert the merge commit.
+
+
+---
+
+## 2026-10-10 · U25 · Stored XSS in Business Settings QR preview and print
+
+**Status:** done on `remediation` (unit U25, branch `fix/U25-qr-print-escaping`). Frontend only.
+
+**Problem.** `businesses.qr_code` (plain TEXT; any profile with that `business_id` can update the business row — S-7 — and P0-01 lets anyone become a manager until it's applied) was rendered with `dangerouslySetInnerHTML` on load, and written with `document.write` into a same-origin `about:blank` print window together with unescaped `business.name`, `slug` and the portal URL. A member could store `<svg><script>` / `<img onerror>` (or a crafted name/slug) and run script in the browser of any manager or super admin ("Entrar como", admin portal) who opens Settings for that business. Anonymous visitors and clients can't reach it.
+
+**Change.**
+- New `src/lib/escapeHtml.ts` (`& < > " '`; no `replaceAll`, Safari 12 target).
+- `src/lib/qrCode.ts`: `sanitizeQrSvg` (DOMParser allowlist of the generator's own elements/attributes; no event handlers or `style`; `href` only http(s), `data:image/` or same-site path; `url()` only `#id`; returns null for anything that isn't a well-formed SVG) and `buildQrPrintHtml` (same template, every value escaped, SVG sanitized; no window if invalid).
+- `BusinessSettingsPage.tsx`: stored SVG sanitized on load; print uses `buildQrPrintHtml`. Visible output unchanged.
+- Tests: `src/lib/escapeHtml.test.ts` (5), `src/lib/qrCode.sanitize.test.ts` (13); existing `qrCode.test.ts` passes.
+
+**Gates.** Test-only run 38082202044 was cancelled by the fix push (red evidence local only: 13 new tests failed). Green 38082417625. Combined: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.**
+- Root cause stays open until S-7 (P2-01 businesses: only managers update the business) lands; consider also a slug format CHECK.
+- `src/components/InvoicePrint.tsx` has its own `escapeHtml` without `'`; not exploitable as used (double-quoted attributes) — could switch to the shared helper.
+- The preview now renders the re-serialized SVG (XMLSerializer); structure identical, formatting may differ; checked in jsdom only.
+
+**Rollback.** Revert the merge commit.
