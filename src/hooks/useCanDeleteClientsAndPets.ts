@@ -6,7 +6,8 @@ import { canDeleteClientsAndPets, ownStaffAccessRoleForBusiness } from '@/lib/de
 
 /**
  * Whether the signed-in user may delete clients and pets (U23): managers, super admins, and staff whose access_role
- * is admin or manager. The access_role comes from the user's own staff row (`useStaff`). Same rule as the database.
+ * is admin or manager while their staff row is active (U30). The access_role and status come from the user's own staff
+ * row (`useStaff`). Same rule as the database.
  */
 export function useCanDeleteClientsAndPets(): boolean {
   const { role, profile } = useAuth();
@@ -22,6 +23,7 @@ export function useCanDeleteClientsAndPets(): boolean {
     role,
     isSuperAdmin: !!profile?.is_super_admin,
     staffAccessRole,
+    staffStatus: staffAccessRole ? staffMember?.status : null,
     demoBrowseOnly,
   });
 }
