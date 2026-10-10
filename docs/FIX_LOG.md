@@ -846,3 +846,27 @@ No frontend deploy is needed; the hidden button ships with the next remediation 
 - The UI hides Delete by profile role, so staff with profile role employee but access_role manager lose the button although the database still allows them (same as clients).
 - A profile with role client and a business_id set also loses delete on that business's pets; it keeps the old INSERT/UPDATE via "Pets insert/update" (not changed here).
 - "Managers can delete pets for their business" still lets a manager delete a portal client's global pet that has an appointment at their business. This is old behavior, left as is.
+
+
+---
+
+## 2026-10-10 · U18 · Slow login destination lookup sent staff to the client portal
+
+**Status:** done on `remediation` (unit U18, branch `fix/U18-login-slow-redirect`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** `LoginForm.handleLogin` raced the role-based post-login lookup (`resolveAuthenticatedDestination`) against a 6 s timer that answered `/portal`. On a slow network or a cold database, managers and employees landed on the client portal. CI showed it as an occasional failure in E2E flow 4.
+
+**Change.**
+- `src/components/LoginForm.tsx`: sign-in waits for the real destination and the button keeps its spinner. After a 30 s safety limit (`DESTINATION_LOOKUP_SAFETY_MS`) it shows the generic login error (`login.errorGeneric`) and re-enables the form instead of guessing a route.
+- Unchanged: fast lookups, `postLoginNavigateTo`, and the `businessSlug` portal-link checks (revoked/unapproved).
+- New `src/components/LoginForm.test.tsx` (fake timers) covers three cases: a manager whose lookup takes 7 s lands on their dashboard; a fast client still goes to `/portal`; a lookup that never answers shows an error and never navigates.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 122/122 · build OK.
+- Red test-only commit `ee06bf4`: `check` failed on the 2 new assertions, which received `/portal`.
+- Green run 38054885116: `check` ✓, `db-tests` ✓ (payments, security, smoke E2E).
+
+**Notes.**
+- A neutral fallback route (`/`) was rejected: for clients it would skip the `businessSlug` link checks.
+- Past 30 s the user is already signed in, so the Login page's own redirect hook may still take them to the right page once the lookup finishes.
+- This also removes one cause of the E2E flow 4 flake (U17 fixes the others).
