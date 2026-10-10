@@ -452,13 +452,101 @@ async function knownIssues() {
   r = await worker.db.from('appointments').delete().eq('id', apt.id).select();
   known("employee cannot delete the business's appointments (P2-01 appointments)", await exists('appointments', apt.id), r);
   r = await worker.db.from('pets').delete().eq('id', pet.id).select();
-  known("employee cannot delete the business's pets (P2-01 pets)", await exists('pets', pet.id), r);
+  check("employee cannot delete the business's pets (P2-01 pets)", await exists('pets', pet.id), r);
   r = await worker.db.from('clients').delete().eq('id', cli.id).select();
   check("employee cannot delete the business's clients (P2-01 clients)", await exists('clients', cli.id), r);
   r = await worker.db.from('staff').delete().eq('id', coworker.id).select();
   check('employee cannot delete a coworker (P2-01 staff)', await exists('staff', coworker.id), r);
 
   await clientPolicies({ shop: shop.id, bossBiz, worker, boss, hire });
+  await petPolicies({ shop: shop.id, bossBiz, worker, boss, hire });
+}
+
+/**
+ * P2-01 pets (decision 9): only managers delete a business's pets. Managers are is_business_manager(business_id):
+ * super admin, profile role manager/super_admin of that business, or staff access_role admin/manager in it.
+ * Employees keep reading, adding and editing their business's pets. Portal clients keep managing their own
+ * global pets (business_id NULL) through the "Clients can ... own pets" policies.
+ */
+async function petPolicies({ shop, bossBiz, worker, boss, hire }) {
+  console.log('Pets: only managers delete pets; employees still add and edit them (P2-01 pets)');
+  const petRow = async (id) => (await admin.from('pets').select('id, name').eq('id', id).maybeSingle()).data;
+  const seedClient = async (business_id, first_name, extra = {}) => {
+    const { data, error } = await admin.from('clients').insert({ business_id, first_name, last_name: run, ...extra }).select('id').single();
+    if (error) throw new Error(`client ${first_name}: ${error.message}`);
+    return data.id;
+  };
+  const seedPet = async (business_id, client_id, name) => {
+    const { data, error } = await admin.from('pets').insert({ id: crypto.randomUUID(), business_id, client_id, name }).select('id').single();
+    if (error) throw new Error(`pet ${name}: ${error.message}`);
+    return data.id;
+  };
+
+  // Own rows, so these checks don't depend on whether the delete attempt above was blocked.
+  const owner = await seedClient(shop, 'PetOwner');
+  const kept = await seedPet(shop, owner, `Kept${run}`);
+
+  // Employee paths on the Pets page and in the booking dialogs (usePets add/update, main and dev).
+  let r = await worker.db.from('pets').select('id').eq('business_id', shop);
+  check("employee can still read the business's pets", !r.error && (r.data ?? []).some((x) => x.id === kept), r);
+  r = await worker.db
+    .from('pets')
+    .insert({ id: crypto.randomUUID(), business_id: shop, client_id: owner, name: `Walk${run}`, species: 'dog', breed: 'Mixed', weight: 10 })
+    .select('id')
+    .single();
+  const walkIn = r.data?.id;
+  check('employee can still add a pet', !r.error && !!walkIn && !!(await petRow(walkIn)), r);
+  r = await worker.db.from('pets').update({ name: 'Edited' }).eq('id', kept).select('id');
+  check('employee can still edit a pet', !r.error && (await petRow(kept))?.name === 'Edited', r);
+  if (walkIn) {
+    r = await worker.db.from('pets').delete().eq('id', walkIn);
+    check('employee cannot delete a pet they just added (P2-01 pets)', !!(await petRow(walkIn)), r);
+  }
+
+  // Manager delete, the way usePets.deletePet does it (main and dev).
+  const bossOwner = await seedClient(bossBiz, 'BossPetOwner');
+  const gone = await seedPet(bossBiz, bossOwner, `Gone${run}`);
+  r = await boss.db.from('pets').delete().eq('id', gone);
+  check('manager can still delete a pet', !r.error && !(await petRow(gone)), r);
+  r = await boss.db.from('pets').delete().eq('id', kept).select();
+  check("another business's manager cannot delete this business's pets", !!(await petRow(kept)), r);
+
+  // Staff with access_role manager (profile role employee) count as managers (is_business_manager).
+  const lead = await newUser('pet-lead', { role: 'employee', business_id: bossBiz, staff_id: hire.id }); // hire: access_role manager
+  const leadGone = await seedPet(bossBiz, bossOwner, `LeadGone${run}`);
+  r = await lead.db.from('pets').delete().eq('id', leadGone).select();
+  check('staff with access_role manager can still delete a pet', !r.error && !(await petRow(leadGone)), r);
+
+  // Super admin (AdminDashboard / support tools).
+  const sa = await newUser(`qa-sa-pets-${run}@stratumpr.com`, null);
+  const saGone = await seedPet(shop, owner, `SaGone${run}`);
+  r = await sa.db.from('pets').delete().eq('id', saGone).select();
+  check('super admin can still delete a pet', !r.error && !(await petRow(saGone)), r);
+  // Global portal pets have no business (business_id NULL); the old "Pets delete" policy let super admin delete them.
+  const globalOwner = await seedClient(null, 'GlobalPetOwner');
+  const saGlobal = await seedPet(null, globalOwner, `SaGlobal${run}`);
+  r = await sa.db.from('pets').delete().eq('id', saGlobal).select();
+  check('super admin can still delete a pet with no business', !r.error && !(await petRow(saGlobal)), r);
+
+  // Client portal (ClientPortalPublicPage, main and dev): reads, adds, edits and removes its own global pets.
+  const portal = await newUser('pet-portal', { role: 'client' });
+  const portalClient = await seedClient(null, 'Portal', { profile_id: portal.id, email: `pet-portal-${run}@grumi.test` });
+  const portalPetId = crypto.randomUUID();
+  r = await portal.db
+    .from('pets')
+    .insert({ id: portalPetId, client_id: portalClient, business_id: null, name: `Portal${run}`, species: 'cat', weight: 0, created_at: new Date().toISOString() });
+  check('client portal can still add its own pet', !r.error && !!(await petRow(portalPetId)), r);
+  r = await portal.db.from('pets').select('id').eq('client_id', portalClient);
+  check('client portal can still read its own pets', !r.error && (r.data ?? []).some((x) => x.id === portalPetId), r);
+  r = await portal.db
+    .from('pets')
+    .update({ client_id: portalClient, business_id: null, name: 'PortalEdited', updated_at: new Date().toISOString() })
+    .eq('id', portalPetId);
+  check('client portal can still edit its own pet', !r.error && (await petRow(portalPetId))?.name === 'PortalEdited', r);
+  r = await portal.db.from('pets').delete().eq('id', portalPetId);
+  check('client portal can still remove its own pet', !r.error && !(await petRow(portalPetId)), r);
+  r = await portal.db.from('pets').delete().eq('id', kept).select();
+  check("a portal client cannot delete a business's pets", !!(await petRow(kept)), r);
 }
 
 /**
