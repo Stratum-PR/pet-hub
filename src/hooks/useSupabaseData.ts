@@ -19,6 +19,7 @@ import {
   writeCachedBusinessTheme,
 } from '@/lib/businessThemeCss';
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
+import { defaultPayScheduleAnchorISO } from '@/lib/payrollAnchor';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import { withDemoWorkspacePetPhotoFallbacks } from '@/lib/demoWorkspacePetPhotos';
 import { devConsole } from '@/lib/clientDebug';
@@ -2095,7 +2096,7 @@ export function useSettings() {
   const { pathname } = useLocation();
   const demoLocalOnly = isUnauthenticatedDemoPath(pathname) && !user;
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = defaultPayScheduleAnchorISO();
   const [settings, setSettings] = useState<Settings>({
     business_name: 'Grumi',
     business_hours: '9:00 AM - 6:00 PM',

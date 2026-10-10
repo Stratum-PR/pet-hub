@@ -44,6 +44,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addPayPeriods, getPayPeriodRangeForDate, getPayPeriodStartForDate } from '@/lib/payScheduleUtils';
+import { defaultPayScheduleAnchorISO, resolvePayScheduleAnchorISO } from '@/lib/payrollAnchor';
 import { PawLoadedContent } from '@/components/PawLoadedContent';
 import { DEFAULT_PRIMARY_COLOR_HSL } from '@/lib/defaultThemeColors';
 import {
@@ -146,12 +147,12 @@ export function Payroll({ employees, timeEntries, onUpdateTimeEntry, onAddTimeEn
 
   // Use custom pay schedule only after settings have loaded so saved values are applied.
   const cadenceWeeks = Math.max(1, parseInt(settings.pay_schedule_cadence_weeks || '2', 10) || 2);
-  const anchorDateISO = settings.pay_schedule_anchor_date || new Date().toISOString().slice(0, 10);
+  const anchorDateISO = resolvePayScheduleAnchorISO(settings.pay_schedule_anchor_date);
 
   const { periodStart: payPeriodStart, periodEnd: payPeriodEnd } = useMemo(() => {
     if (settingsLoading) {
       const d = new Date();
-      return getPayPeriodRangeForDate(d, { anchorDateISO: d.toISOString().slice(0, 10), cadenceWeeks: 2 });
+      return getPayPeriodRangeForDate(d, { anchorDateISO: defaultPayScheduleAnchorISO(d), cadenceWeeks: 2 });
     }
     return getPayPeriodRangeForDate(currentPayPeriod, { anchorDateISO, cadenceWeeks });
   }, [currentPayPeriod, anchorDateISO, cadenceWeeks, settingsLoading]);
