@@ -15,5 +15,15 @@ export function seedToday(): string {
 
 /** Pins the browser clock to `hh:mm` Puerto Rico time on the seed's day (timers keep running). */
 export async function pinBrowserClock(page: Page, hhmm: string) {
+  // TEMP U31 instrumentation (removed before the final head): count token refreshes per test.
+  const started = Date.now();
+  let refreshes = 0;
+  let tokenCalls = 0;
+  page.on('request', (r) => {
+    if (!r.url().includes('/auth/v1/token')) return;
+    tokenCalls++;
+    if (r.url().includes('grant_type=refresh_token')) refreshes++;
+  });
+  page.on('close', () => console.log(`[U31] pin ${hhmm}: token calls=${tokenCalls} refreshes=${refreshes} skew=${Math.round((new Date(`${seedToday()}T${hhmm}:00${PR_OFFSET}`).getTime() - started) / 60000)}min page-life=${Date.now() - started}ms`));
   await page.clock.setFixedTime(new Date(`${seedToday()}T${hhmm}:00${PR_OFFSET}`));
 }
