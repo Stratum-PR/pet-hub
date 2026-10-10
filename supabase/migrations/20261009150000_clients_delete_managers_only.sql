@@ -7,7 +7,7 @@
 -- Permissive policies are OR-ed, so "Clients delete" let every employee delete any client of their business.
 --
 -- After, exactly one DELETE policy:
---   clients_delete_business_managers  FOR DELETE TO authenticated  is_business_manager(business_id)
+--   clients_delete_business_managers  FOR DELETE TO authenticated  is_business_manager(business_id) OR caller is super admin
 -- is_business_manager (P2-01 staff, 20261009120000) = super admin, profile role manager/super_admin of that business, or
 -- staff access_role admin/manager in it. That covers everyone the two old manager rules covered, so no manager loses delete.
 --
@@ -39,8 +39,11 @@ DROP POLICY IF EXISTS "Clients delete" ON public.clients;
 DROP POLICY IF EXISTS clients_delete_managers ON public.clients;
 
 DROP POLICY IF EXISTS clients_delete_business_managers ON public.clients;
+-- The super admin clause keeps super admin delete on clients with no business (business_id NULL, global portal
+-- clients); is_business_manager returns false for a NULL business, and the old "Clients delete" policy allowed it.
 CREATE POLICY clients_delete_business_managers ON public.clients AS PERMISSIVE FOR DELETE TO authenticated
-  USING (public.is_business_manager(business_id));
+  USING (public.is_business_manager(business_id)
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.is_super_admin = true));
 
 -- ---------- split the FOR ALL manager policy; same expressions, no DELETE ----------
 
