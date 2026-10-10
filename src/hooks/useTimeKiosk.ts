@@ -6,10 +6,11 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusinessId } from './useBusinessId';
-import type { Employee, TimeEntry, TimeEntryEditRequest } from '@/types';
+import type { TimeEntry, TimeEntryEditRequest } from '@/types';
 import { useGeolocation, GeolocationPosition } from './useGeolocation';
 import { useFeatureRollout } from './useFeatureRollout';
 import { devConsole } from '@/lib/clientDebug';
+import { findKioskStaffByPin, KIOSK_STAFF_COLUMNS, type KioskStaffRow } from '@/lib/employeePin';
 export interface ClockInOutResult {
   success: boolean;
   action: 'clock_in' | 'clock_out';
@@ -30,15 +31,12 @@ export interface ScheduleCheckResult {
 }
 
 /**
- * Columns the kiosk needs after a PIN lookup: name, job title, access label and photo for the
- * confirmation screen, and `pin`, which `TimeKiosk` passes to the `clock_in_out` RPC.
+ * Columns the kiosk needs after a PIN lookup: name, job title, access label and photo for the confirmation screen.
+ * No `pin` (P2-02): `TimeKiosk` passes the PIN the person typed to the `clock_in_out` RPC.
  */
-export const KIOSK_STAFF_COLUMNS = 'id, business_id, name, role, access_role, status, photo_url, pin';
+export { KIOSK_STAFF_COLUMNS };
 
-export type KioskStaff = Pick<
-  Employee,
-  'id' | 'business_id' | 'name' | 'role' | 'access_role' | 'status' | 'photo_url' | 'pin'
->;
+export type KioskStaff = KioskStaffRow;
 
 export function useTimeKiosk() {
   const businessId = useBusinessId();
@@ -58,20 +56,14 @@ export function useTimeKiosk() {
       }
 
       try {
-        const { data, error: err } = await supabase
-          .from('staff')
-          .select(KIOSK_STAFF_COLUMNS)
-          .eq('pin', pin)
-          .eq('business_id', businessId)
-          .eq('status', 'active')
-          .single();
-
-        if (err || !data) {
-          setError(err?.message || 'Employee not found');
+        // P2-02: hash compare in the database (kiosk_staff_by_pin), with the pre-migration fallback.
+        const data = await findKioskStaffByPin(supabase, businessId, pin);
+        if (!data) {
+          setError('Employee not found');
           return null;
         }
 
-        return data as KioskStaff;
+        return data;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to get employee');
         return null;

@@ -70,7 +70,10 @@ Jovaniel's `remediation` branch was merged into `dev` (no deploy). It is the cle
 - **Migrations must stay expand-only** while `main` and `dev` differ (one shared database): add, don't rename/drop/tighten. New migration timestamps must be later than every file in `supabase/migrations/`. Production's migration history is incomplete: never `supabase db push`; apply via the SQL editor + `migration repair` (see OWNER_ACTIONS).
 - **Routes are lazy-loaded** (`src/App.tsx` `lazyRoute`): add new pages the same way. Selects on `staff`/`profiles`/`businesses` use explicit column lists (`STAFF_PUBLIC_COLUMNS` etc.); don't add `select('*')` there.
 - **The database parts of remediation are not applied to production yet** (OWNER_ACTIONS Part A and D5–D9, Jovaniel's). The frontend works with or without them.
-- Jovaniel keeps working on `remediation` (staff PIN hashing U11, kiosk manager PIN U12, small follow-ups) and merges it into `dev` again when done. Remediation also pulls `dev` in before each round, so Genesis's ATH work flows over.
+- Second merge (2026-10-10 evening) added: staff and kiosk-manager PIN hashing (U11/U12, migrations 20261010210000/220000, **not applied to production**; the kiosk falls back to today's behavior until they are), the ProtectedRoute reload fix (U22), a faster dual-frontend gate whose checks now always report (U07c/U24), the QR print stored-XSS fix (U25), sign-up Enter key (U27), Delete for staff with access_role manager/admin (U23), feature-gate loading (U26) and the dead missing-email reminder call removed (U28).
+- The pre-commit hook's "Hardcoded password" rule now flags only quoted literals.
+- Jovaniel keeps working on `remediation` and merges it into `dev` again later. Remediation pulls `dev` in before each round, so Genesis's ATH work flows over.
+- Branch protection (OWNER_ACTIONS B4) may soon require PRs on `dev`; if so, Genesis needs a bypass or PRs.
 
 ## Not ours (Jovaniel)
 

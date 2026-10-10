@@ -14,7 +14,6 @@ import {
 import { isDemoWorkspaceBusiness } from '@/lib/demoStaffSeed';
 import { syncDemoManagerBirthdayToClientToday } from '@/lib/demoManagerBirthdaySync';
 import { PET_HUB_REFETCH_NOTIFICATIONS } from '@/lib/notificationRefetch';
-import { dispatchStaffMissingEmailReminders } from '@/lib/staffBirthdayDispatch';
 import { devConsole } from '@/lib/clientDebug';
 
 function localDayKey(d: Date): string {
@@ -574,65 +573,6 @@ export function useNotifications(settings: Settings) {
     createNotification,
     demoBrowseOnly,
   ]);
-
-  /** Managers: daily reminder for active staff missing email (6am local, independent of birthday toggle). */
-  useEffect(() => {
-    if (!user?.id || !businessId) return;
-
-    const runEmailReminderJob = async () => {
-      const key = `pet-hub-daily-staff-email:${businessId}:${localDayKey(new Date())}`;
-      try {
-        if (typeof localStorage !== 'undefined' && localStorage.getItem(key) === '1') {
-          await fetchNotificationsRef.current();
-          return;
-        }
-      } catch {
-        /* ignore */
-      }
-      await dispatchStaffMissingEmailReminders(businessId);
-      try {
-        if (typeof localStorage !== 'undefined') localStorage.setItem(key, '1');
-      } catch {
-        /* ignore */
-      }
-      await fetchNotificationsRef.current();
-    };
-
-    let cancelled = false;
-    let timeoutId: number | undefined;
-
-    const scheduleNext6am = () => {
-      if (cancelled) return;
-      const delay = msUntilNextLocal6am();
-      timeoutId = window.setTimeout(() => {
-        if (cancelled) return;
-        void runEmailReminderJob().finally(() => {
-          if (!cancelled) scheduleNext6am();
-        });
-      }, delay);
-    };
-
-    const now = new Date();
-    const dayKey = `pet-hub-daily-staff-email:${businessId}:${localDayKey(now)}`;
-    if (now.getHours() >= 6) {
-      try {
-        if (typeof localStorage !== 'undefined' && localStorage.getItem(dayKey) !== '1') {
-          void runEmailReminderJob();
-        } else {
-          void fetchNotificationsRef.current();
-        }
-      } catch {
-        void runEmailReminderJob();
-      }
-    }
-
-    scheduleNext6am();
-
-    return () => {
-      cancelled = true;
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-    };
-  }, [user?.id, businessId]);
 
   const markRead = async (id: string) => {
     if (!businessId) return;

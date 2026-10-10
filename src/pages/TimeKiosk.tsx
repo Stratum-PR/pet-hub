@@ -28,7 +28,7 @@ import type { TimeEntry } from '@/types';
 import { setKioskLocked } from '@/lib/kioskLock';
 import { useTheme } from 'next-themes';
 import { EMPLOYEE_PIN_LENGTH, KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
-import { BUSINESS_KIOSK_MANAGER_PIN_COLUMNS } from '@/lib/employeePin';
+import { fetchLegacyKioskManagerPin, kioskManagerPinConfigured, kioskPinEntry } from '@/lib/employeePin';
 import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/components/KioskManagerPinResetDialog';
 import { devConsole } from '@/lib/clientDebug';
 import { useAuth } from '@/contexts/AuthContext';
@@ -104,25 +104,13 @@ export function TimeKiosk() {
 
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('businesses')
-          .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
-          .eq('id', businessId)
-          .maybeSingle();
-
+        // P2-04: whether a 6-digit manager PIN is set, never the PIN itself.
+        const configured = await kioskManagerPinConfigured(supabase, businessId);
         if (gen !== managerPinGateFetchGen.current) return;
-
-        if (error) {
-          devConsole.warn('TimeKiosk: could not load kiosk_manager_pin', error);
-          setManagerPinGate('missing');
-          return;
-        }
-        const pin = data?.kiosk_manager_pin;
-        setManagerPinGate(
-          typeof pin === 'string' && pin.length === KIOSK_MANAGER_PIN_LENGTH ? 'configured' : 'missing'
-        );
-      } catch {
+        setManagerPinGate(configured ? 'configured' : 'missing');
+      } catch (error) {
         if (gen !== managerPinGateFetchGen.current) return;
+        devConsole.warn('TimeKiosk: could not check the kiosk manager PIN', error);
         setManagerPinGate('missing');
       }
     })();
@@ -197,6 +185,8 @@ export function TimeKiosk() {
   }, [activeTimeEntry, state]);
 
   const pinVerifyGen = useRef(0);
+  /** The PIN the verified employee typed; passed to clock_in_out (P2-02: the app never reads staff.pin). */
+  const verifiedPinRef = useRef<string | null>(null);
 
   const bumpPinVerification = useCallback(() => {
     pinVerifyGen.current += 1;
@@ -204,6 +194,7 @@ export function TimeKiosk() {
 
   const resetToPinEntry = useCallback(() => {
     bumpPinVerification();
+    verifiedPinRef.current = null;
     setPin('');
     setState('pin_entry');
     setEmployee(null);
@@ -249,13 +240,48 @@ export function TimeKiosk() {
 
       setErrorMessage(null);
 
+      const showInvalidPin = () => {
+        setErrorMessage(t('timeTracking.invalidPin'));
+        setState('error');
+        setTimeout(() => resetToPinEntry(), 2000);
+      };
+
+      // P2-04: the database decides (hash compare, rate-limited): staff member, manager PIN, start of the manager PIN
+      // (keep typing) or invalid. The browser never sees the manager PIN. null = pre-P2-04 database: old path below.
+      let entry: Awaited<ReturnType<typeof kioskPinEntry>> = null;
+      if (businessId) {
+        try {
+          entry = await kioskPinEntry(supabase, businessId, pinStr);
+        } catch (err) {
+          devConsole.warn('TimeKiosk: PIN check failed', err);
+          if (gen !== pinVerifyGen.current) return;
+          showInvalidPin();
+          return;
+        }
+      }
+      if (gen !== pinVerifyGen.current) return;
+
+      if (entry) {
+        if (entry.result === 'staff') {
+          verifiedPinRef.current = pinStr;
+          await setEmployeeAndFetchActiveEntry(entry.staff);
+          return;
+        }
+        if (entry.result === 'manager') {
+          verifiedPinRef.current = entry.staff ? pinStr : null;
+          setManagerChoiceEmployee(entry.staff);
+          setShowManagerChoice(true);
+          setPin('');
+          return;
+        }
+        if (entry.result === 'manager_prefix') return;
+        showInvalidPin();
+        return;
+      }
+
+      // Legacy (pre-P2-04 database only): compare with the plain manager PIN in the browser.
       const managerPin = businessId
-        ? await supabase
-            .from('businesses')
-            .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
-            .eq('id', businessId)
-            .single()
-            .then(({ data }) => data?.kiosk_manager_pin ?? null)
+        ? await fetchLegacyKioskManagerPin(supabase, businessId).catch(() => null)
         : null;
 
       if (gen !== pinVerifyGen.current) return;
@@ -267,6 +293,7 @@ export function TimeKiosk() {
           const emp = await getEmployeeByPin(pinStr);
           if (gen !== pinVerifyGen.current) return;
           if (emp) {
+            verifiedPinRef.current = pinStr;
             await setEmployeeAndFetchActiveEntry(emp);
             return;
           }
@@ -286,6 +313,7 @@ export function TimeKiosk() {
         if (pinStr === mp) {
           const emp = await getEmployeeByPin(pinStr);
           if (gen !== pinVerifyGen.current) return;
+          verifiedPinRef.current = emp ? pinStr : null;
           setManagerChoiceEmployee(emp);
           setShowManagerChoice(true);
           setPin('');
@@ -303,6 +331,7 @@ export function TimeKiosk() {
         if (gen !== pinVerifyGen.current) return;
 
         if (emp) {
+          verifiedPinRef.current = pinStr;
           await setEmployeeAndFetchActiveEntry(emp);
           return;
         }
@@ -379,7 +408,7 @@ export function TimeKiosk() {
         }
       }
 
-      const result = await clockInOut(employee.pin, location, true);
+      const result = await clockInOut(verifiedPinRef.current ?? '', location, true);
       
       if (result?.success) {
         setClockResult(result);
