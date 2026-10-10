@@ -197,6 +197,8 @@ export function TimeKiosk() {
   }, [activeTimeEntry, state]);
 
   const pinVerifyGen = useRef(0);
+  /** The PIN the verified employee typed; passed to clock_in_out (P2-02: the app never reads staff.pin). */
+  const verifiedPinRef = useRef<string | null>(null);
 
   const bumpPinVerification = useCallback(() => {
     pinVerifyGen.current += 1;
@@ -204,6 +206,7 @@ export function TimeKiosk() {
 
   const resetToPinEntry = useCallback(() => {
     bumpPinVerification();
+    verifiedPinRef.current = null;
     setPin('');
     setState('pin_entry');
     setEmployee(null);
@@ -267,6 +270,7 @@ export function TimeKiosk() {
           const emp = await getEmployeeByPin(pinStr);
           if (gen !== pinVerifyGen.current) return;
           if (emp) {
+            verifiedPinRef.current = pinStr;
             await setEmployeeAndFetchActiveEntry(emp);
             return;
           }
@@ -286,6 +290,7 @@ export function TimeKiosk() {
         if (pinStr === mp) {
           const emp = await getEmployeeByPin(pinStr);
           if (gen !== pinVerifyGen.current) return;
+          verifiedPinRef.current = emp ? pinStr : null;
           setManagerChoiceEmployee(emp);
           setShowManagerChoice(true);
           setPin('');
@@ -303,6 +308,7 @@ export function TimeKiosk() {
         if (gen !== pinVerifyGen.current) return;
 
         if (emp) {
+          verifiedPinRef.current = pinStr;
           await setEmployeeAndFetchActiveEntry(emp);
           return;
         }
@@ -379,7 +385,7 @@ export function TimeKiosk() {
         }
       }
 
-      const result = await clockInOut(employee.pin, location, true);
+      const result = await clockInOut(verifiedPinRef.current ?? '', location, true);
       
       if (result?.success) {
         setClockResult(result);
