@@ -71,6 +71,7 @@ Rules learned: one remediation push at a time; trust GitHub API `status: complet
 
 ## Notes
 
+- 2026-10-10 ~18:48 UTC: **remediation merged into dev** (dev 428a060 = remediation 8a0e33d tree; no deploy tag). Gates on that tree: CI 38076280999 ✓, dual-frontend 38075226597 ✓. Follow-up once dev CI is green: flows 4 and 7 can come off EXPECTED.dev (dev now has U22) — fold into U07c or the next gate change.
 - 2026-10-10 ~18:45 UTC: owner decided to merge remediation into dev now (so Genesis can resume ATH work on dev), coordinator pushes it this once, no `[deploy]`. PR #6 (remediation → main) closed. dev's handoff commit merged in; docs/HANDOFF.md updated for Genesis. After this, remediation keeps syncing dev before each round as usual, and is merged into dev again after U11/U12.
 - 2026-10-10 ~18:40 UTC: U22 merged (red 38075598902, green 38075767627: E2E 15/15 first attempt). Working rule added: after the owner merges remediation into dev, remediation's frontend runs on production's schema before Part D is applied, so every unit's frontend must work both before and after its own migration (U11/U12 told).
 - 2026-10-10 ~18:30 UTC: owner decision on dev churn: (1) no more `origin/dev` syncs into remediation until U12 is merged; (2) after U12, the owner merges remediation into dev (B1; agents never push dev), which brings U22's race fix to dev so flows 4/7 can come off EXPECTED.dev; dev deploys only with `[deploy]` in the commit message; (3) no gate pinning unit.
