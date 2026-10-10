@@ -786,3 +786,63 @@ No frontend deploy is needed; the hidden button ships with the next remediation 
 **Tag:** `fix/P2-01-clients` once applied to production.
 
 **Notes.** E2E flow 4 (reschedule + cancel) failed on attempt 1 of the final run and passed on attempt 2 with the same code; it also failed in U07's runs — tracked as a flaky test to fix separately. UI hides Delete by profile role, so staff with profile role employee but access_role manager lose the button although the database still allows them.
+
+
+---
+
+## 2026-10-10 · P2-01 pets · Only managers can delete pets (decision 9)
+
+**Status:** done on `remediation` (unit U14, branch `fix/U14-pets-no-employee-delete`). **Not applied to production** (OWNER_ACTIONS D8).
+
+**Problem.** Four permissive DELETE policies on `pets` were OR-ed together. "Pets delete" allowed any profile linked to the business, so every employee could delete any pet of their business. Decision 9 (2026-10-09): employees may not delete pets; managers keep delete.
+
+**Change.**
+- `supabase/migrations/20261009160000_pets_delete_managers_only.sql`.
+  - Requires 20261009120000 (`is_business_manager`).
+  - Drops "Pets delete" and `pets_delete_managers`.
+  - Creates `pets_delete_business_managers`: FOR DELETE TO authenticated, `is_business_manager(business_id)` OR super admin. The super admin clause keeps delete on no-business (global portal) pets.
+  - Keeps "Managers can delete pets for their business" (profile role manager/super_admin only; includes appointment-linked pets) and "Clients can delete own pets" (portal) unchanged.
+  - No FOR ALL policy on pets, so nothing to split. Every SELECT/INSERT/UPDATE policy is unchanged.
+- `supabase/rollbacks/20261009160000_pets_delete_managers_only.down.sql`: recreates the 2 dropped policies verbatim from the production snapshot.
+- `scripts/test-env-security.mjs`:
+  - "employee cannot delete the business's pets" moved from known() to check().
+  - New regression checks: employee read/add/edit; employee cannot delete a pet they added; manager delete; cross-business manager blocked; staff access_role manager delete; super admin delete, with and without a business; portal client adds, reads, edits and removes its own pet; portal client cannot delete a business's pet.
+- `src/pages/Pets.tsx`, `src/components/PetProfileDialog.tsx`, `src/components/PetList.tsx`: the Delete button in the pet profile (and the unused card trash button) is hidden for profile role employee (super admins excepted).
+
+**Compatibility with `main` (shared database).**
+- Expand-only for every flow either frontend uses except an employee's delete.
+- On main/dev an employee still sees "Delete". Confirming it deletes nothing and shows no error. The pet vanishes from the list until a reload.
+- Managers, staff with access_role manager/admin, super admins and portal clients are unaffected.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 119/119 · build OK.
+- Red test-only run 38020808230: only the 2 employee pet-delete checks failed.
+- Green run 38021128236 (attempt 1): `check` ✓, `db-tests` ✓ (`test:payments` 24/24, `test:security` all ✓ + **3 known issues open** (was 4), smoke E2E 15/15).
+- Migration → rollback → migration verified on a scratch Postgres 16: policies and behavior identical after the rollback, both scripts idempotent, the only behavior change is DELETE by non-manager business profiles.
+
+**Production steps (Jovaniel; OWNER_ACTIONS D8).**
+1. Confirm D6 (20261009120000, `is_business_manager`) is applied; the migration stops with an error otherwise. Apply after D7.
+2. Backup (A3) and note its folder name: `__________`.
+3. Paste the whole migration file into the Supabase SQL editor and run it. **Never `supabase db push`.**
+4. `npx supabase migration repair --status applied 20261009160000`.
+5. Verify (read-only): `select policyname, cmd from pg_policies where schemaname='public' and tablename='pets' order by 1;`
+   - Expect 16 rows.
+   - Exactly three DELETE rows: `pets_delete_business_managers`, "Managers can delete pets for their business", "Clients can delete own pets".
+   - Neither "Pets delete" nor `pets_delete_managers`.
+6. Smoke test on the dev page with the QA business:
+   - as a manager: add, edit and delete a pet;
+   - as an employee: open Pets, add and edit a pet, and check the pet profile has no Delete button;
+   - as a client: open the portal, add, edit and remove a pet;
+   - then, on the production app, edit a pet as a manager.
+7. Watch for RLS errors on `pets` for 24 h.
+
+No frontend deploy is needed; the hidden button ships with the next remediation deploy.
+
+**Rollback (production).** Run `supabase/rollbacks/20261009160000_pets_delete_managers_only.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261009160000`. This reopens "employees can delete any pet of their business". The helpers belong to 20261009120000 and are not touched.
+
+**Tag:** `fix/P2-01-pets` once applied to production.
+
+**Notes.**
+- The UI hides Delete by profile role, so staff with profile role employee but access_role manager lose the button although the database still allows them (same as clients).
+- A profile with role client and a business_id set also loses delete on that business's pets; it keeps the old INSERT/UPDATE via "Pets insert/update" (not changed here).
+- "Managers can delete pets for their business" still lets a manager delete a portal client's global pet that has an appointment at their business. This is old behavior, left as is.
