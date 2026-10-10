@@ -846,3 +846,112 @@ No frontend deploy is needed; the hidden button ships with the next remediation 
 - The UI hides Delete by profile role, so staff with profile role employee but access_role manager lose the button although the database still allows them (same as clients).
 - A profile with role client and a business_id set also loses delete on that business's pets; it keeps the old INSERT/UPDATE via "Pets insert/update" (not changed here).
 - "Managers can delete pets for their business" still lets a manager delete a portal client's global pet that has an appointment at their business. This is old behavior, left as is.
+
+
+---
+
+## 2026-10-10 · U18 · Slow login destination lookup sent staff to the client portal
+
+**Status:** done on `remediation` (unit U18, branch `fix/U18-login-slow-redirect`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** `LoginForm.handleLogin` raced the role-based post-login lookup (`resolveAuthenticatedDestination`) against a 6 s timer that answered `/portal`. On a slow network or a cold database, managers and employees landed on the client portal. CI showed it as an occasional failure in E2E flow 4.
+
+**Change.**
+- `src/components/LoginForm.tsx`: sign-in waits for the real destination and the button keeps its spinner. After a 30 s safety limit (`DESTINATION_LOOKUP_SAFETY_MS`) it shows the generic login error (`login.errorGeneric`) and re-enables the form instead of guessing a route.
+- Unchanged: fast lookups, `postLoginNavigateTo`, and the `businessSlug` portal-link checks (revoked/unapproved).
+- New `src/components/LoginForm.test.tsx` (fake timers) covers three cases: a manager whose lookup takes 7 s lands on their dashboard; a fast client still goes to `/portal`; a lookup that never answers shows an error and never navigates.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 122/122 · build OK.
+- Red test-only commit `ee06bf4`: `check` failed on the 2 new assertions, which received `/portal`.
+- Green run 38054885116: `check` ✓, `db-tests` ✓ (payments, security, smoke E2E).
+
+**Notes.**
+- A neutral fallback route (`/`) was rejected: for clients it would skip the `businessSlug` link checks.
+- Past 30 s the user is already signed in, so the Login page's own redirect hook may still take them to the right page once the lookup finishes.
+- This also removes one cause of the E2E flow 4 flake (U17 fixes the others).
+
+
+---
+
+## 2026-10-10 · U17 · E2E flows 4 and 7 made deterministic
+
+**Status:** done on `remediation` (unit U17, branch `fix/U17-e2e-flakes`). Tests only. Flow 4 still has one app-side flake, fixed separately by U19.
+
+**Problem.**
+- Flow 4's retry started from what attempt 1 left behind (already moved to 3 PM or canceled), because the seed runs once per run, not once per attempt.
+- Flow 4's cancel step raced the confirmation dialog with `isVisible()`, so the confirm click was usually skipped. It also reloaded before the status write finished.
+- Flow 7 failed from 20:00 PR time: with no saved anchor, payroll anchors the pay period on the UTC date, which is already tomorrow by then.
+
+**Change.**
+- Flow 4: `resetEditAppointment()` puts the seeded 'edit' row back to how the seed wrote it (scheduled, 14:00–15:00, no notes) using the service-role `adminDb()`. Then the test waits for the confirmation dialog, clicks it, waits for it to close, and waits for the "Cita cancelada" toast before reloading.
+- Flow 7: pins the browser clock to 12:00 PR on the seed's day.
+- New `e2e/clock.ts` (`seedToday`, `pinBrowserClock`); flows 4/4b/4c use it too.
+- Same assertions; retries unchanged.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 122/122 · build OK.
+- CI on the branch: 38054885344 attempt 1, 38056128057, 38056472343, 38056795579 and 38057194260 green, with flows 4 and 7 passing on the first attempt.
+- 38054885344 attempt 2 failed on flow 4 because of the app bug below.
+- Merged with merge rule (c) waived once by the owner: `remediation` was red on this very test.
+
+**Notes (app bugs found, not worked around).**
+- **U19:** gated routes in `src/pages/Index.tsx` redirect to the dashboard before the feature rules and the business tier load, so a reload or deep link to `/appt-book` (or inventory, payment, transactions) can bounce to `/dashboard`. Proved in CI 38056795579 by delaying the feature rules on purpose.
+- **U20 candidate:** payroll's default pay-schedule anchor uses the UTC date (`Payroll.tsx:149`, `useSupabaseData.ts:2098`). From 20:00 PR time, the current period starts tomorrow and today's shifts are hidden.
+
+
+---
+
+## 2026-10-10 · U20 · Payroll default pay-period anchor uses the local date, not UTC
+
+**Status:** done on `remediation` (unit U20, branch `fix/U20-payroll-local-anchor`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** With no saved `pay_schedule_anchor_date`, Payroll (`Payroll.tsx:149`, `:154`) and `useSettings` (`useSupabaseData.ts:2098`) defaulted the anchor to the UTC date. In Puerto Rico (UTC−4) that's already tomorrow from 20:00, so between 20:00 and midnight the "current" pay period flipped back to the previous one (ending today). Found by U17 (E2E flow 7).
+
+**Change.**
+- New `src/lib/payrollAnchor.ts`:
+  - `defaultPayScheduleAnchorISO` returns today's local calendar day, using date-fns `format(now, 'yyyy-MM-dd')`, which the app already uses for "today".
+  - `resolvePayScheduleAnchorISO` returns the saved anchor, or that default when there isn't one.
+- The three spots above now use it.
+- Saved anchors, cadence and pay math are unchanged.
+- New unit test `src/lib/payrollAnchor.test.ts`: TZ America/Puerto_Rico, clock pinned to 2026-10-10 21:00.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 127/127 · build OK.
+- Red test-only run 38057815819 (only the new tests failed).
+- Green run 38057951694: `check` ✓, `db-tests` ✓ (payments, security, smoke E2E incl. flows 4 and 7).
+
+**Notes.**
+- The same UTC-date default remains in:
+  - `EmployeePayroll.tsx:44/49`;
+  - `EmployeeTimesheet.tsx:88/93`;
+  - `BusinessSettingsPage.tsx:140`. Saving the pay-schedule form there with the default after 20:00 PR stores tomorrow's date.
+- Candidate unit U21 (one-line change each, using the new helper).
+- Without a saved anchor, the default moves every day, so the current period always starts today. That's existing behavior, unchanged here.
+
+
+---
+
+## 2026-10-10 · U19 · Feature-gated pages bounced to the dashboard on reload
+
+**Status:** done on `remediation` (unit U19, branch `fix/U19-feature-gate-loading`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** `Index.tsx` redirected feature-gated routes to `/<slug>/dashboard` whenever `isFeatureVisible()` was false. That's also the case while the `feature_rollout` / `feature_visibility_rules` queries are still loading. So a reload or deep link to appt-book, inventory, payment, transactions or settings account/booking could permanently bounce to the dashboard (or settings/business). Proven in U17's CI run 38056795579; it was the last cause of the E2E flow 4 flake. The broken relative redirect fixed by E2E-3 had hidden it before.
+
+**Change.**
+- New `src/lib/featureGate.ts`:
+  - `resolveFeatureGate(visible, known)`: render / loading / redirect.
+  - `useFeatureGatesKnown(rolloutLoaded)`: latched once the rules load; falls back after 10 s if they never load.
+- In `Index.tsx`, gated routes show the existing paw loader while the rules are unknown.
+- Once the rules are known, every redirect target is unchanged. Visible features (including the demo bypass) render right away.
+- Unit tests in `src/lib/featureGate.test.tsx`.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 135/135 · build OK.
+- Red test-only run 38057712425.
+- Green: 38057827477 (×2) and 38058522206 (with U17), smoke E2E 15/15, flow 4 on the first attempt every time, flow 10 passing.
+
+**Notes.**
+- If the rules query errors, gates fall back to the old behavior after 10 s.
+- Cleaner follow-up: `useFeatureRollout` exposes a settled/error flag to replace the timeout.
+- The `gate()` wiring in Index isn't unit-tested directly (a router harness mirrors it).
