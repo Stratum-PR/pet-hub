@@ -589,11 +589,14 @@ async function businessPolicies({ shop, bossBiz, worker, boss }) {
       pin: leadPin,
       hourly_rate: 12,
       role: 'groomer',
-      access_role: 'manager',
+      access_role: 'staff',
     })
     .select('id')
     .single();
   if (leadErr) throw new Error(`biz lead staff: ${leadErr.message}`);
+  // Promoted the way EmployeeManagement does it (staff_enforce_access_role_mutations only lets managers set it).
+  const { error: promoteErr } = await boss.db.from('staff').update({ access_role: 'manager' }).eq('id', leadStaff.id);
+  if (promoteErr) throw new Error(`biz lead promote: ${promoteErr.message}`);
   const lead = await newUser('biz-lead', { role: 'employee', business_id: bossBiz, staff_id: leadStaff.id });
   r = await lead.db.from('businesses').update({ phone: '7875550113' }).eq('id', bossBiz).select('id');
   check('staff with access_role manager can still edit business settings', !r.error && (await bizRow(bossBiz)).phone === '7875550113', r);
