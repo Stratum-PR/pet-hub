@@ -90,4 +90,3 @@ npm run test:env:down     # stop and remove everything
 - Security: [SECURITY_RISKS.md](docs/SECURITY_RISKS.md) (open decisions), [SECURITY-CHECKLIST.md](docs/SECURITY-CHECKLIST.md), [SECURITY-THREAT-ASSESSMENT.md](docs/SECURITY-THREAT-ASSESSMENT.md), [PAYMENTS_SECURITY_REVIEW.md](docs/PAYMENTS_SECURITY_REVIEW.md).
 - Operations: [BACKUP_RESTORE.md](docs/BACKUP_RESTORE.md), [PHASE0_PRODUCTION_CHECKS.md](docs/PHASE0_PRODUCTION_CHECKS.md), [FEATURE_ROLLOUT_RUNBOOK.md](docs/FEATURE_ROLLOUT_RUNBOOK.md).
 - Features and setup: [README-SUPABASE.md](docs/README-SUPABASE.md), [PAYMENTS.md](docs/PAYMENTS.md), [API_ROUTES.md](docs/API_ROUTES.md), [OAUTH_WORKFLOW.md](docs/OAUTH_WORKFLOW.md), [RATE-LIMITING-GUIDE.md](docs/RATE-LIMITING-GUIDE.md), and the rest of [`docs/`](docs/).
-
