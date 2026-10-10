@@ -22,6 +22,7 @@ import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { isPublicDemoPath } from '@/lib/demoWorkspace';
 import { withDemoWorkspacePetPhotoFallbacks } from '@/lib/demoWorkspacePetPhotos';
 import { devConsole } from '@/lib/clientDebug';
+import { uniqueChannelName } from '@/lib/realtimeChannel';
 import type { BusinessBrandingLayout } from '@/lib/businessBrandingLayout';
 import {
   DEFAULT_BUSINESS_BRANDING_LAYOUT,
@@ -1689,7 +1690,7 @@ export function useAppointments() {
     if (!businessId || demoBrowseOnly) return;
 
     const channel = supabase
-      .channel(`appointments-rt-${businessId}`)
+      .channel(uniqueChannelName(`appointments-rt-${businessId}`))
       .on(
         'postgres_changes',
         {
