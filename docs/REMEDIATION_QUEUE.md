@@ -15,14 +15,19 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 1 | U04 | P2-03 staff column privileges | `supabase/migrations/20261009110000_*.sql`, `supabase/rollbacks/20261009110000_*.down.sql`, `scripts/test-env-security.mjs` | 20261009110000 | U00 | merged |
 | 1 | U05 | Reminder greets with `first_name` when `name` is empty | `supabase/functions/send-appointment-reminder/**` | – | U00 | merged |
 | 1 | U06 | P4-01 lazy-load routes | `src/App.tsx`, new `src/components/RouteFallback.tsx` | – | U00 | merged |
-| 1 | U07 | P1-13 dual-frontend CI gate (main's frontend vs new schema) | `.github/workflows/dual-frontend.yml` (new), `scripts/test-env-dual.mjs` (new) | – | U00 | running (relaunched) |
+| 1 | U07 | P1-13 dual-frontend CI gate (main's frontend vs new schema) | `.github/workflows/dual-frontend.yml` (new), `scripts/test-env-dual.mjs` (new) | – | U00 | review (final CI 38023437747 + dual-frontend 38023437745 on 89f2cff were running at stop; check them) |
 | 2 | U08 | P2-01 staff RLS | `supabase/migrations/20261009120000_*.sql`, matching rollback, `scripts/test-env-security.mjs` | 20261009120000 | U04 | merged |
 | 2 | U09 | P3-04 explicit column lists on `staff`/`profiles`/`businesses` | the `.from('staff'\|'profiles'\|'businesses')` select call sites (listed by the worker at start) | – | wave 1 | merged |
 | 2 | U10 | P3-08 README + cross-platform scripts | `README.md`, new `scripts/*.sh` / `*.mjs` replacements | – | – | merged |
 | 2 | U16 | CI infra: ATH simulator base image from public.ecr.aws (Docker Hub 429s block `db-tests`) | `test-env/ath-simulator/Dockerfile` | – | – | merged |
-| 3 | U13 | P2-01 clients: employees can't delete clients (decision 9) | `supabase/migrations/20261009150000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for clients (listed by the worker) | 20261009150000 | U08 | running |
-| 4 | U14 | P2-01 pets: employees can't delete pets (decision 9) | `supabase/migrations/20261009160000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for pets | 20261009160000 | U13 | todo |
-| 5 | U15 | P2-01 appointments: employees can't delete, may still cancel (decision 9) | `supabase/migrations/20261009170000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for appointments | 20261009170000 | U14 | todo |
+| 3 | U13 | P2-01 clients: employees can't delete clients (decision 9) | `supabase/migrations/20261009150000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for clients (listed by the worker) | 20261009150000 | U08 | merged |
+| 4 | U14 | P2-01 pets: employees can't delete pets (decision 9) | `supabase/migrations/20261009160000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for pets | 20261009160000 | U13 | merged |
+| 5 | U15 | P2-01 appointments: employees can't delete, may still cancel (decision 9) | `supabase/migrations/20261009170000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for appointments | 20261009170000 | U14 | review (code done, security ✓ 2 known; CI red only on flaky E2E flow 4 → waits on U17, then re-run) |
+| 5 | U17 | E2E flakes: flow 4 (cancel confirm not awaited; retry not idempotent; sometimes lands on client portal after login) and flow 7 (PR-midnight date edge) made deterministic, same assertions (owner-approved 2026-10-10) | `e2e/04-edit-cancel-appointment.spec.ts`, `e2e/07-payroll.spec.ts`, new `e2e/` helper | – | – | merged |
+| 5 | U18 | Login misroute: a destination lookup slower than 6 s sends every user (staff included) to `/portal` (`LoginForm.tsx` timeout fallback); found via E2E flow 4 | `src/components/LoginForm.tsx`, its new unit test | – | – | merged |
+| 5 | U19 | Feature-gated routes redirect to the dashboard before feature rules/tier load (reload or deep link to appt-book etc. bounces to dashboard); found by U17 | `src/pages/Index.tsx`, its new unit test, optional new `src/lib/featureGate.ts` | – | – | merged |
+| 5 | U20 | Payroll default pay-period anchor uses the UTC date (from 20:00 PR the current period starts tomorrow); found by U17 | `src/pages/Payroll.tsx`, `src/hooks/useSupabaseData.ts` (anchor only) | – | – | merged |
+| 5 | U21 | Same UTC-date pay anchor default in `EmployeePayroll.tsx`, `EmployeeTimesheet.tsx`, `BusinessSettingsPage.tsx` (the settings form can save tomorrow's date after 20:00 PR); found by U20 | those 3 files | – | U20 | running (owner OK; branch `fix/U21-payroll-anchor-pages`) |
 | 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261009180000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261009180000 | U09, U15 | todo (stop before: owner review) |
 | 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261009190000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261009190000 | U11 | todo (stop before: owner review) |
 
@@ -33,16 +38,36 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 - **Agent work:** every queued row through wave 2 is `merged` (waves 3–4 after the owner's go-ahead), CI is green on `remediation`'s last push, `remediation` still merges cleanly into `dev`, and each unit has a FIX_LOG entry.
 - **Whole remediation:** the above plus every item in OWNER_ACTIONS.md (Parts A–D) and the "Needs you" list below checked off.
 
+## Resume here (updated 2026-10-10 ~13:20 UTC)
+
+Order agreed with the owner today: U17 (+ U18 in parallel, no shared paths) → U07 → U15 → ask owner about U11/U12.
+
+1. U07's final runs on 89f2cff: CI 38023437747 check ✓, db-tests ✗ only E2E flow 4 (14/15); dual-frontend 38023437745 dual-main ✓, dual-dev ✗ only flow 4 (fails on dev's own schema too). `remediation`'s last push (CI 38023587012, docs only) is also red only on flow 4 → nothing can merge until U17 lands.
+2. U17 running (`fix/U17-e2e-flakes`). Owner approved a one-time waiver of merge rule (c) for U17 (remediation is red on the very test it fixes).
+3. U18 running (`fix/U18-login-slow-redirect`): real app bug confirmed by reading `LoginForm.tsx` (6 s race resolves to `/portal` without knowing the role).
+4. After U17 merges: U07 and U15 each merge `origin/remediation`, push, wait for green, then merge one at a time (reports in `docs/remediation-pending/`).
+5. Rules learned: one remediation push at a time (wait for its CI before the next merge — stacked pushes cancel each other's runs); trust the GitHub API run `status: completed`, not monitor notices; workers stopped by the usage limit leave pushed work on their branch — relaunch from it; job-log blob URLs are blocked by the proxy, use get_job_logs with return_content.
+
 ## Needs you
 
 - [ ] **Before waves 6–7 (U11, U12):** go/no-go on PIN hashing; it changes what `main`'s kiosk can read on the shared database.
+- [ ] **B4 addendum:** also require `dual-main`/`dual-dev` (workflow "dual-frontend") once U07 merges — note they are path-filtered, so a required check won't report on PRs that don't touch migrations/functions/tests (U07 can add a no-op twin workflow if you want them required everywhere).
+- [ ] **Decision (optional):** hide `main`'s employee-visible appointment trash button (after D9 it silently does nothing, with a success toast), or leave it until `main` gets the remediation frontend.
+- [ ] **Decision (optional):** should the hidden client/pet Delete buttons also show for staff with access_role manager whose profile role is employee? (Database allows them; UI hides by profile role.)
 - [ ] **Delete merged `fix/*` branches** if the coordinator reports the proxy refused it.
 
 ## Notes
 
+- 2026-10-10 ~14:20 UTC: U19 merged (branch CI 38058522206 green, flow 4 first attempt ×3; remediation 38058432187 green). U21 running. Next: U07, then U15 (update each from remediation, green CI, merge).
+- 2026-10-10 ~14:10 UTC: U20 merged (owner OK to run in parallel with U19; branch CI 38057951694 green; remediation 38057672269 green). U21 queued (needs owner OK).
+- 2026-10-10 ~14:00 UTC: U17 merged (branch CI 38057194260 green; rule (c) waived by owner). U19 (feature-gate redirect race, the remaining flow 4 flake) started. U20 (payroll UTC anchor) queued, needs owner OK. U07/U15 wait for U19.
+- 2026-10-10: U18 merged (branch CI 38054885116 green; remediation's previous push 38054673577 green). Merged before U17 because rule (c) was met.
+- 2026-10-10 13:20 UTC: U07 and remediation red only on flaky flow 4; plan reordered (U17 first, rule (c) waived once for U17, owner OK). U18 added (login slow-redirect bug). U17 + U18 started.
 - Shared files (coordinator only): FIX_LOG, OWNER_ACTIONS, REMEDIATION_STATUS, this queue, CLAUDE.md/AGENTS.md, `src/lib/translations.ts`, package.json/package-lock.json, `src/integrations/supabase/types.ts`, `scripts/typecheck-baseline.json`, `scripts/lint-baseline.json`. `scripts/test-env-security.mjs` has one owner per wave (listed above).
 - No local DB stack in cloud sessions (Docker images can't be pulled), so CI on each `fix/*` branch is the DB/E2E gate. Until U00 merges, no branch has CI.
 - Every migration unit must leave the `dev` frontend working both before and after the owner applies the migration (expand-only, PLAN §9 rule 1).
+- 2026-10-10: U14 merged (CI 38021128236, security 3 known open). U15 started.
+- 2026-10-10: U13 merged (CI 38019670337, security 4 known open). Flaky E2E flow 4 noted (failed 2/4 on U13, also in U07). U14 started.
 - 2026-10-10: U09 merged (CI 37996504085). U07, U09, U13 workers had stopped at ~22:00 on the account usage limit; U07 and U13 relaunched after the reset.
 - 2026-10-09: U16 merged (Docker Hub 429s in CI).
 - 2026-10-09: U02 merged (CI 37988832893). Follow-ups queued as notes: unused npm deps + unused translation keys cleanup (coordinator-owned shared files).
