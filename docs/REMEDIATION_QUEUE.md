@@ -17,7 +17,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 1 | U06 | P4-01 lazy-load routes | `src/App.tsx`, new `src/components/RouteFallback.tsx` | – | U00 | merged |
 | 1 | U07 | P1-13 dual-frontend CI gate (main's frontend vs new schema) | `.github/workflows/dual-frontend.yml` (new), `scripts/test-env-dual.mjs` (new) | – | U00 | running (relaunched) |
 | 2 | U08 | P2-01 staff RLS | `supabase/migrations/20261009120000_*.sql`, matching rollback, `scripts/test-env-security.mjs` | 20261009120000 | U04 | merged |
-| 2 | U09 | P3-04 explicit column lists on `staff`/`profiles`/`businesses` | the `.from('staff'\|'profiles'\|'businesses')` select call sites (listed by the worker at start) | – | wave 1 | review (db-tests blocked by Docker Hub 429; waits on U16) |
+| 2 | U09 | P3-04 explicit column lists on `staff`/`profiles`/`businesses` | the `.from('staff'\|'profiles'\|'businesses')` select call sites (listed by the worker at start) | – | wave 1 | merged |
 | 2 | U10 | P3-08 README + cross-platform scripts | `README.md`, new `scripts/*.sh` / `*.mjs` replacements | – | – | merged |
 | 2 | U16 | CI infra: ATH simulator base image from public.ecr.aws (Docker Hub 429s block `db-tests`) | `test-env/ath-simulator/Dockerfile` | – | – | merged |
 | 3 | U13 | P2-01 clients: employees can't delete clients (decision 9) | `supabase/migrations/20261009150000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for clients (listed by the worker) | 20261009150000 | U08 | running |
@@ -43,6 +43,8 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 - Shared files (coordinator only): FIX_LOG, OWNER_ACTIONS, REMEDIATION_STATUS, this queue, CLAUDE.md/AGENTS.md, `src/lib/translations.ts`, package.json/package-lock.json, `src/integrations/supabase/types.ts`, `scripts/typecheck-baseline.json`, `scripts/lint-baseline.json`. `scripts/test-env-security.mjs` has one owner per wave (listed above).
 - No local DB stack in cloud sessions (Docker images can't be pulled), so CI on each `fix/*` branch is the DB/E2E gate. Until U00 merges, no branch has CI.
 - Every migration unit must leave the `dev` frontend working both before and after the owner applies the migration (expand-only, PLAN §9 rule 1).
+- 2026-10-10: U09 merged (CI 37996504085). U07, U09, U13 workers had stopped at ~22:00 on the account usage limit; U07 and U13 relaunched after the reset.
+- 2026-10-09: U16 merged (Docker Hub 429s in CI).
 - 2026-10-09: U02 merged (CI 37988832893). Follow-ups queued as notes: unused npm deps + unused translation keys cleanup (coordinator-owned shared files).
 - 2026-10-09: U06 merged (coordinator-reviewed). U02 and U07 relaunched from their pushed commits; U09 and U13 started (U09 excludes U02's orphan files; U13 is the only security-suite writer).
 - 2026-10-09: U08 merged (CI 37985608351: security 5 known open). U02, U06, U07 workers were stopped (owner); owner chose: coordinator reviews/merges U06's pushed branch, U02 and U07 relaunched from their existing commits.
