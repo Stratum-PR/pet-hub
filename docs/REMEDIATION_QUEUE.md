@@ -22,7 +22,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 2 | U16 | CI infra: ATH simulator base image from public.ecr.aws (Docker Hub 429s block `db-tests`) | `test-env/ath-simulator/Dockerfile` | – | – | merged |
 | 3 | U13 | P2-01 clients: employees can't delete clients (decision 9) | `supabase/migrations/20261009150000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for clients (listed by the worker) | 20261009150000 | U08 | merged |
 | 4 | U14 | P2-01 pets: employees can't delete pets (decision 9) | `supabase/migrations/20261009160000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for pets | 20261009160000 | U13 | merged |
-| 5 | U15 | P2-01 appointments: employees can't delete, may still cancel (decision 9) | `supabase/migrations/20261009170000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for appointments | 20261009170000 | U14 | blocked on U07b (dual-dev flow 7 = dev's ProtectedRoute race, not U15: attempt 2 of run 38066965363 failed on dev's own schema too; then sync + re-run) |
+| 5 | U15 | P2-01 appointments: employees can't delete, may still cancel (decision 9) | `supabase/migrations/20261009170000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for appointments | 20261009170000 | U14 | merged |
 | 5 | U07b | Dual-frontend gate: flow 7 as `mayPass` in EXPECTED.dev (same U22 ProtectedRoute race as flow 4; fails on dev's own schema too, run 38066965363 attempt 2) — owner OK 2026-10-10 | `scripts/test-env-dual.mjs` | – | U07 | merged |
 | 5 | U17 | E2E flakes: flow 4 (cancel confirm not awaited; retry not idempotent; sometimes lands on client portal after login) and flow 7 (PR-midnight date edge) made deterministic, same assertions (owner-approved 2026-10-10) | `e2e/04-edit-cancel-appointment.spec.ts`, `e2e/07-payroll.spec.ts`, new `e2e/` helper | – | – | merged |
 | 5 | U18 | Login misroute: a destination lookup slower than 6 s sends every user (staff included) to `/portal` (`LoginForm.tsx` timeout fallback); found via E2E flow 4 | `src/components/LoginForm.tsx`, its new unit test | – | – | merged |
@@ -70,6 +70,7 @@ Rules learned: one remediation push at a time; trust GitHub API `status: complet
 
 ## Notes
 
+- 2026-10-10 ~18:15 UTC: U15 merged (b7c64f2: CI 38072272882 ✓, dual-frontend 38072272864 ✓; remediation dbcad52 CI 38073922997 ✓). Next: dev sync, then U11 + U22.
 - 2026-10-10 ~17:55 UTC: U07b merged (72c7110: CI 38071762534 ✓, dual-frontend 38071762429 ✓). U15 at b7c64f2 (U07b merged in): CI 38072272882 ✓, dual-dev ✓, dual-main running.
 - 2026-10-10 ~17:35 UTC: diagnosis: U15 not the cause (attempt 2 "UNEXPECTED FAILURE (fails on dev's own schema too)"; SELECT policies unchanged by the split). Owner chose mayPass for flow 7 on dev → U07b started. Then: merge U07b, sync U15, re-run dual-frontend, merge U15.
 - 2026-10-10 ~17:10 UTC: U15 synced with remediation (744c8cc): CI ✓, dual-main ✓, dual-dev ✗ flow 7 (ProtectedRoute-race symptom, but consistent only with U15's migration; remediation 517f340 dual-dev ✓). One re-run confirmed. Owner: diagnose, keep order (nothing else starts). Diagnosis worker started.
