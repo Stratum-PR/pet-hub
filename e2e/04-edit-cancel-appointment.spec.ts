@@ -89,37 +89,3 @@ test('4c. an appointment earlier today stays on today in the edit dialog (E2E-2)
   const { ownDate } = await openEditDialog(page, 'checkout', '9 AM');
   await expect(ownDate).toBeVisible({ timeout: 5_000 });
 });
-
-// U15 DIAGNOSTIC (temporary, to be reverted): how often login + a hard load of the appointment book bounces to /portal.
-test('4y. U15 diag: 20 fresh logins + hard loads of appt-book', async ({ browser }) => {
-  test.setTimeout(400_000);
-  const s = seedData();
-  let bounced = 0;
-  for (let i = 1; i <= 20; i++) {
-    const ctx = await browser.newContext({ baseURL: test.info().project.use.baseURL, locale: 'es-PR', timezoneId: 'America/Puerto_Rico' });
-    const page = await ctx.newPage();
-    await page.addLocatorHandler(page.getByRole('dialog', { name: 'Política de cookies' }), async (d) => {
-      await d.getByRole('button', { name: 'Rechazar todas' }).click();
-    });
-    const t0 = { v: Date.now() };
-    const events: string[] = [];
-    const key = (u: string) =>
-      /\/rest\/v1\/profiles\?/.test(u) ? 'profiles' : /\/rest\/v1\/business_client_links\?/.test(u) ? 'client_link' : '';
-    page.on('request', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0.v}ms start ${k}`); });
-    page.on('requestfinished', (r) => { const k = key(r.url()); if (k) events.push(`${Date.now() - t0.v}ms done ${k}`); });
-    page.on('framenavigated', (f) => { if (f === page.mainFrame()) events.push(`${Date.now() - t0.v}ms nav ${new URL(f.url()).pathname}`); });
-    if (i % 2 === 1) await pinBrowserClock(page, '08:00'); // odd iterations: clock pinned like flow 4
-    await loginAsManager(page);
-    events.length = 0;
-    t0.v = Date.now();
-    await page.goto(`/${s.slug}/appt-book`);
-    const outcome = await Promise.race([
-      page.getByRole('tab', { name: 'Historial' }).waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'ok', () => 'timeout'),
-      page.waitForURL(/\/portal/, { timeout: 15_000 }).then(() => 'portal', () => 'timeout'),
-    ]);
-    if (outcome !== 'ok') bounced++;
-    console.log(`[U15-DIAG] 4y #${i} ${i % 2 === 1 ? 'pinned' : 'real'}: ${outcome}; ${events.join(', ')}`);
-    await ctx.close();
-  }
-  console.log(`[U15-DIAG] 4y: ${bounced}/20 fresh login + hard loads did not show the appointment book`);
-});
