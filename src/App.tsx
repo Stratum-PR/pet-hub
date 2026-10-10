@@ -29,7 +29,10 @@ import { SignupSuccess } from "@/pages/SignupSuccess";
 import { WaitlistConfirmed } from "@/pages/WaitlistConfirmed";
 import Index from "@/pages/Index";
 import { PublicBookingPage } from "@/pages/PublicBookingPage";
-import { AdminDashboard } from "@/pages/AdminDashboard";
+import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminOverview } from "@/pages/admin/AdminOverview";
+import { AdminBusinesses } from "@/pages/admin/AdminBusinesses";
+import { AdminFeatures } from "@/pages/admin/AdminFeatures";
 import { ImpersonateHandler } from "@/pages/ImpersonateHandler";
 import NotFound from "./pages/NotFound";
 import { ThemeGuard } from "@/components/ThemeGuard";
@@ -155,7 +158,11 @@ const App = () => (
                 element={
                   <ProtectedRoute requireAdmin>
                     <Routes>
-                      <Route path="/" element={<AdminDashboard />} />
+                      <Route element={<AdminLayout />}>
+                        <Route index element={<AdminOverview />} />
+                        <Route path="businesses" element={<AdminBusinesses />} />
+                        <Route path="features" element={<AdminFeatures />} />
+                      </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </ProtectedRoute>
