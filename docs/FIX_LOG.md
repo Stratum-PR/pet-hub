@@ -1106,3 +1106,29 @@ No frontend deploy is needed.
 - Main shows employees a trash button that now silently does nothing, with a success toast. Hiding it would need a main-side change (not in scope).
 - A profile with role client and a business_id set also loses delete on that business's appointments; it keeps the old SELECT/INSERT/UPDATE via "Appointments select/insert/update" (not changed here).
 - Owner decision 2026-10-10: leave main's employee trash button as is until `main` gets the remediation frontend.
+
+---
+
+## 2026-10-10 · U22 · ProtectedRoute no longer sends staff to the client portal on reload
+
+**Status:** done on `remediation` (unit U22, branch `fix/U22-protectedroute-race`). Frontend only, so there's no production database step: it ships with the next `dev` deploy.
+
+**Problem.** On reload or navigation, `ProtectedRoute` ran the business-client-link check (`fetchBusinessByPublicSlug` + `getBusinessClientLink`) while AuthContext was still loading the profile (`profile` null). For a manager, the check could finish before the profile arrived and redirect to `/portal?business=<slug>` ("Cuenta de personal / Esta sesion no es de cliente"). Seen in E2E flows 4 and 7 (U15 runs 38060099293–38061346629 with a delayed profile request; dual-frontend 38066965363 attempt 2 on dev's frontend).
+
+**Change.**
+- The client-link effect and the redirect based on it return early while auth `loading` is true, so a null profile means "loaded with no business" (or a failed fetch), never "not loaded yet".
+- Real-client gating, `requireAdmin`, the public demo route and in-place login are unchanged. No timeouts.
+- 11 unit tests in new `src/components/ProtectedRoute.test.tsx` (late-profile manager not redirected; clients without/with revoked/with approved link; unknown slug; pending state; failed profile fetch; logged-out; in-place login; demo route).
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 146/146 · build OK.
+- Red test-only run 38075598902: `check` failed only on the manager-race test.
+- Green run 38075767627: `check` ✓, `db-tests` ✓ (payments, security, smoke E2E 15/15 on the first attempt).
+
+**Notes.**
+- Profile fetch that fails: unchanged. Once loading ends, the user is treated as a client and, without an approved link, sent to `/portal`.
+- A logged-out visitor with no session goes to `/` (not `/<slug>/login`); unchanged.
+- `dev` still has the race until remediation is merged into it; then remove flows 4 and 7 from `EXPECTED.dev` in `scripts/test-env-dual.mjs`.
+- Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`.
+
+**Rollback.** Revert the merge commit.
