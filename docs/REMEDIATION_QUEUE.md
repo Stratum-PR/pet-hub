@@ -36,9 +36,9 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 
 ## Resume here (stopped 2026-10-10 ~04:20 UTC, owner's usage limit)
 
-1. Check U07's final runs (CI 38023437747, dual-frontend 38023437745 on `fix/U07-dual-frontend` @ 89f2cff). If green → merge U07 (its FIX_LOG text, B4 addition `dual-main`/`dual-dev` and DECISIONS line are in the session hand-back; re-derive from the branch if lost). If red only on E2E flow 4/7 → wait for U17.
+1. Check U07's final runs (CI 38023437747, dual-frontend 38023437745 on `fix/U07-dual-frontend` @ 89f2cff). If green → merge U07 (report with FIX_LOG text, B4 addition and DECISIONS line: `docs/remediation-pending/U07-report.md`). If red only on E2E flow 4/7 → wait for U17.
 2. Relaunch U17 (brief: queue row above). Before fixing the spec, check U07's lead: in some flow-4 failures the manager lands on the client portal after login — suspected 6 s timeout in `src/components/LoginForm.tsx:287-294` misrouting slow logins to `/portal`. If that's a real app bug, it becomes its own unit (U18), not a test workaround.
-3. After U17 merges: have U15's branch merge `origin/remediation`, push, wait for green, then merge U15 (FIX_LOG + OWNER_ACTIONS D9 text in its hand-back; re-derive from the branch if lost). Then re-run U07 if needed.
+3. After U17 merges: have U15's branch merge `origin/remediation`, push, wait for green, then merge U15 (report with FIX_LOG + D9 text: `docs/remediation-pending/U15-report.md`). Then re-run U07 if needed.
 4. Then ask the owner about U11/U12 (PIN hashing — inputs listed in FIX_LOG P3-04).
 5. Rules learned: one remediation push at a time (wait for its CI before the next merge — stacked pushes cancel each other's runs); trust the GitHub API run `status: completed`, not monitor notices; workers stopped by the usage limit leave pushed work on their branch — relaunch from it.
 
