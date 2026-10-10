@@ -24,7 +24,7 @@ export function AdminGrowthPanel({ createdDates, now: nowProp }: { createdDates:
     const created = createdDates
       .map((v) => (v ? new Date(v) : null))
       .filter((d): d is Date => d != null && isValid(d));
-    if (created.length === 0) return { points: [] as GrowthPoint[], total: 0, thisMonth: 0, lastMonth: 0 };
+    if (created.length === 0) return { points: [] as GrowthPoint[], total: 0, thisMonth: 0 };
     const first = startOfMonth(created.reduce((a, b) => (a < b ? a : b)));
     let start = startOfMonth(addMonths(now, -(GROWTH_MONTHS - 1)));
     if (first > start) start = first;
@@ -39,31 +39,30 @@ export function AdminGrowthPanel({ createdDates, now: nowProp }: { createdDates:
       });
     }
     const monthStart = startOfMonth(now);
-    const prevStart = startOfMonth(addMonths(now, -1));
     return {
       points,
       total: created.length,
       thisMonth: created.filter((d) => d >= monthStart).length,
-      lastMonth: created.filter((d) => d >= prevStart && d < monthStart).length,
     };
   }, [createdDates, now, dateLocale]);
 
   return (
-    <Card>
-      <CardContent className="grid gap-6 p-6 md:grid-cols-[minmax(0,14rem)_1fr] md:items-center">
+    <Card className="max-w-2xl">
+      <CardContent className="grid gap-6 p-6 md:grid-cols-[12rem_minmax(0,1fr)] md:items-center">
         <div>
           <p className="text-sm text-muted-foreground">{t('admin.growthTitle')}</p>
           <p className="mt-1 text-5xl font-semibold tabular-nums">{growth.total}</p>
-          <p className="mt-2 text-sm">
-            <span className="font-medium">
-              {t('admin.growthThisMonth', { sign: growth.thisMonth > 0 ? '+' : '', count: growth.thisMonth })}
-            </span>
-            <span className="text-muted-foreground"> · {t('admin.growthVsLastMonth', { count: growth.lastMonth })}</span>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {growth.thisMonth === 0
+              ? t('admin.growthSameAsLastMonth')
+              : growth.thisMonth === 1
+                ? t('admin.growthOneMoreThanLastMonth')
+                : t('admin.growthMoreThanLastMonth', { count: growth.thisMonth })}
           </p>
         </div>
         {growth.points.length > 1 && (
           <figure
-            className="h-40 min-w-0 [--growth-line:#3f8a4b] dark:[--growth-line:#62a76a]"
+            className="h-36 w-full max-w-md min-w-0 [--growth-line:#3f8a4b] dark:[--growth-line:#62a76a]"
             aria-label={t('admin.growthChartLabel', { months: growth.points.length })}
           >
             <ResponsiveContainer width="100%" height="100%">

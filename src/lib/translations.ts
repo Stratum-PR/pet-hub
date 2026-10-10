@@ -12,17 +12,21 @@ export interface Translations {
 
 export const translations: Translations = {
   // Admin dashboard
+  'admin.growthMoreThanLastMonth': {
+    en: '{count} more than last month',
+    es: '{count} más que el mes pasado'
+  },
+  'admin.growthOneMoreThanLastMonth': {
+    en: '1 more than last month',
+    es: '1 más que el mes pasado'
+  },
+  'admin.growthSameAsLastMonth': {
+    en: 'Same as last month',
+    es: 'Igual que el mes pasado'
+  },
   'admin.growthTitle': {
     en: 'Client businesses',
     es: 'Negocios clientes'
-  },
-  'admin.growthThisMonth': {
-    en: '{sign}{count} this month',
-    es: '{sign}{count} este mes'
-  },
-  'admin.growthVsLastMonth': {
-    en: '{count} last month',
-    es: '{count} el mes pasado'
   },
   'admin.growthChartLabel': {
     en: 'Client businesses at the end of each month, last {months} months',
