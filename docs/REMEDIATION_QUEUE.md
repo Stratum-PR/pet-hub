@@ -15,14 +15,15 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 1 | U04 | P2-03 staff column privileges | `supabase/migrations/20261009110000_*.sql`, `supabase/rollbacks/20261009110000_*.down.sql`, `scripts/test-env-security.mjs` | 20261009110000 | U00 | merged |
 | 1 | U05 | Reminder greets with `first_name` when `name` is empty | `supabase/functions/send-appointment-reminder/**` | – | U00 | merged |
 | 1 | U06 | P4-01 lazy-load routes | `src/App.tsx`, new `src/components/RouteFallback.tsx` | – | U00 | merged |
-| 1 | U07 | P1-13 dual-frontend CI gate (main's frontend vs new schema) | `.github/workflows/dual-frontend.yml` (new), `scripts/test-env-dual.mjs` (new) | – | U00 | running (relaunched) |
+| 1 | U07 | P1-13 dual-frontend CI gate (main's frontend vs new schema) | `.github/workflows/dual-frontend.yml` (new), `scripts/test-env-dual.mjs` (new) | – | U00 | review (final CI 38023437747 + dual-frontend 38023437745 on 89f2cff were running at stop; check them) |
 | 2 | U08 | P2-01 staff RLS | `supabase/migrations/20261009120000_*.sql`, matching rollback, `scripts/test-env-security.mjs` | 20261009120000 | U04 | merged |
 | 2 | U09 | P3-04 explicit column lists on `staff`/`profiles`/`businesses` | the `.from('staff'\|'profiles'\|'businesses')` select call sites (listed by the worker at start) | – | wave 1 | merged |
 | 2 | U10 | P3-08 README + cross-platform scripts | `README.md`, new `scripts/*.sh` / `*.mjs` replacements | – | – | merged |
 | 2 | U16 | CI infra: ATH simulator base image from public.ecr.aws (Docker Hub 429s block `db-tests`) | `test-env/ath-simulator/Dockerfile` | – | – | merged |
 | 3 | U13 | P2-01 clients: employees can't delete clients (decision 9) | `supabase/migrations/20261009150000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for clients (listed by the worker) | 20261009150000 | U08 | merged |
 | 4 | U14 | P2-01 pets: employees can't delete pets (decision 9) | `supabase/migrations/20261009160000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for pets | 20261009160000 | U13 | merged |
-| 5 | U15 | P2-01 appointments: employees can't delete, may still cancel (decision 9) | `supabase/migrations/20261009170000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for appointments | 20261009170000 | U14 | running |
+| 5 | U15 | P2-01 appointments: employees can't delete, may still cancel (decision 9) | `supabase/migrations/20261009170000_*.sql`, matching rollback, `scripts/test-env-security.mjs`, employee-facing delete controls for appointments | 20261009170000 | U14 | review (code done, security ✓ 2 known; CI red only on flaky E2E flow 4 → waits on U17, then re-run) |
+| 5 | U17 | E2E flakes: flow 4 (cancel confirm not awaited; retry not idempotent; sometimes lands on client portal after login) and flow 7 (PR-midnight date edge) made deterministic, same assertions (owner-approved 2026-10-10) | `e2e/04-edit-cancel-appointment.spec.ts`, `e2e/07-payroll.spec.ts`, new `e2e/` helper | – | – | todo (worker stopped before any commit; restart) |
 | 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261009180000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261009180000 | U09, U15 | todo (stop before: owner review) |
 | 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261009190000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261009190000 | U11 | todo (stop before: owner review) |
 
@@ -33,9 +34,20 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 - **Agent work:** every queued row through wave 2 is `merged` (waves 3–4 after the owner's go-ahead), CI is green on `remediation`'s last push, `remediation` still merges cleanly into `dev`, and each unit has a FIX_LOG entry.
 - **Whole remediation:** the above plus every item in OWNER_ACTIONS.md (Parts A–D) and the "Needs you" list below checked off.
 
+## Resume here (stopped 2026-10-10 ~04:20 UTC, owner's usage limit)
+
+1. Check U07's final runs (CI 38023437747, dual-frontend 38023437745 on `fix/U07-dual-frontend` @ 89f2cff). If green → merge U07 (its FIX_LOG text, B4 addition `dual-main`/`dual-dev` and DECISIONS line are in the session hand-back; re-derive from the branch if lost). If red only on E2E flow 4/7 → wait for U17.
+2. Relaunch U17 (brief: queue row above). Before fixing the spec, check U07's lead: in some flow-4 failures the manager lands on the client portal after login — suspected 6 s timeout in `src/components/LoginForm.tsx:287-294` misrouting slow logins to `/portal`. If that's a real app bug, it becomes its own unit (U18), not a test workaround.
+3. After U17 merges: have U15's branch merge `origin/remediation`, push, wait for green, then merge U15 (FIX_LOG + OWNER_ACTIONS D9 text in its hand-back; re-derive from the branch if lost). Then re-run U07 if needed.
+4. Then ask the owner about U11/U12 (PIN hashing — inputs listed in FIX_LOG P3-04).
+5. Rules learned: one remediation push at a time (wait for its CI before the next merge — stacked pushes cancel each other's runs); trust the GitHub API run `status: completed`, not monitor notices; workers stopped by the usage limit leave pushed work on their branch — relaunch from it.
+
 ## Needs you
 
 - [ ] **Before waves 6–7 (U11, U12):** go/no-go on PIN hashing; it changes what `main`'s kiosk can read on the shared database.
+- [ ] **B4 addendum:** also require `dual-main`/`dual-dev` (workflow "dual-frontend") once U07 merges — note they are path-filtered, so a required check won't report on PRs that don't touch migrations/functions/tests (U07 can add a no-op twin workflow if you want them required everywhere).
+- [ ] **Decision (optional):** hide `main`'s employee-visible appointment trash button (after D9 it silently does nothing, with a success toast), or leave it until `main` gets the remediation frontend.
+- [ ] **Decision (optional):** should the hidden client/pet Delete buttons also show for staff with access_role manager whose profile role is employee? (Database allows them; UI hides by profile role.)
 - [ ] **Delete merged `fix/*` branches** if the coordinator reports the proxy refused it.
 
 ## Notes
