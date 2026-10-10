@@ -249,11 +249,11 @@ _(after the review)_
 | S-5a | One server function computes and saves every sale, used by both screens | | 2026-10-10 | Genesis | |
 | S-5b | Other: allow card and "other" with a required reference; cash needs none — "we should always be able to trace each dollar" | Manager approval above an amount not chosen | 2026-10-10 | Genesis | |
 | S-5c | No limit | | 2026-10-10 | Genesis | |
-| S-6a | Other: "prioritize whatever Jovaniel did; discuss anything pending" | Checked `remediation` @ 2026-10-10: it doesn't touch ATH key storage. Then: "leave all security fixes to Jovaniel" → his call (Vault recommended) | 2026-10-10 | Genesis | |
-| S-7a | No preference given | Defer to Jovaniel (REMEDIATION_QUEUE lists P2-01 businesses as waiting on this question) | 2026-10-10 | Genesis | |
-| S-8a | No preference given | Defer to Jovaniel; not covered by `remediation` | 2026-10-10 | Genesis | |
-| S-9a | No preference given | `remediation` already sets a process: CI on every push (U00), branch protection pending (OWNER_ACTIONS B4), Jovaniel applies production changes by hand after a backup, sessions never touch production. Defer to that | 2026-10-10 | Genesis | |
-| S-9b | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
-| S-10a | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
-| S-10b | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
-| S-10c | Deferred to Jovaniel | Genesis 2026-10-10: "leave all security fixes to Jovaniel" | 2026-10-10 | Genesis | |
+| S-6a | Supabase Vault; only the `payments` function decrypts | Genesis deferred ("leave all security fixes to Jovaniel"); Jovaniel chose Vault | 2026-10-10 | Jovaniel | |
+| S-7a | Only managers/admins update the business; a trigger blocks billing-column changes unless made by the service role | Genesis deferred; unblocks P2-01 businesses in REMEDIATION_QUEUE | 2026-10-10 | Jovaniel | |
+| S-8a | Use the staff access tier and active status: charges need staff or above, settings need admin or manager | Genesis deferred | 2026-10-10 | Jovaniel | |
+| S-9a | Keep the `remediation` process: CI gates every push + branch protection (B4); Jovaniel applies production changes by hand after a backup; sessions never deploy | Genesis deferred; CI-run deploys can be revisited later | 2026-10-10 | Jovaniel | |
+| S-9b | Baseline: one migration equal to production's schema, marked applied; older files archived | After OWNER_ACTIONS Part A and Part D are applied, so it captures the finished schema; needs B2 (`db pull` + reference-data CSVs). Until then: SQL editor + `migration repair`, never `db push` (P1-01) | 2026-10-10 | Jovaniel | |
+| S-10a | **Open: back to Genesis** | Genesis deferred to Jovaniel; Jovaniel 2026-10-10: payments items are Genesis's call — ask her at the start of her next session | 2026-10-10 | Jovaniel | |
+| S-10b | **Open: back to Genesis** | Genesis deferred to Jovaniel; Jovaniel 2026-10-10: payments items are Genesis's call — ask her at the start of her next session | 2026-10-10 | Jovaniel | |
+| S-10c | **Open: back to Genesis** | Genesis deferred to Jovaniel; Jovaniel 2026-10-10: payments items are Genesis's call — ask her at the start of her next session | 2026-10-10 | Jovaniel | |
