@@ -18,8 +18,12 @@
 // in EXPECTED below (title + reason + FIX_LOG link). Any failure is then re-run, same frontend, on the ref's
 // OWN schema (`test-env.mjs reset` with TEST_ENV_MIGRATIONS_DIR = the ref's supabase/migrations): if it
 // passes there, THIS branch's schema broke that frontend — a SCHEMA REGRESSION, which no EXPECTED entry can
-// excuse. The run FAILS on a schema regression, on a failure that isn't listed, or when a listed test passes
-// (the list is stale: remove the entry). A ref that won't even build is a finding, not a skip.
+// excuse. Whatever would fail the gate (a suspected regression, or a failure that isn't listed) is then re-run
+// once more on a fresh seed of THIS branch's schema: the seed is relative to "today", so a run that crosses
+// midnight in Puerto Rico, or a retry on data its first attempt already changed, can fail once with no schema
+// cause. Only failures that reproduce count. The run FAILS on a schema regression, on a failure that isn't
+// listed, when a listed test passes (the list is stale: remove the entry), or when the own-schema check or the
+// confirmation could not run. A ref that won't even build is a finding, not a skip.
 // `--no-baseline` skips the own-schema re-run (faster, but then failures can't be told apart).
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
@@ -256,6 +260,7 @@ async function main() {
   //    the production snapshot: what that frontend runs on today). Fails there too → the ref's own bug (or a
   //    feature/fix it doesn't have yet). Passes there → THIS branch's schema broke it: a schema regression,
   //    never acceptable as an expected failure.
+  const testEnv = join(ROOT, 'scripts', 'test-env.mjs');
   const baseline = new Map(); // title → 'fail' | 'pass' | 'skipped'
   const baselineRuns = new Map(); // title → that test's result on the ref's own schema
   let baselineNote = '';
@@ -265,7 +270,6 @@ async function main() {
       baselineNote = `${ref} has no supabase/migrations; failures could not be checked on its own schema.`;
     } else {
       console.log(`\n▶ ${failed.length} failure(s). Re-running them on ${ref}'s own schema to tell its bugs from schema regressions…`);
-      const testEnv = join(ROOT, 'scripts', 'test-env.mjs');
       const reset = sh(process.execPath, [testEnv, 'reset'], { allowFail: true, env: { ...process.env, TEST_ENV_MIGRATIONS_DIR: migrations } });
       const e2 = reset.status === 0 ? stackEnv() : null;
       if (!e2?.apiUrl) {
@@ -281,11 +285,40 @@ async function main() {
         }
         if (!base.length) baselineNote = `The re-run on ${ref}'s own schema ran no tests; see the log.`;
       }
-      if (!process.env.CI) {
-        console.log("▶ Putting the stack back on this branch's schema…");
-        sh(process.execPath, [testEnv, 'reset'], { allowFail: true });
-      }
     }
+  }
+
+  // 5b. Confirm on a FRESH seed of this branch's schema whatever would fail the gate: a suspected schema regression
+  //     (passed on the ref's own schema) or a failure that isn't listed. The seed is relative to "today" (Puerto
+  //     Rico), so a run that crosses midnight, or a flow whose retry runs on data its first attempt already
+  //     changed, can fail once without any schema or frontend cause. Reproduces → it stands (the gate fails).
+  //     Doesn't → reported as NOT REPRODUCED, which does not fail the gate. Expected failures need no confirmation.
+  const confirm = new Map(); // title → 'fail' | 'pass' | 'skipped'
+  const confirmRuns = new Map();
+  let confirmNote = '';
+  const suspects = failed.filter((t) => baseline.get(t.title) === 'pass' || !known.has(t.title));
+  const onRefSchema = failed.length > 0 && ref !== 'HEAD' && !noBaseline && existsSync(join(dir, 'supabase', 'migrations'));
+  if (suspects.length) {
+    console.log(`\n▶ ${suspects.length} failure(s) would fail the gate. Re-running them on a fresh seed of this branch's schema to confirm…`);
+    const reset = sh(process.execPath, [testEnv, 'reset'], { allowFail: true });
+    const e3 = reset.status === 0 ? stackEnv() : null;
+    if (!e3?.apiUrl) {
+      confirmNote = "Resetting the stack to this branch's schema failed; the failures could not be confirmed.";
+    } else {
+      const grep = suspects.map((t) => t.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      const env3 = { ...pwEnv, TEST_API_URL: e3.apiUrl, TEST_ANON_KEY: e3.anonKey, TEST_SERVICE_KEY: e3.serviceKey };
+      const again = runSuite(join(ROOT, 'test-results', `dual-${safe}-confirm.json`), ['--grep', grep], env3, `${ref}'s frontend (confirmation)`, { allowEmpty: true });
+      keepArtifacts(`dual-${safe}-confirm`);
+      for (const t of again) {
+        confirm.set(t.title, t.status === 'unexpected' ? 'fail' : t.status === 'skipped' ? 'skipped' : 'pass');
+        confirmRuns.set(t.title, t);
+      }
+      const unconfirmed = suspects.filter((t) => !['fail', 'pass'].includes(confirm.get(t.title)));
+      if (unconfirmed.length) confirmNote = `no pass/fail result in the confirmation run for: ${unconfirmed.map((t) => t.title).join('; ')}.`;
+    }
+  } else if (onRefSchema && !process.env.CI) {
+    console.log("▶ Putting the stack back on this branch's schema…");
+    sh(process.execPath, [testEnv, 'reset'], { allowFail: true });
   }
 
   // A failure that has no pass/fail result on the ref's own schema (not re-run, skipped there) can't be told
@@ -296,9 +329,10 @@ async function main() {
   }
 
   // 6. Classify against EXPECTED.
-  const regressions = failed.filter((t) => baseline.get(t.title) === 'pass');
-  const expectedFailures = failed.filter((t) => known.has(t.title) && !regressions.includes(t));
-  const unexpectedFailures = failed.filter((t) => !known.has(t.title) && !regressions.includes(t));
+  const notReproduced = suspects.filter((t) => confirm.get(t.title) === 'pass');
+  const regressions = failed.filter((t) => baseline.get(t.title) === 'pass' && !notReproduced.includes(t));
+  const expectedFailures = failed.filter((t) => known.has(t.title) && !regressions.includes(t) && !notReproduced.includes(t));
+  const unexpectedFailures = failed.filter((t) => !known.has(t.title) && !regressions.includes(t) && !notReproduced.includes(t));
   const stale = passed.filter((t) => known.has(t.title));
   const missing = expected.filter((x) => !all.some((t) => t.title === x.title));
   const where = (t) =>
@@ -308,22 +342,24 @@ async function main() {
   lines.push(`## Dual-frontend gate: \`${ref}\` (${short}) frontend vs this branch's schema`);
   lines.push('');
   lines.push(
-    `**${passed.length - stale.length} passed · ${expectedFailures.length} expected failures · ${regressions.length} schema regressions · ${unexpectedFailures.length} unexpected failures · ${stale.length} expected failures that passed** (${all.length} tests${skipped.length ? `, ${skipped.length} skipped` : ''})`,
+    `**${passed.length - stale.length} passed · ${expectedFailures.length} expected failures · ${regressions.length} schema regressions · ${unexpectedFailures.length} unexpected failures · ${stale.length} expected failures that passed · ${notReproduced.length} not reproduced** (${all.length} tests${skipped.length ? `, ${skipped.length} skipped` : ''})`,
   );
   lines.push('');
   for (const t of regressions) lines.push(`- **SCHEMA REGRESSION** (passes on ${ref}'s own schema, fails on this branch's): ${t.title} (${t.file}) — ${t.error}`);
   for (const t of unexpectedFailures) lines.push(`- **UNEXPECTED FAILURE** (${where(t)}): ${t.title} (${t.file}) — ${t.error}`);
+  for (const t of notReproduced) lines.push(`- not reproduced (failed, ${where(t)}, then passed on a fresh seed of this branch's schema; not counted): ${t.title} — ${t.error}`);
   for (const t of stale) lines.push(`- **EXPECTED FAILURE PASSED** (remove it from EXPECTED.${ref} in scripts/test-env-dual.mjs): ${t.title}`);
   for (const x of missing) lines.push(`- **EXPECTED-FAILURE ENTRY MATCHES NO TEST** (stale title?): ${x.title}`);
   for (const t of expectedFailures) lines.push(`- expected failure (${where(t)}): ${t.title} — ${known.get(t.title).reason} (${known.get(t.title).link})`);
   for (const t of skipped) lines.push(`- skipped: ${t.title}`);
+  if (confirmNote) lines.push(`- **NOT CONFIRMED** (so a flake can't be told from a real failure): ${confirmNote}`);
   if (baselineNote) lines.push(`- **NOT CHECKED ON ITS OWN SCHEMA** (so failures can't be told from schema regressions): ${baselineNote}`);
   const text = lines.join('\n');
 
   // For anything that needs a human: the page as Playwright saw it when the test failed (its error context).
   // Printed before the summary, so the summary stays at the end of the log.
-  for (const t of [...regressions, ...unexpectedFailures]) {
-    const runs = [['this branch\'s schema', t], [`${ref}'s own schema`, baselineRuns.get(t.title)]];
+  for (const t of [...regressions, ...unexpectedFailures, ...notReproduced]) {
+    const runs = [['this branch\'s schema', t], [`${ref}'s own schema`, baselineRuns.get(t.title)], ['confirmation, fresh seed', confirmRuns.get(t.title)]];
     for (const [schema, run] of runs) {
       for (const a of run?.attempts ?? []) {
         if (a.status === 'passed') continue;
@@ -335,7 +371,7 @@ async function main() {
   console.log(`\n${text.replace(/\*\*/g, '')}\n`);
   summary(text);
 
-  const ok = !baselineNote && regressions.length === 0 && unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0;
+  const ok = !baselineNote && !confirmNote && regressions.length === 0 && unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0;
   console.log(ok ? `✓ ${ref}: ${passed.length} passed, ${expectedFailures.length} expected failures.` : `✗ ${ref}: the dual-frontend gate failed (see above).`);
   process.exit(ok ? 0 : 1);
 }
