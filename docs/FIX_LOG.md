@@ -1132,3 +1132,28 @@ No frontend deploy is needed.
 - Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`.
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · P1-13 (CI) follow-up · U07c · Faster dual-frontend gate
+
+**Status:** done on `remediation` (unit U07c, branch `fix/U07c-dual-gate-speed`). CI only.
+
+**Problem.** dual-main took ~22–25 min and dual-dev ~10–15 min. `playwright.config.ts` retries once in CI with a 60 s timeout, so each expected failure that timed out cost 2×60 s, and every failure was then re-run on the ref's own schema at the same cost. Most of main's expected failures can't even reach their screen on main's April UI.
+
+**Change** (`scripts/test-env-dual.mjs`).
+- The gate's own runs pass `--retries=0`; the fresh-seed confirmation keeps 1 retry and `mayPass` suspects get 2 in their own run.
+- New `unreachable: true` + `missingUi` patterns on EXPECTED entries. Main flows 3, 4, 4b, 4c, 5, 5c, 9 are skipped (`--grep-invert`) and reported as "skipped: unreachable". The gate fails if an unreachable title matches no test, if the filter would skip any other test, if a `missingUi` pattern is stale on this branch, or if the ref now has every pattern for an entry (the screen may exist now).
+- Main flows 10 and 7 (`mayPass`) still run and are re-checked.
+- No stack reset before the confirmation unless the own-schema check moved the stack.
+- Summary adds "skipped as unreachable" and "mayPass passes".
+- `EXPECTED.dev` emptied: dev 428a060 has remediation merged (identical `src/`, `e2e/`), so flows 4/7 (U22 race), 4b/4c (E2E-2) and 10 (E2E-3) pass there.
+
+**Gates.** tsc 29 · lint 400 · vitest 146/146 · build OK. Head c02da17: CI 38077126481 ✓; dual-frontend 38077126633 ✓ — main: 6 passed + 1 expected (10) + flow 7 mayPass passed + 7 unreachable skipped, smoke step **2m10s** (was ~22 min); dev: 15/15, smoke step **1m30s** (was ~10–15 min).
+
+**Notes.**
+- A `mayPass` race fails the gate only if it loses on the first run, wins on the ref's own schema, and loses all 3 confirmation attempts (~3% per flow at a 50% race rate; was ~4.7%). Trade-off: an intermittent regression gets one attempt on the own-schema re-check instead of two.
+- Re-verify main's unreachable entries when main changes; the `missingUi` check flags it once main ships those screens.
+- The P1-13 entry's counts above are superseded: main 9 listed (7 unreachable, 10 expected, 7 mayPass); dev 0.
+
+**Rollback.** Revert the merge commit.
