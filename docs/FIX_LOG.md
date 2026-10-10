@@ -730,3 +730,59 @@ Kept: `src/types/index.ts` (it is `@/types`, imported by 10+ files — Appendix 
 **Gates.** tsc 31 → 29 (baseline tightened) · lint 400 · vitest 119/119 (+9) · build OK (main 1,071,654 B) · CI run 37996504085: `check` ✓, `db-tests` ✓ (payments, security + 5 known issues, smoke E2E all passed). Earlier runs 37989562779 / 37991559656 failed only on Docker Hub 429 (fixed by U16). No manual walkthrough; the no-change claim rests on tracing every consumer plus the schema test.
 
 **Rollback.** Revert the merge commit (previous Vercel deployment for instant rollback).
+
+
+---
+
+## 2026-10-10 · P2-01 clients · Only managers can delete clients (decision 9)
+
+**Status:** done on `remediation` (unit U13, branch `fix/U13-clients-no-employee-delete`). **Not applied to production** (OWNER_ACTIONS D7).
+
+**Problem.** Three permissive DELETE policies on `clients` were OR-ed together. "Clients delete" allowed any member of the business, so every employee could delete any client of their business. Decision 9 (2026-10-09): employees may not delete clients; managers keep delete.
+
+**Change.**
+- `supabase/migrations/20261009150000_clients_delete_managers_only.sql`.
+  - Requires 20261009120000 (`is_business_manager`).
+  - Drops "Clients delete", `clients_delete_managers` and the FOR ALL "Managers can manage clients in their business".
+  - Creates `clients_delete_business_managers`: FOR DELETE TO authenticated, `is_business_manager(business_id)` OR super admin. The super admin clause keeps delete on no-business (global portal) clients.
+  - Splits the FOR ALL policy into "Managers can read/insert/update clients in their business", with identical expressions.
+  - Every other policy is unchanged.
+- `supabase/rollbacks/20261009150000_clients_delete_managers_only.down.sql`: recreates the 3 old policies verbatim from the production snapshot.
+- `scripts/test-env-security.mjs`:
+  - "employee cannot delete the business's clients" moved from known() to check().
+  - New regression checks: employee read/add/edit; employee cannot delete a client they added; manager delete; cross-business manager blocked; staff access_role manager delete; super admin delete, with and without a business; portal reads and updates its own row.
+- `src/pages/Clients.tsx`, `src/components/ClientProfileDialog.tsx`: the Delete button in the client profile is hidden for profile role employee (super admins excepted).
+
+**Compatibility with `main` (shared database).**
+- Expand-only for every flow either frontend uses except an employee's delete.
+- On main/dev an employee still sees "Delete". Confirming it deletes nothing and shows no error. The client vanishes from the list until a reload.
+- Managers, staff with access_role manager/admin, and super admins are unaffected.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 119/119 · build OK.
+- Green run 38019670337 (attempt 2; attempt 1 hit the flaky E2E flow 4): `check` ✓, `db-tests` ✓ (`test:payments` 24/24, `test:security` all ✓ + **4 known issues open** (was 5), smoke E2E 15/15).
+- Migration → rollback → migration verified on a scratch Postgres 16: policies and behavior identical after the rollback, both scripts idempotent, the only behavior change is employee DELETE.
+
+**Production steps (Jovaniel; OWNER_ACTIONS D7).**
+1. Confirm D6 (20261009120000, `is_business_manager`) is applied; the migration stops with an error otherwise.
+2. Backup (A3) and note its folder name: `__________`.
+3. Paste the whole migration file into the Supabase SQL editor and run it. **Never `supabase db push`.**
+4. `npx supabase migration repair --status applied 20261009150000`.
+5. Verify (read-only): `select policyname, cmd from pg_policies where schemaname='public' and tablename='clients' order by 1;`
+   - Expect 15 rows.
+   - Exactly one DELETE row: `clients_delete_business_managers`.
+   - None of "Clients delete", `clients_delete_managers` or "Managers can manage clients in their business".
+6. Smoke test on the dev page with the QA business:
+   - as a manager: add, edit and delete a client;
+   - as an employee: open Clients, add and edit a client, and check the profile has no Delete button;
+   - as a client: open the portal and save the profile;
+   - then, on the production app, edit a client as a manager.
+7. Watch for RLS errors on `clients` for 24 h.
+
+No frontend deploy is needed; the hidden button ships with the next remediation deploy.
+
+**Rollback (production).** Run `supabase/rollbacks/20261009150000_clients_delete_managers_only.down.sql` in the SQL editor, then `npx supabase migration repair --status reverted 20261009150000`. This reopens "employees can delete any client of their business". The helpers belong to 20261009120000 and are not touched.
+
+**Tag:** `fix/P2-01-clients` once applied to production.
+
+**Notes.** E2E flow 4 (reschedule + cancel) failed on attempt 1 of the final run and passed on attempt 2 with the same code; it also failed in U07's runs — tracked as a flaky test to fix separately. UI hides Delete by profile role, so staff with profile role employee but access_role manager lose the button although the database still allows them.
