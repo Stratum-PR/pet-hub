@@ -239,10 +239,10 @@ _(after the review)_
 
 | Question | Choice | Notes | Date | Answered by | Fixed? |
 |---|---|---|---|---|---|
-| S-0 / S-1b | | | | | |
-| S-1a | | | | | |
-| S-1c | | | | | |
-| S-1d | | | | | |
+| S-0 / S-1b | Both settings were already ON | Confirm email + Secure email change | 2026-10-10 | Genesis | — |
+| S-1a | Only an existing super admin can add one, and only `@stratumpr.com` accounts can be promoted | Domain rule kept as an extra condition, no auto-grant; at least one must remain | 2026-10-10 | Genesis | |
+| S-1c | List current super admins and remove anyone unexpected before the change | | 2026-10-10 | Genesis | |
+| S-1d | Audit log of grants/removals; email other admins on grant; require MFA for super admins | Not chosen: "email change never changes admin status" | 2026-10-10 | Genesis | |
 | S-2a | | | | | |
 | S-3a | | | | | |
 | S-4a | | | | | |
