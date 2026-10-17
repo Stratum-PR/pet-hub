@@ -1,4 +1,4 @@
--- Rollback for 20261010220000_kiosk_manager_pin_hashes.sql (P2-04).
+-- Rollback for 20261017120000_kiosk_manager_pin_hashes.sql (P2-04).
 -- Restores generate_staff_pin exactly as 20261010210000_staff_pin_hashes.sql created it (copied verbatim), then
 -- removes the hash trigger on businesses, the new RPCs, the internal helpers and kiosk_manager_pin_hashes (the hashes
 -- are derived data: businesses.kiosk_manager_pin was never changed, so nothing is lost). Idempotent.

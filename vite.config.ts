@@ -76,6 +76,10 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    define: {
+      /** P1-12: Sentry release = the commit Vercel builds (empty locally). */
+      "import.meta.env.VITE_SENTRY_RELEASE": JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? ""),
+    },
     esbuild: {
       /** Downlevel ??, ?., etc. so older Safari/WebKit can parse the bundle. */
       target: "es2018",

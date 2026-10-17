@@ -32,7 +32,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 | 5 | U21 | Same UTC-date pay anchor default in `EmployeePayroll.tsx`, `EmployeeTimesheet.tsx`, `BusinessSettingsPage.tsx` (the settings form can save tomorrow's date after 20:00 PR); found by U20 | those 3 files | – | U20 | merged |
 | 6 | U22 | ProtectedRoute reload race: a manager is bounced to `/portal` when the profile loads after the client-link check (found by the U15 worker; makes E2E flow 4 flaky; listed as `mayPass` in dual-dev) | `src/components/ProtectedRoute.tsx` (verify), its new unit test | – | – | merged |
 | 6 | U11 | P2-02 hash staff PINs | `supabase/migrations/20261010210000_*.sql`, rollback, kiosk/PIN code, `scripts/test-env-security.mjs` | 20261010210000 (was 20261009180000; renumbered after dev's 20261010200000_automations) | U09, U15 | merged |
-| 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261010220000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261010220000 (was 20261009190000) | U11 | merged |
+| 7 | U12 | P2-04 hash `businesses.kiosk_manager_pin` | `supabase/migrations/20261017120000_*.sql`, rollback, kiosk manager code, `scripts/test-env-security.mjs` | 20261017120000 (was 20261010220000, before that 20261009190000; renumbered 2026-10-17: production recorded 20261010220000 for dev's automations_builder_coupons_follow_ups) | U11 | merged |
 | 8 | U23 | Show the client/pet Delete buttons to staff with access_role manager (the database already allows them; UI hides by profile role) — owner OK 2026-10-10 | client/pet delete controls (listed by the worker) + unit test | – | U22 | merged |
 | 8 | U24 | B4: no-op twin of `dual-frontend` for PRs outside its paths, so `dual-main`/`dual-dev` can be required checks — owner OK 2026-10-10 | `.github/workflows/dual-frontend-skip.yml` (new) | – | U07 | merged |
 | 8 | U25 | Review `dangerouslySetInnerHTML` / `document.write` in `BusinessSettingsPage.tsx` (QR print path; possible XSS) — owner OK 2026-10-10 | `src/pages/BusinessSettingsPage.tsx` (QR print only), new test | – | U21 | merged |
@@ -53,7 +53,7 @@ Status: `todo` · `running` · `review` (worker done, waiting on CI/merge) · `m
 
 ## Resume here (updated 2026-10-10 ~22:05 UTC)
 
-Update 22:05: U29, U30, U31 merged (remediation f2b7c00: CI 38089467042 ✓, dual-frontend 38089467077 ✓; tsc 28 · lint 400 · vitest 226 · build OK). Next: merge remediation into dev (owner-approved, no `[deploy]`). Still open: S-6a/S-8a (plan drafted below; owner + Genesis), slug CHECK (needs the owner's D12 query result), U31 follow-up (drop main flow 7 `mayPass` after a green dual-main before 16:00 UTC).
+Update 22:05: U29, U30, U31 merged (remediation f2b7c00: CI 38089467042 ✓, dual-frontend 38089467077 ✓; tsc 28 · lint 400 · vitest 226 · build OK). **remediation merged into dev** (dev 6485e9b, no deploy; dev CI 38090598771 ✓, dual-frontend 38090598808 ✓, payments-test-env 38090598799 ✓). Still open: S-6a/S-8a (plan drafted below; owner + Genesis), slug CHECK (needs the owner's D12 query result), U31 follow-up (drop main flow 7 `mayPass` after a green dual-main before 16:00 UTC).
 
 
 State: every queued unit through U28 is **merged** on `remediation` (incl. U07/U07b/U07c dual-frontend gate, U11/U12 PIN hashing, U15, U22–U28), and `remediation` was merged into `dev` twice (428a060, then 64704b0; no deploy). PR #6 (remediation → main) was closed. Gates on the last head: tsc 28 · lint 400 · vitest 223 · build OK; CI + dual-frontend green (dual gate now ~5 min).
@@ -87,6 +87,8 @@ Both touch `supabase/functions/payments/` and the payments tables Genesis is wor
 - [ ] **Delete merged `fix/*` branches** if the coordinator reports the proxy refused it.
 
 ## Notes
+
+- 2026-10-10 ~22:21 UTC: third merge of remediation into dev (6485e9b = remediation 5f1ea4b tree; owner-approved, no `[deploy]`); dev CI, dual-frontend and payments-test-env green. HANDOFF updated for Genesis.
 
 - 2026-10-10 ~22:05 UTC: U30 merged (ac5405e; branch CI 38088998654 ✓, dual 38088998677 ✓; red 38088639011). Also tightens `can_manage_staff_private` (same decision; inactive leads could read staff_private and raise own pay). D13 added.
 - 2026-10-10 ~21:48 UTC: U31 merged (9ba6811; CI 38087820254 ✓, dual 38087820262 ✓). 4b/4c token refreshes 27/20 → 0.
