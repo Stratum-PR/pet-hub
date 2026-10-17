@@ -25,6 +25,12 @@
 // listed, when a listed test passes (the list is stale: remove the entry), or when the own-schema check or the
 // confirmation could not run. A ref that won't even build is a finding, not a skip.
 // `--no-baseline` skips the own-schema re-run (faster, but then failures can't be told apart).
+//
+// Speed (U07c): the gate's own Playwright runs pass `--retries=0` (playwright.config.ts retries once in CI): a
+// failure is re-checked on the ref's own schema anyway, and whatever would fail the gate is confirmed on a fresh
+// seed, which keeps `--retries=1` (2 for `mayPass` entries, see below) so "reproduces" still means "fails every
+// attempt". Entries marked `unreachable` (the ref's UI has no such screen, so the flow can never get as far as
+// anything the database decides) are not run on that ref at all: `--grep-invert`, reported as skipped.
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -43,8 +49,15 @@ const FIX_LOG = 'docs/FIX_LOG.md';
  * the fix or feature (the run fails until you do, so the list stays honest). `mayPass: true` marks an entry whose
  * failure depends on the time of day the run happens: it may pass without failing the run (it is still checked
  * on the ref's own schema like any failure, so a schema regression is still caught). Calibrated 2026-10-09 against
- * main ad0bfd9 and dev c3521c2 (P1-13 in FIX_LOG has the runs).
+ * main ad0bfd9 and dev c3521c2 (P1-13 in FIX_LOG has the runs); dev re-calibrated 2026-10-10 at 428a060 (U07c).
  */
+//
+// `unreachable: true` (with `missingUi`): the ref's UI doesn't have the screen or button the flow needs, so it fails
+// before any step whose outcome the database decides, on any schema. Such a flow is skipped on that ref (never run,
+// never re-checked) and reported as "skipped: unreachable". `missingUi` lists source patterns from THIS branch's
+// src/ that implement what's missing; the entry only stays unreachable while at least one of them is absent from the
+// ref's src/. When the ref ships all of them the gate fails until the entry is re-verified (drop `unreachable`, or
+// the whole entry). Its title must still match a test (like every entry).
 const E1 = `${FIX_LOG} → E2E-1`;
 const E2 = `${FIX_LOG} → E2E-2`;
 const E3 = `${FIX_LOG} → E2E-3`;
@@ -53,29 +66,24 @@ const EXPECTED = {
   // main = production (April 2026 code). It predates the appointment-book rework the flows drive, so several
   // flows can't even reach what they check; none of these are schema problems (all fail on main's own schema).
   main: [
-    { title: '3. manager books an appointment for an existing client', reason: 'main\'s appointment book (April UI) has no "Nueva cita" button', link: P13 },
-    { title: '4. manager reschedules an appointment, then cancels it', reason: 'main\'s appointment book has no "Historial" tab (and no "Editar / reprogramar")', link: P13 },
-    { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'no "Historial" tab on main, and no E2E-2 fix; main\'s login also stays on "Entrando…" with the browser clock pinned ahead of real time', link: E2 },
-    { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'same as 4b', link: E2 },
-    { title: '5. manager checks out an appointment in cash', reason: 'no "Historial" tab and no per-appointment "Cobrar" (Quick charge) on main', link: P13 },
-    { title: '5c. header "Cobrar" opens Quick charge over the dashboard (second copy of useTransactions, E2E-1)', reason: 'main has no header "Cobrar" (Quick charge is dev-only)', link: E1 },
+    { title: '3. manager books an appointment for an existing client', reason: 'main\'s appointment book (April UI) has no "Nueva cita" button', link: P13, unreachable: true, missingUi: [/Nueva cita/] },
+    { title: '4. manager reschedules an appointment, then cancels it', reason: 'main\'s appointment book has no "Historial" tab (and no "Editar / reprogramar")', link: P13, unreachable: true, missingUi: [/apptBook\.listAndHistory/, /Editar \/ reprogramar/] },
+    { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'no "Historial" tab on main, and no E2E-2 fix; main\'s login also stays on "Entrando…" with the browser clock pinned ahead of real time', link: E2, unreachable: true, missingUi: [/apptBook\.listAndHistory/, /Editar \/ reprogramar/] },
+    { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'same as 4b', link: E2, unreachable: true, missingUi: [/apptBook\.listAndHistory/, /Editar \/ reprogramar/] },
+    { title: '5. manager checks out an appointment in cash', reason: 'no "Historial" tab and no per-appointment "Cobrar" (Quick charge) on main', link: P13, unreachable: true, missingUi: [/apptBook\.listAndHistory/, /QuickChargeDialog/] },
+    { title: '5c. header "Cobrar" opens Quick charge over the dashboard (second copy of useTransactions, E2E-1)', reason: 'main has no header "Cobrar" (Quick charge is dev-only)', link: E1, unreachable: true, missingUi: [/QuickChargeDialog/] },
     // Time-dependent (mayPass): U17 pins flow 7's browser clock to 12:00 Puerto Rico on the seed's day. Before
     // 12:00 PR (16:00 UTC) that is ahead of real time and main's login hangs on "Entrando…"; after it, it passes.
     { title: '7. payroll page loads with the right hours and pay', reason: 'main\'s login stays on "Entrando…" (auth.getSession timeout) with the browser clock pinned ahead of real time (U17 pins flow 7 to 12:00 PR); passes when the run is after 12:00 PR', link: P13, mayPass: true },
-    { title: '9. public booking page sends a request that reaches the business', reason: 'main has no /<slug>/reservar public booking page (it falls through to the landing page)', link: P13 },
+    { title: '9. public booking page sends a request that reaches the business', reason: 'main has no /<slug>/reservar public booking page (it falls through to the landing page)', link: P13, unreachable: true, missingUi: [/path="\/:businessSlug\/reservar"/] },
+    // Not `unreachable`: flow 10 logs in a basic-plan manager and depends on the plan the app reads from the
+    // database (which routes are hidden) before the routing bug shows; it fails in ~15 s, so keeping it is cheap.
     { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on main: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
   ],
-  // dev = the dev page: has every feature the flows use and the E2E-1 fix (813eb75), misses only the E2E-2 and
-  // E2E-3 fixes and the U22 ProtectedRoute race fix made on `remediation` (flows 4 and 7 hit that race on dev).
-  dev: [
-    // mayPass: a race, so it often passes.
-    { title: '4. manager reschedules an appointment, then cancels it', reason: 'ProtectedRoute reload race bounces the manager to /portal ("Cuenta de personal") when the profile loads after the client-link check (U22: fixed on remediation, not on dev)', link: `${P13} / U22`, mayPass: true },
-    { title: '4b. in the evening, the edit dialog opens on the appointment date (E2E-2)', reason: 'E2E-2 fix not on dev: the edit dialog opens on the wrong date', link: E2 },
-    { title: '4c. an appointment earlier today stays on today in the edit dialog (E2E-2)', reason: 'E2E-2 fix not on dev', link: E2 },
-    // mayPass: a race, so it often passes.
-    { title: '7. payroll page loads with the right hours and pay', reason: 'same ProtectedRoute reload race as flow 4: bounces the manager to /portal ("Cuenta de personal") when the profile loads after the client-link check (U22: fixed on remediation, not on dev)', link: `${P13} / U22`, mayPass: true },
-    { title: '10. hidden features redirect a basic-plan manager to the dashboard (E2E-3)', reason: 'E2E-3 fix not on dev: /<slug>/appointments goes to /appointments/dashboard', link: E3 },
-  ],
+  // dev = the dev page. Since 428a060 (remediation merged into dev, 2026-10-10) its src/ is the same as
+  // remediation's: it has the E2E-1/E2E-2/E2E-3 fixes and U22's ProtectedRoute race fix, so every flow must pass.
+  // (Removed then: flows 4 and 7 as `mayPass` for the U22 race, 4b/4c for E2E-2, 10 for E2E-3.)
+  dev: [],
 };
 
 // ---------------------------------------------------------------- static server (`serve <dir> [port]`)
@@ -207,6 +215,7 @@ async function main() {
   }
   const ref = arg;
   const expected = EXPECTED[ref] ?? [];
+  const unreachable = expected.filter((x) => x.unreachable);
 
   ({ stackEnv } = await import('./test-env.mjs'));
   const e = stackEnv();
@@ -226,6 +235,23 @@ async function main() {
   sh('tar', ['-xf', tar, '-C', dir]);
   rmSync(tar, { force: true });
   const foreignUrls = dropEnvFiles(dir);
+
+  // 1b. `unreachable` entries: still unreachable only while the ref lacks at least one `missingUi` pattern. Each
+  //     pattern must match THIS branch's src/ (else it's stale and would never notice the ref catching up).
+  const srcText = (root) => (existsSync(join(root, 'src')) ? walk(join(root, 'src')).filter((f) => /\.(tsx?|jsx?)$/.test(f)).map((f) => readFileSync(f, 'utf8')) : []);
+  const unreachableProblems = [];
+  if (unreachable.length) {
+    const own = srcText(ROOT);
+    const theirs = srcText(dir);
+    for (const x of unreachable) {
+      const patterns = x.missingUi ?? [];
+      if (!patterns.length) unreachableProblems.push(`${x.title}: \`unreachable\` needs \`missingUi\` patterns`);
+      for (const re of patterns.filter((r) => !own.some((t) => r.test(t)))) unreachableProblems.push(`${x.title}: \`missingUi\` ${re} matches nothing in this branch's src/ (stale pattern)`);
+      if (patterns.length && patterns.every((r) => theirs.some((t) => r.test(t)))) {
+        unreachableProblems.push(`${x.title}: ${ref} (${short}) now has every \`missingUi\` pattern (${patterns.join(', ')}), so the screen may exist there; run the flow and drop \`unreachable\` (or the entry)`);
+      }
+    }
+  }
 
   // 2. Install and build exactly like the deploy does, but pointed at the local stack.
   const buildEnv = {
@@ -255,8 +281,19 @@ async function main() {
   const safe = ref.replace(/[^\w.-]/g, '_');
   const serveCmd = `node ${JSON.stringify(join(ROOT, 'scripts', 'test-env-dual.mjs'))} serve ${JSON.stringify(dist)} ${PORT}`;
   const pwEnv = { TEST_API_URL: e.apiUrl, TEST_ANON_KEY: e.anonKey, TEST_SERVICE_KEY: e.serviceKey, E2E_WEB_COMMAND: serveCmd };
+  // Unreachable entries are left out with --grep-invert; a listing checks the pattern removes exactly them (and
+  // that each one's title still names a test).
+  const skipArgs = unreachable.length ? ['--grep-invert', unreachable.map((x) => grepLiteral(x.title)).join('|')] : [];
+  const listedAll = listTitles([], pwEnv);
+  const unreachableMissing = unreachable.filter((x) => !listedAll.includes(x.title));
+  if (unreachable.length) {
+    const kept = listTitles(skipArgs, pwEnv);
+    const wrong = listedAll.filter((t) => !kept.includes(t) && !unreachable.some((x) => x.title === t));
+    if (wrong.length) fail(`The unreachable-entry filter would also skip: ${wrong.join('; ')}. Make the titles distinct.`);
+    console.log(`▶ Skipping ${unreachable.length} flow(s) unreachable on ${ref} (its UI lacks the screen; see EXPECTED.${ref}). Verify them whenever ${ref} changes.`);
+  }
   console.log(`▶ Smoke E2E against ${ref}'s frontend, on this branch's schema…`);
-  const all = runSuite(join(ROOT, 'test-results', `dual-${safe}.json`), rest, pwEnv, `${ref}'s frontend`);
+  const all = runSuite(join(ROOT, 'test-results', `dual-${safe}.json`), [...NO_RETRIES, ...skipArgs, ...rest], pwEnv, `${ref}'s frontend`);
   keepArtifacts(`dual-${safe}`);
 
   const known = new Map(expected.map((x) => [x.title, x]));
@@ -269,6 +306,7 @@ async function main() {
   //    feature/fix it doesn't have yet). Passes there → THIS branch's schema broke it: a schema regression,
   //    never acceptable as an expected failure.
   const testEnv = join(ROOT, 'scripts', 'test-env.mjs');
+  let stackOnRefSchema = false; // the stack has been reset to the ref's migrations
   const baseline = new Map(); // title → 'fail' | 'pass' | 'skipped'
   const baselineRuns = new Map(); // title → that test's result on the ref's own schema
   let baselineNote = '';
@@ -279,13 +317,14 @@ async function main() {
     } else {
       console.log(`\n▶ ${failed.length} failure(s). Re-running them on ${ref}'s own schema to tell its bugs from schema regressions…`);
       const reset = sh(process.execPath, [testEnv, 'reset'], { allowFail: true, env: { ...process.env, TEST_ENV_MIGRATIONS_DIR: migrations } });
+      stackOnRefSchema = true; // even a failed reset may have left it half-way
       const e2 = reset.status === 0 ? stackEnv() : null;
       if (!e2?.apiUrl) {
         baselineNote = `Resetting the stack to ${ref}'s schema failed; failures could not be checked on it.`;
       } else {
-        const grep = failed.map((t) => t.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const grep = failed.map((t) => grepLiteral(t.title)).join('|');
         const env2 = { ...pwEnv, TEST_API_URL: e2.apiUrl, TEST_ANON_KEY: e2.anonKey, TEST_SERVICE_KEY: e2.serviceKey };
-        const base = runSuite(join(ROOT, 'test-results', `dual-${safe}-own-schema.json`), ['--grep', grep], env2, `${ref}'s frontend on its own schema`, { allowEmpty: true });
+        const base = runSuite(join(ROOT, 'test-results', `dual-${safe}-own-schema.json`), [...NO_RETRIES, '--grep', grep], env2, `${ref}'s frontend on its own schema`, { allowEmpty: true });
         keepArtifacts(`dual-${safe}-own-schema`);
         for (const t of base) {
           baseline.set(t.title, t.status === 'unexpected' ? 'fail' : t.status === 'skipped' ? 'skipped' : 'pass');
@@ -305,26 +344,39 @@ async function main() {
   const confirmRuns = new Map();
   let confirmNote = '';
   const suspects = failed.filter((t) => baseline.get(t.title) === 'pass' || !known.has(t.title));
-  const onRefSchema = failed.length > 0 && ref !== 'HEAD' && !noBaseline && existsSync(join(dir, 'supabase', 'migrations'));
   if (suspects.length) {
     console.log(`\n▶ ${suspects.length} failure(s) would fail the gate. Re-running them on a fresh seed of this branch's schema to confirm…`);
-    const reset = sh(process.execPath, [testEnv, 'reset'], { allowFail: true });
+    // Every Playwright run seeds a fresh business (e2e/global-setup.ts), so the stack only needs a reset when the
+    // own-schema check moved it to the ref's migrations.
+    const reset = stackOnRefSchema ? sh(process.execPath, [testEnv, 'reset'], { allowFail: true }) : { status: 0 };
+    stackOnRefSchema = reset.status !== 0;
     const e3 = reset.status === 0 ? stackEnv() : null;
     if (!e3?.apiUrl) {
       confirmNote = "Resetting the stack to this branch's schema failed; the failures could not be confirmed.";
     } else {
-      const grep = suspects.map((t) => t.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
       const env3 = { ...pwEnv, TEST_API_URL: e3.apiUrl, TEST_ANON_KEY: e3.anonKey, TEST_SERVICE_KEY: e3.serviceKey };
-      const again = runSuite(join(ROOT, 'test-results', `dual-${safe}-confirm.json`), ['--grep', grep], env3, `${ref}'s frontend (confirmation)`, { allowEmpty: true });
-      keepArtifacts(`dual-${safe}-confirm`);
-      for (const t of again) {
-        confirm.set(t.title, t.status === 'unexpected' ? 'fail' : t.status === 'skipped' ? 'skipped' : 'pass');
-        confirmRuns.set(t.title, t);
+      // "Reproduces" = fails every attempt. One retry, as the gate had before U07c; `mayPass` entries (a frontend
+      // race or the time of day) get two, in their own run, so a race must lose three times in a row here (after
+      // losing on this schema and winning on the ref's own) before it counts as a regression.
+      const groups = [
+        ['confirm', suspects.filter((t) => !known.get(t.title)?.mayPass), 1],
+        ['confirm-maypass', suspects.filter((t) => known.get(t.title)?.mayPass), 2],
+      ];
+      for (const [suffix, group, retries] of groups) {
+        if (!group.length) continue;
+        const grep = group.map((t) => grepLiteral(t.title)).join('|');
+        const again = runSuite(join(ROOT, 'test-results', `dual-${safe}-${suffix}.json`), [`--retries=${retries}`, '--grep', grep], env3, `${ref}'s frontend (confirmation)`, { allowEmpty: true });
+        keepArtifacts(`dual-${safe}-${suffix}`);
+        for (const t of again) {
+          confirm.set(t.title, t.status === 'unexpected' ? 'fail' : t.status === 'skipped' ? 'skipped' : 'pass');
+          confirmRuns.set(t.title, t);
+        }
       }
       const unconfirmed = suspects.filter((t) => !['fail', 'pass'].includes(confirm.get(t.title)));
       if (unconfirmed.length) confirmNote = `no pass/fail result in the confirmation run for: ${unconfirmed.map((t) => t.title).join('; ')}.`;
     }
-  } else if (onRefSchema && !process.env.CI) {
+  }
+  if (stackOnRefSchema && !process.env.CI) {
     console.log("▶ Putting the stack back on this branch's schema…");
     sh(process.execPath, [testEnv, 'reset'], { allowFail: true });
   }
@@ -343,7 +395,7 @@ async function main() {
   const unexpectedFailures = failed.filter((t) => !known.has(t.title) && !regressions.includes(t) && !notReproduced.includes(t));
   const stale = passed.filter((t) => known.has(t.title) && !known.get(t.title).mayPass);
   const passedMayPass = passed.filter((t) => known.get(t.title)?.mayPass);
-  const missing = expected.filter((x) => !all.some((t) => t.title === x.title));
+  const missing = [...expected.filter((x) => !x.unreachable && !all.some((t) => t.title === x.title)), ...unreachableMissing];
   const where = (t) =>
     baseline.get(t.title) === 'fail' ? `fails on ${ref}'s own schema too` : baseline.has(t.title) ? `${baseline.get(t.title)} on ${ref}'s own schema` : 'not re-run on its own schema';
 
@@ -351,7 +403,7 @@ async function main() {
   lines.push(`## Dual-frontend gate: \`${ref}\` (${short}) frontend vs this branch's schema`);
   lines.push('');
   lines.push(
-    `**${passed.length - stale.length} passed · ${expectedFailures.length} expected failures · ${regressions.length} schema regressions · ${unexpectedFailures.length} unexpected failures · ${stale.length} expected failures that passed · ${notReproduced.length} not reproduced** (${all.length} tests${skipped.length ? `, ${skipped.length} skipped` : ''})`,
+    `**${passed.length - stale.length - passedMayPass.length} passed · ${expectedFailures.length} expected failures · ${unreachable.length} skipped as unreachable · ${regressions.length} schema regressions · ${unexpectedFailures.length} unexpected failures · ${passedMayPass.length} mayPass passes · ${stale.length} expected failures that passed · ${notReproduced.length} not reproduced** (${all.length} tests run${skipped.length ? `, ${skipped.length} skipped by Playwright` : ''})`,
   );
   lines.push('');
   for (const t of regressions) lines.push(`- **SCHEMA REGRESSION** (passes on ${ref}'s own schema, fails on this branch's): ${t.title} (${t.file}) — ${t.error}`);
@@ -360,7 +412,10 @@ async function main() {
   for (const t of stale) lines.push(`- **EXPECTED FAILURE PASSED** (remove it from EXPECTED.${ref} in scripts/test-env-dual.mjs): ${t.title}`);
   for (const t of passedMayPass) lines.push(`- expected failure passed this time (time-dependent, allowed): ${t.title} — ${known.get(t.title).reason}`);
   for (const x of missing) lines.push(`- **EXPECTED-FAILURE ENTRY MATCHES NO TEST** (stale title?): ${x.title}`);
+  for (const p of unreachableProblems) lines.push(`- **UNREACHABLE ENTRY NEEDS A LOOK**: ${p}`);
   for (const t of expectedFailures) lines.push(`- expected failure (${where(t)}): ${t.title} — ${known.get(t.title).reason} (${known.get(t.title).link})`);
+  for (const x of unreachable.filter((u) => !unreachableMissing.includes(u))) lines.push(`- skipped: unreachable on ${ref} (${x.reason}): ${x.title} (${x.link})`);
+  if (unreachable.length) lines.push(`- ${unreachable.length} flow(s) not run on ${ref} as unreachable: re-verify them (EXPECTED.${ref} in scripts/test-env-dual.mjs) whenever ${ref} changes.`);
   for (const t of skipped) lines.push(`- skipped: ${t.title}`);
   if (confirmNote) lines.push(`- **NOT CONFIRMED** (so a flake can't be told from a real failure): ${confirmNote}`);
   if (baselineNote) lines.push(`- **NOT CHECKED ON ITS OWN SCHEMA** (so failures can't be told from schema regressions): ${baselineNote}`);
@@ -381,9 +436,37 @@ async function main() {
   console.log(`\n${text.replace(/\*\*/g, '')}\n`);
   summary(text);
 
-  const ok = !baselineNote && !confirmNote && regressions.length === 0 && unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0;
-  console.log(ok ? `✓ ${ref}: ${passed.length} passed, ${expectedFailures.length} expected failures.` : `✗ ${ref}: the dual-frontend gate failed (see above).`);
+  const ok =
+    !baselineNote && !confirmNote && regressions.length === 0 && unexpectedFailures.length === 0 && stale.length === 0 && missing.length === 0 && unreachableProblems.length === 0;
+  console.log(
+    ok
+      ? `✓ ${ref}: ${passed.length} passed, ${expectedFailures.length} expected failures, ${unreachable.length} skipped as unreachable.`
+      : `✗ ${ref}: the dual-frontend gate failed (see above).`,
+  );
   process.exit(ok ? 0 : 1);
+}
+
+/** The gate's own runs don't retry (playwright.config.ts retries once in CI): see the header. */
+const NO_RETRIES = ['--retries=0'];
+
+/** A test title as a literal for Playwright's --grep / --grep-invert. */
+function grepLiteral(title) {
+  return title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Titles of the tests Playwright would run with `args` (no browser, no web server, no seed). */
+function listTitles(args, env) {
+  const r = sh(join(ROOT, 'node_modules', '.bin', WIN ? 'playwright.cmd' : 'playwright'), ['test', '--list', '--reporter=json', ...args], {
+    capture: true,
+    allowFail: true,
+    env: { ...process.env, ...env, E2E_JSON_REPORT: '' },
+  });
+  try {
+    return results(JSON.parse(r.stdout)).map((t) => t.title);
+  } catch {
+    process.stderr.write(r.stderr ?? '');
+    return fail(`Could not list the smoke E2E tests (playwright test --list, exit ${r.status}).`);
+  }
 }
 
 /** Runs Playwright (this branch's specs) with `env` and returns the flattened results of its JSON report. */

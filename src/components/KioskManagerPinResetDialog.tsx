@@ -22,10 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { t } from '@/lib/translations';
 import { KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
-import {
-  fetchEmployeePinsForBusiness,
-  managerPinPrefixCollidesWithEmployeePins,
-} from '@/lib/employeePin';
+import { isTooManyAttemptsError, setKioskManagerPin } from '@/lib/employeePin';
 
 export type KioskManagerPinResetDialogProps = {
   open: boolean;
@@ -102,27 +99,31 @@ export function KioskManagerPinResetDialog({
       setError(t('kioskManagerPinSettings.errors.pinsDontMatch'));
       return;
     }
-    try {
-      const employeePins = await fetchEmployeePinsForBusiness(supabase, businessId);
-      if (managerPinPrefixCollidesWithEmployeePins(newPin, employeePins)) {
-        setError(t('kioskManagerPinSettings.errors.prefixMatchesEmployee'));
-        return;
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('kioskManagerPinSettings.toast.failedUpdate'));
-      return;
-    }
     setBusy(true);
     try {
-      const { error: upErr } = await supabase
-        .from('businesses')
-        .update({ kiosk_manager_pin: newPin })
-        .eq('id', businessId);
-      if (upErr) throw upErr;
+      // P2-04: the database checks the employee-PIN prefix and that the account password was just entered
+      // (a password sign-in in the last 10 minutes), then saves. No PIN list or plain manager PIN in the browser.
+      const result = await setKioskManagerPin(supabase, businessId, newPin);
+      if (!result.ok) {
+        if (result.error === 'current_pin_required') {
+          // The password step is too old (or was skipped): ask for the password again.
+          setStep('password');
+          setError(t('kioskManagerPinReset.errors.enterPassword'));
+        } else if (result.error === 'pin_prefix_in_use') {
+          setError(t('kioskManagerPinSettings.errors.prefixMatchesEmployee'));
+        } else {
+          setError(t('kioskManagerPinSettings.errors.pin6Digits'));
+        }
+        return;
+      }
       toast.success(t('kioskManagerPinReset.successToast'));
       onOpenChange(false);
       await onSuccess?.();
     } catch (e) {
+      if (isTooManyAttemptsError(e)) {
+        setError(e.details || t('kioskManagerPinSettings.toast.failedUpdate'));
+        return;
+      }
       setError(e instanceof Error ? e.message : t('kioskManagerPinSettings.toast.failedUpdate'));
     } finally {
       setBusy(false);
