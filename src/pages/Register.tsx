@@ -401,8 +401,34 @@ export function Register() {
     }
   };
 
+  /** Client step 1 → 2, with the same check as its "Next" button. */
+  const canLeaveClientStep1 = Boolean(email && password);
+  const advanceFromClientStep1 = () => {
+    if (!canLeaveClientStep1) return;
+    setClientStep(2);
+  };
+
+  /** Client step 2 → 3, with the same check as its "Next" button. */
+  const canLeaveClientStep2 = Boolean(fullName.trim());
+  const advanceFromClientStep2 = () => {
+    if (!canLeaveClientStep2) return;
+    setStep3SelectingKinds(true);
+    setClientStep(3);
+    setActivePetId(pets[0]?.id ?? null);
+  };
+
   const handleClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // U27: the form spans all three steps, so Enter in a field on step 1 or 2 (implicit submission) lands here.
+    // Advance one step instead of signing up early; only step 3 submits.
+    if (clientStep === 1) {
+      advanceFromClientStep1();
+      return;
+    }
+    if (clientStep === 2) {
+      advanceFromClientStep2();
+      return;
+    }
     if (!passwordMeetsComplexityRules(password)) {
       toast.error('Usa 8+ caracteres con mayuscula, minuscula, numero y simbolo.');
       return;
@@ -815,7 +841,7 @@ export function Register() {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">Usa 8+ caracteres con mayuscula, minuscula, numero y simbolo.</p>
-                    <Button type="button" className="w-full" onClick={() => setClientStep(2)} disabled={!email || !password}>
+                    <Button type="button" className="w-full" onClick={advanceFromClientStep1} disabled={!canLeaveClientStep1}>
                       {t('register.next')}
                     </Button>
                   </>
@@ -868,12 +894,8 @@ export function Register() {
                       <Button
                         type="button"
                         className="flex-1"
-                        onClick={() => {
-                          setStep3SelectingKinds(true);
-                          setClientStep(3);
-                          setActivePetId(pets[0]?.id ?? null);
-                        }}
-                        disabled={!fullName.trim()}
+                        onClick={advanceFromClientStep2}
+                        disabled={!canLeaveClientStep2}
                       >
                         {t('register.next')}
                       </Button>

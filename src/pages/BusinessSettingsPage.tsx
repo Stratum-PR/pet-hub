@@ -48,9 +48,11 @@ import { DEFAULT_BUSINESS_TIMEZONE } from '@/lib/businessTimezonePicker';
 import { cn } from '@/lib/utils';
 import {
   buildBusinessPortalUrl,
+  buildQrPrintHtml,
   generateBusinessPortalQrPngDataUrl,
   generateBusinessPortalQrSvg,
   resolvePortalBaseUrl,
+  sanitizeQrSvg,
 } from '@/lib/qrCode';
 
 type PublicSlugCheckStatus =
@@ -260,7 +262,8 @@ export function BusinessSettingsPage() {
         .maybeSingle();
       if (!cancelled) {
         if (!error && data?.qr_code) {
-          setQrCodeSvg(String(data.qr_code));
+          // businesses.qr_code is member-writable text: sanitise before it reaches dangerouslySetInnerHTML / print.
+          setQrCodeSvg(sanitizeQrSvg(String(data.qr_code)));
         } else {
           setQrCodeSvg(null);
         }
@@ -726,19 +729,17 @@ export function BusinessSettingsPage() {
   const handlePrintQr = () => {
     if (!qrCodeSvg || !business?.slug) return;
     const portalUrl = buildBusinessPortalUrl(business.slug, resolvePortalBaseUrl(window.location.origin));
+    // Escaped business name/slug/URL and a sanitised SVG (see buildQrPrintHtml).
+    const html = buildQrPrintHtml({
+      slug: business.slug,
+      businessName: business.name,
+      portalUrl,
+      qrSvg: qrCodeSvg,
+    });
+    if (!html) return;
     const popup = window.open('', '_blank', 'width=800,height=600');
     if (!popup) return;
-    popup.document.write(`
-      <html>
-        <head><title>QR ${business.slug}</title></head>
-        <body style="font-family: sans-serif; margin: 24px;">
-          <h2 style="margin-bottom: 12px;">${business.name}</h2>
-          <p style="margin-bottom: 16px;">${portalUrl}</p>
-          <div style="width: 320px; height: 320px;">${qrCodeSvg}</div>
-          <script>window.onload = () => window.print();</script>
-        </body>
-      </html>
-    `);
+    popup.document.write(html);
     popup.document.close();
   };
 
@@ -962,6 +963,7 @@ export function BusinessSettingsPage() {
                     ) : qrCodeSvg ? (
                       <div
                         className="h-40 w-40 [&>svg]:h-full [&>svg]:w-full"
+                        // qrCodeSvg is either fresh generator output or sanitizeQrSvg() of the stored value.
                         dangerouslySetInnerHTML={{ __html: qrCodeSvg }}
                       />
                     ) : (

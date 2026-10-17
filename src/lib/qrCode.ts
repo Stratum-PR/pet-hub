@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { hslToHex, rgbStringToHsl } from '@/lib/colorFormat';
+import { escapeHtml } from '@/lib/escapeHtml';
 
 const FALLBACK_QR_COLOR = '#6B8B70';
 const LIVE_PORTAL_BASE = 'https://grumi.pet';
@@ -187,4 +188,126 @@ export async function generateBusinessPortalQrPngDataUrl(
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** Elements the QR generator emits (qrcode's `svg`/`path`, plus the centre branding). Lower-case for comparison. */
+const QR_SVG_ELEMENTS = new Set(['svg', 'path', 'rect', 'g', 'defs', 'clippath', 'circle', 'image', 'text']);
+
+/** Attributes the QR generator emits. No event handlers, no `style`. Lower-case for comparison. */
+const QR_SVG_ATTRIBUTES = new Set([
+  'xmlns',
+  'xmlns:xlink',
+  'version',
+  'width',
+  'height',
+  'viewbox',
+  'shape-rendering',
+  'preserveaspectratio',
+  'fill',
+  'stroke',
+  'stroke-width',
+  'd',
+  'x',
+  'y',
+  'cx',
+  'cy',
+  'r',
+  'id',
+  'clip-path',
+  'text-anchor',
+  'dominant-baseline',
+  'font-size',
+  'font-weight',
+  'font-family',
+  'href',
+  'xlink:href',
+]);
+
+/** Logo hrefs: http(s), data:image/…, or a same-site absolute path (not protocol-relative). */
+function isSafeQrImageHref(value: string): boolean {
+  const v = value.trim();
+  return /^https?:\/\//i.test(v) || /^data:image\//i.test(v) || /^\/(?!\/)/.test(v);
+}
+
+function isSafeQrAttribute(name: string, value: string): boolean {
+  if (!QR_SVG_ATTRIBUTES.has(name)) return false;
+  if (name === 'href' || name === 'xlink:href') return isSafeQrImageHref(value);
+  // Only local references such as clip-path="url(#qrLogoClip-…)"; no external url(…) fetches.
+  if (/url\s*\(/i.test(value)) return /^\s*url\(#[\w-]+\)\s*$/.test(value);
+  return true;
+}
+
+function sanitizeQrSvgNode(el: Element): void {
+  for (const attr of Array.from(el.attributes)) {
+    if (!isSafeQrAttribute(attr.name.toLowerCase(), attr.value)) el.removeAttributeNode(attr);
+  }
+  for (const child of Array.from(el.childNodes)) {
+    if (child.nodeType === 3 /* TEXT_NODE */) continue;
+    if (
+      child.nodeType === 1 /* ELEMENT_NODE */ &&
+      (child as Element).namespaceURI === SVG_NS &&
+      QR_SVG_ELEMENTS.has((child as Element).localName.toLowerCase())
+    ) {
+      sanitizeQrSvgNode(child as Element);
+      continue;
+    }
+    // Disallowed element (script, foreignObject, style, a, animate, set, …), comment, CDATA or processing instruction.
+    el.removeChild(child);
+  }
+}
+
+/**
+ * Sanitises a stored QR SVG before it is inlined into the page or the print window.
+ *
+ * `businesses.qr_code` is plain text that any member of the business can write through the API, so it is not
+ * trusted generator output by the time it is read back. Keeps only the elements and attributes the generator
+ * emits (output of `generateBusinessPortalQrSvg` round-trips unchanged) and returns the re-serialised SVG, or
+ * `null` when the value is not a well-formed SVG document. Browser-only (DOMParser / XMLSerializer).
+ */
+export function sanitizeQrSvg(svg: string | null | undefined): string | null {
+  if (!svg || typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') return null;
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  } catch {
+    return null;
+  }
+  const root = doc.documentElement;
+  if (
+    !root ||
+    root.namespaceURI !== SVG_NS ||
+    root.localName !== 'svg' ||
+    doc.getElementsByTagName('parsererror').length > 0
+  ) {
+    return null;
+  }
+  sanitizeQrSvgNode(root);
+  return new XMLSerializer().serializeToString(root);
+}
+
+/**
+ * Builds the QR print window's HTML. Every interpolated value is escaped and the SVG is sanitised;
+ * returns `null` when the SVG is not valid. The layout matches the original inline template.
+ */
+export function buildQrPrintHtml(input: {
+  slug: string;
+  businessName: string | null | undefined;
+  portalUrl: string;
+  qrSvg: string;
+}): string | null {
+  const svg = sanitizeQrSvg(input.qrSvg);
+  if (!svg) return null;
+  return `
+      <html>
+        <head><title>QR ${escapeHtml(input.slug)}</title></head>
+        <body style="font-family: sans-serif; margin: 24px;">
+          <h2 style="margin-bottom: 12px;">${escapeHtml(input.businessName)}</h2>
+          <p style="margin-bottom: 16px;">${escapeHtml(input.portalUrl)}</p>
+          <div style="width: 320px; height: 320px;">${svg}</div>
+          <script>window.onload = () => window.print();</script>
+        </body>
+      </html>
+    `;
 }

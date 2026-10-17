@@ -1129,6 +1129,305 @@ No frontend deploy is needed.
 - Profile fetch that fails: unchanged. Once loading ends, the user is treated as a client and, without an approved link, sent to `/portal`.
 - A logged-out visitor with no session goes to `/` (not `/<slug>/login`); unchanged.
 - `dev` still has the race until remediation is merged into it; then remove flows 4 and 7 from `EXPECTED.dev` in `scripts/test-env-dual.mjs`.
-- Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`.
+- Amplifier (reasoned from the auth-js source, not measured): `pinBrowserClock` (`page.clock.setFixedTime`) freezes `Date.now()`. When the pinned time is more than ~58 min ahead of real time, auth-js sees every session as expired and refreshes before each request, slowing or failing the profile load. Flows 4b/4c pin 20:00 PR and are ahead for most CI runs. Possible e2e follow-up: `page.clock.install({ time })` with `runFor`/`fastForward`. **Fixed by U31** (shifted `expires_at`).
 
 **Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · P1-13 (CI) follow-up · U07c · Faster dual-frontend gate
+
+**Status:** done on `remediation` (unit U07c, branch `fix/U07c-dual-gate-speed`). CI only.
+
+**Problem.** dual-main took ~22–25 min and dual-dev ~10–15 min. `playwright.config.ts` retries once in CI with a 60 s timeout, so each expected failure that timed out cost 2×60 s, and every failure was then re-run on the ref's own schema at the same cost. Most of main's expected failures can't even reach their screen on main's April UI.
+
+**Change** (`scripts/test-env-dual.mjs`).
+- The gate's own runs pass `--retries=0`; the fresh-seed confirmation keeps 1 retry and `mayPass` suspects get 2 in their own run.
+- New `unreachable: true` + `missingUi` patterns on EXPECTED entries. Main flows 3, 4, 4b, 4c, 5, 5c, 9 are skipped (`--grep-invert`) and reported as "skipped: unreachable". The gate fails if an unreachable title matches no test, if the filter would skip any other test, if a `missingUi` pattern is stale on this branch, or if the ref now has every pattern for an entry (the screen may exist now).
+- Main flows 10 and 7 (`mayPass`) still run and are re-checked.
+- No stack reset before the confirmation unless the own-schema check moved the stack.
+- Summary adds "skipped as unreachable" and "mayPass passes".
+- `EXPECTED.dev` emptied: dev 428a060 has remediation merged (identical `src/`, `e2e/`), so flows 4/7 (U22 race), 4b/4c (E2E-2) and 10 (E2E-3) pass there.
+
+**Gates.** tsc 29 · lint 400 · vitest 146/146 · build OK. Head c02da17: CI 38077126481 ✓; dual-frontend 38077126633 ✓ — main: 6 passed + 1 expected (10) + flow 7 mayPass passed + 7 unreachable skipped, smoke step **2m10s** (was ~22 min); dev: 15/15, smoke step **1m30s** (was ~10–15 min).
+
+**Notes.**
+- A `mayPass` race fails the gate only if it loses on the first run, wins on the ref's own schema, and loses all 3 confirmation attempts (~3% per flow at a 50% race rate; was ~4.7%). Trade-off: an intermittent regression gets one attempt on the own-schema re-check instead of two.
+- Re-verify main's unreachable entries when main changes; the `missingUi` check flags it once main ships those screens.
+- The P1-13 entry's counts above are superseded: main 9 listed (7 unreachable, 10 expected, 7 mayPass); dev 0.
+
+**Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · P2-02 · Staff kiosk PINs hashed (expand step)
+
+**Status:** done on `remediation` (unit U11, branch `fix/U11-hash-staff-pins`). **Not applied to production** (OWNER_ACTIONS D10). Contract step pending (below).
+
+**Problem.** `staff.pin` held every kiosk PIN in plain text: every member of a business could read all of them, `clock_in_out` compared plain text, and the app selected the PIN column to look staff up.
+
+**Change.**
+- `supabase/migrations/20261010210000_staff_pin_hashes.sql` (requires 20261006130000, 20261009120000 and pgcrypto in `extensions`; stops with a clear message otherwise):
+  - `staff_pin_hashes` (bcrypt via `extensions.crypt`, one salt per business in `staff_pin_salts`): RLS on, no policies, revoked from anon/authenticated, service role only.
+  - Trigger `staff_sync_pin_hash` (AFTER INSERT OR UPDATE OF pin, business_id ON staff) keeps hashes in sync with every writer (main, dev, remediation, `complete_manager_signup`, service role). Blank PIN or no business removes the hash; deleting staff cascades.
+  - `staff_pin_hashes_backfill()` hashes existing PINs in place (nobody needs a reset); safe to re-run.
+  - `clock_in_out_unthrottled` looks staff up by hash (otherwise verbatim). A blank PIN never matches (before, `''` matched a row with pin `''` and `pin_required` false).
+  - RPCs: `kiosk_staff_by_pin` (members; returns no PIN/hash; wrong PINs count in `clock_pin_attempts`, so it shares clock_in_out's limits), `staff_pin_available` (managers only), `generate_staff_pin` (members; random free PIN).
+- `supabase/rollbacks/20261010210000_staff_pin_hashes.down.sql`: restores `clock_in_out_unthrottled` verbatim and drops the new objects (hashes are derived data). Migration + rollback verified to give an identical `pg_dump -s` on a local Postgres 16.
+- Frontend (`src/lib/employeePin.ts`, `useTimeKiosk.ts`, `TimeKiosk.tsx`, `KioskManagerPinSettings.tsx`): the kiosk looks staff up through `kiosk_staff_by_pin` and passes the typed PIN to `clock_in_out`; PIN generation and the manager-PIN prefix check use the RPCs. Each falls back to the old query only when the function is missing (PGRST202/42883), so the frontend works on production's current schema too. `KIOSK_STAFF_COLUMNS` no longer includes `pin`.
+- Types: the 3 RPCs added to `src/integrations/supabase/types.ts` (coordinator).
+- Tests: `scripts/test-env-security.mjs` `pinHashing` (~40 checks), new `src/lib/employeePin.test.ts` (14), `selectColumns.test.ts` (+1).
+
+**Compatibility with `main` (shared database).** Expand-only: `staff.pin`, its unique index and RLS are unchanged. Main's kiosk (`select('*').eq('pin', …)` then `clock_in_out(employee.pin)`), PIN generator, staff form and writes keep working; dual-main ran green with the kiosk flow passing. `known("employee cannot read a coworker's kiosk PIN (P2-02)")` stays known() until the contract step, because main still needs members to read `staff.pin`.
+
+**Gates.**
+- tsc 29 · lint 400 · vitest 159/159 · build OK (combined).
+- Red test-only run 38075757971 (db-tests: "16 check(s) FAILED").
+- Final head f2e7f62: CI 38078208163 ✓ (security ✓ + 2 known issues open, payments ✓, smoke E2E 15/15); dual-frontend 38078208125 ✓ (main 7 passed / 1 expected / 7 unreachable; dev 15/15).
+
+**Production steps (Jovaniel; OWNER_ACTIONS D10).** Backup first, then:
+1. `select extnamespace::regnamespace from pg_extension where extname='pgcrypto';` → `extensions`.
+2. `select to_regprocedure('public.is_business_manager(uuid)'), to_regclass('public.clock_pin_attempts');` → both non-null (D6 applied).
+3. Paste `supabase/migrations/20261010210000_staff_pin_hashes.sql` in the SQL editor. **Never `supabase db push`.**
+4. `npx supabase migration repair --status applied 20261010210000`.
+5. Verify: `select count(*) from staff s where s.business_id is not null and btrim(s.pin)<>'' and not exists (select 1 from staff_pin_hashes h where h.staff_id=s.id);` → 0; `select public.staff_pin_hashes_backfill();` → 0 on a second run; `select has_table_privilege('authenticated','public.staff_pin_hashes','select');` → false.
+6. Clock a test employee in and out on production's kiosk (main) and on dev.grumi.pet.
+
+**Rollback (production).** Run `supabase/rollbacks/20261010210000_staff_pin_hashes.down.sql`, then `npx supabase migration repair --status reverted 20261010210000`. The remediation frontend falls back automatically.
+
+**Later contract step (separate unit, once `main` runs the remediation frontend).** Remove the fallbacks; switch the staff form, self-service PIN change and `KioskManagerPinResetDialog` to a `set_staff_pin` RPC that writes only the hash; drop `pin` from `STAFF_MANAGER_COLUMNS`, `Employees.tsx` and the dead `verifyPin`; hash in `complete_manager_signup`; unique `(business_id, pin_hash)`; drop `staff_business_pin_unique` and null/drop `staff.pin`; move the coworker-PIN known() to check().
+
+**Notes.**
+- A 4-digit PIN can be brute-forced from its hash; the protection is that only the service role can read hashes, which prepares for dropping the plain column.
+- `KioskManagerPinResetDialog.tsx` still uses the plaintext helper: the repo's pre-commit hook blocks commits to it (false-positive "hardcoded password" on `password: accountPassword`).
+- `EmployeeManagement`, `useSupabaseData` (`STAFF_MANAGER_COLUMNS`, dead `verifyPin`) and `Employees.tsx` still read `pin` (contract step).
+- Rate limiting in `kiosk_staff_by_pin` raises P0001 `too_many_attempts`; the kiosk shows "invalid PIN" rather than "wait 15 minutes".
+- `generate_staff_pin` is callable by employees, so free PINs can be enumerated slowly (~90k calls) — far weaker than today's direct read; accepted.
+
+---
+
+## 2026-10-10 · P2-04 · Kiosk manager PIN hashed (expand step)
+
+**Status:** done on `remediation` (unit U12, branch `fix/U12-hash-kiosk-manager-pin`). **Not applied to production** (OWNER_ACTIONS D11). Contract step pending.
+
+**Problem.** `businesses.kiosk_manager_pin` held the kiosk unlock PIN in plain text, readable by every member and, through the policy "Public can read businesses with slug for directory", by **anyone (anon included) for every business with a slug**. The kiosk, settings and PIN generator compared it in the browser.
+
+**Change.**
+- `supabase/migrations/20261010220000_kiosk_manager_pin_hashes.sql` (requires 20261010210000; stops with a message otherwise):
+  - `kiosk_manager_pin_hashes` (bcrypt of the PIN and of its first 4 digits, with U11's per-business salt): service role only.
+  - Trigger `businesses_sync_kiosk_manager_pin_hash` hashes every writer (main, dev, remediation, service role, e2e seeds); in-place backfill.
+  - Computed field `businesses.kiosk_manager_pin_set` (members; not part of `select('*')`).
+  - `kiosk_pin_entry(business, pin)` (members): keypad decision by hash (staff / manager / manager prefix / invalid); wrong entries share clock_in_out's 8/40 limits.
+  - `set_kiosk_manager_pin(business, new, current)` (managers): 6 digits, prefix not a staff PIN, and the current PIN or a password sign-in in the last 10 minutes (JWT `amr`); writes the plain column too, so main sees the new PIN.
+  - `generate_staff_pin` also skips the manager prefix server-side.
+- `supabase/rollbacks/20261010220000_kiosk_manager_pin_hashes.down.sql`: restores `generate_staff_pin` verbatim and drops the rest (identical `pg_dump -s` verified locally).
+- Frontend (`employeePin.ts`, `TimeKiosk.tsx`, `KioskManagerPinSettings.tsx`, `KioskManagerPinResetDialog.tsx`): never reads the plain manager PIN on a migrated database; falls back to today's path only on 42703 / PGRST202 / 42883. The reset dialog no longer loads every employee PIN (U11 follow-up done).
+- `scripts/pre-commit`: the "Hardcoded password" rule now flags only quoted literals (a password key followed by a quoted string literal), not identifiers (`password: accountPassword`); checked against 9 sample lines (owner decision 2026-10-10).
+- Types: 3 functions added to `src/integrations/supabase/types.ts` (coordinator).
+- Tests: `scripts/test-env-security.mjs` `managerPinHashing` (34 checks, 2 new known()); `src/lib/employeePin.test.ts` (+27).
+
+**Compatibility with `main`.** Expand-only: the plain column, its RLS and main's direct reads/writes are unchanged; the trigger hashes main's writes. dual-main passed, including kiosk flow 6.
+
+**Gates.** tsc 29 · lint 400 · vitest 180/180 · build OK (combined). Red run 38080738121 (db-tests "21 check(s) FAILED"). Final head 9d5c533: CI 38081115484 ✓ (security ✓ + 4 known issues open, payments ✓, E2E 15/15); dual-frontend 38081115397 ✓ (main 7 passed / 1 expected / 7 unreachable; dev 15/15).
+
+**Production steps (Jovaniel; OWNER_ACTIONS D11).** After D10, backup first:
+1. `select to_regprocedure('public.staff_pin_hash(uuid,text,boolean)'), to_regclass('public.staff_pin_hashes');` → both non-null.
+2. Paste the migration in the SQL editor. **Never `supabase db push`.**
+3. `npx supabase migration repair --status applied 20261010220000`.
+4. Verify: `select count(*) from businesses b where btrim(coalesce(b.kiosk_manager_pin,''))<>'' and not exists (select 1 from kiosk_manager_pin_hashes k where k.business_id=b.id);` → 0; `select public.kiosk_manager_pin_hashes_backfill();` → 0; `select has_table_privilege('authenticated','public.kiosk_manager_pin_hashes','select');` → false.
+5. On production (main) and dev.grumi.pet: lock/unlock the kiosk with the manager PIN, clock an employee in and out, change the manager PIN in settings, and do one PIN reset through the password step (confirms hosted Auth puts the password `amr` timestamp in the token).
+
+**Rollback.** Run the `.down.sql` (before any rollback of 20261010210000), then `npx supabase migration repair --status reverted 20261010220000`. The frontend falls back automatically.
+
+**Later contract step** (once `main` runs the remediation frontend): remove fallbacks; `set_kiosk_manager_pin` writes only the hash; null/drop `businesses.kiosk_manager_pin` and the sync trigger. Until then, revoking column SELECT from anon/authenticated needs every `select('*')` on businesses removed (main's businessSlug/authRouting run it as anon). Move the two manager-PIN known() to check().
+
+**Notes.**
+- **Anyone can read every slugged business's kiosk manager PIN today** (directory policy + main's `select('*')`). Tracked as known(); closes only with the contract step. Owner action listed in OWNER_ACTIONS.
+- 5-digit entries are checked by their first 4 digits; a wrong 5th digit fails at the 6th. Rate-limited keypad entries still show "invalid PIN".
+- If production's PostgREST answered an unknown computed field with a code other than 42703/PGRST204, remediation's kiosk gate would show an error instead of falling back before D11 is applied: do one kiosk check on dev.grumi.pet before deploying dev ahead of D11, or apply D10/D11 first.
+- `is_business_manager` also lets staff with access_role admin/manager set the PIN (consistent with S-8a).
+
+---
+
+## 2026-10-10 · U28 (C5) · Drop the dead staff missing-email reminder call
+
+**Status:** done on `remediation` (unit U28, branch `fix/U28-drop-missing-email-reminder`). Frontend only; ships with the next `dev` deploy.
+
+**Problem.** The app called `dispatch_staff_missing_email_reminders` daily, but that function never reached production (P0-05), so the call failed quietly (404 PGRST202) every time and showed up as noise in E2E traces. Owner decision C5 (2026-10-10): drop the call.
+
+**Change.** Removed the `useNotifications` effect that only ran this call (it also refetched notifications at 6am, which the birthday-jobs effect already does) and the `dispatchStaffMissingEmailReminders` helper. Staff birthday dispatch is unchanged. New `src/lib/staffBirthdayDispatch.test.ts` (3 tests: exports, birthday RPC still called, no `src/` code names the dropped RPC).
+
+**Gates.** tsc 29 → **28** (baseline locked in by the coordinator) · lint 400 · vitest 183/183 · build OK. CI 38082169535 ✓.
+
+**Notes.** Migration `20260328103000_staff_missing_email_reminder_rpc.sql` stays in the repo, not applied (archive it with the S-9b baseline). The P0-05 existence check in `scripts/prod-checks/p0-checks.sql` is now informational only.
+
+**Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U26 · Feature gate waits for "rules loaded or failed" instead of a 10 s timeout
+
+**Status:** done on `remediation` (unit U26, branch `fix/U26-feature-rules-settled`). Frontend only; ships with the next `dev` deploy.
+
+**Problem.** U19 made gated routes wait for the feature rules, with a 10 s fallback if they never loaded. A cleaner signal was available: whether the rule queries have settled.
+
+**Change.**
+- `useFeatureRollout` returns `featureRulesStatus` (`'loading' | 'loaded' | 'error'`) instead of `rolloutLoaded` (its only consumer was `Index.tsx`). A query with data counts as loaded, so a failed background refetch keeps the page.
+- `src/lib/featureGate.ts`: `useFeatureGatesKnown` and `FEATURE_GATE_LOAD_TIMEOUT_MS` removed; `featureRulesStatus(...)` and `featureGatesKnown(status)` (true unless loading) added. `Index.tsx` uses them.
+- Redirect targets and immediate rendering of visible features (incl. demo bypass) unchanged.
+- Tests: `src/lib/featureGate.test.tsx` (rewritten), new `src/hooks/useFeatureRollout.test.tsx`.
+
+**Gates.** tsc 28 · lint 400 · vitest green · build OK. Red 38082170187 (`check`: 4 new type errors for the missing exports; `db-tests` cancelled by the next push). Green 38082364279 (`check` ✓, `db-tests` ✓ incl. E2E flows 10/10b).
+
+**Notes.**
+- On a rules-query error the redirect happens after react-query's default 3 retries (~7 s), not instantly.
+- No timeout any more: a request that hangs forever (never errors) keeps the paw loader up. U19's 10 s timer covered that case.
+- If one query fails while the other hangs, the gate keeps waiting.
+
+**Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U27 · Client sign-up: Enter on step 1/2 submitted the whole form
+
+**Status:** done on `remediation` (unit U27, branch `fix/U27-signup-enter-key`). Frontend only; ships with the next `dev` deploy.
+
+**Problem.** One `<form onSubmit>` spans all three client sign-up steps in `src/pages/Register.tsx`, so pressing Enter in a field on step 1 or 2 (implicit submission) ran `handleClientSubmit` and created the account with no name and no pets. Found during U01.
+
+**Change.** `handleClientSubmit` advances one step on steps 1–2 using the same checks as each step's "Next" button (shared helpers `advanceFromClientStep1/2`, also used by the buttons); only step 3 signs up. Manager sign-up is not affected (its steps 1–2 aren't in a form). Role handling unchanged (P0-01 / U01 / P2-07). 4 new tests in `Register.test.tsx` (existing assertions untouched).
+
+**Gates.** Red 38082140704 (`check`: 2 failed). Green 38082449186. Combined: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.** jsdom doesn't do implicit submission, so tests fire the submit event the browser would; not checked by hand in a browser. Password strength is still checked only at the final submit, as before.
+
+**Rollback.** Revert the merge commit.
+
+
+---
+
+## 2026-10-10 · U23 · Client/pet Delete shown to staff with access_role manager/admin
+
+**Status:** done on `remediation` (unit U23, branch `fix/U23-staff-manager-delete`). Frontend only; owner decision 2026-10-10.
+
+**Problem.** Clients and Pets hid Delete from every profile with role employee (`role !== 'employee' || is_super_admin`), but the database (decision 9; U13/U14 policies use `is_business_manager`) allows the delete for staff whose access_role is admin or manager.
+
+**Change.** New `src/lib/deletePermissions.ts` mirrors `is_business_manager` / `caller_staff_access_role_for_business`; new `src/hooks/useCanDeleteClientsAndPets.ts` reads the user's own staff row through the existing `useStaff`; `Clients.tsx` and `Pets.tsx` use it. 11 unit tests.
+
+**Gates.** Red 38082141766 (`check`: TS2307, helper missing). Green 38082456149. Combined: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.**
+- Profile role `client` or no role yet (profile loading) no longer sees Delete (before: shown, but the database refused).
+- The database doesn't check `staff.status`, so inactive staff with access_role admin/manager can still delete; the frontend matches. Changing that is a database decision.
+- Fail-closed edge: if `profiles.staff_id` points to a staff row whose `user_id` isn't the caller, the button is hidden although the database would allow it.
+
+**Rollback.** Revert the merge commit.
+
+
+---
+
+## 2026-10-10 · U25 · Stored XSS in Business Settings QR preview and print
+
+**Status:** done on `remediation` (unit U25, branch `fix/U25-qr-print-escaping`). Frontend only.
+
+**Problem.** `businesses.qr_code` (plain TEXT; any profile with that `business_id` can update the business row — S-7 — and P0-01 lets anyone become a manager until it's applied) was rendered with `dangerouslySetInnerHTML` on load, and written with `document.write` into a same-origin `about:blank` print window together with unescaped `business.name`, `slug` and the portal URL. A member could store `<svg><script>` / `<img onerror>` (or a crafted name/slug) and run script in the browser of any manager or super admin ("Entrar como", admin portal) who opens Settings for that business. Anonymous visitors and clients can't reach it.
+
+**Change.**
+- New `src/lib/escapeHtml.ts` (`& < > " '`; no `replaceAll`, Safari 12 target).
+- `src/lib/qrCode.ts`: `sanitizeQrSvg` (DOMParser allowlist of the generator's own elements/attributes; no event handlers or `style`; `href` only http(s), `data:image/` or same-site path; `url()` only `#id`; returns null for anything that isn't a well-formed SVG) and `buildQrPrintHtml` (same template, every value escaped, SVG sanitized; no window if invalid).
+- `BusinessSettingsPage.tsx`: stored SVG sanitized on load; print uses `buildQrPrintHtml`. Visible output unchanged.
+- Tests: `src/lib/escapeHtml.test.ts` (5), `src/lib/qrCode.sanitize.test.ts` (13); existing `qrCode.test.ts` passes.
+
+**Gates.** Test-only run 38082202044 was cancelled by the fix push (red evidence local only: 13 new tests failed). Green 38082417625. Combined: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.**
+- Root cause stays open until S-7 (P2-01 businesses: only managers update the business) lands; consider also a slug format CHECK.
+- `src/components/InvoicePrint.tsx` has its own `escapeHtml` without `'`; not exploitable as used (double-quoted attributes) — could switch to the shared helper.
+- The preview now renders the re-serialized SVG (XMLSerializer); structure identical, formatting may differ; checked in jsdom only.
+
+**Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U24 (P1-10 follow-up) · dual-frontend checks can be required
+
+**Status:** done on `remediation` (unit U24, branch `fix/U24-dual-required-twin`). CI only.
+
+**Problem.** `dual-frontend.yml` used `paths:` filters, so on PRs that don't touch migrations/functions/test env/e2e the `dual-main`/`dual-dev` checks never reported, and a required check would wait forever.
+
+**Change.** `.github/workflows/dual-frontend.yml` has no path filter. Each job always runs; its first step ("Decide") diffs the PR merge commit against its base (or the pushed range) and, if no relevant path changed (same regex as the old filter), succeeds in seconds with "no migration/function/e2e change; dual-frontend not needed"; otherwise the full gate runs. No same-named twin workflow, so a quick success can't stand next to a real failure. Unknown diffs (new branch, force push, manual run) run the full gate. Jobs are never skipped as a whole. PR runs are named `dual-main`/`dual-dev`; push and manual runs `dual-<ref> (push)` / `(workflow_dispatch)`, so they can't satisfy a PR's required check.
+
+**Gates.** YAML parses; `npm run check` ✓. Proof: run 38082394189 (README-only push: both jobs ~8 s, gate skipped); run 38082458385 (e2e push: full gate ran; attempt 1 `dual-dev` failed on a runner port conflict → check red, attempt 2 green). Final head 60ad0f3: CI 38083129726 ✓, dual-frontend 38083129679 ✓.
+
+**Notes.** The PR-event path (names, merge-commit diff) was simulated locally only; the first real PR into `dev`/`main` confirms it. Edge case: the same commit heading two open PRs gives two PR runs named `dual-main` on that commit.
+
+**Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · P2-01 businesses (U29) · Only managers edit the business; billing columns service-role only (S-7a)
+
+**Status:** done on `remediation` (unit U29, branch `fix/U29-businesses-update-managers`). **Not applied to production** (OWNER_ACTIONS D12).
+
+**Problem.** "Businesses update" let any profile linked to the business (employees, and client profiles with a business_id) update the row: name, slug, `qr_code` (root cause of U25's stored XSS), geofencing, kiosk manager PIN, and the billing columns `subscription_tier`, `subscription_status`, `stripe_*`, `trial_ends_at`.
+
+**Change.**
+- `supabase/migrations/20261010230000_businesses_update_managers_only.sql` (requires 20261009120000; stops with a message otherwise): drops "Businesses update"; creates `businesses_update_managers` FOR UPDATE TO authenticated with `is_business_manager(id)` in USING and WITH CHECK; trigger `businesses_lock_billing_columns` (BEFORE UPDATE) raises 42501 when `subscription_tier`, `subscription_status`, `trial_ends_at`, `subscription_ends_at` or any `stripe_*` column changes, unless the request's JWT role is `service_role` or there is no API request (SQL editor, migrations, cron). Repeating the current value is allowed; INSERT is untouched. The JWT role is used rather than `current_user`, so a user calling a SECURITY DEFINER function is still blocked.
+- Rollback `supabase/rollbacks/20261010230000_businesses_update_managers_only.down.sql` recreates "Businesses update" verbatim from the production snapshot.
+- `scripts/test-env-security.mjs`: S-7 `known()` → `check()`; new `businessPolicies` (25 checks: employee/client-member/other business's manager can't edit; every manager writer on main and dev still works — Register post-signup QR, Settings save, QR, geofencing, logo; managers, access_role managers and super admins can't change billing; unchanged billing values still save; `complete_manager_signup` keeps the chosen plan; service role can change billing).
+
+**Compatibility with `main`.** Every writer on main/dev/remediation is a manager-only screen, a definer RPC (`set_kiosk_manager_pin`) or the service role; none writes billing columns. Admin portal is read-only on businesses. No Stripe webhook exists.
+
+**Gates.** Red test-only run 38086768419 (only the new checks failed). Final head 049a5bd: CI 38087717084 ✓ (security all ✓, **3 known open, was 4**; E2E 15/15), dual-frontend 38087717141 ✓. Migration → rollback → migration on scratch Postgres 16: schema identical after rollback, both idempotent. Combined on remediation: tsc 28 · lint 400 · vitest 223/223 · build OK.
+
+**Notes.**
+- `subscription_ends_at` locked too (billing; nothing writes it).
+- Super admins can no longer change billing columns through the API (no screen does). If wanted, add `OR public.is_super_admin()` to the trigger.
+- Edge: a profile with role null/'client' linked to a business that isn't a manager would still see Settings on main and its save would now do nothing.
+- Unsure: whether hosted Supabase's new secret-key format (`sb_secret_…`) always sends `role=service_role` in `request.jwt.claims`; the local stack does. If a future billing function gets 42501, check this first.
+- **No slug CHECK:** the snapshot has no business rows. The format (`isValidPublicSlugFormat`) is `^[a-z0-9]+(-[a-z0-9]+)*$`; the owner's read-only query is in OWNER_ACTIONS D12. If it returns 0 rows, a later unit can add `CHECK (slug IS NULL OR slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')` (regex only; signup can produce slugs outside 2–80 chars).
+- Not covered: INSERT ("Businesses insert" lets any signed-in user create a business with any plan, unlinked to them); managers can still change `owner_id` and `short_code`.
+
+**Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010230000`. Reopens S-7. Tag `fix/P2-01-businesses` once applied.
+
+---
+
+## 2026-10-10 · U31 · E2E clock pin no longer makes auth-js refresh on every request
+
+**Status:** done on `remediation` (unit U31, branch `fix/U31-e2e-clock-pin`). Tests only (`e2e/clock.ts`).
+
+**Problem.** `pinBrowserClock` freezes the browser's `Date.now()` at hh:mm PR on the seed's day. auth-js keeps the server's real-time `expires_at` (`lib/fetch.js:145`) and treats a session as expired when `expires_at*1000 - Date.now() < 90 s` (`GoTrueClient.js:2540`). With the pin more than ~58 min ahead of real time (local JWT = 1 h), every `getSession()` refreshed the token first: measured on CI 38086643869 (20:00 pin, +166 min) flow 4b made 27 refresh calls, 4c 20. Pins behind real time are harmless (no client `iat` check). This was the amplifier noted under U22.
+
+**Change.** `pinBrowserClock` routes `**/auth/v1/token?*` and shifts the response's `expires_at` by the same offset as the pinned clock, so auth-js sees the session's real remaining lifetime. The JWT the server checks is untouched; `setFixedTime` unchanged. Same assertions; retries unchanged. Playwright's `install`/`setSystemTime` alone can't fix it (same offset from real time).
+
+**Gates.** tsc 28 · lint 400 · vitest 223/223 · build OK. With the fix, 0 refreshes in 4b/4c (CI 38087462117); 4b 9.8 → 7.9 s, 4c 7.1 → 5.2 s. Final head d848dd0: CI 38087820254 ✓ (E2E 15/15); dual-frontend 38087820262 ✓ (main 7 passed + 1 expected, 7 unreachable; dev 15/15).
+
+**Notes.**
+- Not covered: LoginForm's REST fallback (`setSession` reads the JWT's own `exp`); only runs if `signInWithPassword` fails (never in these runs).
+- `scripts/test-env-dual.mjs` EXPECTED.main flow 7 `mayPass` blames the clock pin; that cause should be gone but is unproven (every run today was after 12:00 PR). Can be dropped after a green dual-main run before 16:00 UTC. The 4b/4c reason text on main is stale too (unreachable there anyway).
+
+**Rollback.** Revert the merge commit.
+
+---
+
+## 2026-10-10 · U30 · Inactive staff with access_role admin/manager lose manager rights
+
+**Status:** done on `remediation` (unit U30, branch `fix/U30-manager-requires-active-staff`). Owner decision 2026-10-10: tighten. **Not applied to production** (OWNER_ACTIONS D13).
+
+**Problem.** `is_business_manager` (20261009120000) and `can_manage_staff_private` (20261006140000) counted staff access_role admin/manager without checking `staff.status`. A deactivated lead could still delete clients/pets/appointments (U13–U15), edit the business (U29), add/edit/delete staff and reset staff and kiosk PINs (U08/U11/U12), read `staff_private` (SSN, bank details), and raise their own pay/access (the P2-03 lock uses `can_manage_staff_private`).
+
+**Change.**
+- `supabase/migrations/20261010240000_manager_requires_active_staff.sql` (requires 20261006140000 and 20261009120000): CREATE OR REPLACE of `is_business_manager` and `can_manage_staff_private`; the staff path now requires the caller's staff row (same row `caller_staff_access_role_for_business` reads: `profiles.staff_id`, else oldest by `user_id`) to have access_role admin/manager **and** `status = 'active'`. Super admin and profile-manager paths unchanged; signature, SECURITY DEFINER, search_path, grants unchanged. `caller_staff_access_role_for_business` unchanged (it is the access_role trigger's only gate for profile managers).
+- Rollback `supabase/rollbacks/20261010240000_manager_requires_active_staff.down.sql` restores both bodies verbatim.
+- `scripts/test-env-security.mjs`: new `inactiveManagerPolicies` (39 checks; manager and admin tiers: active allowed, inactive refused for deletes/business edit/pay edits/staff delete/staff_private read, reactivated allowed again; profile manager with an inactive own staff row unaffected).
+- `src/lib/deletePermissions.ts`, `src/hooks/useCanDeleteClientsAndPets.ts`: client/pet Delete hidden for inactive leads (`useStaff` already loads `status`); 3 new unit tests.
+
+**Compatibility with `main`.** Active staff, profile managers and super admins unaffected. On main an inactive lead who is still signed in still sees the manager buttons; writes are refused or affect 0 rows.
+
+**Gates.** Red 38088639011. Green bd97565: CI 38088998654 ✓ (security all ✓, 3 known open; E2E 15/15), dual-frontend 38088998677 ✓. Migration → rollback → migration on scratch Postgres 16: definitions and ACL identical after rollback; of 42 caller/business cases only the 3 inactive-lead cases changed (true → false). Combined on remediation: tsc 28 · lint 400 · vitest 226/226 · build OK.
+
+**Notes.**
+- Supersedes U23's note that the database doesn't check `staff.status`.
+- Edge: a user with two staff rows in one business whose oldest is an inactive manager and newer an active manager is now refused (same row choice as before; safer reading).
+- Not in scope: inline access_role checks elsewhere (`clock_in_out`'s `v_mgr_tier`).
+
+**Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010240000`.

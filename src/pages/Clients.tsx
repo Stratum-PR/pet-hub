@@ -16,6 +16,7 @@ import { usePageLoadRef } from '@/hooks/usePageLoad';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useBusinessId } from '@/hooks/useBusinessId';
+import { useCanDeleteClientsAndPets } from '@/hooks/useCanDeleteClientsAndPets';
 import { useTransactions, resolveDemoLocalTransactionEntries } from '@/hooks/useTransactions';
 import { formatPhoneNumberDisplay } from '@/lib/phoneFormat';
 
@@ -66,9 +67,9 @@ export function Clients({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<string | null>(null);
   const pageLoadRef = usePageLoadRef();
-  const { user, role, profile } = useAuth();
-  // Only managers may delete clients (decision 9, P2-01 clients); the database refuses an employee's delete.
-  const canDeleteClients = role !== 'employee' || !!profile?.is_super_admin;
+  const { user } = useAuth();
+  // Only managers (profile role or staff access_role admin/manager) may delete clients (decision 9, P2-01 clients, U23).
+  const canDeleteClients = useCanDeleteClientsAndPets();
   const businessId = useBusinessId();
   const { transactions } = useTransactions();
 

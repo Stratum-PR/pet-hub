@@ -18,14 +18,3 @@ export async function dispatchStaffBirthdaysForBusiness(
   if (error) devConsole.warn('[dispatchStaffBirthdaysForBusiness]', error.message);
   return { error: error?.message ?? null };
 }
-
-/** Daily reminder to managers: active staff missing email (RPC inserts per manager, deduped per local day). */
-export async function dispatchStaffMissingEmailReminders(
-  businessId: string | null | undefined
-): Promise<void> {
-  if (!businessId) return;
-  const { error } = await supabase.rpc('dispatch_staff_missing_email_reminders', {
-    p_business_id: businessId,
-  });
-  if (error) devConsole.warn('[dispatchStaffMissingEmailReminders]', error.message);
-}

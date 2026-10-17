@@ -18,10 +18,19 @@ import { KioskManagerPinResetDialog, useCanResetKioskManagerPin } from '@/compon
 import { KIOSK_MANAGER_PIN_LENGTH } from '@/lib/pinLengths';
 import { devConsole } from '@/lib/clientDebug';
 import {
-  BUSINESS_KIOSK_MANAGER_PIN_COLUMNS,
-  fetchEmployeePinsForBusiness,
-  managerPinPrefixCollidesWithEmployeePins,
+  isTooManyAttemptsError,
+  kioskManagerPinConfigured,
+  setKioskManagerPin,
+  type SetKioskManagerPinError,
 } from '@/lib/employeePin';
+
+/** Messages for set_kiosk_manager_pin's refusals (P2-04). */
+const SET_PIN_ERROR_KEYS: Record<SetKioskManagerPinError, string> = {
+  invalid_pin: 'kioskManagerPinSettings.errors.pin6Digits',
+  pin_prefix_in_use: 'kioskManagerPinSettings.errors.prefixMatchesEmployee',
+  current_pin_required: 'kioskManagerPinSettings.errors.enterCurrentPin',
+  current_pin_incorrect: 'kioskManagerPinSettings.errors.currentPinIncorrect',
+};
 
 export function KioskManagerPinSettings() {
   const businessId = useBusinessId();
@@ -46,18 +55,9 @@ export function KioskManagerPinSettings() {
   const checkExistingPin = async () => {
     if (!businessId) return;
     try {
-      const { data, error: err } = await supabase
-        .from('businesses')
-        .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
-        .eq('id', businessId)
-        .single();
-
-      if (err) throw err;
-      const stored = data?.kiosk_manager_pin;
       // Only a full 6-digit PIN counts as "existing": no PIN or legacy shorter values use first-time flow (no current PIN).
-      setHasExistingPin(
-        typeof stored === 'string' && stored.length === KIOSK_MANAGER_PIN_LENGTH
-      );
+      // P2-04: asks whether one is set; never reads the PIN.
+      setHasExistingPin(await kioskManagerPinConfigured(supabase, businessId));
     } catch (err) {
       if (import.meta.env.DEV) {
         devConsole.error('Failed to check existing PIN:', err);
@@ -81,54 +81,23 @@ export function KioskManagerPinSettings() {
       return;
     }
 
-    try {
-      const employeePins = await fetchEmployeePinsForBusiness(supabase, businessId);
-      if (managerPinPrefixCollidesWithEmployeePins(newPin, employeePins)) {
-        setError(t('kioskManagerPinSettings.errors.prefixMatchesEmployee'));
-        return;
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('kioskManagerPinSettings.toast.failedUpdate'));
-      return;
-    }
-
     // If there's an existing PIN, require current PIN
-    if (hasExistingPin) {
-      if (!currentPin) {
-        setError(t('kioskManagerPinSettings.errors.enterCurrentPin'));
-        return;
-      }
-
-      // Verify current PIN
-      const { data: business, error: bizErr } = await supabase
-        .from('businesses')
-        .select(BUSINESS_KIOSK_MANAGER_PIN_COLUMNS)
-        .eq('id', businessId)
-        .single();
-
-      if (bizErr) {
-        setError(t('kioskManagerPinSettings.errors.failedVerifyCurrentPin'));
-        return;
-      }
-
-      // Simple comparison (in production, should use hashed PINs)
-      if (business?.kiosk_manager_pin !== currentPin) {
-        setError(t('kioskManagerPinSettings.errors.currentPinIncorrect'));
-        return;
-      }
+    if (hasExistingPin && !currentPin) {
+      setError(t('kioskManagerPinSettings.errors.enterCurrentPin'));
+      return;
     }
 
     setSaving(true);
 
     try {
-      const { error: err } = await supabase
-        .from('businesses')
-        .update({
-          kiosk_manager_pin: newPin, // In production, hash this
-        })
-        .eq('id', businessId);
-
-      if (err) throw err;
+      // P2-04: the database checks the current PIN (by hash) and the employee-PIN prefix, then saves.
+      const result = await setKioskManagerPin(supabase, businessId, newPin, {
+        currentPin: hasExistingPin ? currentPin : undefined,
+      });
+      if (!result.ok) {
+        setError(t(SET_PIN_ERROR_KEYS[result.error]));
+        return;
+      }
 
       toast.success(t('kioskManagerPinSettings.toast.updated'));
       setCurrentPin('');
@@ -137,6 +106,10 @@ export function KioskManagerPinSettings() {
       setHasExistingPin(true);
       setError(null);
     } catch (err) {
+      if (isTooManyAttemptsError(err)) {
+        setError(err.details || t('kioskManagerPinSettings.errors.failedVerifyCurrentPin'));
+        return;
+      }
       setError(err instanceof Error ? err.message : t('kioskManagerPinSettings.toast.failedUpdate'));
       toast.error(t('kioskManagerPinSettings.toast.failedUpdate'));
     } finally {

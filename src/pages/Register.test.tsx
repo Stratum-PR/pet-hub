@@ -97,3 +97,97 @@ describe('Register: client sign-up', () => {
     expect(keysOf(fake.signUps)).not.toContain('role');
   });
 });
+
+// U27 (FIX_LOG): the client form's `<form onSubmit>` spans all three steps, so pressing Enter in a field on
+// step 1 or 2 (the browser's implicit submission, which fires the form's `submit` event) used to run the
+// whole sign-up early: no name, no pets. Enter on a non-final step must advance one step instead, with the
+// same checks as that step's "Next" button; Enter on step 3 still submits. jsdom does not implement implicit
+// submission, so each test presses Enter in a field and then fires the `submit` event the browser would fire.
+describe('Register: client sign-up, Enter key', () => {
+  function startClientSignup() {
+    const { container, getAllByRole } = render(
+      <MemoryRouter initialEntries={['/registrarse']}>
+        <Register />
+      </MemoryRouter>,
+    );
+    const el = <T extends Element>(selector: string) => {
+      const found = container.querySelector<T>(selector);
+      if (!found) throw new Error(`missing ${selector}`);
+      return found;
+    };
+    const has = (selector: string) => container.querySelector(selector) !== null;
+    /** Presses Enter in `selector`'s field and fires the submit event a browser's implicit submission sends. */
+    const pressEnterIn = async (selector: string) => {
+      fireEvent.keyDown(el(selector), { key: 'Enter', code: 'Enter' });
+      await act(async () => {
+        fireEvent.submit(el('form'));
+      });
+    };
+    // Choose "client" (the third account-type button).
+    fireEvent.click(getAllByRole('button')[2]);
+    return { el, has, pressEnterIn };
+  }
+
+  it('Enter on step 1 advances to step 2 and does not sign up', async () => {
+    const signUpsBefore = fake.signUps.length;
+    const { el, has, pressEnterIn } = startClientSignup();
+    fireEvent.change(el('#client-email'), { target: { value: 'ana@grumi.test' } });
+    fireEvent.change(el('#client-password'), { target: { value: 'Secret#123' } });
+
+    await pressEnterIn('#client-password');
+
+    expect(fake.signUps).toHaveLength(signUpsBefore);
+    expect(has('#client-fullName')).toBe(true);
+    expect(has('#client-email')).toBe(false);
+  });
+
+  it('Enter on step 1 with an empty field stays on step 1 (same check as "Next")', async () => {
+    const signUpsBefore = fake.signUps.length;
+    const { el, has, pressEnterIn } = startClientSignup();
+    fireEvent.change(el('#client-email'), { target: { value: 'ana@grumi.test' } });
+
+    await pressEnterIn('#client-email');
+
+    expect(fake.signUps).toHaveLength(signUpsBefore);
+    expect(has('#client-email')).toBe(true);
+    expect(has('#client-fullName')).toBe(false);
+  });
+
+  it('Enter on step 2 stays put without a name, advances to step 3 with one, and never signs up', async () => {
+    const signUpsBefore = fake.signUps.length;
+    const { el, has, pressEnterIn } = startClientSignup();
+    fireEvent.change(el('#client-email'), { target: { value: 'ana@grumi.test' } });
+    fireEvent.change(el('#client-password'), { target: { value: 'Secret#123' } });
+    await pressEnterIn('#client-password');
+
+    await pressEnterIn('#client-phone');
+    expect(fake.signUps).toHaveLength(signUpsBefore);
+    expect(has('#client-fullName')).toBe(true);
+
+    fireEvent.change(el('#client-fullName'), { target: { value: 'Ana Rivera' } });
+    await pressEnterIn('#client-fullName');
+    expect(fake.signUps).toHaveLength(signUpsBefore);
+    expect(has('#client-fullName')).toBe(false);
+    expect(has('form button[type="submit"]')).toBe(true);
+  });
+
+  it('Enter on step 3 still submits the sign-up', async () => {
+    const signUpsBefore = fake.signUps.length;
+    const { el, pressEnterIn } = startClientSignup();
+    fireEvent.change(el('#client-email'), { target: { value: 'ana@grumi.test' } });
+    fireEvent.change(el('#client-password'), { target: { value: 'Secret#123' } });
+    fireEvent.click(el<HTMLButtonElement>('form button[type="button"]'));
+    fireEvent.change(el('#client-fullName'), { target: { value: 'Ana Rivera' } });
+    fireEvent.click(Array.from(document.querySelectorAll<HTMLButtonElement>('form button[type="button"]')).at(-1)!);
+    // Step 3: confirm the pet kinds, name the pet, press Enter in the pet's name.
+    const confirm = Array.from(document.querySelectorAll<HTMLButtonElement>('form button')).find(
+      (b) => b.textContent?.trim() === 'confirm and continue',
+    )!;
+    fireEvent.click(confirm);
+    fireEvent.change(el('input[placeholder="Nombre de mascota"]'), { target: { value: 'Luna' } });
+
+    await pressEnterIn('input[placeholder="Nombre de mascota"]');
+
+    await waitFor(() => expect(fake.signUps).toHaveLength(signUpsBefore + 1));
+  });
+});

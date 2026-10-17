@@ -2599,6 +2599,14 @@ export type Database = {
         Args: { p_feature_key: string; p_subscription_tier: string }
         Returns: boolean
       }
+      generate_staff_pin: {
+        Args: {
+          p_business_id: string
+          p_exclude_staff_id?: string
+          p_reserved?: string
+        }
+        Returns: string
+      }
       generate_impersonation_token: {
         Args: { target_business_id: string }
         Returns: {
@@ -2625,6 +2633,26 @@ export type Database = {
       }
       is_stratumpr_email: { Args: { email: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      kiosk_manager_pin_set: {
+        Args: { b: Database["public"]["Tables"]["businesses"]["Row"] }
+        Returns: boolean
+      }
+      kiosk_pin_entry: {
+        Args: { p_business_id: string; p_pin: string }
+        Returns: Json
+      }
+      kiosk_staff_by_pin: {
+        Args: { p_business_id: string; p_pin: string }
+        Returns: {
+          access_role: string
+          business_id: string
+          id: string
+          name: string
+          photo_url: string
+          role: string
+          status: string
+        }[]
+      }
       normalize_feature_key: {
         Args: { p_display_name: string }
         Returns: string
@@ -2650,11 +2678,27 @@ export type Database = {
         Args: { p_interval_minutes?: number; p_timestamp: string }
         Returns: string
       }
+      set_kiosk_manager_pin: {
+        Args: {
+          p_business_id: string
+          p_current_pin?: string
+          p_new_pin: string
+        }
+        Returns: Json
+      }
       set_profile_business_id: {
         Args: { p_business_id: string; p_uid: string }
         Returns: undefined
       }
       slugify_business_name: { Args: { p_name: string }; Returns: string }
+      staff_pin_available: {
+        Args: {
+          p_business_id: string
+          p_exclude_staff_id?: string
+          p_pin: string
+        }
+        Returns: boolean
+      }
       submit_booking_request: {
         Args: {
           p_contact_preference: string

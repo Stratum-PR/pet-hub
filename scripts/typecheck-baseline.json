@@ -1,5 +1,5 @@
 {
-  "total": 29,
+  "total": 28,
   "errors": {
     "src/hooks/useBusinessData.ts TS2322 Type '{ appointment_date: string; billed: boolean; booked_by_staff_id: string; booking_source: string; business_id: string; client_id: string; created_at: strin": 2,
     "src/hooks/useBusinessData.ts TS2345 Argument of type 'Partial<Service>' is not assignable to parameter of type 'RejectExcessProperties<{ business_id?: string; color?: string; created_at?: string; ": 1,
@@ -15,7 +15,6 @@
     "src/hooks/useSupabaseData.ts TS2345 Argument of type '{ id: string; }' is not assignable to parameter of type 'RejectExcessProperties<{ business_id: string; color?: string; created_at?: string; de": 1,
     "src/hooks/useSupabaseData.ts TS2345 Argument of type '{ id?: string; client_id?: string; business_id?: string; name?: string; species?: \"other\" | \"dog\" | \"cat\"; breed_id?: string; breed?: string; ": 1,
     "src/hooks/useSupabaseData.ts TS2352 Conversion of type 'Settings' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentio": 1,
-    "src/lib/staffBirthdayDispatch.ts TS2345 Argument of type '\"dispatch_staff_missing_email_reminders\"' is not assignable to parameter of type '\"is_super_admin\" | \"admin_set_profile_role\" | \"admin_set_sta": 1,
     "src/pages/Clients.tsx TS2322 Type '(petData: Omit<Pet, \"id\" | \"created_at\" | \"updated_at\">) => Promise<void>' is not assignable to type '(pet: Omit<Pet, \"id\" | \"business_id\" | \"created_at\" ": 1,
     "src/pages/Clients.tsx TS2739 Type 'Client' is missing the following properties from type 'BusinessClient': city, state, zip_code": 1,
     "src/pages/Index.tsx TS2322 Type '(employeeId: string, clockIn: string, clockOut?: string) => Promise<TimeEntry | { business_id: string | null; clock_in: string | null; clock_out: string |": 1,
