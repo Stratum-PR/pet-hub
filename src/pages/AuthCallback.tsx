@@ -1,24 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  getDefaultRoute,
-  AUTH_CONTEXTS,
-  setAuthContext,
   resolveAuthenticatedDestination,
   getPostAuthHint,
   clearPostAuthHint,
 } from '@/lib/authRouting';
 import { broadcastAuthLogin } from '@/lib/authBroadcast';
 import { devConsole } from '@/lib/clientDebug';
-
-const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
-const PENDING_MANAGER_TIER = 'pending_manager_tier';
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+import { finishPendingManagerSignupIfNeeded } from '@/lib/pendingManagerSignup';
 
 export function AuthCallback() {
   const [searchParams] = useSearchParams();
@@ -26,23 +18,31 @@ export function AuthCallback() {
   const { refreshAuth } = useAuth();
   const [status, setStatus] = useState<'loading' | 'error'>('loading');
   const [rpcError, setRpcError] = useState<string | null>(null);
+  const [retryUser, setRetryUser] = useState<User | null>(null);
 
-  const runCompleteManagerSignup = async (): Promise<boolean> => {
-    const pendingName = localStorage.getItem(PENDING_MANAGER_BUSINESS_NAME);
-    const pendingTier = localStorage.getItem(PENDING_MANAGER_TIER) || 'basic';
-    if (!pendingName) return false;
-    await delay(400);
-    const { error } = await supabase.rpc('complete_manager_signup', {
-      p_business_name: pendingName,
-      p_subscription_tier: pendingTier,
-    });
-    if (error) {
+  /**
+   * Finishes a pending manager sign-up (metadata, or this browser's legacy keys), then routes by the profile.
+   * Returns false (and shows the error screen) when the business could not be created.
+   */
+  const finishAndRoute = async (user: User, isCancelled: () => boolean): Promise<boolean> => {
+    const result = await finishPendingManagerSignupIfNeeded(user, { includeLocalStorage: true });
+    if (isCancelled()) return true;
+    if (result === 'failed') {
+      setRetryUser(user);
       setRpcError('Something went wrong. Please try again.');
+      setStatus('error');
       return false;
     }
     setRpcError(null);
-    localStorage.removeItem(PENDING_MANAGER_BUSINESS_NAME);
-    localStorage.removeItem(PENDING_MANAGER_TIER);
+    const route = await resolveAuthenticatedDestination(user.id);
+    const hint = getPostAuthHint();
+    // A new business owner goes to their dashboard even if a pet-owner hint was left in this tab.
+    const hintedRoute =
+      result === 'none' && hint?.mode === 'pet_owner'
+        ? `/portal${hint.businessSlug ? `?business=${encodeURIComponent(hint.businessSlug)}` : ''}`
+        : route;
+    clearPostAuthHint();
+    if (!isCancelled()) navigate(hintedRoute, { replace: true });
     return true;
   };
 
@@ -72,52 +72,21 @@ export function AuthCallback() {
         broadcastAuthLogin(session.user);
       }
 
-      const pendingName = localStorage.getItem(PENDING_MANAGER_BUSINESS_NAME);
-      const pendingTier = localStorage.getItem(PENDING_MANAGER_TIER) || 'basic';
-
-      if (pendingName) {
-        const ok = await runCompleteManagerSignup();
-        if (cancelled) return;
-        if (!ok) {
-          setStatus('error');
-          return;
-        }
-        setAuthContext(AUTH_CONTEXTS.BUSINESS);
-        const route = getDefaultRoute({ isAdmin: false, business: null });
-        navigate(route, { replace: true });
-        return;
-      }
-
-      const route = await resolveAuthenticatedDestination(session.user.id);
-      const hint = getPostAuthHint();
-      const hintedRoute =
-        hint?.mode === 'pet_owner'
-          ? `/portal${hint.businessSlug ? `?business=${encodeURIComponent(hint.businessSlug)}` : ''}`
-          : route;
-      clearPostAuthHint();
-      if (!cancelled) navigate(hintedRoute, { replace: true });
+      await finishAndRoute(session.user, () => cancelled);
     }
 
     run();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- finishAndRoute only uses stable setters/navigate
   }, [searchParams, navigate, refreshAuth]);
 
   const handleRetry = async () => {
+    if (!retryUser) return;
     setStatus('loading');
     setRpcError(null);
-    const ok = await runCompleteManagerSignup();
-    if (ok) {
-      await refreshAuth();
-      const { data: s } = await supabase.auth.getSession();
-      if (s.session?.user) broadcastAuthLogin(s.session.user);
-      setAuthContext(AUTH_CONTEXTS.BUSINESS);
-      const route = getDefaultRoute({ isAdmin: false, business: null });
-      navigate(route, { replace: true });
-    } else {
-      setStatus('error');
-    }
+    await finishAndRoute(retryUser, () => false);
   };
 
   if (status === 'error') {
@@ -135,7 +104,7 @@ export function AuthCallback() {
             </p>
           )}
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            {localStorage.getItem(PENDING_MANAGER_BUSINESS_NAME) && (
+            {retryUser && (
               <button
                 type="button"
                 onClick={handleRetry}
