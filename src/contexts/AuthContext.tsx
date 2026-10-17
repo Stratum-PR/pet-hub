@@ -7,6 +7,7 @@ import { setBusinessSlugForSession, setAuthContext, AUTH_CONTEXTS } from '@/lib/
 import { staffRecordIdFromRow } from '@/lib/staffRecordCompat';
 import { subscribeAuthBroadcast } from '@/lib/authBroadcast';
 import { devConsole } from '@/lib/clientDebug';
+import { onPendingManagerSignupCompleted } from '@/lib/pendingManagerSignup';
 
 interface AuthContextType {
   user: User | null;
@@ -242,6 +243,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // A pending manager sign-up was just finished (pendingManagerSignup.ts): refetch the profile before the caller
+    // navigates, so the dashboard sees the new business instead of the cached "client, no business".
+    const unsubManagerSignup = onPendingManagerSignupCompleted(async (userId) => {
+      await queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+    });
+
     // Listen for storage changes (for impersonation)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'is_impersonating' || e.key === 'impersonating_business_name') {
@@ -314,6 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
       unsubBroadcast();
+      unsubManagerSignup();
       window.removeEventListener('focus', onVisibility);
       document.removeEventListener('visibilitychange', onVisibility);
     };
