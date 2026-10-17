@@ -25,6 +25,8 @@ import {
   CalendarCog,
   CreditCard,
   Inbox,
+  PhoneCall,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -72,6 +74,8 @@ const mainNavItems = [
   { path: 'inventory', labelKey: 'nav.inventory', icon: Package },
   { path: 'transactions', labelKey: 'nav.transactions', icon: DollarSign },
   { path: 'services', labelKey: 'nav.services', icon: Scissors },
+  { path: 'follow-ups', labelKey: 'nav.followUps', icon: PhoneCall },
+  { path: 'automations', labelKey: 'nav.automations', icon: Zap },
 ];
 
 const employeeItems = [
@@ -153,6 +157,7 @@ export function AppSidebar({
   const employeeNavInactive =
     isEmployeeRole && !navEmployeesLoading && selfStaffRecord?.status === 'inactive';
 
+  const automationsNavVisible = isFeatureVisible('automations');
   const employeeFlatNav = useMemo(() => {
     const helpItem = { path: 'help', labelKey: 'nav.help', icon: Mail } as const;
     const profileItem = {
@@ -191,9 +196,16 @@ export function AppSidebar({
       items.push({ path: 'time-kiosk', labelKey: 'nav.timeKiosk', icon: Clock });
     }
     if (timesheetItem) items.push(timesheetItem);
+    if (automationsNavVisible) {
+      items.push({ path: 'follow-ups', labelKey: 'nav.followUps', icon: PhoneCall });
+      // Admin staff build automations, coupons and reports too.
+      if (selfStaffRecord?.access_role === 'admin' || selfStaffRecord?.access_role === 'manager') {
+        items.push({ path: 'automations', labelKey: 'nav.automations', icon: Zap });
+      }
+    }
     items.push(helpItem);
     return items;
-  }, [allowEmployeeMobilePunch, staffId, employeeNavInactive]);
+  }, [allowEmployeeMobilePunch, staffId, employeeNavInactive, automationsNavVisible, selfStaffRecord?.access_role]);
 
   const basePath = businessSlug ? `/${businessSlug}` : '';
   const employeeHomeSegment = employeeNavInactive ? 'staff-management' : 'clients';
@@ -310,6 +322,7 @@ export function AppSidebar({
     }
     if (item.path === 'inventory') return isFeatureVisible('inventory');
     if (item.path === 'transactions') return isFeatureVisible('transactions_list');
+    if (item.path === 'follow-ups' || item.path === 'automations') return isFeatureVisible('automations');
     return true;
   });
 

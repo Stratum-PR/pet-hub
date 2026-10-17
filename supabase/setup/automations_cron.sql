@@ -1,4 +1,5 @@
--- One-time setup: run the run-automations Edge Function every day at 9:00 AM Puerto Rico (13:00 UTC).
+-- One-time setup: call the run-automations Edge Function every 15 minutes. Each automation decides if it's due
+-- (its schedule / daily time in the business's time zone / new events since the last check).
 -- Apply AFTER migration 20261010200000_automations.sql and after deploying the run-automations function.
 -- Safe to re-run. Replace <PROJECT_REF> with the Supabase project ref before running.
 -- The secret is generated here and never leaves the database: the function checks it with
@@ -20,7 +21,7 @@ SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'run-automations-dai
 
 SELECT cron.schedule(
   'run-automations-daily',
-  '0 13 * * *',
+  '*/15 * * * *',
   $job$
   SELECT net.http_post(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/run-automations',
