@@ -18,6 +18,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/phoneFormat';
 import { dateToDayKey, isBusinessClosedOnDate, parseBusinessHours } from '@/lib/businessHours';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
+import { couponOfferLabel, normalizeCouponCode } from '@/lib/automations';
 import {
   formatTime12h,
   freeStartsForAnyone,
@@ -88,6 +89,48 @@ export function PublicBookingPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ time: string; date: Date } | null>(null);
+  // Discount code (only shown when the business has an offer usable online).
+  const [couponsEnabled, setCouponsEnabled] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [coupon, setCoupon] = useState<{ code: string; label: string } | null>(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponChecking, setCouponChecking] = useState(false);
+
+  useEffect(() => {
+    if (isDemo || !businessSlug) return;
+    void supabase.rpc('booking_coupons_enabled' as never, { p_slug: businessSlug } as never).then(({ data, error }) => {
+      if (!error) setCouponsEnabled(data === true);
+    });
+  }, [businessSlug, isDemo]);
+
+  const applyCoupon = async () => {
+    setCouponError('');
+    const code = normalizeCouponCode(couponInput);
+    if (!code) return;
+    if (unformatPhoneNumber(form.phone).length !== 10) {
+      setCouponError(t('cpn.booking.needsPhone'));
+      return;
+    }
+    setCouponChecking(true);
+    const { data, error } = await supabase.rpc(
+      'check_booking_coupon' as never,
+      { p_slug: businessSlug, p_code: code, p_phone: unformatPhoneNumber(form.phone) } as never,
+    );
+    setCouponChecking(false);
+    const r = (data ?? {}) as { valid?: boolean; reason?: string; kind?: 'percent' | 'amount' | 'free_service' | 'free_product'; value?: number | null; service_name?: string | null; product_name?: string | null };
+    if (error || !r.valid || !r.kind) {
+      setCoupon(null);
+      setCouponError(t(`cpn.reason.${r.reason ?? 'invalid'}`));
+      return;
+    }
+    setCoupon({
+      code,
+      label: couponOfferLabel(
+        { kind: r.kind, value: r.value ?? null, service_name: r.service_name, product_name: r.product_name },
+        language === 'en' ? 'en' : 'es',
+      ),
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +242,7 @@ export function PublicBookingPage() {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.rpc('submit_booking_request' as never, {
+    const { data: booked, error } = await supabase.rpc('submit_booking_request' as never, {
       p_slug: businessSlug,
       p_first_name: form.first.trim(),
       p_last_name: form.last.trim(),
@@ -223,6 +266,14 @@ export function PublicBookingPage() {
       setErrors({ submit: t(code ? `publicBooking.err_${code}` : 'publicBooking.errGeneric') });
       if (code === 'slot_taken') setTime('');
       return;
+    }
+    // Keep the discount code on the request; staff apply it at checkout. A failure here doesn't undo the booking.
+    const appointmentId = (booked as { appointment_id?: string } | null)?.appointment_id;
+    if (coupon && appointmentId) {
+      await supabase.rpc(
+        'attach_booking_coupon' as never,
+        { p_slug: businessSlug, p_appointment_id: appointmentId, p_code: coupon.code, p_phone: unformatPhoneNumber(form.phone) } as never,
+      );
     }
     setDone({ time, date });
   };
@@ -476,6 +527,36 @@ export function PublicBookingPage() {
               <Label htmlFor="pb-notes" className="mb-1 block text-xs">{t('publicBooking.notes')}</Label>
               <Textarea id="pb-notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} maxLength={1000} className="min-h-[72px] border border-foreground/15 bg-background" />
             </div>
+            {couponsEnabled && (
+              <div className="sm:col-span-2">
+                <Label htmlFor="pb-coupon" className="mb-1 block text-xs">{t('cpn.booking.question')}</Label>
+                {coupon ? (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+                    <span>
+                      <span className="font-mono font-medium">{coupon.code}</span> · {t('cpn.booking.applied', { label: coupon.label })}
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { setCoupon(null); setCouponInput(''); }}>
+                      {t('cpn.booking.remove')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      id="pb-coupon"
+                      className={cn(field, 'font-mono uppercase')}
+                      value={couponInput}
+                      maxLength={24}
+                      placeholder={t('cpn.booking.placeholder')}
+                      onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                    />
+                    <Button type="button" variant="outline" className="h-11" disabled={!couponInput.trim() || couponChecking} onClick={() => void applyCoupon()}>
+                      {couponChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : t('cpn.booking.apply')}
+                    </Button>
+                  </div>
+                )}
+                {couponError ? <p className="mt-1 text-xs text-destructive">{couponError}</p> : null}
+              </div>
+            )}
           </div>
         </section>
 

@@ -5,6 +5,10 @@ import { GlobalErrorBoundary } from "./components/GlobalErrorBoundary";
 import { HelmetProvider } from "react-helmet-async";
 import { isIgnorableWindowErrorEvent } from "./lib/ignorableWindowErrorEvent";
 import { devConsole, isClientDebugSurfacesEnabled } from "./lib/clientDebug";
+import { initSentry } from "./lib/sentry";
+
+// P1-12: before anything else, so startup errors are reported too. Off without VITE_SENTRY_DSN and on localhost.
+initSentry();
 
 function isAbortError(err: unknown): boolean {
   if (err instanceof Error) {

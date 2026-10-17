@@ -43,6 +43,7 @@ const FEATURE_GROUPS: { id: string; features: string[] }[] = [
   },
   { id: 'inventory', features: ['inventory', 'barcode_lookup'] },
   { id: 'staff', features: ['employee_mobile_punch', 'geofencing', 'geofencing_settings'] },
+  { id: 'marketing', features: ['automations'] },
   { id: 'account', features: ['account_settings'] },
 ];
 

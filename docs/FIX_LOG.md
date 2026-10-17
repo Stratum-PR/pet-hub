@@ -21,7 +21,9 @@ One entry per change unit from [REMEDIATION_PLAN.md](REMEDIATION_PLAN.md), newes
 
 ## 2026-10-08 · P0-01 · Lock profile identity columns
 
-**Status:** gates green on the local stack; committed on `remediation`. **Not applied to production.** Manual UI walkthrough: pending (Jovaniel).
+**Status:** **applied to production 2026-10-17** (SQL editor; recorded with an `insert` into `supabase_migrations.schema_migrations`, since the CLI isn't linked). Backup before: `2026-10-17T14-01-32-827Z`. Verified: trigger `profiles_lock_identity_columns` tgtype 23; `set_profile_business_id` already not executable by anon/authenticated (A1). Smoke test passed: super-admin login preference toggle saves, manager pages load, client signup on localhost works. Watching 24 h for `profile_identity_columns_are_read_only` (A7). Tag `fix/P0-01` on 43df267.
+
+**A1 results (2026-10-17):** no exploitation. P0-02.1/.2/.3 = 0; P0-02.4 = 4 rows, all `signup_role` null (2 staff invites, 1 owner registration, 1 demo business), none a client turned manager; policies and triggers as expected. P0-05: `clients.name` missing (→ P0-06), 2 client profiles with no clients row (→ C3). Super admins: 3 (S-1c review pending). Migration history: 57 rows, including `20261010220000 automations_builder_coupons_follow_ups`, which forced the P2-04 renumbering.
 
 **Problem.** The "Profiles update" policy lets any signed-in user update their own `profiles` row, including `role`, `business_id` and `staff_id`. A self-registered client could set `role = 'manager'` and any business's id (discoverable from its public booking slug) and then read and write that business's data. Two more paths to the same takeover:
 - the "System can insert profiles" policy allows inserting your own row with any role or business;
@@ -61,7 +63,7 @@ Rollback tested on the local stack: apply → roll back (15/21; the RPC stays cl
 
 **Production steps (Jovaniel runs these; in this order).**
 1. P0-02: run the exploitation check and review the results together **before** applying.
-2. P0-04: take the backup and note its file name here: `__________`.
+2. P0-04: take the backup and note its file name here: `2026-10-17T14-01-32-827Z`.
 3. Apply in the Supabase SQL editor: paste the whole migration file and run it. **Do not use `supabase db push`**: production's migration history is incomplete (SECURITY_RISKS S-9), so `db push` would try to apply many old migrations.
 4. Record it in the history, from the repo with the CLI linked to the project: `npx supabase migration repair --status applied 20261008120000`.
 5. Verify in the SQL editor (read-only):
@@ -83,7 +85,7 @@ No frontend deploy is needed: no app code changed.
 
 ## 2026-10-08 · P0-04 · Production backup procedure
 
-**Status:** procedure and scripts rehearsed end to end on the local stacks; committed on `remediation`. **No production backup taken yet** (Jovaniel runs it, before P0-01 is applied).
+**Status:** procedure and scripts rehearsed end to end on the local stacks; committed on `remediation`. **First production backup taken 2026-10-17: `2026-10-17T14-01-32-827Z`** (6,496 rows / 96 tables, 18 storage files in 3 buckets). Restore check: restore commits, all rows match; the only difference is 2 extra empty internal `storage` tables the newer local stack creates (source 8, restored 10), so its final line reads ✗ but the backup is usable. Needed a fix: `ALTER ROLE "supabase_admin"` lines are now skipped like the `GRANT SET ON PARAMETER` ones. On macOS: `storage cp` into an existing `files/` folder, or the first bucket lands in `files/` itself.
 
 **Problem.** The free plan has no downloadable backups, and a plain `supabase db dump` is not a complete backup of this project. The rehearsal showed a restore from the three standard dump files:
 - loses the `auth.users` triggers (`on_auth_user_created` → `handle_new_user`, `on_auth_user_email_updated`): new signups would get no profile;
@@ -122,7 +124,7 @@ Not rehearsed against the hosted project (by rule): the Session pooler connectio
 
 ## 2026-10-08 · P0-06 · Restore `clients.name` (client signup broken)
 
-**Status:** gates green on the local stack; committed on `remediation`. **Not applied to production.** Found by P0-05; decision (Jovaniel, 2026-10-08): add the column back as optional.
+**Status:** **applied to production 2026-10-17** with P0-01 (same backup `2026-10-17T14-01-32-827Z`; recorded by `insert` into `schema_migrations`). Verified: `clients.name` exists; a `+p006` client signup on localhost (production database) created both the profile and the clients row. Tag `fix/P0-06` on 002ccb5. Found by P0-05; decision (Jovaniel, 2026-10-08): add the column back as optional.
 
 **Problem.** `Register.tsx` (both `main` and `dev`) saves the client's global record with `clients.name`, and the `send-appointment-reminder` Edge Function selects it. Production's `clients` has `first_name`/`last_name` but no `name`: it was dropped directly in production (no repo migration drops it). PostgREST rejects the insert (`PGRST204 Could not find the 'name' column of 'clients'`), so a client signup creates the auth account and profile, then fails with no client record; the reminder's client lookup fails, so it skips every reminder as `no_client_email`.
 
@@ -1208,19 +1210,21 @@ No frontend deploy is needed.
 
 ## 2026-10-10 · P2-04 · Kiosk manager PIN hashed (expand step)
 
+> **Renumbered 2026-10-17: 20261010220000 → 20261017120000.** Production's migration history (A1 check, 2026-10-17) already records 20261010220000 as Genesis's `automations_builder_coupons_follow_ups`, so `migration repair` with the old number would have marked this unapplied migration as applied. Content unchanged; it creates nothing that 20261010230000/20261010240000 use or redefine, so it now applies after D13 (OWNER_ACTIONS D11).
+
 **Status:** done on `remediation` (unit U12, branch `fix/U12-hash-kiosk-manager-pin`). **Not applied to production** (OWNER_ACTIONS D11). Contract step pending.
 
 **Problem.** `businesses.kiosk_manager_pin` held the kiosk unlock PIN in plain text, readable by every member and, through the policy "Public can read businesses with slug for directory", by **anyone (anon included) for every business with a slug**. The kiosk, settings and PIN generator compared it in the browser.
 
 **Change.**
-- `supabase/migrations/20261010220000_kiosk_manager_pin_hashes.sql` (requires 20261010210000; stops with a message otherwise):
+- `supabase/migrations/20261017120000_kiosk_manager_pin_hashes.sql` (requires 20261010210000; stops with a message otherwise):
   - `kiosk_manager_pin_hashes` (bcrypt of the PIN and of its first 4 digits, with U11's per-business salt): service role only.
   - Trigger `businesses_sync_kiosk_manager_pin_hash` hashes every writer (main, dev, remediation, service role, e2e seeds); in-place backfill.
   - Computed field `businesses.kiosk_manager_pin_set` (members; not part of `select('*')`).
   - `kiosk_pin_entry(business, pin)` (members): keypad decision by hash (staff / manager / manager prefix / invalid); wrong entries share clock_in_out's 8/40 limits.
   - `set_kiosk_manager_pin(business, new, current)` (managers): 6 digits, prefix not a staff PIN, and the current PIN or a password sign-in in the last 10 minutes (JWT `amr`); writes the plain column too, so main sees the new PIN.
   - `generate_staff_pin` also skips the manager prefix server-side.
-- `supabase/rollbacks/20261010220000_kiosk_manager_pin_hashes.down.sql`: restores `generate_staff_pin` verbatim and drops the rest (identical `pg_dump -s` verified locally).
+- `supabase/rollbacks/20261017120000_kiosk_manager_pin_hashes.down.sql`: restores `generate_staff_pin` verbatim and drops the rest (identical `pg_dump -s` verified locally).
 - Frontend (`employeePin.ts`, `TimeKiosk.tsx`, `KioskManagerPinSettings.tsx`, `KioskManagerPinResetDialog.tsx`): never reads the plain manager PIN on a migrated database; falls back to today's path only on 42703 / PGRST202 / 42883. The reset dialog no longer loads every employee PIN (U11 follow-up done).
 - `scripts/pre-commit`: the "Hardcoded password" rule now flags only quoted literals (a password key followed by a quoted string literal), not identifiers (`password: accountPassword`); checked against 9 sample lines (owner decision 2026-10-10).
 - Types: 3 functions added to `src/integrations/supabase/types.ts` (coordinator).
@@ -1233,11 +1237,11 @@ No frontend deploy is needed.
 **Production steps (Jovaniel; OWNER_ACTIONS D11).** After D10, backup first:
 1. `select to_regprocedure('public.staff_pin_hash(uuid,text,boolean)'), to_regclass('public.staff_pin_hashes');` → both non-null.
 2. Paste the migration in the SQL editor. **Never `supabase db push`.**
-3. `npx supabase migration repair --status applied 20261010220000`.
+3. `npx supabase migration repair --status applied 20261017120000`.
 4. Verify: `select count(*) from businesses b where btrim(coalesce(b.kiosk_manager_pin,''))<>'' and not exists (select 1 from kiosk_manager_pin_hashes k where k.business_id=b.id);` → 0; `select public.kiosk_manager_pin_hashes_backfill();` → 0; `select has_table_privilege('authenticated','public.kiosk_manager_pin_hashes','select');` → false.
 5. On production (main) and dev.grumi.pet: lock/unlock the kiosk with the manager PIN, clock an employee in and out, change the manager PIN in settings, and do one PIN reset through the password step (confirms hosted Auth puts the password `amr` timestamp in the token).
 
-**Rollback.** Run the `.down.sql` (before any rollback of 20261010210000), then `npx supabase migration repair --status reverted 20261010220000`. The frontend falls back automatically.
+**Rollback.** Run the `.down.sql` (before any rollback of 20261010210000), then `npx supabase migration repair --status reverted 20261017120000`. The frontend falls back automatically.
 
 **Later contract step** (once `main` runs the remediation frontend): remove fallbacks; `set_kiosk_manager_pin` writes only the hash; null/drop `businesses.kiosk_manager_pin` and the sync trigger. Until then, revoking column SELECT from anon/authenticated needs every `select('*')` on businesses removed (main's businessSlug/authRouting run it as anon). Move the two manager-PIN known() to check().
 
@@ -1431,6 +1435,26 @@ No frontend deploy is needed.
 - Not in scope: inline access_role checks elsewhere (`clock_in_out`'s `v_mgr_tier`).
 
 **Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010240000`.
+
+---
+
+## 2026-10-17 · P1-12 · Error monitoring with Sentry (web app)
+
+**Status:** committed on `remediation`. Reaches users when `remediation` → `dev` → `main` ship; nothing is reported until then. `VITE_SENTRY_DSN` (React project) is set in Vercel (B5, Jovaniel).
+
+**Change.**
+- `@sentry/react` 10.75.3 (mature 10.x line; 11.x was a week old).
+- `src/lib/sentry.ts`: `initSentry()` (called first in `src/main.tsx`) is a no-op without `VITE_SENTRY_DSN` and on localhost. Environment from the hostname: `production` (grumi.pet), `dev` (dev.grumi.pet), `preview` (other Vercel hosts). Errors only: `tracesSampleRate: 0`, no replay, no session tracking, no feedback widget.
+- Privacy: `sendDefaultPii: false`; `beforeSend` drops the user, request cookies/headers/body and AbortErrors, and replaces emails and 10-digit phone numbers everywhere in the event with `[email]` / `[phone]`; console breadcrumbs keep only their scrubbed message.
+- Release = `VERCEL_GIT_COMMIT_SHA`, injected by `vite.config.ts` as `import.meta.env.VITE_SENTRY_RELEASE`.
+- `GlobalErrorBoundary.componentDidCatch` reports render errors with the component stack; window errors and unhandled rejections come from Sentry's default handlers.
+- `src/lib/sentry.test.ts`: 9 tests (scrubbing, AbortError drop, hostname → environment).
+
+**Gates.** Typecheck ratchet 28 known, none new; lint ratchet 400 known, none new; new tests 9/9; build OK with the release string present (`main-*.js` 1,181,576 bytes). Locally 4 jsdom test files fail with `localStorage.getItem` undefined on Node 26, identically without this change; CI runs Node 22.
+
+**Verify after it reaches dev.grumi.pet.** In the browser console on dev.grumi.pet run `setTimeout(() => { throw new Error('sentry test ' + Date.now()) })`; within a minute the issue appears in Sentry with environment `dev` and the commit as release.
+
+**Not done yet.** Edge Functions (`SENTRY_DSN`, Deno SDK) and source-map upload (needs a Sentry auth token in Vercel; without it stack traces point into minified code).
 
 ---
 
