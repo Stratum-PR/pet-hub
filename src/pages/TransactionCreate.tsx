@@ -23,6 +23,10 @@ import { devConsole } from '@/lib/clientDebug';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AthMovilChargeDialog } from '@/components/AthMovilChargeDialog';
 import { callPayments, type AthMode, type PaymentAttempt } from '@/lib/payments';
+import { useBusinessId } from '@/hooks/useBusinessId';
+import { couponDiscountCents, couponOfferLabel, normalizeCouponCode } from '@/lib/automations';
+import { checkCoupon, redeemCoupon, useHasCouponOffers, type CouponCheck } from '@/lib/coupons';
+import { getLanguage } from '@/lib/translations';
 
 function toCents(d: number): number {
   return Math.round(d * 100);
@@ -58,6 +62,14 @@ export function TransactionCreate() {
   const [athMode, setAthMode] = useState<AthMode>('off');
   const [athOpen, setAthOpen] = useState(false);
   const [paidUnsaved, setPaidUnsaved] = useState<PaymentAttempt | null>(null);
+  // Coupon: checked with check_coupon, discount recomputed from the lines, recorded with redeem_coupon after saving.
+  const businessId = useBusinessId();
+  const hasCouponOffers = useHasCouponOffers(demoBrowseOnly ? null : businessId);
+  const [couponInput, setCouponInput] = useState('');
+  const [coupon, setCoupon] = useState<CouponCheck | null>(null);
+  const [couponMsg, setCouponMsg] = useState('');
+  const [couponChecking, setCouponChecking] = useState(false);
+  const [couponFromBooking, setCouponFromBooking] = useState(false);
 
   useEffect(() => {
     if (demoBrowseOnly) return;
@@ -88,6 +100,11 @@ export function TransactionCreate() {
     } | undefined;
     if (!apt) return;
     prefilledFromAppointment.current = true;
+    const bookedCode = (apt as { coupon_code?: string | null }).coupon_code;
+    if (bookedCode) {
+      setCouponInput(bookedCode);
+      setCouponFromBooking(true);
+    }
     const clientId = (apt as { client_id?: string }).client_id ?? null;
     setCustomerId(clientId);
     setAppointmentId(urlAppointmentId);
@@ -142,6 +159,57 @@ export function TransactionCreate() {
   }, [urlAppointmentId, appointments, services]);
 
   const subtotalCents = useMemo(() => lineItems.reduce((s, li) => s + li.line_total, 0), [lineItems]);
+
+  const couponLabel = (c: CouponCheck) =>
+    couponOfferLabel(
+      { kind: c.kind!, value: c.value ?? null, service_name: c.service_name, product_name: c.product_name },
+      getLanguage() === 'en' ? 'en' : 'es',
+    );
+
+  const applyCoupon = async (raw?: string) => {
+    const code = normalizeCouponCode(raw ?? couponInput);
+    if (!code) return;
+    setCouponChecking(true);
+    setCouponMsg('');
+    try {
+      const r = await checkCoupon(code, customerId);
+      if (!r.ok || !r.kind) {
+        setCoupon(null);
+        setCouponMsg(t(`cpn.reason.${r.reason ?? 'invalid'}`));
+        return;
+      }
+      setCoupon(r);
+    } catch {
+      setCouponMsg(t('common.genericError'));
+    } finally {
+      setCouponChecking(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCoupon(null);
+    setCouponInput('');
+    setCouponMsg('');
+    setDiscountAmount(0);
+    setDiscountLabel('');
+  };
+
+  // A code the client typed when booking online: check it once the client is known.
+  useEffect(() => {
+    if (couponFromBooking && couponInput && !coupon && customerId) void applyCoupon(couponInput);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [couponFromBooking, customerId]);
+
+  // Keep the discount in step with the coupon and the sale lines.
+  const couponDiscount = useMemo(
+    () => (coupon?.kind ? couponDiscountCents({ kind: coupon.kind, value: coupon.value ?? null, service_id: coupon.service_id, product_id: coupon.product_id }, lineItems) : 0),
+    [coupon, lineItems],
+  );
+  useEffect(() => {
+    if (!coupon) return;
+    setDiscountAmount(couponDiscount / 100);
+    setDiscountLabel(`${t('cpn.checkout.title')} ${coupon.code}`);
+  }, [coupon, couponDiscount]);
   const discountCents = toCents(discountAmount);
   const serviceSubtotalCents = useMemo(() => lineItems.filter((li) => li.type === 'service').reduce((s, li) => s + li.line_total, 0), [lineItems]);
   const productSubtotalCents = useMemo(() => lineItems.filter((li) => li.type === 'product').reduce((s, li) => s + li.line_total, 0), [lineItems]);
@@ -278,6 +346,21 @@ export function TransactionCreate() {
     if (created && athPaid) {
       await callPayments('link_transaction', { paymentId: athPaid.id, transactionId: created.id });
       setPaidUnsaved(null);
+    }
+    if (created && coupon?.code && !created.id.startsWith('local-')) {
+      try {
+        const r = await redeemCoupon({
+          code: coupon.code,
+          clientId: customerId,
+          transactionId: created.id,
+          appointmentId,
+          discountCents: toCents(discountAmount),
+        });
+        if (!r.ok) toast.warning(t('cpn.checkout.redeemFailed'));
+      } catch (e) {
+        devConsole.error('[TransactionCreate] redeemCoupon', e);
+        toast.warning(t('cpn.checkout.redeemFailed'));
+      }
     }
     if (created) {
       toast.success(t('transactions.created'));
@@ -442,6 +525,40 @@ export function TransactionCreate() {
           <CardTitle>{t('transactions.adjustments')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {(hasCouponOffers.data || couponFromBooking) && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <Label>{t('cpn.checkout.title')}</Label>
+              {coupon ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span>
+                    <span className="font-mono font-medium">{coupon.code}</span> · {t('cpn.checkout.applied', { label: couponLabel(coupon) })}
+                    {couponDiscount === 0 && <span className="block text-xs text-amber-600">{t('cpn.checkout.noMatch')}</span>}
+                  </span>
+                  <Button type="button" variant="ghost" size="sm" onClick={removeCoupon}>
+                    {t('cpn.checkout.remove')}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    className="max-w-xs font-mono uppercase"
+                    placeholder={t('cpn.checkout.placeholder')}
+                    value={couponInput}
+                    maxLength={24}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value.toUpperCase());
+                      setCouponMsg('');
+                    }}
+                  />
+                  <Button type="button" variant="outline" disabled={!couponInput.trim() || couponChecking} onClick={() => void applyCoupon()}>
+                    {t('cpn.checkout.apply')}
+                  </Button>
+                </div>
+              )}
+              {couponFromBooking && !coupon && <p className="text-xs text-muted-foreground">{t('cpn.checkout.fromBooking')}</p>}
+              {couponMsg && <p className="text-xs text-destructive">{couponMsg}</p>}
+            </div>
+          )}
           <div className="flex gap-4 flex-wrap">
             <div className="space-y-2">
               <Label>{t('transactions.discount')} ($)</Label>

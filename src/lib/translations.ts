@@ -1,5 +1,6 @@
 import { DEMO_LANGUAGE_STORAGE_KEY, isDemoMode } from '@/lib/authRouting';
 import { devConsole } from '@/lib/clientDebug';
+import { automationsTranslations } from '@/lib/automationsI18n';
 
 export type Language = 'en' | 'es';
 
@@ -11,6 +12,7 @@ export interface Translations {
 }
 
 export const translations: Translations = {
+  ...automationsTranslations,
   // Client email automations (business settings)
   'clientEmails.title': {
     en: 'Automatic emails to clients',

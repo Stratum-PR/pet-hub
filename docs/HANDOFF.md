@@ -5,7 +5,7 @@ Read this at the start of a session with Genesis. It records how she works, what
 ## How Genesis works
 
 - **Branch:** work directly on `dev`. No separate work branches, no PRs. Never commit to `main`.
-- **Checking changes:** Genesis runs the site on her Mac with `npm run dev` (http://localhost:8080) and `git pull`s your pushes. `.env.local` holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Localhost, dev.grumi.pet and grumi.pet all use the **same production Supabase project** (`ehjrykgwfwgckfpcjmka`).
+- **Checking changes:** Genesis runs the site on her Mac with `npm run dev` (http://localhost:8080). **Make no commits unless she says so** (since 2026-10-10): edit her local checkout (`~/pet-hub`) directly and she checks on localhost; commit/push only when asked. `.env.local` holds `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Localhost, dev.grumi.pet and grumi.pet all use the **same production Supabase project** (`ehjrykgwfwgckfpcjmka`).
 - **Deploys (Vercel free plan, storage limit):** `scripts/vercel-ignore-build.sh` (vercel.json `ignoreCommand`) means:
   - pushes to `dev` do **not** deploy unless the commit message contains `[deploy]`; push a commit with `[deploy]` only when Genesis asks to "deploy dev";
   - `main` deploys when site files change (docs/database/test-only changes are skipped);
@@ -28,7 +28,7 @@ Read this at the start of a session with Genesis. It records how she works, what
   - Shared data hooks: `src/lib/adminData.ts`.
 - Landing assets slimmed (hero WebP, lighter 1080p video, unused media moved to `designs/marketing-assets`); build output ~19 MB.
 
-## Automations (built, NOT live yet)
+## Automations (in production, switched OFF)
 
 Trello-style "When → Then" rules, managed by super admins in the admin portal. First rule: **pet birthday → email the owner**.
 
@@ -44,16 +44,39 @@ Code:
 - Daily schedule: `supabase/setup/automations_cron.sql` (pg_cron + pg_net, secret in Vault, 13:00 UTC). Replace `<PROJECT_REF>` before running.
 - Front end: `src/lib/automations.ts`, `src/pages/admin/AdminAutomations.tsx`, pet form birth day (`PetForm.tsx`, only sent when set so saving works before the migration).
 
-### PENDING: production steps (Genesis approved them, then asked to leave them pending)
+### Production steps: 1-3 DONE (2026-10-10), step 4 is Genesis's
 
-Run in this order, each only with Genesis's OK in that session. She chose **no backup** (Supabase free plan; change is expand-only). The first attempt on 2026-10-10 was cancelled before running, so nothing is applied: `automations` does not exist in production yet.
+1. **Database:** done. Genesis ran the migration in the SQL Editor (the Supabase MCP `execute_sql` times out on large DDL). Recorded in `supabase_migrations.schema_migrations` as `20261010200000`. Verified: 1 automation row (enabled = false), 4 policies, `pets.birth_day`.
+2. **Edge Function:** done. `run-automations` v1 deployed via Supabase MCP with `verify_jwt = false`.
+3. **Daily schedule:** done. `pg_cron` + `pg_net` enabled, Vault secret `automations_cron_secret` created, job `run-automations-daily` at `0 13 * * *`. Tested through `pg_net`: real secret -> 200 `{"ok":true,"mode":"run","results":{}}`; wrong secret -> 401. (The 200 also shows the Resend key is configured.) Note: `pg_net` landed in the `public` schema (advisor warning, low risk).
+4. **PENDING (Genesis):** in `/admin/automations`: **Enviarme una prueba**, check the email, use **¿Quién lo recibe hoy?**, and only then switch the automation on.
 
-1. **Database:** run `20261010200000_automations.sql` in one transaction (SQL editor, or Supabase MCP `execute_sql` with `BEGIN; … COMMIT;`). Then record it: `npx supabase migration repair --status applied 20261010200000` (production's migration history is incomplete; never `supabase db push`). Verify: `automations` has 1 row (enabled = false), 4 new policies, `pets.birth_day` exists.
-2. **Edge Function:** deploy `run-automations` (`index.ts` + `logic.ts`) with `verify_jwt = false`. It uses existing secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NOTIFY_RESEND_API_KEY` (or `RESEND_API_KEY`), optional `NOTIFY_FROM_EMAIL`, `ALLOWED_ORIGINS`.
-3. **Daily schedule:** run `supabase/setup/automations_cron.sql` with the project ref filled in. Check `cron.job` and `cron.job_run_details`.
-4. Then in `/admin/automations`: **Enviarme una prueba**, check the email, use **¿Quién lo recibe hoy?**, and only then switch the automation on.
+## Automations v2: business automations, coupons, call list (2026-10-11, LOCAL ONLY, not committed)
 
-Until step 1 runs, `/admin/automations` shows a load-error toast and the pet form's birth day can't be saved (leave it empty).
+Decisions (Genesis, 2026-10-10/11):
+- Each business builds its own automations (templates + 4-step builder: When → Conditions → Action → Review and save). Grumi's own (trial ending, past due, inactive business, onboarding not finished) stay in `/admin/automations`.
+- All triggers from the brainstorm **except vaccination**. Pet birthday and client inactive (and welcome) can carry a gift: % off, $ off, free service or free product; unique per-client code or a shared code the business chooses.
+- Clients can type a code when **booking online** (validated and shown, kept on the appointment, applied at checkout).
+- Grooming due: as a message with a booking link **and/or** a staff **call list** ("Para llamar") with outcomes Booked / Call back / No answer / Not interested.
+- Who manages: managers **and admin staff** (access role admin/manager). Everyone in the business can work the call list and use coupons at checkout.
+- SMS is built but stays off until Twilio secrets exist (`TWILIO_*`); "client's preference" falls back to email.
+- Preset notifications vs automations split agreed (presets = operational on/off; marketing/reports = automations). The presets page tidy-up is **not built yet**.
+- Payment security questions S-10 a/b/c: Genesis chose to answer them **after** this feature.
+
+Code:
+- Migration `supabase/migrations/20261010220000_automations_builder_coupons_follow_ups.sql` (+ rollback). Expand-only. Tested on a local Postgres with a stub schema: apply / re-run / rollback / re-apply OK; 36 coupon + permission checks pass (cross-business isolation, personal codes need the right client/phone, no double use, max uses, no direct redemption writes, anon can't read offers).
+- Edge Function `supabase/functions/run-automations/`: `catalog.ts` (shared with the web app: triggers, actions, report sources/columns, templates, schedule/date helpers, coupon math), `engine.ts`, `reports.ts`, `delivery.ts`, `index.ts`. Deno type-check passes (with an import map to npm supabase-js); `catalog.test.ts` + `logic.test.ts`: 30 tests pass.
+- Web app: `src/pages/AutomationsPage.tsx`, `src/pages/FollowUpsPage.tsx`, `src/components/automations/*`, `src/lib/{automations,coupons,followUps,automationsI18n}.ts`, `src/hooks/useCanManageAutomations.ts`; coupon box in `TransactionCreate.tsx` and `PublicBookingPage.tsx`; routes `/:slug/automations`, `/:slug/follow-ups`; sidebar links; admin page rewritten on the same builder.
+- Feature key `automations` (seeded Dev / super admins) gates the pages; turn it Live in Admin → Funciones when ready.
+- Typecheck: no new errors in these files (her local `node_modules` lacks `@testing-library/*` and `@playwright/test`, so the ratchet shows unrelated test-file errors there; CI installs them). ESLint: clean except existing warnings/`any`s in `TransactionCreate.tsx`.
+
+### PENDING production steps (each needs Genesis's OK in that session)
+1. Run the migration in the SQL Editor (one transaction) and record it: `INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20261010220000','automations_builder_coupons_follow_ups')`. The Supabase MCP `execute_sql` times out on large DDL.
+2. Deploy `run-automations` (all six .ts files) with `verify_jwt = false`: `npx supabase functions deploy run-automations --project-ref ehjrykgwfwgckfpcjmka --no-verify-jwt` from her Mac.
+3. Change the cron to every 15 minutes: re-run `supabase/setup/automations_cron.sql` with the project ref (safe to re-run; keeps the Vault secret).
+4. Try it on localhost (feature is Dev-only for super admins), then turn `automations` Live in Admin → Funciones.
+
+Not built yet: preset-notifications page tidy-up; per-pet "weeks between groomings" field in the pet form (the column `pets.grooming_interval_weeks` exists); XLSX reports (CSV for now).
 
 ## Other open items
 

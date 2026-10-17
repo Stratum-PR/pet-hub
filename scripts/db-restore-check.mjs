@@ -73,8 +73,9 @@ supabase(['start']);
 
 // 3. Restore in one transaction: roles, schema, data (triggers/FK checks off while loading), then extras.
 for (const f of ['schema.sql', 'data.sql', 'extras.sql']) docker(['cp', join(backup, f), `${CONTAINER}:/tmp/${f}`]);
-// Supabase-managed parameter grants already exist on every project and only a superuser may re-run them.
-const roles = readFileSync(join(backup, 'roles.sql'), 'utf8').split(/\r?\n/).filter((l) => !/^GRANT SET ON PARAMETER /.test(l)).join('\n');
+// Supabase-managed parameter grants and settings on the reserved supabase_admin role already exist on every
+// project and only a superuser may re-run them.
+const roles = readFileSync(join(backup, 'roles.sql'), 'utf8').split(/\r?\n/).filter((l) => !/^(GRANT SET ON PARAMETER |ALTER ROLE "supabase_admin" )/.test(l)).join('\n');
 writeFileSync(join(WORKDIR, 'roles.restore.sql'), roles);
 docker(['cp', join(WORKDIR, 'roles.restore.sql'), `${CONTAINER}:/tmp/roles.restore.sql`]);
 console.log('▶ Restoring roles → schema → data → extras (single transaction)…');
