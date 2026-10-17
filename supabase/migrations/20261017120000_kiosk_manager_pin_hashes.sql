@@ -57,7 +57,7 @@
 --
 -- Requires: 20261010210000_staff_pin_hashes.sql (staff_pin_hash, staff_pin_salts, staff_pin_hashes,
 -- generate_staff_pin), 20261009120000 (is_business_member/manager), 20261006130000 (clock_pin_attempts) and pgcrypto
--- in schema extensions. Idempotent. Rollback: supabase/rollbacks/20261010220000_kiosk_manager_pin_hashes.down.sql.
+-- in schema extensions. Idempotent. Rollback: supabase/rollbacks/20261017120000_kiosk_manager_pin_hashes.down.sql.
 
 DO $$
 BEGIN
