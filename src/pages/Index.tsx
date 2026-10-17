@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
-import { useMemo, useEffect, useState } from 'react';
+import { lazy, Suspense, useMemo, useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { PageTransitionProvider, usePageTransition } from '@/contexts/PageTransitionContext';
 import { SettingsLayout } from '@/components/SettingsLayout';
@@ -46,6 +46,9 @@ import { isKioskLocked } from '@/lib/kioskLock';
 import { PawStagedLoadingFullscreen } from '@/components/PawStagedLoading';
 import { resolveFeatureGate, useFeatureGatesKnown } from '@/lib/featureGate';
 import { t } from '@/lib/translations';
+
+const AutomationsPage = lazy(() => import('@/pages/AutomationsPage'));
+const FollowUpsPage = lazy(() => import('@/pages/FollowUpsPage'));
 
 /** Old bookmarks / notifications used /employee-management; canonical URL is /staff-management. */
 function RedirectLegacyEmployeeManagement() {
@@ -158,6 +161,7 @@ const Index = () => {
   const transactionCreateVisible = isFeatureVisible('transaction_create');
   const transactionDetailVisible = isFeatureVisible('transaction_detail');
   const bookingSettingsVisible = isFeatureVisible('booking_settings');
+  const automationsVisible = isFeatureVisible('automations');
   const routeGateSnapshot = {
     appointments: isFeatureVisible('appointments'),
     appointment_book: isFeatureVisible('appointment_book'),
@@ -624,6 +628,24 @@ const Index = () => {
                 element={role === 'employee' ? <Navigate to="../clients" replace /> : <Billing />}
               />
             </Route>
+            <Route
+              path="automations"
+              element={gate(
+                automationsVisible,
+                <Suspense fallback={<PawStagedLoadingFullscreen label={t('common.loading')} />}>
+                  <AutomationsPage />
+                </Suspense>,
+              )}
+            />
+            <Route
+              path="follow-ups"
+              element={gate(
+                automationsVisible,
+                <Suspense fallback={<PawStagedLoadingFullscreen label={t('common.loading')} />}>
+                  <FollowUpsPage />
+                </Suspense>,
+              )}
+            />
             <Route path="help" element={<Help />} />
             <Route path="notifications" element={<Notifications />} />
               </TransitionRoutes>
