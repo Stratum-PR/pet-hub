@@ -63,10 +63,10 @@ This leaves the restored database running locally (Studio `http://127.0.0.1:5552
 
 **B. The database is lost or unusable.** Restore everything into an **empty** Supabase project (a new one; restoring over a database that still has tables fails or duplicates data). With its Session pooler string in `$env:TARGET_DB_URL`, from the backup folder:
 ```powershell
-Select-String -NotMatch '^GRANT SET ON PARAMETER ' roles.sql | ForEach-Object Line | Set-Content -Encoding utf8 roles.restore.sql
+Select-String -NotMatch '^(GRANT SET ON PARAMETER |ALTER ROLE "supabase_admin" )' roles.sql | ForEach-Object Line | Set-Content -Encoding utf8 roles.restore.sql
 docker run --rm -e TARGET_DB_URL -v "${PWD}:/b" --entrypoint psql public.ecr.aws/supabase/postgres:<postgresImage tag from manifest.json> "$env:TARGET_DB_URL" --single-transaction -v ON_ERROR_STOP=1 -f /b/roles.restore.sql -f /b/schema.sql -c "SET session_replication_role = replica" -f /b/data.sql -c "SET session_replication_role = origin" -f /b/extras.sql
 ```
-(The `GRANT SET ON PARAMETER` line is a Supabase-managed grant every project already has; only a superuser may run it.) These are the same steps `db-restore-check.mjs` runs locally. Then upload the files (`supabase storage cp -r files/<bucket> ss:/// --project-ref <new ref> --experimental`), re-enter the Edge Function secrets and Auth settings from P0-03, deploy the Edge Functions, and point Vercel's `VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY` at the new project. Users keep their passwords (the hashes are in `auth.users`) but must sign in again.
+(The `GRANT SET ON PARAMETER` and `ALTER ROLE "supabase_admin"` lines are Supabase-managed settings every project already has; only a superuser may run them. The second one appeared in production's dump on 2026-10-17.) These are the same steps `db-restore-check.mjs` runs locally. Then upload the files (`supabase storage cp -r files/<bucket> ss:/// --project-ref <new ref> --experimental`), re-enter the Edge Function secrets and Auth settings from P0-03, deploy the Edge Functions, and point Vercel's `VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY` at the new project. Users keep their passwords (the hashes are in `auth.users`) but must sign in again.
 
 ## Notes
 

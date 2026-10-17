@@ -1208,19 +1208,21 @@ No frontend deploy is needed.
 
 ## 2026-10-10 · P2-04 · Kiosk manager PIN hashed (expand step)
 
+> **Renumbered 2026-10-17: 20261010220000 → 20261017120000.** Production's migration history (A1 check, 2026-10-17) already records 20261010220000 as Genesis's `automations_builder_coupons_follow_ups`, so `migration repair` with the old number would have marked this unapplied migration as applied. Content unchanged; it creates nothing that 20261010230000/20261010240000 use or redefine, so it now applies after D13 (OWNER_ACTIONS D11).
+
 **Status:** done on `remediation` (unit U12, branch `fix/U12-hash-kiosk-manager-pin`). **Not applied to production** (OWNER_ACTIONS D11). Contract step pending.
 
 **Problem.** `businesses.kiosk_manager_pin` held the kiosk unlock PIN in plain text, readable by every member and, through the policy "Public can read businesses with slug for directory", by **anyone (anon included) for every business with a slug**. The kiosk, settings and PIN generator compared it in the browser.
 
 **Change.**
-- `supabase/migrations/20261010220000_kiosk_manager_pin_hashes.sql` (requires 20261010210000; stops with a message otherwise):
+- `supabase/migrations/20261017120000_kiosk_manager_pin_hashes.sql` (requires 20261010210000; stops with a message otherwise):
   - `kiosk_manager_pin_hashes` (bcrypt of the PIN and of its first 4 digits, with U11's per-business salt): service role only.
   - Trigger `businesses_sync_kiosk_manager_pin_hash` hashes every writer (main, dev, remediation, service role, e2e seeds); in-place backfill.
   - Computed field `businesses.kiosk_manager_pin_set` (members; not part of `select('*')`).
   - `kiosk_pin_entry(business, pin)` (members): keypad decision by hash (staff / manager / manager prefix / invalid); wrong entries share clock_in_out's 8/40 limits.
   - `set_kiosk_manager_pin(business, new, current)` (managers): 6 digits, prefix not a staff PIN, and the current PIN or a password sign-in in the last 10 minutes (JWT `amr`); writes the plain column too, so main sees the new PIN.
   - `generate_staff_pin` also skips the manager prefix server-side.
-- `supabase/rollbacks/20261010220000_kiosk_manager_pin_hashes.down.sql`: restores `generate_staff_pin` verbatim and drops the rest (identical `pg_dump -s` verified locally).
+- `supabase/rollbacks/20261017120000_kiosk_manager_pin_hashes.down.sql`: restores `generate_staff_pin` verbatim and drops the rest (identical `pg_dump -s` verified locally).
 - Frontend (`employeePin.ts`, `TimeKiosk.tsx`, `KioskManagerPinSettings.tsx`, `KioskManagerPinResetDialog.tsx`): never reads the plain manager PIN on a migrated database; falls back to today's path only on 42703 / PGRST202 / 42883. The reset dialog no longer loads every employee PIN (U11 follow-up done).
 - `scripts/pre-commit`: the "Hardcoded password" rule now flags only quoted literals (a password key followed by a quoted string literal), not identifiers (`password: accountPassword`); checked against 9 sample lines (owner decision 2026-10-10).
 - Types: 3 functions added to `src/integrations/supabase/types.ts` (coordinator).
@@ -1233,11 +1235,11 @@ No frontend deploy is needed.
 **Production steps (Jovaniel; OWNER_ACTIONS D11).** After D10, backup first:
 1. `select to_regprocedure('public.staff_pin_hash(uuid,text,boolean)'), to_regclass('public.staff_pin_hashes');` → both non-null.
 2. Paste the migration in the SQL editor. **Never `supabase db push`.**
-3. `npx supabase migration repair --status applied 20261010220000`.
+3. `npx supabase migration repair --status applied 20261017120000`.
 4. Verify: `select count(*) from businesses b where btrim(coalesce(b.kiosk_manager_pin,''))<>'' and not exists (select 1 from kiosk_manager_pin_hashes k where k.business_id=b.id);` → 0; `select public.kiosk_manager_pin_hashes_backfill();` → 0; `select has_table_privilege('authenticated','public.kiosk_manager_pin_hashes','select');` → false.
 5. On production (main) and dev.grumi.pet: lock/unlock the kiosk with the manager PIN, clock an employee in and out, change the manager PIN in settings, and do one PIN reset through the password step (confirms hosted Auth puts the password `amr` timestamp in the token).
 
-**Rollback.** Run the `.down.sql` (before any rollback of 20261010210000), then `npx supabase migration repair --status reverted 20261010220000`. The frontend falls back automatically.
+**Rollback.** Run the `.down.sql` (before any rollback of 20261010210000), then `npx supabase migration repair --status reverted 20261017120000`. The frontend falls back automatically.
 
 **Later contract step** (once `main` runs the remediation frontend): remove fallbacks; `set_kiosk_manager_pin` writes only the hash; null/drop `businesses.kiosk_manager_pin` and the sync trigger. Until then, revoking column SELECT from anon/authenticated needs every `select('*')` on businesses removed (main's businessSlug/authRouting run it as anon). Move the two manager-PIN known() to check().
 
