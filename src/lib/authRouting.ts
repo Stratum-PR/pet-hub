@@ -4,6 +4,7 @@ import { clearAllDemoStoredSettings } from '@/lib/demoLocalSettings';
 import { DEMO_WORKSPACE_SLUG } from '@/lib/demoWorkspace';
 import { supabase } from '@/integrations/supabase/client';
 import { getEmployeePostLoginPath } from '@/lib/employeePostLogin';
+import { finishPendingManagerSignupIfNeeded } from '@/lib/pendingManagerSignup';
 
 export const DEMO_LANGUAGE_STORAGE_KEY = 'pet-hub-demo-language';
 const DEMO_THEME_STORAGE_KEY = 'pet-hub-theme-demo';
@@ -196,6 +197,14 @@ async function fetchBusinessById(businessId: string | null): Promise<Business | 
  * Routes by persisted profile role, not by UI selection.
  */
 export async function resolveAuthenticatedDestination(userId: string): Promise<string> {
+  // A business owner who confirmed their email on another device, or signed in through a magic link, still has
+  // their sign-up pending in user_metadata: finish it here so they land on their new dashboard, not /portal.
+  const { data: sessionData } = await supabase.auth.getSession();
+  const sessionUser = sessionData?.session?.user;
+  if (sessionUser?.id === userId) {
+    await finishPendingManagerSignupIfNeeded(sessionUser);
+  }
+
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('is_super_admin, business_id, role')

@@ -11,6 +11,8 @@ const fake = vi.hoisted(() => {
   const writes: Write[] = [];
   const signUps: unknown[] = [];
   const user = { id: 'user-1', email: 'ana@grumi.test' };
+  /** Set to false to answer sign-up like a project with "Confirm email" on (no session until confirmed). */
+  const state = { signUpReturnsSession: true };
 
   /** Any query chain resolves to `result`; insert/update/upsert payloads are recorded. */
   const query = (table: string, result: unknown = { data: null, error: null }): unknown =>
@@ -33,12 +35,12 @@ const fake = vi.hoisted(() => {
     auth: {
       signUp: (args: unknown) => {
         signUps.push(args);
-        return Promise.resolve({ data: { user, session: { user } }, error: null });
+        return Promise.resolve({ data: { user, session: state.signUpReturnsSession ? { user } : null }, error: null });
       },
     },
     functions: { invoke: () => Promise.resolve({ data: null, error: null }) },
   };
-  return { supabase, writes, signUps };
+  return { supabase, writes, signUps, state };
 });
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: fake.supabase }));
@@ -189,5 +191,53 @@ describe('Register: client sign-up, Enter key', () => {
     await pressEnterIn('input[placeholder="Nombre de mascota"]');
 
     await waitFor(() => expect(fake.signUps).toHaveLength(signUpsBefore + 1));
+  });
+});
+
+// Manager sign-up finished only in the browser that filled in the form: the pending business lived in
+// localStorage, so confirming the email on a phone or signing in through a magic link left the owner as a client.
+// The pending business now travels in the account's user_metadata (a hint for the browser; never `role`).
+describe('Register: owner sign-up with email confirmation', () => {
+  it('stores the pending business in signUp metadata, not in this browser', async () => {
+    fake.state.signUpReturnsSession = false;
+    localStorage.clear();
+    const { container, getAllByRole } = render(
+      <MemoryRouter initialEntries={['/registrarse']}>
+        <Register />
+      </MemoryRouter>,
+    );
+    const el = <T extends Element>(selector: string) => {
+      const found = container.querySelector<T>(selector);
+      if (!found) throw new Error(`missing ${selector}`);
+      return found;
+    };
+    const lastTypeButton = () =>
+      Array.from(container.querySelectorAll<HTMLButtonElement>('button[type="button"]')).at(-1)!;
+
+    // Choose "owner" (the first account-type button), name the business, keep the default plan.
+    fireEvent.click(getAllByRole('button')[0]);
+    fireEvent.change(el('#businessName'), { target: { value: '  Patitas Felices ' } });
+    fireEvent.click(lastTypeButton());
+    fireEvent.click(lastTypeButton());
+    fireEvent.change(el('#owner-fullName'), { target: { value: 'Ana Rivera' } });
+    fireEvent.change(el('#owner-email'), { target: { value: 'ana@grumi.test' } });
+    fireEvent.change(el('#owner-password'), { target: { value: 'Secret#123' } });
+    const signUpsBefore = fake.signUps.length;
+    const writesBefore = fake.writes.length;
+    await act(async () => {
+      fireEvent.submit(el('form'));
+    });
+
+    await waitFor(() => expect(fake.signUps).toHaveLength(signUpsBefore + 1));
+    const args = fake.signUps.at(-1) as { options: { data: Record<string, unknown> } };
+    expect(args.options.data).toEqual({
+      full_name: 'Ana Rivera',
+      pending_manager_signup: { business_name: 'Patitas Felices', tier: 'basic' },
+    });
+    expect(keysOf(args)).not.toContain('role');
+    expect(localStorage.getItem('pending_manager_business_name')).toBeNull();
+    // No session yet: nothing is created until the email is confirmed.
+    expect(fake.writes).toHaveLength(writesBefore);
+    fake.state.signUpReturnsSession = true;
   });
 });

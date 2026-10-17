@@ -1455,3 +1455,33 @@ No frontend deploy is needed.
 **Verify after it reaches dev.grumi.pet.** In the browser console on dev.grumi.pet run `setTimeout(() => { throw new Error('sentry test ' + Date.now()) })`; within a minute the issue appears in Sentry with environment `dev` and the commit as release.
 
 **Not done yet.** Edge Functions (`SENTRY_DSN`, Deno SDK) and source-map upload (needs a Sentry auth token in Vercel; without it stack traces point into minified code).
+
+---
+
+## 2026-10-17 · Manager sign-up completes on any device / magic link
+
+**Status:** on branch `fix/manager-signup-cross-device` (off `dev`). Frontend only; no schema change. **Not deployed.**
+
+**Problem.** `Register.tsx` kept the pending business name and plan only in the signing-up browser's localStorage, and `AuthCallback.tsx` called `complete_manager_signup` only when it found those keys on `/auth/callback`. An owner who confirmed the email on another device/browser, or signed in through a dashboard magic link (lands on the Site URL, not `/auth/callback`), never got a business and stayed a `client` in `/portal`. Verified 2026-10-17 on localhost against production; opening `/auth/callback` in the original browser fixed it.
+
+**Change.**
+- `src/lib/pendingManagerSignup.ts` (new): the pending business travels in `signUp` `options.data.pending_manager_signup = { business_name, tier }`. `finishPendingManagerSignupIfNeeded` calls the RPC only when that metadata exists and the profile is a plain client with no business (not employee/manager/super admin), then clears the metadata flag (`auth.updateUser`) and the legacy keys, and notifies listeners. Concurrent callers for the same user share one RPC call.
+- `Register.tsx`: writes the metadata instead of localStorage; the immediate-session path uses the same helper (clears the flag too).
+- `authRouting.ts` `resolveAuthenticatedDestination`: finishes a pending sign-up from the session's metadata before routing (covers landing page / magic link, login form, `/auth/callback`). Metadata only: the legacy localStorage keys don't say which user wrote them.
+- `AuthCallback.tsx`: same helper, plus the legacy localStorage fallback so sign-ups started before this deploy still finish in the original browser; retry button keyed on the failed user.
+- `AuthContext.tsx`: on completion, awaits a profile refetch before the caller navigates (otherwise ProtectedRoute sees the cached "client, no business" and sends the owner to `/portal`).
+- Tests: `pendingManagerSignup.test.ts` (11), `authRouting.pendingSignup.test.ts` (3), `Register.test.tsx` +1 (owner sign-up sends metadata, no `role`, nothing in localStorage).
+
+**Security.** The database never reads this metadata for the role (P0-01 / P2-07): role still changes only inside SECURITY DEFINER `complete_manager_signup`, which any signed-in user could already call. The key is not `role`. A user editing their own metadata gains nothing they couldn't do by calling the RPC.
+
+**`complete_manager_signup` idempotency.** Returns without doing anything when the profile already has `business_id`, so a second sequential call never creates a second business. It takes no row lock, so two truly concurrent calls could both pass the check; the client now dedupes per user, but the DB race remains (follow-up: `SELECT … FOR UPDATE` on the profile row).
+
+**Gates.** tsc 28 (none new) · lint 400 (none new) · vitest 241/241 (+15) · build OK. (Locally on Node 26 the dom tests need `NODE_OPTIONS=--no-experimental-webstorage`; CI uses Node 22.)
+
+**Not verified.** No end-to-end run against a live confirmation email / magic link.
+
+**Follow-ups found.**
+- `handle_new_user` (latest in 20260331220000) gives `role = 'manager'` to any sign-up whose metadata says `role: 'manager'` (a manager with no business). Not touched here.
+- DB-side lock in `complete_manager_signup` (above).
+
+**Rollback.** Revert the merge commit. Users who signed up while this was live have the pending business only in metadata; after a rollback they'd need the RPC run for them (or this fix re-deployed).
