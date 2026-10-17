@@ -1435,3 +1435,23 @@ No frontend deploy is needed.
 - Not in scope: inline access_role checks elsewhere (`clock_in_out`'s `v_mgr_tier`).
 
 **Rollback (production).** Run the `.down.sql`, then `npx supabase migration repair --status reverted 20261010240000`.
+
+---
+
+## 2026-10-17 · P1-12 · Error monitoring with Sentry (web app)
+
+**Status:** committed on `remediation`. Reaches users when `remediation` → `dev` → `main` ship; nothing is reported until then. `VITE_SENTRY_DSN` (React project) is set in Vercel (B5, Jovaniel).
+
+**Change.**
+- `@sentry/react` 10.75.3 (mature 10.x line; 11.x was a week old).
+- `src/lib/sentry.ts`: `initSentry()` (called first in `src/main.tsx`) is a no-op without `VITE_SENTRY_DSN` and on localhost. Environment from the hostname: `production` (grumi.pet), `dev` (dev.grumi.pet), `preview` (other Vercel hosts). Errors only: `tracesSampleRate: 0`, no replay, no session tracking, no feedback widget.
+- Privacy: `sendDefaultPii: false`; `beforeSend` drops the user, request cookies/headers/body and AbortErrors, and replaces emails and 10-digit phone numbers everywhere in the event with `[email]` / `[phone]`; console breadcrumbs keep only their scrubbed message.
+- Release = `VERCEL_GIT_COMMIT_SHA`, injected by `vite.config.ts` as `import.meta.env.VITE_SENTRY_RELEASE`.
+- `GlobalErrorBoundary.componentDidCatch` reports render errors with the component stack; window errors and unhandled rejections come from Sentry's default handlers.
+- `src/lib/sentry.test.ts`: 9 tests (scrubbing, AbortError drop, hostname → environment).
+
+**Gates.** Typecheck ratchet 28 known, none new; lint ratchet 400 known, none new; new tests 9/9; build OK with the release string present (`main-*.js` 1,181,576 bytes). Locally 4 jsdom test files fail with `localStorage.getItem` undefined on Node 26, identically without this change; CI runs Node 22.
+
+**Verify after it reaches dev.grumi.pet.** In the browser console on dev.grumi.pet run `setTimeout(() => { throw new Error('sentry test ' + Date.now()) })`; within a minute the issue appears in Sentry with environment `dev` and the commit as release.
+
+**Not done yet.** Edge Functions (`SENTRY_DSN`, Deno SDK) and source-map upload (needs a Sentry auth token in Vercel; without it stack traces point into minified code).
