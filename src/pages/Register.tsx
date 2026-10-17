@@ -22,11 +22,13 @@ import { generateBusinessPortalQrSvg, resolvePortalBaseUrl } from '@/lib/qrCode'
 import { fetchBusinessByPublicSlug } from '@/lib/businessSlug';
 import { useThemedGrumiWordmarkSrc } from '@/hooks/useThemedGrumiWordmarkSrc';
 import { devConsole, isClientDebugSurfacesEnabled } from '@/lib/clientDebug';
+import {
+  PENDING_MANAGER_SIGNUP_METADATA_KEY,
+  buildPendingManagerSignupMetadata,
+  completePendingManagerSignup,
+} from '@/lib/pendingManagerSignup';
 
 const REGISTER_ROUTE = DISCOVERABLE_ROUTES.find((r) => r.path === '/registrarse')!;
-
-const PENDING_MANAGER_BUSINESS_NAME = 'pending_manager_business_name';
-const PENDING_MANAGER_TIER = 'pending_manager_tier';
 
 type SignupType = 'owner' | 'employee' | 'client';
 /** Tiers offered at signup. Enterprise is not selectable (manual/VIP only). */
@@ -214,12 +216,9 @@ export function Register() {
     setSignupLogs((prev) => [...prev, `${time} ${msg}`]);
   };
 
-  const handleCompleteManagerSignup = async (name: string, tier: SignupTier) => {
-    const { error } = await supabase.rpc('complete_manager_signup', {
-      p_business_name: name,
-      p_subscription_tier: tier,
-    });
-    if (error) throw error;
+  const handleCompleteManagerSignup = async (userId: string, name: string, tier: SignupTier) => {
+    const result = await completePendingManagerSignup(userId, { businessName: name, tier });
+    if (result !== 'completed') throw new Error('complete_manager_signup failed');
   };
 
   const setDefaultBusinessTimezoneIfMissing = async (userId: string) => {
@@ -295,16 +294,17 @@ export function Register() {
     setAlreadyRegisteredAs(null);
     addLog('Owner signup started');
     try {
-      localStorage.setItem(PENDING_MANAGER_BUSINESS_NAME, businessName);
-      localStorage.setItem(PENDING_MANAGER_TIER, selectedTier);
-      addLog('Data saved to localStorage');
-
       addLog('Calling supabase.auth.signUp...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: fullName || undefined },
+          // The pending business travels with the account (not this browser), so confirming on another device or
+          // signing in through a magic link still creates it. Only a hint for the client; see pendingManagerSignup.ts.
+          data: {
+            full_name: fullName || undefined,
+            [PENDING_MANAGER_SIGNUP_METADATA_KEY]: buildPendingManagerSignupMetadata(businessName, selectedTier),
+          },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
@@ -317,8 +317,6 @@ export function Register() {
       );
 
       if (error) {
-        localStorage.removeItem(PENDING_MANAGER_BUSINESS_NAME);
-        localStorage.removeItem(PENDING_MANAGER_TIER);
         addLog(`signUp error: ${errorDetail}`);
         const isTimeout =
           (error as { status?: number }).status === 504 ||
@@ -363,10 +361,8 @@ export function Register() {
         addLog('Session present, waiting for profile...');
         await new Promise((r) => setTimeout(r, 500));
         addLog('Calling complete_manager_signup...');
-        await handleCompleteManagerSignup(businessName, selectedTier);
+        await handleCompleteManagerSignup(data.session.user.id, businessName, selectedTier);
         addLog('complete_manager_signup done');
-        localStorage.removeItem(PENDING_MANAGER_BUSINESS_NAME);
-        localStorage.removeItem(PENDING_MANAGER_TIER);
         addLog('Calling refreshAuth...');
         await refreshAuth();
         addLog('refreshAuth done');
