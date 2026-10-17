@@ -24,7 +24,7 @@ export const STAFF_PIN_COLUMNS = 'id, pin';
 export const BUSINESS_KIOSK_MANAGER_PIN_COLUMNS = 'kiosk_manager_pin';
 
 /**
- * P2-04: computed field on businesses (migration 20261010220000): true when a 6-digit manager PIN is set. Never the
+ * P2-04: computed field on businesses (migration 20261017120000): true when a 6-digit manager PIN is set. Never the
  * PIN. Before that migration, selecting it fails with 42703 and the callers fall back to the plain column.
  */
 export const BUSINESS_KIOSK_MANAGER_PIN_STATUS_COLUMNS = 'kiosk_manager_pin_set';

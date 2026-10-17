@@ -1,6 +1,7 @@
 import React from 'react';
 import { isIgnorableWindowErrorEvent } from '@/lib/ignorableWindowErrorEvent';
 import { devConsole, isClientDebugSurfacesEnabled } from '@/lib/clientDebug';
+import { reportError } from '@/lib/sentry';
 
 type Props = {
   children: React.ReactNode;
@@ -32,6 +33,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
       return;
     }
     devConsole.error('[GlobalErrorBoundary] React render error:', error, errorInfo);
+    reportError(error, { componentStack: errorInfo.componentStack });
     this.setState({ error, errorInfo });
   }
 
