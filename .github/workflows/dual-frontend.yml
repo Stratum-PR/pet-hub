@@ -34,7 +34,8 @@ permissions:
 jobs:
   dual:
     name: ${{ github.event_name == 'pull_request' && format('dual-{0}', matrix.ref) || format('dual-{0} ({1})', matrix.ref, github.event_name) }}
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 has no Chromium build
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
